@@ -1,0 +1,743 @@
+// Edit Invoice Page - Multi Company
+function EditInvoiceMultiPage() {
+    return `
+        <div class="desktop-app">
+            <div class="window-header">
+                <div class="window-title">
+                    <img src="assets/logos/multi.png" class="header-logo" alt="Multi Company" data-asset="assets/logos/multi.png">
+                    <span>Multi Company - Modifier une facture</span>
+                </div>
+                <div class="window-controls">
+                    <button class="control-btn reload" title="Recharger la page">
+                        <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor">
+                            <path d="M8 3a5 5 0 1 0 4.546 2.914.5.5 0 0 1 .908-.417A6 6 0 1 1 8 2v1z"/>
+                            <path d="M8 4.466V.534a.25.25 0 0 1 .41-.192l2.36 1.966c.12.1.12.284 0 .384L8.41 4.658A.25.25 0 0 1 8 4.466z"/>
+                        </svg>
+                    </button>
+                    <button class="control-btn minimize">
+                        <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor">
+                            <path d="M2 8a.5.5 0 0 1 .5-.5h11a.5.5 0 0 1 0 1h-11A.5.5 0 0 1 2 8z"/>
+                        </svg>
+                    </button>
+                    <button class="control-btn maximize">
+                        <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor">
+                            <path d="M1.5 1a.5.5 0 0 0-.5.5v13a.5.5 0 0 0 .5.5h13a.5.5 0 0 0 .5-.5v-13a.5.5 0 0 0-.5-.5h-13zM2 2h12v12H2V2z"/>
+                        </svg>
+                    </button>
+                    <button class="control-btn close">
+                        <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor">
+                            <path d="M2.146 2.854a.5.5 0 1 1 .708-.708L8 7.293l5.146-5.147a.5.5 0 0 1 .708.708L8.707 8l5.147 5.146a.5.5 0 0 1-.708.708L8 8.707l-5.146 5.147a.5.5 0 0 1-.708-.708L7.293 8 2.146 2.854z"/>
+                        </svg>
+                    </button>
+                </div>
+            </div>
+
+            <div class="window-content invoice-content">
+                <form id="editInvoiceFormMulti" class="invoice-form">
+                    <!-- Section 1: Client Information -->
+                    <div class="invoice-section">
+                        <div class="section-header">
+                            <h2>📦 Informations du client</h2>
+                        </div>
+                        <div class="section-body">
+                            <div class="form-row">
+                                <div class="form-field" style="position: relative;">
+                                    <label>Nom du client <span class="required">*</span></label>
+                                    <input type="text" id="editClientNomMulti" placeholder="Rechercher ou saisir un client" 
+                                           autocomplete="off" required oninput="searchClientsEditMulti(this.value)" 
+                                           onfocus="showClientsListEditMulti()" onblur="hideClientsListEditMulti()">
+                                    <div id="clientsDropdownEditMulti" class="clients-dropdown" style="display: none;"></div>
+                                </div>
+                                <div class="form-field">
+                                    <label>N° ICE <span class="required">*</span></label>
+                                    <input type="text" id="editClientICEMulti" placeholder="Numéro ICE" required>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Section 2: Document Details -->
+                    <div class="invoice-section">
+                        <div class="section-header">
+                            <h2>📄 Détails du document</h2>
+                        </div>
+                        <div class="section-body">
+                            <div class="form-row">
+                                <div class="form-field">
+                                    <label>Type de document <span class="required">*</span></label>
+                                    <input type="text" id="editDocumentTypeMulti" readonly style="background: #2d2d30; cursor: not-allowed;">
+                                </div>
+                                <div class="form-field">
+                                    <label>Date <span class="required">*</span></label>
+                                    <input type="date" id="editDocumentDateMulti" required>
+                                </div>
+                            </div>
+
+                            <div class="form-row">
+                                <div class="form-field">
+                                    <label id="editDocumentNumeroLabelMulti">N° Document <span class="required">*</span></label>
+                                    <input type="text" id="editDocumentNumeroMulti" required readonly style="background: #2d2d30; cursor: not-allowed;">
+                                </div>
+                                <div class="form-field" id="editFieldOrderMulti" style="display: none;">
+                                    <label>N° Order</label>
+                                    <input type="text" id="editDocumentNumeroOrderMulti" placeholder="Ex: 123">
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Section 3: Products -->
+                    <div class="invoice-section">
+                        <div class="section-header">
+                            <h2>📊 Produits et services</h2>
+                            <button type="button" class="add-product-btn" onclick="addProductRowEditMulti()">
+                                <span>+ Ajouter un produit</span>
+                            </button>
+                        </div>
+                        <div class="section-body">
+                            <div class="products-table-container">
+                                <table class="products-table">
+                                    <thead>
+                                        <tr>
+                                            <th>Désignation</th>
+                                            <th>Quantité</th>
+                                            <th>Prix unitaire HT</th>
+                                            <th>Total HT</th>
+                                            <th>Actions</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="editProductsTableBodyMulti">
+                                        <!-- Products will be loaded here -->
+                                    </tbody>
+                                </table>
+                            </div>
+
+                            <!-- Summary -->
+                            <div class="invoice-summary">
+                                <div class="summary-row">
+                                    <span>Total HT:</span>
+                                    <span id="editTotalHTMulti">0.00 DH</span>
+                                </div>
+                                <div class="summary-row">
+                                    <span>TVA:</span>
+                                    <div class="tva-input">
+                                        <input type="number" id="editTvaRateMulti" value="20" min="0" max="100" onchange="calculateTotalsEditMulti()">
+                                        <span>%</span>
+                                    </div>
+                                </div>
+                                <div class="summary-row">
+                                    <span>Montant TVA:</span>
+                                    <span id="editMontantTVAMulti">0.00 DH</span>
+                                </div>
+                                <div class="summary-row total">
+                                    <span>Total TTC:</span>
+                                    <span id="editTotalTTCMulti">0.00 DH</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Form Actions -->
+                    <div class="form-actions" style="display: flex; justify-content: space-between; align-items: center;">
+                        <button type="button" class="btn-convert-bottom" onclick="showConvertDocumentTypeModal()" style="background: #9c27b0; color: white; padding: 0.75rem 1.5rem; border: none; border-radius: 6px; cursor: pointer; font-weight: 500; display: flex; align-items: center; gap: 0.5rem; transition: all 0.3s;" onmouseover="this.style.background='#7b1fa2'" onmouseout="this.style.background='#9c27b0'">
+                            🔄 <span id="convertButtonTextMulti">Convertir en Devis</span>
+                        </button>
+                        <div style="display: flex; gap: 1rem;">
+                            <button type="button" class="btn-secondary" onclick="router.navigate('/invoices-list-multi')">
+                                <span>← Annuler</span>
+                            </button>
+                            <button type="submit" class="btn-primary">
+                                <span>💾 Enregistrer les modifications</span>
+                            </button>
+                        </div>
+                    </div>
+                </form>
+            </div>
+        </div>
+    `;
+}
+
+// Global variables for edit
+let currentInvoiceIdMulti = null;
+let productRowCounterEditMulti = 0;
+let allClientsEditMulti = [];
+let filteredClientsEditMulti = [];
+let currentDocumentTypeMulti = null;
+
+// Load invoice data
+async function loadInvoiceDataMulti(invoiceId) {
+    try {
+        const result = await window.electron.dbMulti.getInvoiceById(invoiceId);
+        
+        if (!result.success || !result.data) {
+            throw new Error('Facture introuvable');
+        }
+        
+        const invoice = result.data;
+        
+        // Store current document type
+        currentDocumentTypeMulti = invoice.document_type;
+        
+        // Fill client info
+        document.getElementById('editClientNomMulti').value = invoice.client_nom;
+        document.getElementById('editClientICEMulti').value = invoice.client_ice;
+        
+        // Fill document info
+        const docTypeDisplay = invoice.document_type === 'facture' ? 'Facture' : 'Devis';
+        document.getElementById('editDocumentTypeMulti').value = docTypeDisplay;
+        document.getElementById('editDocumentDateMulti').value = invoice.document_date;
+        
+        // Update convert button text
+        const convertBtnText = invoice.document_type === 'facture' ? 'Convertir en Devis' : 'Convertir en Facture';
+        const convertBtn = document.getElementById('convertButtonTextMulti');
+        if (convertBtn) {
+            convertBtn.textContent = convertBtnText;
+        }
+        
+        // Fill document number
+        const docNumero = invoice.document_type === 'facture' ? invoice.document_numero : invoice.document_numero_devis;
+        document.getElementById('editDocumentNumeroMulti').value = docNumero || '';
+        
+        const label = invoice.document_type === 'facture' ? 'N° Facture' : 'N° Devis';
+        document.getElementById('editDocumentNumeroLabelMulti').innerHTML = `${label} <span class="required">*</span>`;
+        
+        // Show Order field if facture and has value
+        if (invoice.document_type === 'facture' && invoice.document_numero_Order) {
+            document.getElementById('editFieldOrderMulti').style.display = 'block';
+            document.getElementById('editDocumentNumeroOrderMulti').value = invoice.document_numero_Order;
+        }
+        
+        // Fill TVA
+        document.getElementById('editTvaRateMulti').value = invoice.tva_rate;
+        
+        // Load products
+        const tbody = document.getElementById('editProductsTableBodyMulti');
+        tbody.innerHTML = '';
+        
+        if (invoice.products && invoice.products.length > 0) {
+            invoice.products.forEach(product => {
+                addProductRowEditMulti(product);
+            });
+        }
+        
+        calculateTotalsEditMulti();
+        
+    } catch (error) {
+        console.error('[MULTI] Error loading invoice:', error);
+        window.notify.error('Erreur', 'Impossible de charger la facture', 3000);
+        router.navigate('/invoices-list-multi');
+    }
+}
+
+// Add product row
+window.addProductRowEditMulti = function(productData = null) {
+    const tbody = document.getElementById('editProductsTableBodyMulti');
+    const rowId = `edit-product-multi-${productRowCounterEditMulti++}`;
+    
+    const row = document.createElement('tr');
+    row.id = rowId;
+    row.innerHTML = `
+        <td>
+            <textarea class="product-designation" rows="2" placeholder="Description du produit...">${productData ? productData.designation : ''}</textarea>
+        </td>
+        <td>
+            <input type="text" class="product-quantity" placeholder="ex: 50 Kg, F, 10" value="${productData ? productData.quantite : ''}"
+                   onchange="calculateRowTotalEditMulti('${rowId}')" onblur="calculateRowTotalEditMulti('${rowId}')">
+        </td>
+        <td>
+            <input type="number" class="product-price" step="0.01" placeholder="0.00" value="${productData ? productData.prix_unitaire_ht : ''}"
+                   onchange="calculateRowTotalEditMulti('${rowId}')" onblur="calculateRowTotalEditMulti('${rowId}')">
+        </td>
+        <td>
+            <span class="product-total">${productData ? (productData.total_ht || 0).toFixed(2) : '0.00'} DH</span>
+        </td>
+        <td>
+            <button type="button" class="btn-delete" onclick="deleteProductRowEditMulti('${rowId}')">
+                <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+                    <path d="M5.5 5.5A.5.5 0 0 1 6 6v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5zm2.5 0a.5.5 0 0 1 .5.5v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5zm3 .5a.5.5 0 0 0-1 0v6a.5.5 0 0 0 1 0V6z"/>
+                    <path fill-rule="evenodd" d="M14.5 3a1 1 0 0 1-1 1H13v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V4h-.5a1 1 0 0 1-1-1V2a1 1 0 0 1 1-1H6a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1h3.5a1 1 0 0 1 1 1v1zM4.118 4 4 4.059V13a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1V4.059L11.882 4H4.118zM2.5 3V2h11v1h-11z"/>
+                </svg>
+            </button>
+        </td>
+    `;
+    
+    tbody.appendChild(row);
+    
+    if (productData) {
+        calculateRowTotalEditMulti(rowId);
+    }
+}
+
+// Calculate row total
+window.calculateRowTotalEditMulti = function(rowId) {
+    const row = document.getElementById(rowId);
+    const quantityInput = row.querySelector('.product-quantity');
+    const priceInput = row.querySelector('.product-price');
+    
+    let quantityText = quantityInput.value.trim();
+    
+    if (quantityText.toUpperCase() === 'F') {
+        quantityText = '1';
+    }
+    
+    const quantity = quantityText.replace(/[^0-9.]/g, '');
+    let price = parseFloat(priceInput.value) || 0;
+    let qty = parseFloat(quantity) || 0;
+    const total = qty * price;
+    
+    row.querySelector('.product-total').textContent = total.toFixed(2) + ' DH';
+    calculateTotalsEditMulti();
+}
+
+// Delete product row
+window.deleteProductRowEditMulti = function(rowId) {
+    document.getElementById(rowId).remove();
+    calculateTotalsEditMulti();
+}
+
+// Calculate totals
+window.calculateTotalsEditMulti = function() {
+    const rows = document.querySelectorAll('#editProductsTableBodyMulti tr');
+    let totalHT = 0;
+    
+    rows.forEach(row => {
+        const totalText = row.querySelector('.product-total').textContent;
+        const cleanText = totalText.replace(/\s/g, '').replace(/,/g, '.').replace('DH', '').trim();
+        const total = parseFloat(cleanText) || 0;
+        totalHT += total;
+    });
+    
+    const tvaRate = parseFloat(document.getElementById('editTvaRateMulti').value) || 0;
+    const montantTVA = totalHT * (tvaRate / 100);
+    const totalTTC = totalHT + montantTVA;
+    
+    document.getElementById('editTotalHTMulti').textContent = totalHT.toFixed(2) + ' DH';
+    document.getElementById('editMontantTVAMulti').textContent = montantTVA.toFixed(2) + ' DH';
+    document.getElementById('editTotalTTCMulti').textContent = totalTTC.toFixed(2) + ' DH';
+}
+
+// Client autocomplete functions
+async function loadAllClientsEditMulti() {
+    try {
+        const result = await window.electron.dbMulti.getAllClients();
+        if (result.success) {
+            allClientsEditMulti = result.data;
+        }
+    } catch (error) {
+        console.error('[MULTI] Error loading clients:', error);
+    }
+}
+
+window.searchClientsEditMulti = function(query) {
+    const dropdown = document.getElementById('clientsDropdownEditMulti');
+    if (!dropdown) return;
+    
+    if (!query || query.trim().length === 0) {
+        filteredClientsEditMulti = allClientsEditMulti;
+    } else {
+        const searchTerm = query.toLowerCase().trim();
+        filteredClientsEditMulti = allClientsEditMulti.filter(client => 
+            client.nom.toLowerCase().includes(searchTerm) || 
+            client.ice.toLowerCase().includes(searchTerm)
+        );
+    }
+    displayClientsListEditMulti();
+}
+
+function displayClientsListEditMulti() {
+    const dropdown = document.getElementById('clientsDropdownEditMulti');
+    if (!dropdown) return;
+    
+    if (filteredClientsEditMulti.length === 0) {
+        dropdown.innerHTML = '<div class="dropdown-item no-results">Aucun client trouvé</div>';
+        dropdown.style.display = 'block';
+        return;
+    }
+    
+    dropdown.innerHTML = filteredClientsEditMulti.slice(0, 10).map(client => `
+        <div class="dropdown-item" onmousedown="selectClientEditMulti('${client.nom.replace(/'/g, "\\'")}', '${client.ice}')">
+            <div class="client-name">${client.nom}</div>
+            <div class="client-ice">ICE: ${client.ice}</div>
+        </div>
+    `).join('');
+    dropdown.style.display = 'block';
+}
+
+window.showClientsListEditMulti = function() {
+    if (allClientsEditMulti.length > 0) {
+        filteredClientsEditMulti = allClientsEditMulti;
+        displayClientsListEditMulti();
+    }
+}
+
+window.hideClientsListEditMulti = function() {
+    setTimeout(() => {
+        const dropdown = document.getElementById('clientsDropdownEditMulti');
+        if (dropdown) dropdown.style.display = 'none';
+    }, 200);
+}
+
+window.selectClientEditMulti = function(nom, ice) {
+    document.getElementById('editClientNomMulti').value = nom;
+    document.getElementById('editClientICEMulti').value = ice;
+    const dropdown = document.getElementById('clientsDropdownEditMulti');
+    if (dropdown) dropdown.style.display = 'none';
+}
+
+// Handle form submission
+async function handleEditInvoiceSubmitMulti(e) {
+    e.preventDefault();
+    
+    const loadingNotif = window.notify.loading('Mise à jour en cours...', 'Veuillez patienter');
+    
+    const submitBtn = e.target.querySelector('button[type="submit"]');
+    const originalText = submitBtn.innerHTML;
+    submitBtn.innerHTML = '<span>⏳ Enregistrement...</span>';
+    submitBtn.disabled = true;
+    
+    try {
+        const formData = {
+            company_code: 'MULTI',
+            client: {
+                nom: document.getElementById('editClientNomMulti').value,
+                ICE: document.getElementById('editClientICEMulti').value
+            },
+            document: {
+                type: currentDocumentTypeMulti,
+                date: document.getElementById('editDocumentDateMulti').value,
+                numero: document.getElementById('editDocumentNumeroMulti').value
+            },
+            products: [],
+            totals: {
+                total_ht: parseFloat(document.getElementById('editTotalHTMulti').textContent.replace(/\s/g, '').replace('DH', '').replace(',', '.')) || 0,
+                tva_rate: parseFloat(document.getElementById('editTvaRateMulti').value) || 20,
+                montant_tva: parseFloat(document.getElementById('editMontantTVAMulti').textContent.replace(/\s/g, '').replace('DH', '').replace(',', '.')) || 0,
+                total_ttc: parseFloat(document.getElementById('editTotalTTCMulti').textContent.replace(/\s/g, '').replace('DH', '').replace(',', '.')) || 0
+            }
+        };
+        
+        const numeroOrder = document.getElementById('editDocumentNumeroOrderMulti');
+        if (numeroOrder && numeroOrder.value) {
+            formData.document.numero_Order = numeroOrder.value;
+        } else {
+            formData.document.numero_Order = null;
+        }
+        
+        const rows = document.querySelectorAll('#editProductsTableBodyMulti tr');
+        rows.forEach(row => {
+            const designation = row.querySelector('.product-designation').value.trim();
+            let quantity = row.querySelector('.product-quantity').value.trim();
+            const price = parseFloat(row.querySelector('.product-price').value) || 0;
+            
+            if (quantity.toUpperCase() === 'F') {
+                quantity = '1';
+            }
+            
+            const qty = parseFloat(quantity) || 0;
+            const total_ht = qty * price;
+            
+            if (designation) {
+                formData.products.push({
+                    designation,
+                    quantite: quantity || '0',
+                    prix_unitaire_ht: price,
+                    total_ht: total_ht
+                });
+            }
+        });
+        
+        const result = await window.electron.dbMulti.updateInvoice(currentInvoiceIdMulti, formData);
+        
+        if (result.success) {
+            window.notify.remove(loadingNotif);
+            window.notify.success('Succès', 'Facture mise à jour avec succès!', 3000);
+            
+            setTimeout(() => {
+                router.navigate('/invoices-list-multi');
+            }, 1000);
+        } else {
+            throw new Error(result.error);
+        }
+    } catch (error) {
+        console.error('[MULTI] Error updating invoice:', error);
+        window.notify.remove(loadingNotif);
+        window.notify.error('Erreur', error.message || 'Une erreur est survenue.', 5000);
+        submitBtn.innerHTML = originalText;
+        submitBtn.disabled = false;
+    }
+}
+
+// Show input modal for conversion
+function showConvertInputModalMulti(newType, newTypeLabel, prefillNumero = '') {
+    return new Promise((resolve) => {
+        const overlay = document.createElement('div');
+        overlay.className = 'modal-overlay';
+        overlay.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.85);display:flex;align-items:center;justify-content:center;z-index:10000;';
+        
+        const container = document.createElement('div');
+        container.style.cssText = 'background:#1e1e1e;border-radius:12px;padding:2.5rem;max-width:500px;width:90%;box-shadow:0 10px 40px rgba(0,0,0,0.5);';
+        
+        container.innerHTML = `
+            <style>
+                #convertInputMulti1:focus, #convertInputMulti2:focus {
+                    border-color: #2196F3 !important;
+                    background: #1e1e1e !important;
+                }
+            </style>
+            <div style="text-align:center;margin-bottom:2rem;">
+                <div style="font-size:3rem;margin-bottom:0.5rem;">🔄</div>
+                <h2 style="color:#fff;margin:0;font-size:1.5rem;font-weight:600;">Convertir en ${newTypeLabel}</h2>
+            </div>
+            
+            <div style="margin-bottom:2rem;">
+                <label style="display:block;color:#2196F3;margin-bottom:0.75rem;font-weight:600;font-size:1.1rem;">${newType === 'facture' ? 'N° Facture' : 'N° Devis'}</label>
+                <input type="text" id="convertInputMulti1" placeholder="Exemple: 548" value="${prefillNumero}"
+                       style="width:100%;padding:1rem;background:#2d2d30;border:2px solid #3e3e42;border-radius:8px;color:#fff;font-size:1.1rem;box-sizing:border-box;outline:none;transition:all 0.3s;">
+            </div>
+            
+            ${newType === 'facture' ? `
+            <div style="margin-bottom:2rem;">
+                <label style="display:block;color:#9e9e9e;margin-bottom:0.75rem;font-weight:500;font-size:1rem;">N° Order (optionnel)</label>
+                <input type="text" id="convertInputMulti2" placeholder="Exemple: 555"
+                       style="width:100%;padding:1rem;background:#2d2d30;border:2px solid #3e3e42;border-radius:8px;color:#fff;font-size:1.1rem;box-sizing:border-box;outline:none;transition:all 0.3s;">
+            </div>
+            ` : ''}
+            
+            <div style="display:flex;gap:1rem;margin-top:2rem;">
+                <button id="convertBtnCancelMulti" style="flex:1;padding:1rem;background:#3e3e42;color:#fff;border:none;border-radius:8px;cursor:pointer;font-size:1.1rem;font-weight:600;transition:all 0.3s;">
+                    Annuler
+                </button>
+                <button id="convertBtnConfirmMulti" style="flex:1;padding:1rem;background:#2196f3;color:#fff;border:none;border-radius:8px;cursor:pointer;font-size:1.1rem;font-weight:600;transition:all 0.3s;">
+                    ✓ Confirmer
+                </button>
+            </div>
+        `;
+        
+        overlay.appendChild(container);
+        document.body.appendChild(overlay);
+        
+        const input1 = document.getElementById('convertInputMulti1');
+        const input2 = document.getElementById('convertInputMulti2');
+        const btnConfirm = document.getElementById('convertBtnConfirmMulti');
+        const btnCancel = document.getElementById('convertBtnCancelMulti');
+        
+        setTimeout(() => input1?.focus(), 100);
+        
+        btnConfirm.onclick = () => {
+            const newNumero = input1.value.trim();
+            const newNumeroOrder = input2?.value.trim() || null;
+            
+            if (!newNumero) {
+                window.notify.error('Erreur', 'Veuillez saisir un numéro de document', 3000);
+                return;
+            }
+            
+            overlay.remove();
+            resolve({ newNumero, newNumeroOrder });
+        };
+        
+        btnCancel.onclick = () => {
+            overlay.remove();
+            resolve(null);
+        };
+        
+        overlay.onclick = (e) => {
+            if (e.target === overlay) {
+                overlay.remove();
+                resolve(null);
+            }
+        };
+    });
+}
+
+// Custom confirm dialog for Multi
+function showConfirmDialogMulti(message) {
+    return new Promise((resolve) => {
+        const overlay = document.createElement('div');
+        overlay.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.9);z-index:999998;display:flex;align-items:center;justify-content:center;';
+        
+        const dialog = document.createElement('div');
+        dialog.style.cssText = 'background:#1e1e1e;border-radius:12px;padding:2rem;max-width:500px;width:90%;box-shadow:0 20px 60px rgba(0,0,0,0.8);';
+        
+        dialog.innerHTML = `
+            <div style="text-align:center;margin-bottom:1.5rem;">
+                <div style="font-size:3rem;margin-bottom:0.5rem;">⚠️</div>
+                <h2 style="color:#fff;margin:0;font-size:1.3rem;">Confirmation</h2>
+            </div>
+            <p style="color:#ccc;text-align:center;line-height:1.6;margin-bottom:2rem;">${message}</p>
+            <div style="display:flex;gap:1rem;">
+                <button id="confirmNo" style="flex:1;padding:0.75rem;background:#3e3e42;color:#fff;border:none;border-radius:6px;cursor:pointer;font-size:1rem;font-weight:600;">
+                    Annuler
+                </button>
+                <button id="confirmYes" style="flex:1;padding:0.75rem;background:#2196f3;color:#fff;border:none;border-radius:6px;cursor:pointer;font-size:1rem;font-weight:600;">
+                    Confirmer
+                </button>
+            </div>
+        `;
+        
+        overlay.appendChild(dialog);
+        document.body.appendChild(overlay);
+        
+        document.getElementById('confirmYes').onclick = () => {
+            overlay.remove();
+            resolve(true);
+        };
+        
+        document.getElementById('confirmNo').onclick = () => {
+            overlay.remove();
+            resolve(false);
+        };
+        
+        overlay.onclick = (e) => {
+            if (e.target === overlay) {
+                overlay.remove();
+                resolve(false);
+            }
+        };
+    });
+}
+
+// Convert invoice type - Create NEW document
+window.showConvertDocumentTypeModal = async function() {
+    console.log('🔄 [CONVERT MULTI] Starting conversion...');
+    
+    const currentType = currentDocumentTypeMulti;
+    const newType = currentType === 'facture' ? 'devis' : 'facture';
+    const currentTypeText = currentType === 'facture' ? 'Facture' : 'Devis';
+    const newTypeText = newType === 'facture' ? 'Facture' : 'Devis';
+    
+    const confirmMsg = `Voulez-vous vraiment convertir ce ${currentTypeText} en ${newTypeText} ?<br><br>Cela créera un nouveau document avec les mêmes produits.`;
+    const confirmed = await showConfirmDialogMulti(confirmMsg);
+    
+    if (!confirmed) return;
+    
+    try {
+        // Get current invoice data
+        const result = await window.electron.dbMulti.getInvoiceById(currentInvoiceIdMulti);
+        if (!result.success || !result.data) {
+            throw new Error('Document introuvable');
+        }
+        
+        const invoice = result.data;
+        
+        // Get current document number
+        let currentNumero = '';
+        if (currentType === 'facture') {
+            currentNumero = invoice.document_numero || '';
+        } else if (currentType === 'devis') {
+            currentNumero = invoice.document_numero_devis || '';
+        }
+        
+        // Show input modal for new document numbers
+        const inputData = await showConvertInputModalMulti(newType, newTypeText, currentNumero);
+        
+        if (!inputData) {
+            window.notify.warning('Annulé', 'Conversion annulée', 3000);
+            return;
+        }
+        
+        const { newNumero, newNumeroOrder } = inputData;
+        
+        // Check if numbers are unique
+        const allInvoicesResult = await window.electron.dbMulti.getAllInvoices('MULTI');
+        if (allInvoicesResult.success) {
+            const duplicateNumero = allInvoicesResult.data.find(inv => {
+                if (newType === 'facture') {
+                    return inv.document_type === 'facture' && inv.document_numero === newNumero;
+                } else {
+                    return inv.document_type === 'devis' && inv.document_numero_devis === newNumero;
+                }
+            });
+            
+            if (duplicateNumero) {
+                const label = newType === 'facture' ? 'N° Facture' : 'N° Devis';
+                window.notify.error('Erreur', `Ce ${label} existe déjà`, 5000);
+                return;
+            }
+            
+            if (newType === 'facture' && newNumeroOrder) {
+                const duplicateOrder = allInvoicesResult.data.find(inv => 
+                    inv.document_numero_Order === newNumeroOrder
+                );
+                
+                if (duplicateOrder) {
+                    window.notify.error('Erreur', `Ce N° Order existe déjà`, 5000);
+                    return;
+                }
+            }
+        }
+        
+        // Prepare data for new document
+        const newInvoiceData = {
+            company_code: 'MULTI',
+            client: {
+                nom: invoice.client_nom || '',
+                ICE: invoice.client_ice || ''
+            },
+            document: {
+                type: newType,
+                date: invoice.document_date || new Date().toISOString().split('T')[0],
+                numero: newType === 'facture' ? newNumero : null,
+                numero_devis: newType === 'devis' ? newNumero : null,
+                numero_Order: newType === 'facture' ? newNumeroOrder : null
+            },
+            products: (invoice.products || []).map(p => ({
+                designation: p.designation || '',
+                quantite: p.quantite || 0,
+                prix_unitaire_ht: p.prix_unitaire_ht || 0,
+                total_ht: p.total_ht || 0
+            })),
+            totals: {
+                total_ht: invoice.total_ht,
+                tva_rate: invoice.tva_rate,
+                montant_tva: invoice.montant_tva,
+                total_ttc: invoice.total_ttc
+            }
+        };
+        
+        // Create new invoice
+        const createResult = await window.electron.dbMulti.createInvoice(newInvoiceData);
+        
+        if (createResult.success) {
+            window.notify.success(
+                'Succès',
+                `${newTypeText} créé(e) avec succès à partir du ${currentTypeText}`,
+                4000
+            );
+            
+            // Navigate to invoices list
+            setTimeout(() => {
+                router.navigate('/invoices-list-multi');
+            }, 1500);
+        } else {
+            throw new Error(createResult.error);
+        }
+        
+    } catch (error) {
+        console.error('[MULTI] Error converting invoice:', error);
+        window.notify.error('Erreur', 'Erreur lors de la conversion: ' + error.message, 5000);
+    }
+}
+
+// Initialize page
+window.initEditInvoiceMultiPage = function() {
+    console.log('🔄 [MULTI] Initializing edit invoice page...');
+    
+    currentInvoiceIdMulti = localStorage.getItem('editInvoiceIdMulti');
+    
+    if (!currentInvoiceIdMulti) {
+        window.notify.error('Erreur', 'Aucune facture sélectionnée', 3000);
+        router.navigate('/invoices-list-multi');
+        return;
+    }
+    
+    setTimeout(() => {
+        const form = document.getElementById('editInvoiceFormMulti');
+        if (form) {
+            form.addEventListener('submit', handleEditInvoiceSubmitMulti);
+        }
+        
+        loadAllClientsEditMulti();
+        loadInvoiceDataMulti(parseInt(currentInvoiceIdMulti));
+    }, 100);
+};

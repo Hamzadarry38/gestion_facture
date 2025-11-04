@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Electron App</title>
+    <link rel="stylesheet" href="frontend/styles.css">
+    <link rel="stylesheet" href="frontend/styles/desktop.css">
+    <link rel="stylesheet" href="frontend/styles/invoice.css">
+    <link rel="stylesheet" href="frontend/styles/notifications.css">
+    <link rel="stylesheet" href="frontend/styles/invoices-list.css">
+    <link rel="stylesheet" href="frontend/styles/custom-alert.css">
+</head>
+<body>
+    <!-- App Container -->
+    <div id="app"></div>
+
+    <!-- Window Controls -->
+    <script src="frontend/scripts/window-controls.js"></script>
+    
+    <!-- Asset Loader -->
+    <script src="frontend/scripts/asset-loader.js"></script>
+    
+    <!-- Custom Alert System -->
+    <script src="frontend/scripts/custom-alert.js"></script>
+    
+    <!-- Notifications -->
+    <script src="frontend/scripts/notifications.js"></script>
+    
+    <!-- Router -->
+    <script src="frontend/router.js"></script>
+    
+    <!-- Pages -->
+    <script src="frontend/pages/login.js"></script>
+    <script src="frontend/pages/register.js"></script>
+    <script src="frontend/pages/company-select.js"></script>
+    <script src="frontend/pages/dashboard_mry.js"></script>
+    <script src="frontend/pages/dashboard_chaimae.js"></script>
+    <script src="frontend/pages/create_invoice_mry.js"></script>
+    <script src="frontend/pages/create_invoice_chaimae.js"></script>
+    <script src="frontend/pages/invoices_list_mry.js"></script>
+    <script src="frontend/pages/invoices_list_chaimae.js"></script>
+    <script src="frontend/pages/year-selector-mry.js"></script>
+    <script src="frontend/pages/year-selector-chaimae.js"></script>
+    <script src="frontend/pages/year-selector-multi.js"></script>
+    <script src="frontend/pages/test-data-generator.js"></script>
+    <script src="frontend/pages/situation_mensuelle_mry.js"></script>
+    <script src="frontend/pages/situation_mensuelle_chaimae.js"></script>
+    <script src="frontend/pages/create_global_invoice_chaimae.js"></script>
+    <script src="frontend/pages/edit_global_invoice_chaimae.js"></script>
+    <script src="frontend/pages/profile.js"></script>
+    <script src="frontend/pages/settings.js"></script>
+    <script src="frontend/pages/dashboard-multi.js"></script>
+    <script src="frontend/pages/create-data-multi.js"></script>
+    <script src="frontend/pages/view-data-multi.js"></script>
+    <script src="frontend/pages/create_invoice_multi.js"></script>
+    <script src="frontend/pages/create_invoice_multi_helpers.js"></script>
+    <script src="frontend/pages/invoices_list_multi.js"></script>
+    <script src="frontend/pages/invoices_list_multi_helpers.js"></script>
+    <script src="frontend/pages/pdf_helpers_multi.js"></script>
+    <script src="frontend/pages/edit_invoice_multi.js"></script>
+    <script src="frontend/pages/situation_mensuelle_multi.js"></script>
+
+    <!-- Initialize App -->
+    <script>
+        // Register routes
+        router.addRoute('/login', LoginPage);
+        router.addRoute('/register', RegisterPage);
+        router.addRoute('/company-select', CompanySelectPage);
+        router.addRoute('/dashboard-mry', DashboardMRYPage);
+        router.addRoute('/dashboard-chaimae', DashboardChaimaePage);
+        router.addRoute('/create-invoice-mry', CreateInvoiceMRYPage);
+        router.addRoute('/create-invoice-chaimae', CreateInvoiceChaimaePage);
+        router.addRoute('/invoices-list-mry', InvoicesListMRYPage);
+        router.addRoute('/invoices-list-chaimae', InvoicesListChaimaePage);
+        router.addRoute('/year-selector-mry', YearSelectorMRYPage);
+        router.addRoute('/year-selector-chaimae', YearSelectorChaimaePage);
+        router.addRoute('/year-selector-multi', YearSelectorMultiPage);
+        router.addRoute('/test-data-generator', TestDataGeneratorPage);
+        router.addRoute('/create-global-invoice-chaimae', CreateGlobalInvoiceChaimaePage);
+        router.addRoute('/edit-global-invoice-chaimae', EditGlobalInvoiceChaimaePage);
+        router.addRoute('/profile', ProfilePage);
+        router.addRoute('/settings', SettingsPage);
+        router.addRoute('/dashboard-multi', DashboardMultiPage);
+        router.addRoute('/create-data-multi', CreateDataMultiPage);
+        router.addRoute('/view-data-multi', ViewDataMultiPage);
+        router.addRoute('/create-invoice-multi', CreateInvoiceMultiPage);
+        router.addRoute('/invoices-list-multi', InvoicesListMultiPage);
+        router.addRoute('/edit-invoice-multi', EditInvoiceMultiPage);
+
+        // Start router
+        router.init();
+        
+        // Global logout handler
+        document.addEventListener('click', function(e) {
+            if (e.target.closest('#logoutBtn') || e.target.closest('[data-action="logout"]')) {
+                e.preventDefault();
+                
+                // Clear all authentication data
+                localStorage.removeItem('isAuthenticated');
+                localStorage.removeItem('user');
+                localStorage.removeItem('selectedCompany');
+                
+                // Navigate to login page
+                router.navigate('/login');
+                
+                // Show notification
+                if (typeof showNotification === 'function') {
+                    showNotification('success', 'Déconnexion réussie', 'Vous avez été déconnecté avec succès');
+                }
+            }
+        });
+    </script>
+</body>
+</html>

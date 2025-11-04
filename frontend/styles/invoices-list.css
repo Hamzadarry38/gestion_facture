@@ -1,0 +1,769 @@
+/* Invoices List Styles */
+
+.invoices-list-container {
+    padding: 2rem;
+    width: 100%;
+    height: 100%;
+    margin: 0;
+}
+
+.list-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 1.5rem;
+    padding-bottom: 1rem;
+    border-bottom: 2px solid #3e3e42;
+}
+
+.list-header h1 {
+    color: #ffffff;
+    font-size: 1.8rem;
+    margin: 0;
+}
+
+.header-actions {
+    display: flex;
+    gap: 1rem;
+}
+
+/* Filters */
+.filters-section {
+    padding: 1.5rem;
+    background: #2d2d30;
+    border: 1px solid #3e3e42;
+    border-radius: 8px;
+}
+
+.filter-group {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+.filter-group label {
+    color: #cccccc;
+    font-size: 0.9rem;
+    font-weight: 500;
+}
+
+.filter-group select,
+.filter-group input {
+    padding: 0.75rem;
+    background: #1e1e1e;
+    border: 1px solid #3e3e42;
+    border-radius: 4px;
+    color: #ffffff;
+    font-size: 0.95rem;
+}
+
+.filter-group select:focus,
+.filter-group input:focus {
+    outline: none;
+    border-color: #007acc;
+}
+
+.btn-refresh {
+    background: #007acc;
+    color: white;
+    border: none;
+    padding: 0.75rem 1.5rem;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 0.95rem;
+    transition: all 0.2s;
+    align-self: flex-end;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.btn-refresh:hover {
+    background: #005a9e;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px rgba(0, 122, 204, 0.3);
+}
+
+.btn-primary,
+.btn-secondary {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.75rem 1.5rem;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 0.95rem;
+    transition: all 0.2s;
+    border: none;
+}
+
+.btn-primary {
+    background: #007acc;
+    color: white;
+}
+
+.btn-primary:hover {
+    background: #005a9e;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px rgba(0, 122, 204, 0.3);
+}
+
+.btn-secondary {
+    background: #fff;
+    border: 2px solid #ddd;
+    color: #333;
+    font-weight: 600;
+    transition: all 0.3s;
+}
+
+.btn-secondary:hover {
+    background: #f5f5f5;
+    border-color: #bbb;
+    transform: translateY(-2px);
+}
+
+/* Situation Mensuelle Button - Modern Design */
+.btn-situation-mensuelle {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.75rem 1.75rem;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 0.95rem;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    border: none;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    font-weight: 500;
+    box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
+    position: relative;
+    overflow: hidden;
+}
+
+.btn-situation-mensuelle::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: -100%;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
+    transition: left 0.5s;
+}
+
+.btn-situation-mensuelle:hover::before {
+    left: 100%;
+}
+
+.btn-situation-mensuelle:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 8px 25px rgba(102, 126, 234, 0.6);
+    background: linear-gradient(135deg, #764ba2 0%, #667eea 100%);
+}
+
+.btn-situation-mensuelle:active {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
+}
+
+/* Loading Spinner */
+.loading-spinner {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 4rem;
+    gap: 1rem;
+}
+
+.spinner {
+    width: 50px;
+    height: 50px;
+    border: 4px solid #3e3e42;
+    border-top-color: #007acc;
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+    to { transform: rotate(360deg); }
+}
+
+.loading-spinner p {
+    color: #cccccc;
+    font-size: 1rem;
+}
+
+/* Table */
+.table-container {
+    background: #2d2d30;
+    border: 1px solid #3e3e42;
+    border-radius: 8px;
+    overflow: auto;
+    width: 100%;
+}
+
+.invoices-table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.invoices-table thead {
+    background: #1e1e1e;
+}
+
+.invoices-table th {
+    padding: 0.875rem 1rem;
+    text-align: left;
+    color: #ffffff;
+    font-weight: 600;
+    font-size: 0.875rem;
+    border-bottom: 2px solid #3e3e42;
+    white-space: nowrap;
+}
+
+.invoices-table tbody tr {
+    border-bottom: 1px solid #3e3e42;
+    transition: background 0.2s;
+}
+
+.invoices-table tbody tr:hover {
+    background: #1e1e1e;
+}
+
+.invoices-table td {
+    padding: 0.875rem 1rem;
+    color: #cccccc;
+    font-size: 0.875rem;
+    white-space: nowrap;
+    vertical-align: top;
+}
+
+.invoices-table td strong {
+    color: #ffffff;
+}
+
+.invoices-table td small {
+    display: block;
+    margin-top: 0.25rem;
+    font-size: 0.8rem;
+    line-height: 1.3;
+}
+
+/* Badges */
+.badge {
+    display: inline-block;
+    padding: 0.25rem 0.75rem;
+    border-radius: 12px;
+    font-size: 0.85rem;
+    font-weight: 500;
+}
+
+.badge-facture {
+    background: #4caf5020;
+    color: #4caf50;
+    border: 1px solid #4caf50;
+}
+
+.badge-devis {
+    background: #2196f320;
+    color: #2196f3;
+    border: 1px solid #2196f3;
+}
+
+.badge-bon {
+    background: #ff980020;
+    color: #ff9800;
+    border: 1px solid #ff9800;
+}
+
+.badge-global {
+    background: #9c27b020;
+    color: #9c27b0;
+    border: 1px solid #9c27b0;
+}
+
+/* Action Buttons */
+.action-buttons {
+    display: flex;
+    gap: 0.5rem;
+    justify-content: center;
+}
+
+.btn-icon {
+    background: #2d2d30;
+    border: 1px solid #3e3e42;
+    padding: 0.5rem;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: all 0.2s;
+    width: 32px;
+    height: 32px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #cccccc;
+}
+
+.btn-icon svg {
+    width: 16px;
+    height: 16px;
+}
+
+.btn-icon:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
+}
+
+.btn-view:hover {
+    background: #2196f3;
+    border-color: #2196f3;
+    color: #ffffff;
+}
+
+.btn-download:hover {
+    background: #4caf50;
+    border-color: #4caf50;
+    color: #ffffff;
+}
+
+.btn-edit:hover {
+    background: #ff9800;
+    border-color: #ff9800;
+    color: #ffffff;
+}
+
+.btn-delete:hover {
+    background: #f44336;
+    border-color: #f44336;
+    color: #ffffff;
+}
+
+/* Empty State */
+.empty-state {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 4rem;
+    text-align: center;
+}
+
+.empty-icon {
+    font-size: 4rem;
+    margin-bottom: 1rem;
+}
+
+.empty-state h3 {
+    color: #ffffff;
+    font-size: 1.5rem;
+    margin: 0 0 0.5rem 0;
+}
+
+.empty-state p {
+    color: #8e8e8e;
+    font-size: 1rem;
+    margin: 0 0 2rem 0;
+}
+
+/* Modal */
+.modal-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.8);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 10000;
+    animation: fadeIn 0.2s;
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+
+.modal-content {
+    background: #2d2d30;
+    border: 1px solid #3e3e42;
+    border-radius: 8px;
+    max-width: 900px;
+    width: 90%;
+    max-height: 90vh;
+    overflow-y: auto;
+    animation: slideUp 0.3s;
+}
+
+@keyframes slideUp {
+    from {
+        transform: translateY(50px);
+        opacity: 0;
+    }
+    to {
+        transform: translateY(0);
+        opacity: 1;
+    }
+}
+
+.modal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 1.5rem;
+    border-bottom: 1px solid #3e3e42;
+}
+
+.modal-header h2 {
+    color: #ffffff;
+    margin: 0;
+    font-size: 1.5rem;
+}
+
+.modal-close {
+    background: transparent;
+    border: none;
+    color: #8e8e8e;
+    font-size: 1.5rem;
+    cursor: pointer;
+    padding: 0.5rem;
+    border-radius: 4px;
+    transition: all 0.2s;
+}
+
+.modal-close:hover {
+    background: #3e3e42;
+    color: #ffffff;
+}
+
+.modal-body {
+    padding: 1.5rem;
+}
+
+.details-section {
+    margin-bottom: 2rem;
+}
+
+.details-section h3 {
+    color: #ffffff;
+    font-size: 1.2rem;
+    margin: 0 0 1rem 0;
+    padding-bottom: 0.5rem;
+    border-bottom: 1px solid #3e3e42;
+}
+
+.details-section p {
+    color: #cccccc;
+    margin: 0.5rem 0;
+    font-size: 0.95rem;
+}
+
+.details-section p strong {
+    color: #ffffff;
+    margin-right: 0.5rem;
+}
+
+/* Products Details Table */
+.products-details-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 1rem;
+    table-layout: fixed;
+}
+
+.products-details-table th,
+.products-details-table td {
+    padding: 0.75rem;
+    text-align: left;
+    border-bottom: 1px solid #3e3e42;
+    word-wrap: break-word;
+    overflow-wrap: break-word;
+    vertical-align: top;
+}
+
+.products-details-table th {
+    background: #1e1e1e;
+    color: #ffffff;
+    font-weight: 600;
+    font-size: 0.9rem;
+}
+
+.products-details-table td {
+    color: #cccccc;
+    font-size: 0.9rem;
+}
+
+/* Column widths for products details table */
+.products-details-table th:nth-child(1),
+.products-details-table td:nth-child(1) {
+    width: 45%; /* Désignation - أوسع عمود */
+    white-space: normal;
+    word-break: break-word;
+    hyphens: auto;
+}
+
+.products-details-table th:nth-child(2),
+.products-details-table td:nth-child(2) {
+    width: 20%; /* Quantité */
+}
+
+.products-details-table th:nth-child(3),
+.products-details-table td:nth-child(3) {
+    width: 20%; /* Prix unitaire HT */
+}
+
+.products-details-table th:nth-child(4),
+.products-details-table td:nth-child(4) {
+    width: 15%; /* Total HT */
+}
+
+/* Attachments List */
+.attachments-list {
+    list-style: none;
+    padding: 0;
+    margin: 1rem 0 0 0;
+}
+
+.attachments-list li {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0.75rem 1rem;
+    background: #1e1e1e;
+    border: 1px solid #3e3e42;
+    border-radius: 4px;
+    margin-bottom: 0.75rem;
+    color: #cccccc;
+    transition: all 0.2s;
+}
+
+.attachments-list li:hover {
+    background: #252526;
+    border-color: #007acc;
+}
+
+.attachment-info {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    flex: 1;
+}
+
+.attachment-icon {
+    font-size: 1.5rem;
+}
+
+.attachment-name {
+    color: #ffffff;
+    font-weight: 500;
+}
+
+.attachments-list .file-size {
+    color: #8e8e8e;
+    font-size: 0.85rem;
+}
+
+.attachment-actions {
+    display: flex;
+    gap: 0.5rem;
+}
+
+.btn-attachment-action {
+    padding: 0.4rem 0.75rem;
+    border-radius: 4px;
+    border: none;
+    cursor: pointer;
+    font-size: 0.85rem;
+    transition: all 0.2s;
+    display: flex;
+    align-items: center;
+    gap: 0.25rem;
+}
+
+.btn-open {
+    background: #2196f3;
+    color: white;
+}
+
+.btn-open:hover {
+    background: #1976d2;
+    transform: translateY(-2px);
+}
+
+.btn-delete-att {
+    background: #f44336;
+    color: white;
+}
+
+.btn-delete-att:hover {
+    background: #d32f2f;
+    transform: translateY(-2px);
+}
+
+.btn-add-attachment {
+    background: #4caf50;
+    color: white;
+    border: none;
+    padding: 0.5rem 1rem;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 0.9rem;
+    transition: all 0.2s;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.btn-add-attachment:hover {
+    background: #45a049;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px rgba(76, 175, 80, 0.3);
+}
+
+.btn-download-pdf {
+    background: #2196f3;
+    color: white;
+    border: none;
+    padding: 0.5rem 1rem;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 0.9rem;
+    transition: all 0.2s;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.btn-download-pdf:hover {
+    background: #1976d2;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px rgba(33, 150, 243, 0.3);
+}
+
+/* Edit Modal Styles */
+.edit-section {
+    margin-bottom: 2rem;
+    padding: 1.5rem;
+    background: #1e1e1e;
+    border: 1px solid #3e3e42;
+    border-radius: 6px;
+}
+
+.edit-section h3 {
+    color: #ffffff;
+    font-size: 1.1rem;
+    margin: 0 0 1rem 0;
+    padding-bottom: 0.5rem;
+    border-bottom: 1px solid #3e3e42;
+}
+
+.edit-product-row {
+    display: grid;
+    grid-template-columns: 2fr 1fr 1fr auto;
+    gap: 1rem;
+    margin-bottom: 1rem;
+    align-items: start;
+}
+
+.edit-product-row textarea,
+.edit-product-row input {
+    padding: 0.6rem;
+    background: #2d2d30;
+    border: 1px solid #3e3e42;
+    border-radius: 4px;
+    color: #ffffff;
+    font-size: 0.9rem;
+}
+
+.edit-product-row textarea:focus,
+.edit-product-row input:focus {
+    outline: none;
+    border-color: #007acc;
+}
+
+.edit-product-row button {
+    background: #f44336;
+    color: white;
+    border: none;
+    padding: 0.6rem;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.edit-product-row button:hover {
+    background: #d32f2f;
+}
+
+.btn-add-product {
+    background: #4caf50;
+    color: white;
+    border: none;
+    padding: 0.6rem 1rem;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 0.9rem;
+    transition: all 0.2s;
+    width: 100%;
+}
+
+.btn-add-product:hover {
+    background: #45a049;
+}
+
+.totals-display {
+    background: #2d2d30;
+    padding: 1rem;
+    border-radius: 4px;
+    margin-top: 1rem;
+}
+
+.totals-display p {
+    display: flex;
+    justify-content: space-between;
+    margin: 0.5rem 0;
+    color: #cccccc;
+}
+
+.totals-display p:last-child {
+    font-size: 1.1rem;
+    color: #4caf50;
+    border-top: 1px solid #3e3e42;
+    padding-top: 0.5rem;
+    margin-top: 0.5rem;
+}
+
+/* Responsive */
+@media (max-width: 1200px) {
+    .invoices-table {
+        font-size: 0.85rem;
+    }
+    
+    .invoices-table th,
+    .invoices-table td {
+        padding: 0.75rem 0.5rem;
+    }
+}
+
+@media (max-width: 768px) {
+    .list-header {
+        flex-direction: column;
+        gap: 1rem;
+        align-items: flex-start;
+    }
+    
+    .filters-section {
+        flex-direction: column;
+    }
+    
+    .table-container {
+        overflow-x: auto;
+    }
+    
+    .invoices-table {
+        min-width: 1000px;
+    }
+}

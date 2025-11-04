@@ -1,0 +1,86 @@
+{
+  "name": "gestion-factures",
+  "version": "1.0.1",
+  "description": "Application de gestion des factures",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "dev": "electron . --dev",
+    "build": "electron-builder",
+    "build:win": "electron-builder --win",
+    "test:add-years": "node test_add_invoices_multiple_years.js"
+  },
+  "keywords": [
+    "electron",
+    "factures",
+    "invoices",
+    "gestion"
+  ],
+  "author": "Hamza",
+  "license": "MIT",
+  "devDependencies": {
+    "electron": "^28.0.0",
+    "electron-builder": "^24.9.1",
+    "electron-rebuild": "^3.2.9"
+  },
+  "build": {
+    "appId": "com.gestion.factures",
+    "productName": "Gestion des Factures",
+    "directories": {
+      "output": "dist",
+      "buildResources": "assets"
+    },
+    "extraResources": [
+      {
+        "from": "assets",
+        "to": "assets"
+      }
+    ],
+    "files": [
+      "**/*",
+      "!**/*.md",
+      "!.git",
+      "!dist",
+      "!database/*.db",
+      "!**/*.db"
+    ],
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": ["x64"]
+        },
+        {
+          "target": "portable",
+          "arch": ["x64"]
+        }
+      ],
+      "icon": "assets/icon.png",
+      "publisherName": "Hamza",
+      "verifyUpdateCodeSignature": false
+    },
+    "mac": {
+      "target": ["dmg", "zip"]
+    },
+    "linux": {
+      "target": ["AppImage", "deb"]
+    },
+    "publish": [
+      {
+        "provider": "github",
+        "owner": "Hamzadarry38",
+        "repo": "gestion_facture",
+        "releaseType": "release"
+      }
+    ]
+  },
+  "dependencies": {
+    "electron-log": "^5.4.3",
+    "electron-updater": "^6.1.7",
+    "sql.js": "^1.13.0"
+  }
+}
+
+
+
+
