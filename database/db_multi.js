@@ -100,6 +100,49 @@ async function initDatabase() {
             )
         `);
         
+        // Create invoice_notes table for storing notes related to invoices
+        db.run(`
+            CREATE TABLE IF NOT EXISTS invoice_notes (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                invoice_id INTEGER NOT NULL,
+                note_text TEXT,
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (invoice_id) REFERENCES invoices(id) ON DELETE CASCADE
+            )
+        `);
+        
+        // Check if note_text column exists, if not add it (for existing databases)
+        try {
+            const tableInfo = db.exec(`PRAGMA table_info(invoice_notes)`);
+            if (tableInfo.length > 0) {
+                const columns = tableInfo[0].values.map(row => row[1]); // column names are at index 1
+                if (!columns.includes('note_text')) {
+                    console.log('⚠️ [MULTI DB] Adding missing note_text column to invoice_notes table');
+                    db.run(`ALTER TABLE invoice_notes ADD COLUMN note_text TEXT`);
+                    saveDatabase();
+                }
+            }
+        } catch (error) {
+            console.log('ℹ️ [MULTI DB] Note: Could not check/add note_text column:', error.message);
+        }
+        
+        // Create multi_order_prefixes table for storing MULTI N° Order prefixes
+        db.run(`
+            CREATE TABLE IF NOT EXISTS multi_order_prefixes (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                prefix TEXT NOT NULL UNIQUE,
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+            )
+        `);
+        
+        // Insert default MULTI order prefixes if table is empty
+        const checkMultiOrderPrefixes = db.exec("SELECT COUNT(*) as count FROM multi_order_prefixes");
+        if (checkMultiOrderPrefixes.length === 0 || checkMultiOrderPrefixes[0].values[0][0] === 0) {
+            db.run(`INSERT OR IGNORE INTO multi_order_prefixes (prefix) VALUES ('ORD'), ('CMD'), ('BC')`);
+            saveDatabase();
+        }
+        
         // Save database to file
         saveDatabase();
         
@@ -347,30 +390,46 @@ const invoiceOps = {
         
         if (result.length === 0) return [];
         
-        return result[0].values.map(row => ({
-            id: row[0],
-            company_code: row[1],
-            client_id: row[2],
-            document_type: row[3],
-            document_date: row[4],
-            document_numero: row[5],
-            document_numero_Order: row[6],
-            document_numero_bl: row[7],
-            document_numero_devis: row[8],
-            document_order_devis: row[9],
-            document_bon_de_livraison: row[10],
-            document_numero_commande: row[11],
-            year: row[12],
-            sequential_id: row[13],
-            total_ht: row[14],
-            tva_rate: row[15],
-            montant_tva: row[16],
-            total_ttc: row[17],
-            created_at: row[18],
-            updated_at: row[19],
-            client_nom: row[20],
-            client_ice: row[21]
-        }));
+        return result[0].values.map(row => {
+            const invoiceId = row[0];
+            
+            // Get products for this invoice
+            const productsResult = db.exec('SELECT * FROM invoice_products WHERE invoice_id = ?', [invoiceId]);
+            const products = productsResult.length > 0 ? productsResult[0].values.map(pRow => ({
+                id: pRow[0],
+                invoice_id: pRow[1],
+                designation: pRow[2],
+                quantite: pRow[3],
+                prix_unitaire_ht: pRow[4],
+                total_ht: pRow[5]
+            })) : [];
+            
+            return {
+                id: invoiceId,
+                company_code: row[1],
+                client_id: row[2],
+                document_type: row[3],
+                document_date: row[4],
+                document_numero: row[5],
+                document_numero_Order: row[6],
+                document_numero_bl: row[7],
+                document_numero_devis: row[8],
+                document_order_devis: row[9],
+                document_bon_de_livraison: row[10],
+                document_numero_commande: row[11],
+                year: row[12],
+                sequential_id: row[13],
+                total_ht: row[14],
+                tva_rate: row[15],
+                montant_tva: row[16],
+                total_ttc: row[17],
+                created_at: row[18],
+                updated_at: row[19],
+                client_nom: row[20],
+                client_ice: row[21],
+                products: products
+            };
+        });
     },
     
     update: (id, invoiceData) => {
@@ -409,6 +468,7 @@ const invoiceOps = {
                 document_date = ?,
                 document_numero = ?,
                 document_numero_Order = ?,
+                document_numero_devis = ?,
                 total_ht = ?,
                 tva_rate = ?,
                 montant_tva = ?,
@@ -418,8 +478,9 @@ const invoiceOps = {
         `, [
             newClientId,
             invoiceData.document.date,
-            invoiceData.document.numero,
-            invoiceData.document.numero_Order,
+            invoiceData.document.numero || null,
+            invoiceData.document.numero_Order || null,
+            invoiceData.document.numero_devis || null,
             invoiceData.totals.total_ht,
             invoiceData.totals.tva_rate,
             invoiceData.totals.montant_tva,
@@ -570,6 +631,292 @@ function getDatabase() {
     return db;
 }
 
+// MULTI Order Prefix operations
+const multiOrderPrefixOps = {
+    // Get all MULTI order prefixes
+    getAll: function() {
+        if (!db) throw new Error('Database not initialized');
+        
+        const result = db.exec(`SELECT prefix FROM multi_order_prefixes ORDER BY prefix ASC`);
+        
+        if (result.length === 0) return [];
+        
+        return result[0].values.map(row => row[0]);
+    },
+    
+    // Add new MULTI order prefix
+    add: function(prefix) {
+        if (!db) throw new Error('Database not initialized');
+        
+        try {
+            db.run(`INSERT INTO multi_order_prefixes (prefix) VALUES (?)`, [prefix.toUpperCase()]);
+            saveDatabase();
+            return { success: true };
+        } catch (error) {
+            if (error.message.includes('UNIQUE constraint failed')) {
+                return { success: false, error: 'Prefix already exists' };
+            }
+            throw error;
+        }
+    },
+    
+    // Delete MULTI order prefix
+    delete: function(prefix) {
+        if (!db) throw new Error('Database not initialized');
+        
+        // Check if it's the last prefix
+        const count = db.exec(`SELECT COUNT(*) as count FROM multi_order_prefixes`);
+        if (count[0].values[0][0] <= 1) {
+            return { success: false, error: 'Cannot delete the last prefix' };
+        }
+        
+        db.run(`DELETE FROM multi_order_prefixes WHERE prefix = ?`, [prefix]);
+        saveDatabase();
+        return { success: true };
+    }
+};
+
+// Get missing invoice numbers for MULTI company (format: MTTXXX/2025)
+function getMissingMultiInvoiceNumbers(year) {
+    return new Promise((resolve, reject) => {
+        if (!db) {
+            return reject(new Error('Database not initialized'));
+        }
+
+        try {
+            // Get all invoice numbers for MULTI company (format: MTT0012025 without /)
+            let query;
+            if (year) {
+                query = `
+                    SELECT document_numero 
+                    FROM invoices 
+                    WHERE document_type = 'facture' 
+                    AND document_numero LIKE 'MTT%${year}'
+                `;
+            } else {
+                // Get all invoices regardless of year
+                query = `
+                    SELECT document_numero 
+                    FROM invoices 
+                    WHERE document_type = 'facture' 
+                    AND document_numero LIKE 'MTT%'
+                `;
+            }
+            
+            const invoices = db.exec(query);
+            
+            console.log(`🔍 [MULTI FACTURE] Searching for year: ${year || 'ALL'}`);
+            console.log(`🔍 [MULTI FACTURE] Found ${invoices.length > 0 && invoices[0].values.length > 0 ? invoices[0].values.length : 0} invoices`);
+            
+            if (invoices.length === 0 || invoices[0].values.length === 0) {
+                console.log(`❌ [MULTI FACTURE] No invoices found for year ${year || 'ALL'}`);
+                return resolve({ success: true, data: [] });
+            }
+
+            // Extract numbers from document_numero (format: "MTT0012025")
+            const usedNumbers = invoices[0].values
+                .map(row => {
+                    const match = row[0].match(/^MTT(\d+)(\d{4})$/);
+                    if (!match) return null;
+                    const num = parseInt(match[1]);
+                    const docYear = parseInt(match[2]);
+                    // If year is specified, only include numbers from that year
+                    if (year && docYear !== parseInt(year)) return null;
+                    return num;
+                })
+                .filter(num => num !== null)
+                .sort((a, b) => a - b);
+
+            if (usedNumbers.length === 0) {
+                return resolve({ success: true, data: [] });
+            }
+
+            // Find missing numbers between min and max number
+            const minNumber = Math.min(...usedNumbers);
+            const maxNumber = Math.max(...usedNumbers);
+            const missingNumbers = [];
+
+            for (let i = minNumber + 1; i < maxNumber; i++) {
+                if (!usedNumbers.includes(i)) {
+                    missingNumbers.push(i);
+                }
+            }
+
+            resolve({ 
+                success: true, 
+                data: missingNumbers,
+                stats: {
+                    min: minNumber,
+                    max: maxNumber,
+                    used: usedNumbers.length,
+                    missing: missingNumbers.length
+                }
+            });
+        } catch (error) {
+            console.error('Error getting missing MULTI invoice numbers:', error);
+            reject(error);
+        }
+    });
+}
+
+// Get missing devis numbers for MULTI company (format: MTTXXX2025)
+function getMissingMultiDevisNumbers(year) {
+    return new Promise((resolve, reject) => {
+        if (!db) {
+            return reject(new Error('Database not initialized'));
+        }
+
+        try {
+            // Get all devis numbers for MULTI company (stored in document_numero_devis)
+            let query;
+            if (year) {
+                query = `
+                    SELECT document_numero_devis 
+                    FROM invoices 
+                    WHERE document_type = 'devis' 
+                    AND document_numero_devis IS NOT NULL
+                    AND document_numero_devis != ''
+                    AND document_numero_devis LIKE 'MTT%${year}'
+                `;
+            } else {
+                // Get all devis regardless of year
+                query = `
+                    SELECT document_numero_devis 
+                    FROM invoices 
+                    WHERE document_type = 'devis' 
+                    AND document_numero_devis IS NOT NULL
+                    AND document_numero_devis != ''
+                    AND document_numero_devis LIKE 'MTT%'
+                `;
+            }
+            
+            const devisNumbers = db.exec(query);
+            
+            console.log(`🔍 [MULTI DEVIS] Searching for year: ${year || 'ALL'}`);
+            console.log(`🔍 [MULTI DEVIS] Found ${devisNumbers.length > 0 && devisNumbers[0].values.length > 0 ? devisNumbers[0].values.length : 0} devis`);
+            
+            if (devisNumbers.length === 0 || devisNumbers[0].values.length === 0) {
+                console.log(`❌ [MULTI DEVIS] No devis found for year ${year || 'ALL'}`);
+                return resolve({ success: true, data: [] });
+            }
+
+            // Extract numbers from document_numero_devis (format: "MTT0012025")
+            const usedNumbers = devisNumbers[0].values
+                .map(row => {
+                    const match = row[0].match(/^MTT(\d+)(\d{4})$/);
+                    if (!match) return null;
+                    const num = parseInt(match[1]);
+                    const docYear = parseInt(match[2]);
+                    // If year is specified, only include numbers from that year
+                    if (year && docYear !== parseInt(year)) return null;
+                    return num;
+                })
+                .filter(num => num !== null)
+                .sort((a, b) => a - b);
+
+            if (usedNumbers.length === 0) {
+                return resolve({ success: true, data: [] });
+            }
+
+            // Find missing numbers between min and max number
+            const minNumber = Math.min(...usedNumbers);
+            const maxNumber = Math.max(...usedNumbers);
+            const missingNumbers = [];
+
+            for (let i = minNumber + 1; i < maxNumber; i++) {
+                if (!usedNumbers.includes(i)) {
+                    missingNumbers.push(i);
+                }
+            }
+
+            resolve({ 
+                success: true, 
+                data: missingNumbers,
+                stats: {
+                    min: minNumber,
+                    max: maxNumber,
+                    used: usedNumbers.length,
+                    missing: missingNumbers.length
+                }
+            });
+        } catch (error) {
+            console.error('Error getting missing MULTI devis numbers:', error);
+            reject(error);
+        }
+    });
+}
+
+// Notes operations
+const noteOps = {
+    // Save or update note for an invoice
+    saveNote: (invoiceId, noteText) => {
+        return new Promise((resolve, reject) => {
+            try {
+                // Check if note already exists
+                const existing = db.exec(
+                    `SELECT id FROM invoice_notes WHERE invoice_id = ?`,
+                    [invoiceId]
+                );
+
+                if (existing.length > 0 && existing[0].values.length > 0) {
+                    // Update existing note
+                    db.run(
+                        `UPDATE invoice_notes SET note_text = ?, updated_at = CURRENT_TIMESTAMP WHERE invoice_id = ?`,
+                        [noteText, invoiceId]
+                    );
+                } else {
+                    // Insert new note
+                    db.run(
+                        `INSERT INTO invoice_notes (invoice_id, note_text) VALUES (?, ?)`,
+                        [invoiceId, noteText]
+                    );
+                }
+
+                saveDatabase();
+                resolve({ success: true });
+            } catch (error) {
+                console.error('Error saving note:', error);
+                reject(error);
+            }
+        });
+    },
+
+    // Get note for an invoice
+    getNote: (invoiceId) => {
+        return new Promise((resolve, reject) => {
+            try {
+                const result = db.exec(
+                    `SELECT note_text FROM invoice_notes WHERE invoice_id = ?`,
+                    [invoiceId]
+                );
+
+                if (result.length > 0 && result[0].values.length > 0) {
+                    resolve({ success: true, data: result[0].values[0][0] });
+                } else {
+                    resolve({ success: true, data: null });
+                }
+            } catch (error) {
+                console.error('Error getting note:', error);
+                reject(error);
+            }
+        });
+    },
+
+    // Delete note for an invoice
+    deleteNote: (invoiceId) => {
+        return new Promise((resolve, reject) => {
+            try {
+                db.run(`DELETE FROM invoice_notes WHERE invoice_id = ?`, [invoiceId]);
+                saveDatabase();
+                resolve({ success: true });
+            } catch (error) {
+                console.error('Error deleting note:', error);
+                reject(error);
+            }
+        });
+    }
+};
+
 module.exports = {
     initDatabase,
     getDatabase,
@@ -577,5 +924,9 @@ module.exports = {
     clientOps,
     invoiceOps,
     attachmentOps,
+    multiOrderPrefixOps,
+    noteOps,
+    getMissingMultiInvoiceNumbers,
+    getMissingMultiDevisNumbers,
     deleteAllData
 };

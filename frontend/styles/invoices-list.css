@@ -674,8 +674,12 @@
     background: #2d2d30;
     border: 1px solid #3e3e42;
     border-radius: 4px;
-    color: #ffffff;
+    color: #fff;
     font-size: 0.9rem;
+}
+
+.edit-product-row textarea {
+    resize: vertical; /* Allow vertical resize only */
 }
 
 .edit-product-row textarea:focus,

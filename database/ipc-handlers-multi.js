@@ -1,5 +1,6 @@
 const { ipcMain } = require('electron');
 const dbMulti = require('./db_multi');
+const { getMissingMultiInvoiceNumbers, getMissingMultiDevisNumbers } = require('./db_multi');
 
 async function registerMultiHandlers() {
     console.log('🔄 [MULTI] Registering Multi Company database handlers...');
@@ -138,6 +139,59 @@ async function registerMultiHandlers() {
         }
     });
     
+    // MULTI Order Prefix handlers
+    ipcMain.handle('dbMulti:multiOrderPrefixes:getAll', async () => {
+        try {
+            const prefixes = dbMulti.multiOrderPrefixOps.getAll();
+            return { success: true, data: prefixes };
+        } catch (error) {
+            console.error('❌ [MULTI] Error getting order prefixes:', error);
+            return { success: false, error: error.message };
+        }
+    });
+
+    ipcMain.handle('dbMulti:multiOrderPrefixes:add', async (event, prefix) => {
+        try {
+            const result = dbMulti.multiOrderPrefixOps.add(prefix);
+            return result;
+        } catch (error) {
+            console.error('❌ [MULTI] Error adding order prefix:', error);
+            return { success: false, error: error.message };
+        }
+    });
+
+    ipcMain.handle('dbMulti:multiOrderPrefixes:delete', async (event, prefix) => {
+        try {
+            const result = dbMulti.multiOrderPrefixOps.delete(prefix);
+            return result;
+        } catch (error) {
+            console.error('❌ [MULTI] Error deleting order prefix:', error);
+            return { success: false, error: error.message };
+        }
+    });
+
+    // MULTI Missing Numbers handler
+    ipcMain.handle('dbMulti:getMissingNumbers', async (event, year) => {
+        try {
+            const result = await getMissingMultiInvoiceNumbers(year);
+            return result;
+        } catch (error) {
+            console.error('❌ [MULTI] Error getting missing numbers:', error);
+            return { success: false, error: error.message };
+        }
+    });
+
+    // MULTI Missing Devis Numbers handler
+    ipcMain.handle('dbMulti:getMissingDevisNumbers', async (event, year) => {
+        try {
+            const result = await getMissingMultiDevisNumbers(year);
+            return result;
+        } catch (error) {
+            console.error('❌ [MULTI] Error getting missing devis numbers:', error);
+            return { success: false, error: error.message };
+        }
+    });
+
     // Delete all data
     ipcMain.handle('dbMulti:deleteAllData', async () => {
         try {
@@ -145,6 +199,37 @@ async function registerMultiHandlers() {
             return { success: true };
         } catch (error) {
             console.error('[MULTI] Error deleting all data:', error);
+            return { success: false, error: error.message };
+        }
+    });
+
+    // Notes handlers
+    ipcMain.handle('dbMulti:saveNote', async (event, invoiceId, noteText) => {
+        try {
+            const result = await dbMulti.noteOps.saveNote(invoiceId, noteText);
+            return result;
+        } catch (error) {
+            console.error('[MULTI] Error saving note:', error);
+            return { success: false, error: error.message };
+        }
+    });
+
+    ipcMain.handle('dbMulti:getNote', async (event, invoiceId) => {
+        try {
+            const result = await dbMulti.noteOps.getNote(invoiceId);
+            return result;
+        } catch (error) {
+            console.error('[MULTI] Error getting note:', error);
+            return { success: false, error: error.message };
+        }
+    });
+
+    ipcMain.handle('dbMulti:deleteNote', async (event, invoiceId) => {
+        try {
+            const result = await dbMulti.noteOps.deleteNote(invoiceId);
+            return result;
+        } catch (error) {
+            console.error('[MULTI] Error deleting note:', error);
             return { success: false, error: error.message };
         }
     });

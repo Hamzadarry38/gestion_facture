@@ -150,6 +150,24 @@ function CreateInvoiceChaimaePage() {
                         </div>
                     </div>
 
+                    <!-- Section 5: Notes -->
+                    <div class="invoice-section">
+                        <div class="section-header">
+                            <h2>📝 Notes</h2>
+                        </div>
+                        <div class="section-body">
+                            <div class="form-field">
+                                <label>Notes supplémentaires (optionnel)</label>
+                                <textarea id="invoiceNotesChaimae" rows="4" 
+                                          placeholder="Ajoutez des notes ou remarques concernant cette facture..."
+                                          style="width: 100%; padding: 0.75rem; background: #2d2d30; border: 2px solid #3e3e42; border-radius: 8px; color: #fff; font-size: 0.95rem; resize: vertical; font-family: inherit;"></textarea>
+                                <small style="color: #999; font-size: 0.85rem; display: block; margin-top: 0.5rem;">
+                                    Ces notes seront affichées dans le PDF sous le texte de clôture de la facture.
+                                </small>
+                            </div>
+                        </div>
+                    </div>
+
                     <!-- Form Actions -->
                     <div class="form-actions">
                         <button type="button" class="btn-secondary" onclick="router.navigate('/dashboard-chaimae')">
@@ -249,9 +267,18 @@ window.handleDocumentTypeChangeChaimae = async function() {
     if (type === 'facture') {
         html += `
             <div class="form-field">
-                <label>N° Facture <span class="required">*</span></label>
-                <input type="text" id="documentNumeroChaimae" placeholder="Ex: 123" required 
-                       onblur="autoFormatDocumentNumberOnBlurChaimae(this)" style="width: 100%;">
+                <label>N° Facture<span class="required">*</span></label>
+                <div style="display: flex; gap: 0.5rem; align-items: stretch;">
+                    <input type="text" id="documentNumeroChaimae" placeholder="Ex: 123" required 
+                           onblur="autoFormatDocumentNumberOnBlurChaimae(this)" style="flex: 1;">
+                    <button type="button" onclick="showMissingNumbersChaimae()" 
+                            style="padding: 0.75rem 1rem; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: #fff; border: none; border-radius: 8px; cursor: pointer; font-size: 1.1rem; transition: all 0.3s; box-shadow: 0 2px 8px rgba(102, 126, 234, 0.3); display: flex; align-items: center; justify-content: center; min-width: 50px;"
+                            onmouseover="this.style.transform='translateY(-2px)'; this.style.boxShadow='0 4px 12px rgba(102, 126, 234, 0.5)';"
+                            onmouseout="this.style.transform='translateY(0)'; this.style.boxShadow='0 2px 8px rgba(102, 126, 234, 0.3)';"
+                            title="Voir les numéros manquants">
+                        🔍
+                    </button>
+                </div>
                 <small style="color: #999; font-size: 0.85rem;">Ex: 123 → 123/2025</small>
                 ${lastNumbers.main !== 'Aucun' ? `<small style="color: #4caf50; font-size: 0.8rem; display: block; margin-top: 0.25rem;">📌 Dernier numéro: ${lastNumbers.main}</small>` : ''}
             </div>
@@ -259,6 +286,7 @@ window.handleDocumentTypeChangeChaimae = async function() {
         html += '</div>';
         
         // Optional fields: N° Order + Bon de livraison
+        const selectedSimpleOrderPrefix = window.selectedSimpleOrderPrefix || window.simpleOrderPrefixes?.[0] || '';
         html += `
             <div class="form-row optional-field">
                 <div class="toggle-container">
@@ -267,12 +295,38 @@ window.handleDocumentTypeChangeChaimae = async function() {
                         <span class="toggle-switch"></span>
                         <span class="toggle-text">N° Order</span>
                     </label>
-                    <small style="color: #999; margin-left: 0.5rem;">Entrez le numéro et l'année sera ajoutée automatiquement (2025)</small>
                 </div>
-                <div class="form-field" id="fieldOrderChaimae" style="display: none;">
+                <div class="form-field" id="fieldOrderChaimae" style="display: none; position: relative;">
                     <label>N° Order</label>
-                    <input type="text" id="documentNumeroOrderChaimae" placeholder="Ex: 123" 
-                           onblur="autoFormatDocumentNumberOnBlurChaimae(this)">
+                    <div style="display: flex; gap: 0.5rem; align-items: flex-start;">
+                        <div style="position: relative; flex: 0 0 auto;">
+                            <input type="text" id="simpleOrderPrefixInputChaimae" value="${selectedSimpleOrderPrefix}" placeholder="" 
+                                   style="width: 80px; padding: 0.75rem; background: #2d2d30; border: 2px solid #3e3e42; border-radius: 8px; color: #fff; font-size: 1rem; outline: none; cursor: pointer; font-weight: 600;"
+                                   readonly onclick="toggleSimpleOrderPrefixDropdownChaimae()">
+                            <div id="simpleOrderPrefixDropdownChaimae" style="display: none; position: absolute; top: 100%; left: 0; background: linear-gradient(135deg, #1e1e1e 0%, #2d2d30 100%); border: 2px solid #2196f3; border-radius: 12px; margin-top: 0.5rem; box-shadow: 0 8px 24px rgba(33, 150, 243, 0.3), 0 0 0 1px rgba(33, 150, 243, 0.1); z-index: 1000; min-width: 200px; max-height: 350px; overflow: hidden;">
+                                <div style="padding: 0.75rem 1rem; background: linear-gradient(90deg, #2196f3 0%, #1976d2 100%); border-bottom: 2px solid rgba(33, 150, 243, 0.3);">
+                                    <h4 style="margin: 0; color: #fff; font-size: 0.95rem; font-weight: 600; letter-spacing: 0.5px;">📋 Choisir un Prefix</h4>
+                                </div>
+                                <div id="simpleOrderPrefixListChaimae" style="max-height: 200px; overflow-y: auto; padding: 0.5rem;"></div>
+                                <div style="padding: 0.75rem; border-top: 2px solid rgba(33, 150, 243, 0.2); background: rgba(0,0,0,0.2);">
+                                    <input type="text" id="newSimpleOrderPrefixInputChaimae" placeholder="Nouveau prefix (ex: ORD)" 
+                                           style="width: 100%; padding: 0.65rem; background: #1e1e1e; border: 2px solid #3e3e42; border-radius: 6px; color: #fff; font-size: 0.9rem; outline: none; transition: all 0.3s;"
+                                           onfocus="this.style.borderColor='#2196f3'; this.style.boxShadow='0 0 0 3px rgba(33, 150, 243, 0.1)';"
+                                           onblur="this.style.borderColor='#3e3e42'; this.style.boxShadow='none';"
+                                           onkeypress="if(event.key==='Enter'){addNewSimpleOrderPrefixChaimae(); event.preventDefault();}">
+                                    <button type="button" onclick="addNewSimpleOrderPrefixChaimae()" 
+                                            style="width: 100%; margin-top: 0.5rem; padding: 0.65rem; background: linear-gradient(90deg, #2196f3 0%, #1976d2 100%); color: #fff; border: none; border-radius: 6px; cursor: pointer; font-size: 0.9rem; font-weight: 600; transition: all 0.3s; box-shadow: 0 2px 8px rgba(33, 150, 243, 0.3);"
+                                            onmouseover="this.style.transform='translateY(-2px)'; this.style.boxShadow='0 4px 12px rgba(33, 150, 243, 0.4)';"
+                                            onmouseout="this.style.transform='translateY(0)'; this.style.boxShadow='0 2px 8px rgba(33, 150, 243, 0.3)';">
+                                        ➕ Ajouter le Prefix
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                        <input type="text" id="documentNumeroOrderChaimae" placeholder="123" 
+                               style="flex: 1; padding: 0.75rem; background: #2d2d30; border: 2px solid #3e3e42; border-radius: 8px; color: #fff; font-size: 1rem; outline: none;">
+                    </div>
+                    <small style="color: #999; font-size: 0.85rem; display: block; margin-top: 0.5rem;">Ex: 123 → <span id="simpleOrderPrefixExampleChaimae"></span>123</small>
                     ${lastNumbers.order !== 'Aucun' ? `<small style="color: #2196f3; font-size: 0.8rem; display: block; margin-top: 0.25rem;">📌 Dernier N° Order: ${lastNumbers.order}</small>` : ''}
                 </div>
             </div>
@@ -284,12 +338,10 @@ window.handleDocumentTypeChangeChaimae = async function() {
                         <span class="toggle-switch"></span>
                         <span class="toggle-text">Bon de livraison</span>
                     </label>
-                    <small style="color: #999; margin-left: 0.5rem;">Entrez le numéro et l'année sera ajoutée automatiquement (2025)</small>
                 </div>
                 <div class="form-field" id="fieldBonLivraisonChaimae" style="display: none;">
                     <label>Bon de livraison</label>
-                    <input type="text" id="documentBonLivraisonChaimae" placeholder="Ex: 123" 
-                           onblur="autoFormatDocumentNumberOnBlurChaimae(this)">
+                    <input type="text" id="documentBonLivraisonChaimae" placeholder="Ex: 123">
                     ${lastNumbers.bonLivraison !== 'Aucun' ? `<small style="color: #4caf50; font-size: 0.8rem; display: block; margin-top: 0.25rem;">📌 Dernier Bon de livraison: ${lastNumbers.bonLivraison}</small>` : ''}
                 </div>
             </div>
@@ -298,21 +350,34 @@ window.handleDocumentTypeChangeChaimae = async function() {
         html += `
             <div class="form-field">
                 <label>N° Devis <span class="required">*</span></label>
-                <input type="text" id="documentNumeroChaimae" placeholder="Ex: 123" required 
-                       onblur="autoFormatDocumentNumberOnBlurChaimae(this)" style="width: 100%;">
+                <div style="display: flex; gap: 0.5rem; align-items: stretch;">
+                    <input type="text" id="documentNumeroChaimae" placeholder="Ex: 123" required 
+                           onblur="autoFormatDocumentNumberOnBlurChaimae(this)" style="flex: 1;">
+                    <button type="button" onclick="showMissingDevisNumbersChaimae()" 
+                            style="padding: 0.75rem 1rem; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: #fff; border: none; border-radius: 8px; cursor: pointer; font-size: 1.1rem; transition: all 0.3s; box-shadow: 0 2px 8px rgba(102, 126, 234, 0.3); display: flex; align-items: center; justify-content: center; min-width: 50px;"
+                            onmouseover="this.style.transform='translateY(-2px)'; this.style.boxShadow='0 4px 12px rgba(102, 126, 234, 0.5)';"
+                            onmouseout="this.style.transform='translateY(0)'; this.style.boxShadow='0 2px 8px rgba(102, 126, 234, 0.3)';"
+                            title="Voir les numéros manquants">
+                        🔍
+                    </button>
+                </div>
                 <small style="color: #999; font-size: 0.85rem;">Ex: 123 → 123/2025</small>
                 ${lastNumbers.main !== 'Aucun' ? `<small style="color: #9c27b0; font-size: 0.8rem; display: block; margin-top: 0.25rem;">📌 Dernier numéro: ${lastNumbers.main}</small>` : ''}
             </div>
         `;
         html += '</div>';
     } else if (type === 'bon_livraison') {
+        // Get the selected prefix or default to first one
+        const selectedPrefix = window.selectedPrefix || window.bonLivraisonPrefixes[0] || 'MG';
+        console.log('🔵 [BON LIVRAISON] Using prefix:', selectedPrefix);
+        
         // Bon de livraison: Numéro de bon de livraison (required) with prefix selector
         html += `
             <div class="form-field" style="position: relative;">
                 <label>Numéro de bon de livraison <span class="required">*</span></label>
                 <div style="display: flex; gap: 0.5rem; align-items: flex-start;">
                     <div style="position: relative; flex: 0 0 auto;">
-                        <input type="text" id="prefixInputChaimae" placeholder="MG" 
+                        <input type="text" id="prefixInputChaimae" value="${selectedPrefix}" placeholder="MG" 
                                style="width: 80px; padding: 0.75rem; background: #2d2d30; border: 2px solid #3e3e42; border-radius: 8px; color: #fff; font-size: 1rem; outline: none; cursor: pointer; font-weight: 600;"
                                readonly onclick="togglePrefixDropdownChaimae()">
                         <div id="prefixDropdownChaimae" style="display: none; position: absolute; top: 100%; left: 0; background: linear-gradient(135deg, #1e1e1e 0%, #2d2d30 100%); border: 2px solid #667eea; border-radius: 12px; margin-top: 0.5rem; box-shadow: 0 8px 24px rgba(102, 126, 234, 0.3), 0 0 0 1px rgba(102, 126, 234, 0.1); z-index: 1000; min-width: 200px; max-height: 350px; overflow: hidden;">
@@ -338,6 +403,13 @@ window.handleDocumentTypeChangeChaimae = async function() {
                     <input type="text" id="documentNumeroChaimae" placeholder="123/2025" required 
                            style="flex: 1; padding: 0.75rem; background: #2d2d30; border: 2px solid #3e3e42; border-radius: 8px; color: #fff; font-size: 1rem; outline: none;"
                            onblur="formatBonLivraisonWithPrefixChaimae(this)">
+                    <button type="button" onclick="showMissingBonLivraisonNumbersChaimae()" 
+                            style="padding: 0.75rem 1rem; background: linear-gradient(135deg, #4caf50 0%, #388e3c 100%); color: #fff; border: none; border-radius: 8px; cursor: pointer; font-size: 1.1rem; transition: all 0.3s; box-shadow: 0 2px 8px rgba(76, 175, 80, 0.3); display: flex; align-items: center; justify-content: center; min-width: 50px;"
+                            onmouseover="this.style.transform='translateY(-2px)'; this.style.boxShadow='0 4px 12px rgba(76, 175, 80, 0.5)';"
+                            onmouseout="this.style.transform='translateY(0)'; this.style.boxShadow='0 2px 8px rgba(76, 175, 80, 0.3)';"
+                            title="Voir les numéros manquants par prefix">
+                        🔍
+                    </button>
                 </div>
                 <small style="color: #999; font-size: 0.85rem; display: block; margin-top: 0.5rem;">Ex: 123 → <span id="prefixExampleChaimae">MG</span>123/2025</small>
                 ${lastNumbers.main !== 'Aucun' ? `<small style="color: #ff9800; font-size: 0.8rem; display: block; margin-top: 0.25rem;">📌 Dernier numéro: ${lastNumbers.main}</small>` : ''}
@@ -345,7 +417,8 @@ window.handleDocumentTypeChangeChaimae = async function() {
         `;
         html += '</div>';
         
-        // Optional field: N° Order
+        // Optional field: N° Order with Prefix
+        const selectedOrderPrefix = window.selectedOrderPrefix || window.orderPrefixes?.[0] || 'BC';
         html += `
             <div class="form-row optional-field">
                 <div class="toggle-container">
@@ -355,9 +428,37 @@ window.handleDocumentTypeChangeChaimae = async function() {
                         <span class="toggle-text">N° Order</span>
                     </label>
                 </div>
-                <div class="form-field" id="fieldBonCommandeChaimae" style="display: none;">
+                <div class="form-field" id="fieldBonCommandeChaimae" style="display: none; position: relative;">
                     <label>N° Order</label>
-                    <input type="text" id="documentBonCommandeChaimae" placeholder="Exemple: BC-456">
+                    <div style="display: flex; gap: 0.5rem; align-items: flex-start;">
+                        <div style="position: relative; flex: 0 0 auto;">
+                            <input type="text" id="orderPrefixInputChaimae" value="${selectedOrderPrefix}" placeholder="BC" 
+                                   style="width: 80px; padding: 0.75rem; background: #2d2d30; border: 2px solid #3e3e42; border-radius: 8px; color: #fff; font-size: 1rem; outline: none; cursor: pointer; font-weight: 600;"
+                                   readonly onclick="toggleOrderPrefixDropdownChaimae()">
+                            <div id="orderPrefixDropdownChaimae" style="display: none; position: absolute; top: 100%; left: 0; background: linear-gradient(135deg, #1e1e1e 0%, #2d2d30 100%); border: 2px solid #2196f3; border-radius: 12px; margin-top: 0.5rem; box-shadow: 0 8px 24px rgba(33, 150, 243, 0.3), 0 0 0 1px rgba(33, 150, 243, 0.1); z-index: 1000; min-width: 200px; max-height: 350px; overflow: hidden;">
+                                <div style="padding: 0.75rem 1rem; background: linear-gradient(90deg, #2196f3 0%, #1976d2 100%); border-bottom: 2px solid rgba(33, 150, 243, 0.3);">
+                                    <h4 style="margin: 0; color: #fff; font-size: 0.95rem; font-weight: 600; letter-spacing: 0.5px;">📋 Choisir un Prefix</h4>
+                                </div>
+                                <div id="orderPrefixListChaimae" style="max-height: 200px; overflow-y: auto; padding: 0.5rem;"></div>
+                                <div style="padding: 0.75rem; border-top: 2px solid rgba(33, 150, 243, 0.2); background: rgba(0,0,0,0.2);">
+                                    <input type="text" id="newOrderPrefixInputChaimae" placeholder="Nouveau prefix (ex: BC)" 
+                                           style="width: 100%; padding: 0.65rem; background: #1e1e1e; border: 2px solid #3e3e42; border-radius: 6px; color: #fff; font-size: 0.9rem; outline: none; transition: all 0.3s;"
+                                           onfocus="this.style.borderColor='#2196f3'; this.style.boxShadow='0 0 0 3px rgba(33, 150, 243, 0.1)';"
+                                           onblur="this.style.borderColor='#3e3e42'; this.style.boxShadow='none';"
+                                           onkeypress="if(event.key==='Enter'){addNewOrderPrefixChaimae(); event.preventDefault();}">
+                                    <button type="button" onclick="addNewOrderPrefixChaimae()" 
+                                            style="width: 100%; margin-top: 0.5rem; padding: 0.65rem; background: linear-gradient(90deg, #2196f3 0%, #1976d2 100%); color: #fff; border: none; border-radius: 6px; cursor: pointer; font-size: 0.9rem; font-weight: 600; transition: all 0.3s; box-shadow: 0 2px 8px rgba(33, 150, 243, 0.3);"
+                                            onmouseover="this.style.transform='translateY(-2px)'; this.style.boxShadow='0 4px 12px rgba(33, 150, 243, 0.4)';"
+                                            onmouseout="this.style.transform='translateY(0)'; this.style.boxShadow='0 2px 8px rgba(33, 150, 243, 0.3)';">
+                                        ➕ Ajouter le Prefix
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                        <input type="text" id="documentBonCommandeChaimae" placeholder="456" 
+                               style="flex: 1; padding: 0.75rem; background: #2d2d30; border: 2px solid #3e3e42; border-radius: 8px; color: #fff; font-size: 1rem; outline: none;">
+                    </div>
+                    <small style="color: #999; font-size: 0.85rem; display: block; margin-top: 0.5rem;">Ex: 456 → <span id="orderPrefixExampleChaimae">BC</span>456</small>
                     ${lastNumbers.bonCommande !== 'Aucun' ? `<small style="color: #ff9800; font-size: 0.8rem; display: block; margin-top: 0.25rem;">📌 Dernier N° Order: ${lastNumbers.bonCommande}</small>` : ''}
                 </div>
             </div>
@@ -430,6 +531,20 @@ if (!window.bonLivraisonPrefixes) {
     window.prefixesLoaded = false;
 }
 
+// Initialize prefixes for Order (Global)
+if (!window.orderPrefixes) {
+    window.orderPrefixes = ['BC', 'CMD', 'ORD'];
+    window.selectedOrderPrefix = 'BC';
+    window.orderPrefixesLoaded = false;
+}
+
+// Initialize prefixes for Simple Order (Global)
+if (!window.simpleOrderPrefixes) {
+    window.simpleOrderPrefixes = [];
+    window.selectedSimpleOrderPrefix = null;
+    window.simpleOrderPrefixesLoaded = false;
+}
+
 // Load prefixes from database (async)
 async function loadPrefixesFromDB() {
     if (window.prefixesLoaded) return;
@@ -494,17 +609,32 @@ window.renderPrefixListChaimae = function() {
 
 // Select prefix (Global)
 window.selectPrefixChaimae = function(prefix) {
+    console.log('🔵 [PREFIX SELECT] Selecting prefix:', prefix);
     window.selectedPrefix = prefix;
+    
     const prefixInput = document.getElementById('prefixInputChaimae');
     const prefixExample = document.getElementById('prefixExampleChaimae');
     
-    if (prefixInput) prefixInput.value = prefix;
-    if (prefixExample) prefixExample.textContent = prefix;
+    if (prefixInput) {
+        prefixInput.value = prefix;
+        console.log('✅ [PREFIX SELECT] Updated prefixInput to:', prefix);
+    } else {
+        console.log('❌ [PREFIX SELECT] prefixInput not found');
+    }
+    
+    if (prefixExample) {
+        prefixExample.textContent = prefix;
+        console.log('✅ [PREFIX SELECT] Updated prefixExample to:', prefix);
+    }
     
     const dropdown = document.getElementById('prefixDropdownChaimae');
-    if (dropdown) dropdown.style.display = 'none';
+    if (dropdown) {
+        dropdown.style.display = 'none';
+        console.log('✅ [PREFIX SELECT] Closed dropdown');
+    }
     
     renderPrefixListChaimae();
+    console.log('✅ [PREFIX SELECT] Rendered prefix list');
 }
 
 // Add new prefix (Global)
@@ -571,6 +701,376 @@ window.deletePrefixChaimae = async function(prefix) {
     }
 }
 
+// ==================== ORDER PREFIX FUNCTIONS ====================
+
+// Toggle order prefix dropdown (Global)
+window.toggleOrderPrefixDropdownChaimae = async function() {
+    const dropdown = document.getElementById('orderPrefixDropdownChaimae');
+    if (!dropdown) return;
+    
+    if (dropdown.style.display === 'none') {
+        // Load order prefixes from database first
+        await loadOrderPrefixesFromDB();
+        renderOrderPrefixListChaimae();
+        dropdown.style.display = 'block';
+    } else {
+        dropdown.style.display = 'none';
+    }
+}
+
+// Render order prefix list (Global)
+window.renderOrderPrefixListChaimae = function() {
+    const listContainer = document.getElementById('orderPrefixListChaimae');
+    if (!listContainer) return;
+    
+    listContainer.innerHTML = window.orderPrefixes.map((prefix, index) => `
+        <div onclick="selectOrderPrefixChaimae('${prefix}')" 
+             style="margin: 0.35rem; padding: 0.75rem 1rem; cursor: pointer; border-radius: 8px; transition: all 0.3s; color: #fff; display: flex; justify-content: space-between; align-items: center; background: ${prefix === window.selectedOrderPrefix ? 'linear-gradient(90deg, #2196f3 0%, #1976d2 100%)' : 'rgba(255,255,255,0.05)'}; border: 2px solid ${prefix === window.selectedOrderPrefix ? '#2196f3' : 'transparent'}; box-shadow: ${prefix === window.selectedOrderPrefix ? '0 2px 8px rgba(33, 150, 243, 0.3)' : 'none'};"
+             onmouseover="if('${prefix}' !== window.selectedOrderPrefix) { this.style.background='rgba(33, 150, 243, 0.2)'; this.style.borderColor='#2196f3'; this.style.transform='translateX(5px)'; }" 
+             onmouseout="if('${prefix}' !== window.selectedOrderPrefix) { this.style.background='rgba(255,255,255,0.05)'; this.style.borderColor='transparent'; this.style.transform='translateX(0)'; }">
+            <div style="display: flex; align-items: center; gap: 0.75rem;">
+                <span style="font-size: 1.2rem;">${prefix === window.selectedOrderPrefix ? '✓' : '📌'}</span>
+                <span style="font-weight: ${prefix === window.selectedOrderPrefix ? '700' : '500'}; font-size: 1rem; letter-spacing: 1px;">${prefix}</span>
+            </div>
+            ${window.orderPrefixes.length > 1 ? `
+                <button onclick="event.stopPropagation(); deleteOrderPrefixChaimae('${prefix}')" 
+                        style="background: transparent; color: #e74c3c; border: 2px solid #e74c3c; border-radius: 6px; padding: 0.3rem 0.4rem; cursor: pointer; font-size: 0.9rem; font-weight: 600; transition: all 0.3s; display: flex; align-items: center; justify-content: center;"
+                        onmouseover="this.style.background='#e74c3c'; this.style.color='#fff'; this.style.transform='scale(1.05)';"
+                        onmouseout="this.style.background='transparent'; this.style.color='#e74c3c'; this.style.transform='scale(1)';">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                        <polyline points="3 6 5 6 21 6"></polyline>
+                        <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+                        <line x1="10" y1="11" x2="10" y2="17"></line>
+                        <line x1="14" y1="11" x2="14" y2="17"></line>
+                    </svg>
+                </button>
+            ` : ''}
+        </div>
+    `).join('');
+}
+
+// Select order prefix (Global)
+window.selectOrderPrefixChaimae = function(prefix) {
+    console.log('🔵 [ORDER PREFIX SELECT] Selecting prefix:', prefix);
+    window.selectedOrderPrefix = prefix;
+    
+    const prefixInput = document.getElementById('orderPrefixInputChaimae');
+    const prefixExample = document.getElementById('orderPrefixExampleChaimae');
+    
+    if (prefixInput) {
+        prefixInput.value = prefix;
+        console.log('✅ [ORDER PREFIX SELECT] Updated orderPrefixInput to:', prefix);
+    }
+    
+    if (prefixExample) {
+        prefixExample.textContent = prefix;
+        console.log('✅ [ORDER PREFIX SELECT] Updated orderPrefixExample to:', prefix);
+    }
+    
+    const dropdown = document.getElementById('orderPrefixDropdownChaimae');
+    if (dropdown) {
+        dropdown.style.display = 'none';
+    }
+    
+    renderOrderPrefixListChaimae();
+}
+
+// Add new order prefix (Global)
+window.addNewOrderPrefixChaimae = async function() {
+    const newPrefixInput = document.getElementById('newOrderPrefixInputChaimae');
+    if (!newPrefixInput) return;
+    
+    const newPrefix = newPrefixInput.value.trim().toUpperCase();
+    
+    if (!newPrefix) {
+        window.notify.warning('Attention', 'Veuillez saisir un prefix', 2000);
+        return;
+    }
+    
+    if (window.orderPrefixes.includes(newPrefix)) {
+        window.notify.warning('Attention', 'Ce prefix existe déjà', 2000);
+        return;
+    }
+    
+    // Add to database
+    const result = await window.electron.dbChaimae.addOrderPrefix(newPrefix);
+    
+    if (result.success) {
+        window.orderPrefixes.push(newPrefix);
+        window.orderPrefixes.sort();
+        newPrefixInput.value = '';
+        
+        renderOrderPrefixListChaimae();
+        window.notify.success('Succès', `Prefix "${newPrefix}" ajouté`, 2000);
+    } else {
+        window.notify.error('Erreur', result.error || 'Impossible d\'ajouter le prefix', 3000);
+    }
+}
+
+// Delete order prefix (Global)
+window.deleteOrderPrefixChaimae = async function(prefix) {
+    if (window.orderPrefixes.length <= 1) {
+        window.notify.warning('Attention', 'Vous devez garder au moins un prefix', 2000);
+        return;
+    }
+    
+    // Delete from database
+    const result = await window.electron.dbChaimae.deleteOrderPrefix(prefix);
+    
+    if (result.success) {
+        const index = window.orderPrefixes.indexOf(prefix);
+        if (index > -1) {
+            window.orderPrefixes.splice(index, 1);
+            
+            // If deleted prefix was selected, select the first one
+            if (window.selectedOrderPrefix === prefix) {
+                window.selectedOrderPrefix = window.orderPrefixes[0];
+                const prefixInput = document.getElementById('orderPrefixInputChaimae');
+                const prefixExample = document.getElementById('orderPrefixExampleChaimae');
+                if (prefixInput) prefixInput.value = window.selectedOrderPrefix;
+                if (prefixExample) prefixExample.textContent = window.selectedOrderPrefix;
+            }
+            
+            renderOrderPrefixListChaimae();
+            window.notify.success('Succès', `Prefix "${prefix}" supprimé`, 2000);
+        }
+    } else {
+        window.notify.error('Erreur', result.error || 'Impossible de supprimer le prefix', 3000);
+    }
+}
+
+// Load order prefixes from database
+async function loadOrderPrefixesFromDB() {
+    try {
+        const result = await window.electron.dbChaimae.getOrderPrefixes();
+        if (result.success && result.data && result.data.length > 0) {
+            window.orderPrefixes = result.data;
+            console.log('✅ [ORDER PREFIX] Loaded from DB:', window.orderPrefixes);
+            
+            // Set selected prefix if not set
+            if (!window.selectedOrderPrefix) {
+                window.selectedOrderPrefix = window.orderPrefixes[0];
+            }
+        } else {
+            // Initialize with default if no prefixes in DB
+            window.orderPrefixes = ['BC', 'CMD', 'ORD'];
+            window.selectedOrderPrefix = 'BC';
+            console.log('ℹ️ [ORDER PREFIX] Using default prefixes');
+        }
+    } catch (error) {
+        console.error('❌ [ORDER PREFIX] Error loading from DB:', error);
+        window.orderPrefixes = ['BC', 'CMD', 'ORD'];
+        window.selectedOrderPrefix = 'BC';
+    }
+}
+
+// ==================== END ORDER PREFIX FUNCTIONS ====================
+
+// ==================== SIMPLE ORDER PREFIX FUNCTIONS ====================
+
+// Toggle simple order prefix dropdown (Global)
+window.toggleSimpleOrderPrefixDropdownChaimae = async function() {
+    const dropdown = document.getElementById('simpleOrderPrefixDropdownChaimae');
+    if (!dropdown) return;
+    
+    if (dropdown.style.display === 'none') {
+        // Load simple order prefixes from database first
+        await loadSimpleOrderPrefixesFromDB();
+        renderSimpleOrderPrefixListChaimae();
+        dropdown.style.display = 'block';
+    } else {
+        dropdown.style.display = 'none';
+    }
+}
+
+// Render simple order prefix list (Global)
+window.renderSimpleOrderPrefixListChaimae = function() {
+    const listContainer = document.getElementById('simpleOrderPrefixListChaimae');
+    if (!listContainer) return;
+    
+    // Add "No Prefix" option at the beginning
+    const noPrefixOption = `
+        <div onclick="selectSimpleOrderPrefixChaimae('')" 
+             style="margin: 0.35rem; padding: 0.75rem 1rem; cursor: pointer; border-radius: 8px; transition: all 0.3s; color: #fff; display: flex; justify-content: space-between; align-items: center; background: ${'' === window.selectedSimpleOrderPrefix ? 'linear-gradient(90deg, #9c27b0 0%, #7b1fa2 100%)' : 'rgba(255,255,255,0.05)'}; border: 2px solid ${'' === window.selectedSimpleOrderPrefix ? '#9c27b0' : 'transparent'}; box-shadow: ${'' === window.selectedSimpleOrderPrefix ? '0 2px 8px rgba(156, 39, 176, 0.3)' : 'none'};"
+             onmouseover="if('' !== window.selectedSimpleOrderPrefix) { this.style.background='rgba(156, 39, 176, 0.2)'; this.style.borderColor='#9c27b0'; this.style.transform='translateX(5px)'; }" 
+             onmouseout="if('' !== window.selectedSimpleOrderPrefix) { this.style.background='rgba(255,255,255,0.05)'; this.style.borderColor='transparent'; this.style.transform='translateX(0)'; }">
+            <div style="display: flex; align-items: center; gap: 0.75rem;">
+                <span style="font-size: 1.2rem;">${'' === window.selectedSimpleOrderPrefix ? '✓' : '🚫'}</span>
+                <span style="font-weight: ${'' === window.selectedSimpleOrderPrefix ? '700' : '500'}; font-size: 1rem; letter-spacing: 1px; font-style: italic; color: #9c27b0;">Sans Prefix</span>
+            </div>
+        </div>
+    `;
+    
+    listContainer.innerHTML = noPrefixOption + window.simpleOrderPrefixes.map((prefix, index) => `
+        <div onclick="selectSimpleOrderPrefixChaimae('${prefix}')" 
+             style="margin: 0.35rem; padding: 0.75rem 1rem; cursor: pointer; border-radius: 8px; transition: all 0.3s; color: #fff; display: flex; justify-content: space-between; align-items: center; background: ${prefix === window.selectedSimpleOrderPrefix ? 'linear-gradient(90deg, #2196f3 0%, #1976d2 100%)' : 'rgba(255,255,255,0.05)'}; border: 2px solid ${prefix === window.selectedSimpleOrderPrefix ? '#2196f3' : 'transparent'}; box-shadow: ${prefix === window.selectedSimpleOrderPrefix ? '0 2px 8px rgba(33, 150, 243, 0.3)' : 'none'};"
+             onmouseover="if('${prefix}' !== window.selectedSimpleOrderPrefix) { this.style.background='rgba(33, 150, 243, 0.2)'; this.style.borderColor='#2196f3'; this.style.transform='translateX(5px)'; }" 
+             onmouseout="if('${prefix}' !== window.selectedSimpleOrderPrefix) { this.style.background='rgba(255,255,255,0.05)'; this.style.borderColor='transparent'; this.style.transform='translateX(0)'; }">
+            <div style="display: flex; align-items: center; gap: 0.75rem;">
+                <span style="font-size: 1.2rem;">${prefix === window.selectedSimpleOrderPrefix ? '✓' : '📌'}</span>
+                <span style="font-weight: ${prefix === window.selectedSimpleOrderPrefix ? '700' : '500'}; font-size: 1rem; letter-spacing: 1px;">${prefix}</span>
+            </div>
+            ${window.simpleOrderPrefixes.length > 1 ? `
+                <button onclick="event.stopPropagation(); deleteSimpleOrderPrefixChaimae('${prefix}')" 
+                        style="background: transparent; color: #e74c3c; border: 2px solid #e74c3c; border-radius: 6px; padding: 0.3rem 0.4rem; cursor: pointer; font-size: 0.9rem; font-weight: 600; transition: all 0.3s; display: flex; align-items: center; justify-content: center;"
+                        onmouseover="this.style.background='#e74c3c'; this.style.color='#fff'; this.style.transform='scale(1.05)';"
+                        onmouseout="this.style.background='transparent'; this.style.color='#e74c3c'; this.style.transform='scale(1)';">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                        <polyline points="3 6 5 6 21 6"></polyline>
+                        <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+                        <line x1="10" y1="11" x2="10" y2="17"></line>
+                        <line x1="14" y1="11" x2="14" y2="17"></line>
+                    </svg>
+                </button>
+            ` : ''}
+        </div>
+    `).join('');
+}
+
+// Select simple order prefix (Global)
+window.selectSimpleOrderPrefixChaimae = function(prefix) {
+    console.log('🔵 [SIMPLE ORDER PREFIX SELECT] Selecting prefix:', prefix);
+    window.selectedSimpleOrderPrefix = prefix;
+    
+    // Save to localStorage
+    try {
+        localStorage.setItem('lastSelectedChaimaeOrderPrefix', prefix);
+        console.log('💾 [CHAIMAE ORDER PREFIX] Saved to localStorage:', prefix);
+    } catch (error) {
+        console.error('❌ [CHAIMAE ORDER PREFIX] Error saving to localStorage:', error);
+    }
+    
+    const prefixInput = document.getElementById('simpleOrderPrefixInputChaimae');
+    const prefixExample = document.getElementById('simpleOrderPrefixExampleChaimae');
+    
+    if (prefixInput) {
+        prefixInput.value = prefix;
+        console.log('✅ [SIMPLE ORDER PREFIX SELECT] Updated simpleOrderPrefixInput to:', prefix);
+    }
+    
+    if (prefixExample) {
+        prefixExample.textContent = prefix;
+        console.log('✅ [SIMPLE ORDER PREFIX SELECT] Updated simpleOrderPrefixExample to:', prefix);
+    }
+    
+    const dropdown = document.getElementById('simpleOrderPrefixDropdownChaimae');
+    if (dropdown) {
+        dropdown.style.display = 'none';
+    }
+    
+    renderSimpleOrderPrefixListChaimae();
+}
+
+// Add new simple order prefix (Global)
+window.addNewSimpleOrderPrefixChaimae = async function() {
+    const newPrefixInput = document.getElementById('newSimpleOrderPrefixInputChaimae');
+    if (!newPrefixInput) return;
+    
+    const newPrefix = newPrefixInput.value.trim().toUpperCase();
+    
+    if (!newPrefix) {
+        window.notify.warning('Attention', 'Veuillez saisir un prefix', 2000);
+        return;
+    }
+    
+    if (window.simpleOrderPrefixes.includes(newPrefix)) {
+        window.notify.warning('Attention', 'Ce prefix existe déjà', 2000);
+        return;
+    }
+    
+    // Add to database
+    const result = await window.electron.dbChaimae.addSimpleOrderPrefix(newPrefix);
+    
+    if (result.success) {
+        window.simpleOrderPrefixes.push(newPrefix);
+        window.simpleOrderPrefixes.sort();
+        newPrefixInput.value = '';
+        
+        renderSimpleOrderPrefixListChaimae();
+        window.notify.success('Succès', `Prefix "${newPrefix}" ajouté`, 2000);
+    } else {
+        window.notify.error('Erreur', result.error || 'Impossible d\'ajouter le prefix', 3000);
+    }
+}
+
+// Delete simple order prefix (Global)
+window.deleteSimpleOrderPrefixChaimae = async function(prefix) {
+    if (window.simpleOrderPrefixes.length <= 1) {
+        window.notify.warning('Attention', 'Vous devez garder au moins un prefix', 2000);
+        return;
+    }
+    
+    // Delete from database
+    const result = await window.electron.dbChaimae.deleteSimpleOrderPrefix(prefix);
+    
+    if (result.success) {
+        const index = window.simpleOrderPrefixes.indexOf(prefix);
+        if (index > -1) {
+            window.simpleOrderPrefixes.splice(index, 1);
+            
+            // If deleted prefix was selected, select the first one
+            if (window.selectedSimpleOrderPrefix === prefix) {
+                window.selectedSimpleOrderPrefix = window.simpleOrderPrefixes[0];
+                const prefixInput = document.getElementById('simpleOrderPrefixInputChaimae');
+                const prefixExample = document.getElementById('simpleOrderPrefixExampleChaimae');
+                if (prefixInput) prefixInput.value = window.selectedSimpleOrderPrefix;
+                if (prefixExample) prefixExample.textContent = window.selectedSimpleOrderPrefix;
+            }
+            
+            renderSimpleOrderPrefixListChaimae();
+            window.notify.success('Succès', `Prefix "${prefix}" supprimé`, 2000);
+        }
+    } else {
+        window.notify.error('Erreur', result.error || 'Impossible de supprimer le prefix', 3000);
+    }
+}
+
+// Load simple order prefixes from database
+async function loadSimpleOrderPrefixesFromDB() {
+    try {
+        const result = await window.electron.dbChaimae.getSimpleOrderPrefixes();
+        if (result.success && result.data && result.data.length > 0) {
+            window.simpleOrderPrefixes = result.data;
+            console.log('✅ [SIMPLE ORDER PREFIX] Loaded from DB:', window.simpleOrderPrefixes);
+            
+            // Set selected prefix if not set
+            if (!window.selectedSimpleOrderPrefix) {
+                window.selectedSimpleOrderPrefix = window.simpleOrderPrefixes[0];
+            }
+            
+            // Try to load last selected prefix from localStorage
+            let lastSelected = null;
+            try {
+                lastSelected = localStorage.getItem('lastSelectedChaimaeOrderPrefix');
+                console.log('💾 [CHAIMAE ORDER PREFIX] Retrieved from localStorage:', lastSelected);
+            } catch (error) {
+                console.error('❌ [CHAIMAE ORDER PREFIX] Error reading from localStorage:', error);
+            }
+            
+            // Use last selected if it exists in the list, otherwise use first
+            if (lastSelected && window.simpleOrderPrefixes.includes(lastSelected)) {
+                window.selectedSimpleOrderPrefix = lastSelected;
+                console.log('✅ [CHAIMAE ORDER PREFIX] Using last selected:', lastSelected);
+            } else {
+                window.selectedSimpleOrderPrefix = window.simpleOrderPrefixes[0] || null;
+                console.log('✅ [CHAIMAE ORDER PREFIX] Using first prefix:', window.selectedSimpleOrderPrefix);
+            }
+        } else {
+            window.simpleOrderPrefixes = [];
+            window.selectedSimpleOrderPrefix = null;
+            console.log('ℹ️ [CHAIMAE ORDER PREFIX] No prefixes found in database');
+        }
+    } catch (error) {
+        console.error('❌ [CHAIMAE ORDER PREFIX] Error loading from DB:', error);
+        window.simpleOrderPrefixes = [];
+        window.selectedSimpleOrderPrefix = null;
+    }
+}
+
+// ==================== END SIMPLE ORDER PREFIX FUNCTIONS ====================
+
+// Bon de livraison field in Facture - No auto-formatting (user enters value as-is)
+
 // Format Bon de livraison number with selected prefix (Global)
 window.formatBonLivraisonWithPrefixChaimae = function(input) {
     let value = input.value.trim();
@@ -623,6 +1123,84 @@ window.addYearOnBlurChaimae = function(input) {
     input.value = `${value}/${year}`;
 }
 
+// Handle arrow key navigation in products table (Global)
+window.handleArrowNavigationChaimae = function(event, currentRowId, currentCellIndex) {
+    // Only handle arrow keys
+    if (!['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(event.key)) {
+        return;
+    }
+    
+    const currentRow = document.getElementById(currentRowId);
+    const tbody = document.getElementById('productsTableBodyChaimae');
+    const allRows = Array.from(tbody.querySelectorAll('tr'));
+    const currentRowIndex = allRows.indexOf(currentRow);
+    
+    let targetRow = null;
+    let targetCellIndex = currentCellIndex;
+    
+    // Handle arrow keys
+    if (event.key === 'ArrowUp') {
+        // Move to row above
+        if (currentRowIndex > 0) {
+            targetRow = allRows[currentRowIndex - 1];
+            event.preventDefault();
+        }
+    } else if (event.key === 'ArrowDown') {
+        // Move to row below
+        if (currentRowIndex < allRows.length - 1) {
+            targetRow = allRows[currentRowIndex + 1];
+            event.preventDefault();
+        } else {
+            // If on last row, add new row and move to it
+            addProductRowChaimae();
+            setTimeout(() => {
+                const newRows = Array.from(tbody.querySelectorAll('tr'));
+                targetRow = newRows[newRows.length - 1];
+                focusCell(targetRow, targetCellIndex);
+            }, 50);
+            event.preventDefault();
+            return;
+        }
+    } else if (event.key === 'ArrowLeft') {
+        // Move to cell on the left
+        if (currentCellIndex > 0) {
+            targetRow = currentRow;
+            targetCellIndex = currentCellIndex - 1;
+            event.preventDefault();
+        }
+    } else if (event.key === 'ArrowRight') {
+        // Move to cell on the right
+        if (currentCellIndex < 2) { // 0=designation, 1=quantity, 2=price
+            targetRow = currentRow;
+            targetCellIndex = currentCellIndex + 1;
+            event.preventDefault();
+        }
+    }
+    
+    // Focus the target cell
+    if (targetRow) {
+        focusCell(targetRow, targetCellIndex);
+    }
+};
+
+// Helper function to focus a specific cell in a row
+function focusCell(row, cellIndex) {
+    const cells = row.querySelectorAll('td');
+    if (cells[cellIndex]) {
+        const input = cells[cellIndex].querySelector('textarea, input');
+        if (input) {
+            input.focus();
+            // For text inputs, move cursor to end
+            if (input.type === 'text' || input.tagName === 'TEXTAREA') {
+                const length = input.value.length;
+                input.setSelectionRange(length, length);
+            } else if (input.type === 'number') {
+                input.select();
+            }
+        }
+    }
+}
+
 // Add product row for Chaimae (Global)
 let productRowCounterChaimae = 0;
 window.addProductRowChaimae = function() {
@@ -633,15 +1211,17 @@ window.addProductRowChaimae = function() {
     row.id = rowId;
     row.innerHTML = `
         <td>
-            <input type="text" class="product-designation" placeholder="Description du produit...">
+            <textarea class="product-designation" rows="2" placeholder="Description du produit..." onkeydown="handleArrowNavigationChaimae(event, '${rowId}', 0)"></textarea>
         </td>
         <td>
             <input type="text" class="product-quantity" placeholder="ex: 50 Kg, F, 10"
-                   onchange="calculateRowTotalChaimae('${rowId}')" onblur="calculateRowTotalChaimae('${rowId}')">
+                   onchange="calculateRowTotalChaimae('${rowId}')" onblur="calculateRowTotalChaimae('${rowId}')"
+                   onkeydown="handleArrowNavigationChaimae(event, '${rowId}', 1)">
         </td>
         <td>
             <input type="number" class="product-price" step="0.01" placeholder="0.00"
-                   onchange="calculateRowTotalChaimae('${rowId}')" onblur="calculateRowTotalChaimae('${rowId}')">
+                   onchange="calculateRowTotalChaimae('${rowId}')" onblur="calculateRowTotalChaimae('${rowId}')"
+                   onkeydown="handleArrowNavigationChaimae(event, '${rowId}', 2)">
         </td>
         <td>
             <span class="product-total">0.00 DH</span>
@@ -911,7 +1491,17 @@ async function handleFormSubmitChaimae(e) {
         
         if (docType === 'facture') {
             formData.document.numero = mainNumero;
-            formData.document.numero_Order = document.getElementById('documentNumeroOrderChaimae')?.value || null;
+            const numeroOrderChaimae = document.getElementById('documentNumeroOrderChaimae');
+            if (numeroOrderChaimae && numeroOrderChaimae.value) {
+                const prefix = window.selectedSimpleOrderPrefix;
+                if (prefix) {
+                    formData.document.numero_Order = `${prefix}${numeroOrderChaimae.value}`;
+                } else {
+                    formData.document.numero_Order = numeroOrderChaimae.value;
+                }
+            } else {
+                formData.document.numero_Order = null;
+            }
             formData.document.bon_de_livraison = document.getElementById('documentBonLivraisonChaimae')?.value || null;
         } else if (docType === 'devis') {
             formData.document.numero_devis = mainNumero;
@@ -922,33 +1512,55 @@ async function handleFormSubmitChaimae(e) {
             
             formData.document.numero = fullNumero;
             formData.document.numero_BL = fullNumero; // Save to document_numero_bl field
-            formData.document.numero_commande = document.getElementById('documentBonCommandeChaimae')?.value || null;
+            
+            // Format N° Order with prefix if provided
+            const orderValue = document.getElementById('documentBonCommandeChaimae')?.value?.trim();
+            if (orderValue) {
+                const selectedOrderPrefix = window.selectedOrderPrefix || 'BC';
+                
+                // Remove any existing prefix from all known prefixes
+                let cleanValue = orderValue;
+                if (window.orderPrefixes && window.orderPrefixes.length > 0) {
+                    for (const prefix of window.orderPrefixes) {
+                        if (cleanValue.startsWith(prefix)) {
+                            cleanValue = cleanValue.substring(prefix.length);
+                            break;
+                        }
+                    }
+                }
+                
+                // Add the selected prefix
+                formData.document.numero_commande = `${selectedOrderPrefix}${cleanValue}`;
+            } else {
+                formData.document.numero_commande = null;
+            }
         }
         
         // Collect products
         const rows = document.querySelectorAll('#productsTableBodyChaimae tr');
         rows.forEach(row => {
             const designation = row.querySelector('.product-designation').value.trim();
-            let quantite = row.querySelector('.product-quantity').value.trim();
+            const quantiteOriginal = row.querySelector('.product-quantity').value.trim();
             const prix_unitaire_ht = parseFloat(row.querySelector('.product-price').value) || 0;
             
-            console.log('🔍 CHAIMAE BEFORE conversion - Quantite:', quantite, 'Type:', typeof quantite);
+            console.log('🔍 CHAIMAE BEFORE conversion - Quantite:', quantiteOriginal, 'Type:', typeof quantiteOriginal);
             
-            // Convert 'F' or 'f' to '1'
-            if (quantite.toUpperCase() === 'F') {
-                console.log('✅ CHAIMAE Converting F to 1');
-                quantite = '1';
+            // For calculation: convert F to 1
+            let quantiteForCalc = quantiteOriginal;
+            if (quantiteForCalc.toUpperCase() === 'F') {
+                console.log('✅ CHAIMAE Converting F to 1 for calculation');
+                quantiteForCalc = '1';
             }
             
-            console.log('🔍 CHAIMAE AFTER conversion - Quantite:', quantite, 'Type:', typeof quantite);
+            console.log('🔍 CHAIMAE AFTER conversion - QuantiteForCalc:', quantiteForCalc, 'Original:', quantiteOriginal);
             
             // Calculate total_ht directly from quantity and price
-            const qty = parseFloat(quantite) || 0;
+            const qty = parseFloat(quantiteForCalc) || 0;
             const total_ht = qty * prix_unitaire_ht;
             
             console.log('💾 CHAIMAE Saving product:', {
                 designation,
-                quantite,
+                quantiteOriginal,
                 qty_parsed: qty,
                 prix_unitaire_ht,
                 calculated_total: total_ht
@@ -958,7 +1570,7 @@ async function handleFormSubmitChaimae(e) {
             if (designation) {
                 formData.products.push({
                     designation,
-                    quantite: quantite || '0',
+                    quantite: quantiteOriginal || '0',  // Save original value (F, 10 Kg, etc.)
                     prix_unitaire_ht,
                     total_ht
                 });
@@ -968,7 +1580,7 @@ async function handleFormSubmitChaimae(e) {
         // Products are optional now - no validation needed
         console.log('📤 Creating invoice for Chaimae:', formData);
         
-        // Check for duplicate document numbers
+        // Check for duplicate document numbers in regular invoices
         const allInvoicesResult = await window.electron.dbChaimae.getAllInvoices();
         if (allInvoicesResult.success) {
             const invoices = allInvoicesResult.data;
@@ -1009,6 +1621,25 @@ async function handleFormSubmitChaimae(e) {
                     });
                 }
             }
+        }
+        
+        // Check for duplicate in global invoices (for facture only)
+        if (docType === 'facture' && mainNumero) {
+            const allGlobalInvoicesResult = await window.electron.dbChaimae.getAllGlobalInvoices();
+            if (allGlobalInvoicesResult.success) {
+                const duplicateGlobal = allGlobalInvoicesResult.data.find(inv => 
+                    inv.document_numero === mainNumero
+                );
+                
+                if (duplicateGlobal) {
+                    window.notify.error('Erreur', `Le numéro "${mainNumero}" existe déjà dans une facture globale`, 5000);
+                    return;
+                }
+            }
+        }
+        
+        if (allInvoicesResult.success) {
+            const invoices = allInvoicesResult.data;
             
             // Check N° Order if provided (for facture)
             if (docType === 'facture' && formData.document.numero_Order) {
@@ -1035,10 +1666,12 @@ async function handleFormSubmitChaimae(e) {
             // Check N° Order if provided (for bon_livraison)
             if (docType === 'bon_livraison' && formData.document.numero_commande) {
                 const duplicateBC = invoices.find(inv => 
-                    inv.document_numero_commande === formData.document.numero_commande
+                    (inv.document_type === 'bon_livraison' || inv.document_type === 'bon de livraison') &&
+                    inv.document_numero_commande && 
+                    inv.document_numero_commande.trim() === formData.document.numero_commande.trim()
                 );
                 if (duplicateBC) {
-                    window.notify.error('Erreur', `Le N° Order "${formData.document.numero_commande}" existe déjà`, 5000);
+                    window.notify.error('Erreur', `Le N° Order "${formData.document.numero_commande}" existe déjà dans un autre Bon de livraison`, 5000);
                     return;
                 }
             }
@@ -1075,6 +1708,12 @@ async function handleFormSubmitChaimae(e) {
                 }
             }
             
+            // Save notes if any
+            const noteText = document.getElementById('invoiceNotesChaimae')?.value?.trim();
+            if (noteText) {
+                await window.electron.dbChaimae.saveNote(invoiceId, noteText);
+            }
+            
             window.notify.success('Succès', 'Document créé avec succès!', 3000);
             setTimeout(() => {
                 router.navigate('/dashboard-chaimae');
@@ -1106,6 +1745,522 @@ function handleFileSelectChaimae(e) {
         filesList.appendChild(fileItem);
     });
 }
+
+// Show missing invoice numbers (Global)
+window.showMissingNumbersChaimae = async function(selectedYear = null) {
+    const currentYear = selectedYear || new Date().getFullYear();
+    
+    try {
+        const result = await window.electron.dbChaimae.getMissingNumbers(currentYear);
+        
+        if (!result.success) {
+            window.notify.error('Erreur', result.error || 'Impossible de charger les numéros manquants', 3000);
+            return;
+        }
+        
+        const missingNumbers = result.data || [];
+        const stats = result.stats || {};
+        
+        // Get all available years from invoices
+        const invoicesResult = await window.electron.dbChaimae.getAllInvoices('CHAIMAE');
+        let availableYears = [new Date().getFullYear()];
+        if (invoicesResult.success && invoicesResult.data) {
+            const years = invoicesResult.data.map(inv => {
+                const year = new Date(inv.document_date).getFullYear();
+                return year;
+            });
+            availableYears = [...new Set([...years, new Date().getFullYear()])].sort((a, b) => b - a);
+        }
+        
+        // Create modal
+        const modal = document.createElement('div');
+        modal.id = 'missingNumbersModalChaimae';
+        modal.style.cssText = `
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.7);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 10000;
+            backdrop-filter: blur(5px);
+        `;
+        
+        const content = document.createElement('div');
+        content.style.cssText = `
+            background: linear-gradient(135deg, #1e1e1e 0%, #2d2d30 100%);
+            border-radius: 16px;
+            padding: 2rem;
+            max-width: 600px;
+            width: 90%;
+            max-height: 80vh;
+            overflow-y: auto;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+            border: 2px solid #667eea;
+        `;
+        
+        content.innerHTML = `
+            <div style="margin-bottom: 1.5rem;">
+                <h2 style="margin: 0 0 0.5rem 0; color: #fff; font-size: 1.5rem; display: flex; align-items: center; gap: 0.5rem;">
+                    <span style="font-size: 1.8rem;">📊</span>
+                    Numéros manquants ${missingNumbers.length > 0 ? `(${missingNumbers.length})` : ''}
+                </h2>
+                <div style="margin-top: 1rem; margin-bottom: 1rem;">
+                    <label style="color: #fff; font-size: 0.95rem; margin-bottom: 0.5rem; display: block;">📅 Filtrer par année:</label>
+                    <select id="yearFilterChaimaeMissing" onchange="window.showMissingNumbersChaimae(this.value === 'all' ? null : parseInt(this.value))" 
+                            style="width: 100%; padding: 0.75rem; background: #2d2d30; border: 2px solid #3e3e42; border-radius: 8px; color: #fff; font-size: 1rem; outline: none; cursor: pointer;">
+                        <option value="all" ${!selectedYear ? 'selected' : ''}>🌐 Toutes les années</option>
+                        ${availableYears.map(year => `<option value="${year}" ${currentYear === year ? 'selected' : ''}>${year}</option>`).join('')}
+                    </select>
+                </div>
+                ${missingNumbers.length > 0 ? `
+                <p style="margin: 0.5rem 0 0 0; color: #999; font-size: 0.9rem;">
+                    Min: ${stats.min || 0} | Max: ${stats.max || 0} | Utilisés: ${stats.used || 0} | Manquants: ${stats.missing || 0}
+                </p>
+                ` : ''}
+            </div>
+            
+            ${missingNumbers.length > 0 ? `
+            <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(60px, 1fr)); gap: 0.75rem; margin-bottom: 1.5rem;">
+                ${missingNumbers.map(num => `
+                    <button type="button" onclick="selectMissingNumberChaimae(${num})" 
+                            style="padding: 0.75rem; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: #fff; border: none; border-radius: 8px; cursor: pointer; font-size: 1rem; font-weight: 600; transition: all 0.3s; box-shadow: 0 2px 8px rgba(102, 126, 234, 0.3);"
+                            onmouseover="this.style.transform='translateY(-3px) scale(1.05)'; this.style.boxShadow='0 6px 16px rgba(102, 126, 234, 0.5)';"
+                            onmouseout="this.style.transform='translateY(0) scale(1)'; this.style.boxShadow='0 2px 8px rgba(102, 126, 234, 0.3)';">
+                        ${num}
+                    </button>
+                `).join('')}
+            </div>
+            ` : `
+            <div style="padding: 2rem; text-align: center; color: #999;">
+                <span style="font-size: 3rem; display: block; margin-bottom: 1rem;">✅</span>
+                <p style="font-size: 1.1rem; margin: 0;">Aucun numéro manquant trouvé</p>
+            </div>
+            `}
+            
+            <button type="button" onclick="document.getElementById('missingNumbersModalChaimae').remove()" 
+                    style="width: 100%; padding: 0.75rem; background: #3e3e42; color: #fff; border: none; border-radius: 8px; cursor: pointer; font-size: 1rem; transition: all 0.3s;"
+                    onmouseover="this.style.background='#4e4e52';"
+                    onmouseout="this.style.background='#3e3e42';">
+                Fermer
+            </button>
+        `;
+        
+        modal.appendChild(content);
+        
+        // Remove existing modal if any
+        const existingModal = document.getElementById('missingNumbersModalChaimae');
+        if (existingModal) existingModal.remove();
+        
+        document.body.appendChild(modal);
+        
+        // Close on outside click
+        modal.addEventListener('click', (e) => {
+            if (e.target === modal) {
+                modal.remove();
+            }
+        });
+        
+    } catch (error) {
+        console.error('Error showing missing numbers:', error);
+        window.notify.error('Erreur', 'Une erreur est survenue', 3000);
+    }
+};
+
+// Select missing number and fill input (Global)
+window.selectMissingNumberChaimae = function(number) {
+    const input = document.getElementById('documentNumeroChaimae');
+    if (input) {
+        input.value = number;
+        input.focus();
+        
+        // Close modal
+        const modal = document.querySelector('[style*="position: fixed"]');
+        if (modal) modal.remove();
+        
+        window.notify.success('Succès', `Numéro ${number} sélectionné`, 2000);
+    }
+};
+
+// Show missing devis numbers (Global)
+window.showMissingDevisNumbersChaimae = async function(selectedYear = null) {
+    const currentYear = selectedYear || new Date().getFullYear();
+    console.log('🔍 [FRONTEND] showMissingDevisNumbersChaimae called for year:', currentYear);
+    
+    try {
+        console.log('🔍 [FRONTEND] Calling getMissingDevisNumbers...');
+        const result = await window.electron.dbChaimae.getMissingDevisNumbers(currentYear);
+        console.log('🔍 [FRONTEND] Result:', result);
+        
+        if (!result.success) {
+            window.notify.error('Erreur', result.error || 'Impossible de charger les numéros manquants', 3000);
+            return;
+        }
+        
+        const missingNumbers = result.data || [];
+        const stats = result.stats || {};
+        
+        // Get all available years from invoices
+        const invoicesResult = await window.electron.dbChaimae.getAllInvoices('CHAIMAE');
+        let availableYears = [new Date().getFullYear()];
+        if (invoicesResult.success && invoicesResult.data) {
+            const years = invoicesResult.data.map(inv => {
+                const year = new Date(inv.document_date).getFullYear();
+                return year;
+            });
+            availableYears = [...new Set([...years, new Date().getFullYear()])].sort((a, b) => b - a);
+        }
+        
+        // Create modal
+        const modal = document.createElement('div');
+        modal.id = 'missingDevisNumbersModalChaimae';
+        modal.style.cssText = `
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.7);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 10000;
+            backdrop-filter: blur(5px);
+        `;
+        
+        const content = document.createElement('div');
+        content.style.cssText = `
+            background: linear-gradient(135deg, #1e1e1e 0%, #2d2d30 100%);
+            border-radius: 16px;
+            padding: 2rem;
+            max-width: 600px;
+            width: 90%;
+            max-height: 80vh;
+            overflow-y: auto;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+            border: 2px solid #667eea;
+        `;
+        
+        content.innerHTML = `
+            <div style="margin-bottom: 1.5rem;">
+                <h2 style="margin: 0 0 0.5rem 0; color: #fff; font-size: 1.5rem; display: flex; align-items: center; gap: 0.5rem;">
+                    <span style="font-size: 1.8rem;">📊</span>
+                    Numéros manquants ${missingNumbers.length > 0 ? `(${missingNumbers.length})` : ''}
+                </h2>
+                <div style="margin-top: 1rem; margin-bottom: 1rem;">
+                    <label style="color: #fff; font-size: 0.95rem; margin-bottom: 0.5rem; display: block;">📅 Filtrer par année:</label>
+                    <select id="yearFilterChaimaeDevisMissing" onchange="window.showMissingDevisNumbersChaimae(this.value === 'all' ? null : parseInt(this.value))" 
+                            style="width: 100%; padding: 0.75rem; background: #2d2d30; border: 2px solid #3e3e42; border-radius: 8px; color: #fff; font-size: 1rem; outline: none; cursor: pointer;">
+                        <option value="all" ${!selectedYear ? 'selected' : ''}>🌐 Toutes les années</option>
+                        ${availableYears.map(year => `<option value="${year}" ${currentYear === year ? 'selected' : ''}>${year}</option>`).join('')}
+                    </select>
+                </div>
+                ${missingNumbers.length > 0 ? `
+                <p style="margin: 0.5rem 0 0 0; color: #999; font-size: 0.9rem;">
+                    Min: ${stats.min || 0} | Max: ${stats.max || 0} | Utilisés: ${stats.used || 0} | Manquants: ${stats.missing || 0}
+                </p>
+                ` : ''}
+            </div>
+            
+            ${missingNumbers.length > 0 ? `
+            <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(60px, 1fr)); gap: 0.75rem; margin-bottom: 1.5rem;">
+                ${missingNumbers.map(num => `
+                    <button type="button" onclick="selectMissingNumberChaimae(${num})" 
+                            style="padding: 0.75rem; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: #fff; border: none; border-radius: 8px; cursor: pointer; font-size: 1rem; font-weight: 600; transition: all 0.3s; box-shadow: 0 2px 8px rgba(102, 126, 234, 0.3);"
+                            onmouseover="this.style.transform='translateY(-3px) scale(1.05)'; this.style.boxShadow='0 6px 16px rgba(102, 126, 234, 0.5)';"
+                            onmouseout="this.style.transform='translateY(0) scale(1)'; this.style.boxShadow='0 2px 8px rgba(102, 126, 234, 0.3)';">
+                        ${num}
+                    </button>
+                `).join('')}
+            </div>
+            ` : `
+            <div style="padding: 2rem; text-align: center; color: #999;">
+                <span style="font-size: 3rem; display: block; margin-bottom: 1rem;">✅</span>
+                <p style="font-size: 1.1rem; margin: 0;">Aucun numéro manquant trouvé</p>
+            </div>
+            `}
+            
+            <button type="button" onclick="document.getElementById('missingDevisNumbersModalChaimae').remove()" 
+                    style="width: 100%; padding: 0.75rem; background: #3e3e42; color: #fff; border: none; border-radius: 8px; cursor: pointer; font-size: 1rem; transition: all 0.3s;"
+                    onmouseover="this.style.background='#4e4e52';"
+                    onmouseout="this.style.background='#3e3e42';">
+                Fermer
+            </button>
+        `;
+        
+        modal.appendChild(content);
+        
+        // Remove existing modal if any
+        const existingModal = document.getElementById('missingDevisNumbersModalChaimae');
+        if (existingModal) existingModal.remove();
+        
+        document.body.appendChild(modal);
+        
+        // Close on outside click
+        modal.addEventListener('click', (e) => {
+            if (e.target === modal) {
+                modal.remove();
+            }
+        });
+        
+    } catch (error) {
+        console.error('Error showing missing devis numbers:', error);
+        window.notify.error('Erreur', 'Une erreur est survenue', 3000);
+    }
+};
+
+// Show missing order numbers (Global)
+window.showMissingOrderNumbersChaimae = async function() {
+    try {
+        const result = await window.electron.dbChaimae.getMissingOrderNumbers();
+        
+        if (!result.success) {
+            window.notify.error('Erreur', result.error || 'Impossible de charger les numéros manquants', 3000);
+            return;
+        }
+        
+        const missingNumbers = result.data || [];
+        const stats = result.stats || {};
+        
+        if (missingNumbers.length === 0) {
+            window.notify.info('Info', 'Aucun numéro manquant trouvé', 2500);
+            return;
+        }
+        
+        // Create modal
+        const modal = document.createElement('div');
+        modal.style.cssText = `
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.7);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 10000;
+            backdrop-filter: blur(5px);
+        `;
+        
+        const content = document.createElement('div');
+        content.style.cssText = `
+            background: linear-gradient(135deg, #1e1e1e 0%, #2d2d30 100%);
+            border-radius: 16px;
+            padding: 2rem;
+            max-width: 600px;
+            width: 90%;
+            max-height: 80vh;
+            overflow-y: auto;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+            border: 2px solid #2196f3;
+        `;
+        
+        content.innerHTML = `
+            <div style="margin-bottom: 1.5rem;">
+                <h2 style="margin: 0 0 0.5rem 0; color: #fff; font-size: 1.5rem; display: flex; align-items: center; gap: 0.5rem;">
+                    <span style="font-size: 1.8rem;">📊</span>
+                    N° Order manquants (${missingNumbers.length})
+                </h2>
+                <p style="margin: 0; color: #999; font-size: 0.9rem;">
+                    Min: ${stats.min || 0} | Max: ${stats.max || 0} | Utilisés: ${stats.used || 0} | Manquants: ${stats.missing || 0}
+                </p>
+            </div>
+            
+            <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(60px, 1fr)); gap: 0.75rem; margin-bottom: 1.5rem;">
+                ${missingNumbers.map(num => `
+                    <button type="button" onclick="selectMissingOrderNumberChaimae(${num})" 
+                            style="padding: 0.75rem; background: linear-gradient(135deg, #2196f3 0%, #1976d2 100%); color: #fff; border: none; border-radius: 8px; cursor: pointer; font-size: 1rem; font-weight: 600; transition: all 0.3s; box-shadow: 0 2px 8px rgba(33, 150, 243, 0.3);"
+                            onmouseover="this.style.transform='translateY(-3px) scale(1.05)'; this.style.boxShadow='0 6px 16px rgba(33, 150, 243, 0.5)';"
+                            onmouseout="this.style.transform='translateY(0) scale(1)'; this.style.boxShadow='0 2px 8px rgba(33, 150, 243, 0.3)';">
+                        ${num}
+                    </button>
+                `).join('')}
+            </div>
+            
+            <button type="button" onclick="this.closest('[style*=\\'position: fixed\\']').remove()" 
+                    style="width: 100%; padding: 0.75rem; background: #3e3e42; color: #fff; border: none; border-radius: 8px; cursor: pointer; font-size: 1rem; transition: all 0.3s;"
+                    onmouseover="this.style.background='#4e4e52';"
+                    onmouseout="this.style.background='#3e3e42';">
+                Fermer
+            </button>
+        `;
+        
+        modal.appendChild(content);
+        document.body.appendChild(modal);
+        
+        // Close on outside click
+        modal.addEventListener('click', (e) => {
+            if (e.target === modal) {
+                modal.remove();
+            }
+        });
+        
+    } catch (error) {
+        console.error('Error showing missing order numbers:', error);
+        window.notify.error('Erreur', 'Une erreur est survenue', 3000);
+    }
+};
+
+// Select missing order number and fill input (Global)
+window.selectMissingOrderNumberChaimae = function(number) {
+    // Try both possible inputs
+    let input = document.getElementById('documentBonCommandeChaimae');
+    if (!input) {
+        input = document.getElementById('documentNumeroOrderChaimae');
+    }
+    
+    if (input) {
+        input.value = number;
+        input.focus();
+        
+        // Close modal
+        const modal = document.querySelector('[style*="position: fixed"]');
+        if (modal) modal.remove();
+        
+        window.notify.success('Succès', `N° Order ${number} sélectionné`, 2000);
+    }
+};
+
+// Show missing Bon de livraison numbers grouped by prefix (Global)
+window.showMissingBonLivraisonNumbersChaimae = async function() {
+    const currentYear = new Date().getFullYear();
+    
+    try {
+        const result = await window.electron.dbChaimae.getMissingBonLivraisonNumbers(currentYear);
+        
+        if (!result.success) {
+            window.notify.error('Erreur', result.error || 'Impossible de charger les numéros manquants', 3000);
+            return;
+        }
+        
+        const missingByPrefix = result.byPrefix || {};
+        const stats = result.stats || {};
+        
+        if (Object.keys(missingByPrefix).length === 0) {
+            window.notify.info('Info', 'Aucun numéro manquant trouvé', 2500);
+            return;
+        }
+        
+        // Create modal
+        const modal = document.createElement('div');
+        modal.style.cssText = `
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.7);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 10000;
+            backdrop-filter: blur(5px);
+        `;
+        
+        const content = document.createElement('div');
+        content.style.cssText = `
+            background: linear-gradient(135deg, #1e1e1e 0%, #2d2d30 100%);
+            border-radius: 16px;
+            padding: 2rem;
+            max-width: 700px;
+            width: 90%;
+            max-height: 80vh;
+            overflow-y: auto;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+            border: 2px solid #4caf50;
+        `;
+        
+        // Generate HTML for each prefix group
+        const prefixSections = Object.keys(missingByPrefix).sort().map(prefix => {
+            const numbers = missingByPrefix[prefix];
+            return `
+                <div style="margin-bottom: 1.5rem; padding: 1rem; background: rgba(76, 175, 80, 0.1); border-radius: 12px; border: 2px solid rgba(76, 175, 80, 0.3);">
+                    <h3 style="margin: 0 0 1rem 0; color: #4caf50; font-size: 1.2rem; display: flex; align-items: center; gap: 0.5rem;">
+                        <span style="background: linear-gradient(90deg, #4caf50 0%, #388e3c 100%); padding: 0.5rem 1rem; border-radius: 8px; font-weight: 700; letter-spacing: 1px;">${prefix}</span>
+                        <span style="color: #999; font-size: 0.9rem; font-weight: 400;">(${numbers.length} manquant${numbers.length > 1 ? 's' : ''})</span>
+                    </h3>
+                    <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(60px, 1fr)); gap: 0.5rem;">
+                        ${numbers.map(num => `
+                            <button type="button" onclick="selectMissingBonLivraisonNumberChaimae('${prefix}', ${num})" 
+                                    style="padding: 0.65rem; background: linear-gradient(135deg, #4caf50 0%, #388e3c 100%); color: #fff; border: none; border-radius: 8px; cursor: pointer; font-size: 0.95rem; font-weight: 600; transition: all 0.3s; box-shadow: 0 2px 8px rgba(76, 175, 80, 0.3);"
+                                    onmouseover="this.style.transform='translateY(-3px) scale(1.05)'; this.style.boxShadow='0 6px 16px rgba(76, 175, 80, 0.5)';"
+                                    onmouseout="this.style.transform='translateY(0) scale(1)'; this.style.boxShadow='0 2px 8px rgba(76, 175, 80, 0.3)';">
+                                ${num}
+                            </button>
+                        `).join('')}
+                    </div>
+                </div>
+            `;
+        }).join('');
+        
+        content.innerHTML = `
+            <div style="margin-bottom: 1.5rem;">
+                <h2 style="margin: 0 0 0.5rem 0; color: #fff; font-size: 1.5rem; display: flex; align-items: center; gap: 0.5rem;">
+                    <span style="font-size: 1.8rem;">📊</span>
+                    Bon de livraison manquants par Prefix
+                </h2>
+                <p style="margin: 0; color: #999; font-size: 0.9rem;">
+                    Total: ${stats.totalMissing || 0} manquants | ${stats.prefixCount || 0} prefix différents
+                </p>
+            </div>
+            
+            ${prefixSections}
+            
+            <button type="button" onclick="this.closest('[style*=\\'position: fixed\\']').remove()" 
+                    style="width: 100%; padding: 0.75rem; background: #3e3e42; color: #fff; border: none; border-radius: 8px; cursor: pointer; font-size: 1rem; transition: all 0.3s;"
+                    onmouseover="this.style.background='#4e4e52';"
+                    onmouseout="this.style.background='#3e3e42';">
+                Fermer
+            </button>
+        `;
+        
+        modal.appendChild(content);
+        document.body.appendChild(modal);
+        
+        // Close on outside click
+        modal.addEventListener('click', (e) => {
+            if (e.target === modal) {
+                modal.remove();
+            }
+        });
+        
+    } catch (error) {
+        console.error('Error showing missing Bon de livraison numbers:', error);
+        window.notify.error('Erreur', 'Une erreur est survenue', 3000);
+    }
+};
+
+// Select missing Bon de livraison number and fill input with prefix (Global)
+window.selectMissingBonLivraisonNumberChaimae = function(prefix, number) {
+    // Set the prefix
+    window.selectedPrefix = prefix;
+    const prefixInput = document.getElementById('prefixInputChaimae');
+    const prefixExample = document.getElementById('prefixExampleChaimae');
+    if (prefixInput) {
+        prefixInput.value = prefix;
+    }
+    if (prefixExample) {
+        prefixExample.textContent = prefix;
+    }
+    
+    // Set the number
+    const input = document.getElementById('documentNumeroChaimae');
+    if (input) {
+        const currentYear = new Date().getFullYear();
+        input.value = `${number}/${currentYear}`;
+        input.focus();
+        
+        // Close modal
+        const modal = document.querySelector('[style*="position: fixed"]');
+        if (modal) modal.remove();
+        
+        window.notify.success('Succès', `Bon de livraison ${number} sélectionné`, 2000);
+    }
+};
 
 // Remove file for Chaimae (Global)
 window.removeFileChaimae = function(index) {

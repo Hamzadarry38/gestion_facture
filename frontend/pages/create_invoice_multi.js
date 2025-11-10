@@ -151,6 +151,24 @@ function CreateInvoiceMultiPage() {
                         </div>
                     </div>
 
+                    <!-- Section 5: Notes -->
+                    <div class="invoice-section">
+                        <div class="section-header">
+                            <h2>📝 Notes</h2>
+                        </div>
+                        <div class="section-body">
+                            <div class="form-field">
+                                <label>Notes supplémentaires (optionnel)</label>
+                                <textarea id="invoiceNotesMulti" rows="4" 
+                                          placeholder="Ajoutez des notes ou remarques concernant cette facture..."
+                                          style="width: 100%; padding: 0.75rem; background: #2d2d30; border: 2px solid #3e3e42; border-radius: 8px; color: #fff; font-size: 0.95rem; resize: vertical; font-family: inherit;"></textarea>
+                                <small style="color: #999; font-size: 0.85rem; display: block; margin-top: 0.5rem;">
+                                    Ces notes seront affichées dans le PDF sous le texte de clôture de la facture.
+                                </small>
+                            </div>
+                        </div>
+                    </div>
+
                     <!-- Form Actions -->
                     <div class="form-actions">
                         <button type="button" class="btn-secondary" onclick="router.navigate('/dashboard-multi')">

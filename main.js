@@ -10,10 +10,14 @@ const { initAutoUpdater, checkForUpdates, setLanguage } = require('./updater');
 let mainWindow;
 
 function createWindow() {
+  const packageJson = require('./package.json');
+  const appVersion = packageJson.version;
+  
   mainWindow = new BrowserWindow({
     width: 1200,
     height: 800,
     frame: false, // Remove default frame for custom title bar
+    title: `Gestion des Factures - v${appVersion}`,
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
       nodeIntegration: false,
@@ -35,7 +39,7 @@ function createWindow() {
 
   // Open DevTools only in development mode
   // Always open DevTools for testing updates
-  mainWindow.webContents.openDevTools();
+  // mainWindow.webContents.openDevTools(); // Disabled - DevTools will not open automatically
 
   // Auto reload on file changes (Hot Reload)
   if (process.argv.includes('--dev')) {
@@ -382,4 +386,19 @@ ipcMain.handle('check-for-updates', async () => {
 
 ipcMain.handle('set-update-language', async (event, language) => {
   setLanguage(language);
+});
+
+ipcMain.handle('download-update', async () => {
+  const { autoUpdater } = require('electron-updater');
+  autoUpdater.downloadUpdate();
+});
+
+ipcMain.handle('install-update', async () => {
+  const { autoUpdater } = require('electron-updater');
+  autoUpdater.quitAndInstall();
+});
+
+ipcMain.handle('get-app-version', async () => {
+  const packageJson = require('./package.json');
+  return packageJson.version;
 });

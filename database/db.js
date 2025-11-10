@@ -150,6 +150,33 @@ async function initDatabase() {
             )
         `);
         
+        // Create invoice_notes table for storing notes related to invoices
+        db.run(`
+            CREATE TABLE IF NOT EXISTS invoice_notes (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                invoice_id INTEGER NOT NULL,
+                note_text TEXT,
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (invoice_id) REFERENCES invoices(id) ON DELETE CASCADE
+            )
+        `);
+        
+        // Check if note_text column exists, if not add it (for existing databases)
+        try {
+            const tableInfo = db.exec(`PRAGMA table_info(invoice_notes)`);
+            if (tableInfo.length > 0) {
+                const columns = tableInfo[0].values.map(row => row[1]); // column names are at index 1
+                if (!columns.includes('note_text')) {
+                    console.log('⚠️ [MRY DB] Adding missing note_text column to invoice_notes table');
+                    db.run(`ALTER TABLE invoice_notes ADD COLUMN note_text TEXT`);
+                    saveDatabase();
+                }
+            }
+        } catch (error) {
+            console.log('ℹ️ [MRY DB] Note: Could not check/add note_text column:', error.message);
+        }
+        
         // Migration: Rename column if it exists with old name
         try {
             const tableInfo = db.exec("PRAGMA table_info(invoices)");
@@ -207,6 +234,22 @@ async function initDatabase() {
         } catch (migrationError) {
             // console.log('ℹ️ No migration needed or already migrated');
         }
+        
+        // Create mry_order_prefixes table for storing MRY N° Order prefixes
+        db.run(`
+            CREATE TABLE IF NOT EXISTS mry_order_prefixes (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                prefix TEXT NOT NULL UNIQUE,
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+            )
+        `);
+        
+        // Don't insert default prefixes - let user add them manually
+        // const checkMryOrderPrefixes = db.exec("SELECT COUNT(*) as count FROM mry_order_prefixes");
+        // if (checkMryOrderPrefixes.length === 0 || checkMryOrderPrefixes[0].values[0][0] === 0) {
+        //     db.run(`INSERT OR IGNORE INTO mry_order_prefixes (prefix) VALUES ('ORD'), ('CMD'), ('BC')`);
+        //     saveDatabase();
+        // }
         
         // Save database to file
         saveDatabase();
@@ -523,6 +566,7 @@ const invoiceOps = {
                 document_date = ?,
                 document_numero = ?,
                 document_numero_Order = ?,
+                document_numero_devis = ?,
                 total_ht = ?,
                 tva_rate = ?,
                 montant_tva = ?,
@@ -534,6 +578,7 @@ const invoiceOps = {
             invoiceData.document.date,
             invoiceData.document.numero,
             invoiceData.document.numero_Order,
+            invoiceData.document.numero_devis || null,
             invoiceData.totals.total_ht,
             invoiceData.totals.tva_rate,
             invoiceData.totals.montant_tva,
@@ -713,6 +758,294 @@ function getDatabase() {
     return db;
 }
 
+// MRY Order Prefix operations
+const mryOrderPrefixOps = {
+    // Get all MRY order prefixes
+    getAll: function() {
+        if (!db) throw new Error('Database not initialized');
+        
+        const result = db.exec(`SELECT prefix FROM mry_order_prefixes ORDER BY prefix ASC`);
+        
+        if (result.length === 0) return [];
+        
+        return result[0].values.map(row => row[0]);
+    },
+    
+    // Add new MRY order prefix
+    add: function(prefix) {
+        if (!db) throw new Error('Database not initialized');
+        
+        try {
+            db.run(`INSERT INTO mry_order_prefixes (prefix) VALUES (?)`, [prefix.toUpperCase()]);
+            saveDatabase();
+            return { success: true };
+        } catch (error) {
+            if (error.message.includes('UNIQUE constraint failed')) {
+                return { success: false, error: 'Prefix already exists' };
+            }
+            throw error;
+        }
+    },
+    
+    // Delete MRY order prefix
+    delete: function(prefix) {
+        if (!db) throw new Error('Database not initialized');
+        
+        // Check if it's the last prefix
+        const count = db.exec(`SELECT COUNT(*) as count FROM mry_order_prefixes`);
+        if (count[0].values[0][0] <= 1) {
+            return { success: false, error: 'Cannot delete the last prefix' };
+        }
+        
+        db.run(`DELETE FROM mry_order_prefixes WHERE prefix = ?`, [prefix]);
+        saveDatabase();
+        return { success: true };
+    }
+};
+
+// Get missing invoice numbers for MRY company
+function getMissingMRYInvoiceNumbers(year) {
+    return new Promise((resolve, reject) => {
+        if (!db) {
+            return reject(new Error('Database not initialized'));
+        }
+
+        try {
+            // Get all invoice numbers for MRY company
+            let query;
+            if (year) {
+                query = `
+                    SELECT document_numero 
+                    FROM invoices 
+                    WHERE company_code = 'MRY'
+                    AND document_type = 'facture' 
+                    AND document_numero LIKE '%/${year}'
+                `;
+            } else {
+                // Get all invoices regardless of year
+                query = `
+                    SELECT document_numero 
+                    FROM invoices 
+                    WHERE company_code = 'MRY'
+                    AND document_type = 'facture'
+                `;
+            }
+            
+            const invoices = db.exec(query);
+            
+            console.log(`🔍 [MRY FACTURE] Searching for year: ${year || 'ALL'}`);
+            console.log(`🔍 [MRY FACTURE] Found ${invoices.length > 0 && invoices[0].values.length > 0 ? invoices[0].values.length : 0} invoices`);
+            
+            if (invoices.length === 0 || invoices[0].values.length === 0) {
+                console.log(`❌ [MRY FACTURE] No invoices found for year ${year || 'ALL'}`);
+                return resolve({ success: true, data: [] });
+            }
+
+            // Extract numbers from document_numero (format: "123/2025")
+            const usedNumbers = invoices[0].values
+                .map(row => {
+                    const match = row[0].match(/^(\d+)\/(\d{4})$/);  
+                    if (!match) return null;
+                    const num = parseInt(match[1]);
+                    const docYear = parseInt(match[2]);
+                    // If year is specified, only include numbers from that year
+                    if (year && docYear !== parseInt(year)) return null;
+                    return num;
+                })
+                .filter(num => num !== null)
+                .sort((a, b) => a - b);
+
+            if (usedNumbers.length === 0) {
+                return resolve({ success: true, data: [] });
+            }
+
+            // Find missing numbers between min and max number
+            const minNumber = Math.min(...usedNumbers);
+            const maxNumber = Math.max(...usedNumbers);
+            const missingNumbers = [];
+
+            for (let i = minNumber + 1; i < maxNumber; i++) {
+                if (!usedNumbers.includes(i)) {
+                    missingNumbers.push(i);
+                }
+            }
+
+            resolve({ 
+                success: true, 
+                data: missingNumbers,
+                stats: {
+                    min: minNumber,
+                    max: maxNumber,
+                    used: usedNumbers.length,
+                    missing: missingNumbers.length
+                }
+            });
+        } catch (error) {
+            console.error('Error getting missing MRY invoice numbers:', error);
+            reject(error);
+        }
+    });
+}
+
+// Get missing devis numbers for MRY company
+function getMissingMRYDevisNumbers(year) {
+    return new Promise((resolve, reject) => {
+        if (!db) {
+            return reject(new Error('Database not initialized'));
+        }
+
+        try {
+            // Get all devis numbers for MRY company (stored in document_numero_devis)
+            let query;
+            if (year) {
+                query = `
+                    SELECT document_numero_devis 
+                    FROM invoices 
+                    WHERE company_code = 'MRY'
+                    AND document_type = 'devis' 
+                    AND document_numero_devis IS NOT NULL
+                    AND document_numero_devis != ''
+                    AND document_numero_devis LIKE '%/${year}'
+                `;
+            } else {
+                // Get all devis regardless of year
+                query = `
+                    SELECT document_numero_devis 
+                    FROM invoices 
+                    WHERE company_code = 'MRY'
+                    AND document_type = 'devis' 
+                    AND document_numero_devis IS NOT NULL
+                    AND document_numero_devis != ''
+                `;
+            }
+            
+            const devisNumbers = db.exec(query);
+            
+            console.log(`🔍 [MRY DEVIS] Searching for year: ${year || 'ALL'}`);
+            console.log(`🔍 [MRY DEVIS] Found ${devisNumbers.length > 0 && devisNumbers[0].values.length > 0 ? devisNumbers[0].values.length : 0} devis`);
+            
+            if (devisNumbers.length === 0 || devisNumbers[0].values.length === 0) {
+                console.log(`❌ [MRY DEVIS] No devis found for year ${year || 'ALL'}`);
+                return resolve({ success: true, data: [] });
+            }
+
+            // Extract numbers from document_numero (format: "123/2025")
+            const usedNumbers = devisNumbers[0].values
+                .map(row => {
+                    const match = row[0].match(/^(\d+)\/(\d{4})$/);  
+                    if (!match) return null;
+                    const num = parseInt(match[1]);
+                    const docYear = parseInt(match[2]);
+                    // If year is specified, only include numbers from that year
+                    if (year && docYear !== parseInt(year)) return null;
+                    return num;
+                })
+                .filter(num => num !== null)
+                .sort((a, b) => a - b);
+
+            if (usedNumbers.length === 0) {
+                return resolve({ success: true, data: [] });
+            }
+
+            // Find missing numbers between min and max number
+            const minNumber = Math.min(...usedNumbers);
+            const maxNumber = Math.max(...usedNumbers);
+            const missingNumbers = [];
+
+            for (let i = minNumber + 1; i < maxNumber; i++) {
+                if (!usedNumbers.includes(i)) {
+                    missingNumbers.push(i);
+                }
+            }
+
+            resolve({ 
+                success: true, 
+                data: missingNumbers,
+                stats: {
+                    min: minNumber,
+                    max: maxNumber,
+                    used: usedNumbers.length,
+                    missing: missingNumbers.length
+                }
+            });
+        } catch (error) {
+            console.error('Error getting missing MRY devis numbers:', error);
+            reject(error);
+        }
+    });
+}
+
+// Notes operations
+const noteOps = {
+    // Save or update note for an invoice
+    saveNote: (invoiceId, noteText) => {
+        return new Promise((resolve, reject) => {
+            try {
+                // Check if note already exists
+                const existing = db.exec(
+                    `SELECT id FROM invoice_notes WHERE invoice_id = ?`,
+                    [invoiceId]
+                );
+
+                if (existing.length > 0 && existing[0].values.length > 0) {
+                    // Update existing note
+                    db.run(
+                        `UPDATE invoice_notes SET note_text = ?, updated_at = CURRENT_TIMESTAMP WHERE invoice_id = ?`,
+                        [noteText, invoiceId]
+                    );
+                } else {
+                    // Insert new note
+                    db.run(
+                        `INSERT INTO invoice_notes (invoice_id, note_text) VALUES (?, ?)`,
+                        [invoiceId, noteText]
+                    );
+                }
+
+                saveDatabase();
+                resolve({ success: true });
+            } catch (error) {
+                console.error('Error saving note:', error);
+                reject(error);
+            }
+        });
+    },
+
+    // Get note for an invoice
+    getNote: (invoiceId) => {
+        return new Promise((resolve, reject) => {
+            try {
+                const result = db.exec(
+                    `SELECT note_text FROM invoice_notes WHERE invoice_id = ?`,
+                    [invoiceId]
+                );
+
+                if (result.length > 0 && result[0].values.length > 0) {
+                    resolve({ success: true, data: result[0].values[0][0] });
+                } else {
+                    resolve({ success: true, data: null });
+                }
+            } catch (error) {
+                console.error('Error getting note:', error);
+                reject(error);
+            }
+        });
+    },
+
+    // Delete note for an invoice
+    deleteNote: (invoiceId) => {
+        return new Promise((resolve, reject) => {
+            try {
+                db.run(`DELETE FROM invoice_notes WHERE invoice_id = ?`, [invoiceId]);
+                saveDatabase();
+                resolve({ success: true });
+            } catch (error) {
+                console.error('Error deleting note:', error);
+                reject(error);
+            }
+        });
+    }
+};
+
 module.exports = {
     initDatabase,
     getDatabase,
@@ -720,5 +1053,9 @@ module.exports = {
     clientOps,
     invoiceOps,
     attachmentOps,
+    mryOrderPrefixOps,
+    noteOps,
+    getMissingMRYInvoiceNumbers,
+    getMissingMRYDevisNumbers,
     deleteAllData
 };

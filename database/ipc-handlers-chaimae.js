@@ -1,5 +1,5 @@
 const { ipcMain } = require('electron');
-const { initDatabase, clientOps, invoiceOps, attachmentOps, globalInvoiceOps, prefixOps } = require('./db_chaimae');
+const { initDatabase, clientOps, invoiceOps, attachmentOps, globalInvoiceOps, prefixOps, orderPrefixOps, simpleOrderPrefixOps, getMissingInvoiceNumbers, getMissingDevisNumbers, getMissingOrderNumbers, getMissingBonLivraisonNumbers } = require('./db_chaimae');
 
 // Register all IPC handlers for CHAIMAE
 async function registerChaimaeHandlers() {
@@ -257,6 +257,112 @@ async function registerChaimaeHandlers() {
         }
     });
 
+    // Order Prefix handlers for CHAIMAE
+    ipcMain.handle('db:chaimae:orderPrefixes:getAll', async () => {
+        try {
+            const prefixes = orderPrefixOps.getAll();
+            return { success: true, data: prefixes };
+        } catch (error) {
+            console.error('❌ Error getting CHAIMAE order prefixes:', error);
+            return { success: false, error: error.message };
+        }
+    });
+
+    ipcMain.handle('db:chaimae:orderPrefixes:add', async (event, prefix) => {
+        try {
+            const result = orderPrefixOps.add(prefix);
+            return result;
+        } catch (error) {
+            console.error('❌ Error adding CHAIMAE order prefix:', error);
+            return { success: false, error: error.message };
+        }
+    });
+
+    ipcMain.handle('db:chaimae:orderPrefixes:delete', async (event, prefix) => {
+        try {
+            const result = orderPrefixOps.delete(prefix);
+            return result;
+        } catch (error) {
+            console.error('❌ Error deleting CHAIMAE order prefix:', error);
+            return { success: false, error: error.message };
+        }
+    });
+
+    // Simple Order Prefix handlers for CHAIMAE
+    ipcMain.handle('db:chaimae:simpleOrderPrefixes:getAll', async () => {
+        try {
+            const prefixes = simpleOrderPrefixOps.getAll();
+            return { success: true, data: prefixes };
+        } catch (error) {
+            console.error('❌ Error getting CHAIMAE simple order prefixes:', error);
+            return { success: false, error: error.message };
+        }
+    });
+
+    ipcMain.handle('db:chaimae:simpleOrderPrefixes:add', async (event, prefix) => {
+        try {
+            const result = simpleOrderPrefixOps.add(prefix);
+            return result;
+        } catch (error) {
+            console.error('❌ Error adding CHAIMAE simple order prefix:', error);
+            return { success: false, error: error.message };
+        }
+    });
+
+    ipcMain.handle('db:chaimae:simpleOrderPrefixes:delete', async (event, prefix) => {
+        try {
+            const result = simpleOrderPrefixOps.delete(prefix);
+            return result;
+        } catch (error) {
+            console.error('❌ Error deleting CHAIMAE simple order prefix:', error);
+            return { success: false, error: error.message };
+        }
+    });
+
+    // Get missing invoice numbers
+    ipcMain.handle('db:chaimae:getMissingNumbers', async (event, year) => {
+        try {
+            const result = await getMissingInvoiceNumbers(year);
+            return result;
+        } catch (error) {
+            console.error('❌ Error getting missing numbers:', error);
+            return { success: false, error: error.message };
+        }
+    });
+
+    // Get missing devis numbers
+    ipcMain.handle('db:chaimae:getMissingDevisNumbers', async (event, year) => {
+        try {
+            const result = await getMissingDevisNumbers(year);
+            return result;
+        } catch (error) {
+            console.error('❌ Error getting missing devis numbers:', error);
+            return { success: false, error: error.message };
+        }
+    });
+
+    // Get missing order numbers
+    ipcMain.handle('db:chaimae:getMissingOrderNumbers', async () => {
+        try {
+            const result = await getMissingOrderNumbers();
+            return result;
+        } catch (error) {
+            console.error('❌ Error getting missing order numbers:', error);
+            return { success: false, error: error.message };
+        }
+    });
+
+    // Get missing Bon de livraison numbers
+    ipcMain.handle('db:chaimae:getMissingBonLivraisonNumbers', async (event, year) => {
+        try {
+            const result = await getMissingBonLivraisonNumbers(year);
+            return result;
+        } catch (error) {
+            console.error('❌ Error getting missing Bon de livraison numbers:', error);
+            return { success: false, error: error.message };
+        }
+    });
+
     // Delete all data handler for CHAIMAE
     ipcMain.handle('db:chaimae:deleteAllData', async () => {
         try {
@@ -265,6 +371,40 @@ async function registerChaimaeHandlers() {
             return { success: true, message: 'Toutes les données ont été supprimées' };
         } catch (error) {
             console.error('❌ Error deleting all CHAIMAE data:', error);
+            return { success: false, error: error.message };
+        }
+    });
+
+    // Notes handlers for CHAIMAE
+    ipcMain.handle('db:chaimae:saveNote', async (event, invoiceId, noteText) => {
+        try {
+            const { noteOps } = require('./db_chaimae');
+            const result = await noteOps.saveNote(invoiceId, noteText);
+            return result;
+        } catch (error) {
+            console.error('[CHAIMAE] Error saving note:', error);
+            return { success: false, error: error.message };
+        }
+    });
+
+    ipcMain.handle('db:chaimae:getNote', async (event, invoiceId) => {
+        try {
+            const { noteOps } = require('./db_chaimae');
+            const result = await noteOps.getNote(invoiceId);
+            return result;
+        } catch (error) {
+            console.error('[CHAIMAE] Error getting note:', error);
+            return { success: false, error: error.message };
+        }
+    });
+
+    ipcMain.handle('db:chaimae:deleteNote', async (event, invoiceId) => {
+        try {
+            const { noteOps } = require('./db_chaimae');
+            const result = await noteOps.deleteNote(invoiceId);
+            return result;
+        } catch (error) {
+            console.error('[CHAIMAE] Error deleting note:', error);
             return { success: false, error: error.message };
         }
     });

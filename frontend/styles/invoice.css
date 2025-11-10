@@ -110,6 +110,21 @@
     transition: all 0.2s;
 }
 
+.form-field select,
+.form-field textarea {
+    padding: 0.7rem 0.9rem;
+    background: #1e1e1e;
+    border: 1px solid #3e3e42;
+    border-radius: 4px;
+    color: #cccccc;
+    font-size: 0.95rem;
+    font-family: inherit;
+}
+
+.form-field textarea {
+    resize: vertical; /* Allow vertical resize only */
+}
+
 .form-field input:focus,
 .form-field select:focus,
 .form-field textarea:focus {

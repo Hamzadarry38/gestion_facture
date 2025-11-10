@@ -1,5 +1,5 @@
 const { ipcMain } = require('electron');
-const { initDatabase, clientOps, invoiceOps, attachmentOps } = require('./db');
+const { initDatabase, clientOps, invoiceOps, attachmentOps, mryOrderPrefixOps, getMissingMRYInvoiceNumbers, getMissingMRYDevisNumbers } = require('./db');
 
 // Register all IPC handlers
 async function registerDatabaseHandlers() {
@@ -139,6 +139,59 @@ async function registerDatabaseHandlers() {
         }
     });
 
+    // MRY Order Prefix handlers
+    ipcMain.handle('db:mryOrderPrefixes:getAll', async () => {
+        try {
+            const prefixes = mryOrderPrefixOps.getAll();
+            return { success: true, data: prefixes };
+        } catch (error) {
+            console.error('❌ Error getting MRY order prefixes:', error);
+            return { success: false, error: error.message };
+        }
+    });
+
+    ipcMain.handle('db:mryOrderPrefixes:add', async (event, prefix) => {
+        try {
+            const result = mryOrderPrefixOps.add(prefix);
+            return result;
+        } catch (error) {
+            console.error('❌ Error adding MRY order prefix:', error);
+            return { success: false, error: error.message };
+        }
+    });
+
+    ipcMain.handle('db:mryOrderPrefixes:delete', async (event, prefix) => {
+        try {
+            const result = mryOrderPrefixOps.delete(prefix);
+            return result;
+        } catch (error) {
+            console.error('❌ Error deleting MRY order prefix:', error);
+            return { success: false, error: error.message };
+        }
+    });
+
+    // MRY Missing Numbers handler
+    ipcMain.handle('db:mry:getMissingNumbers', async (event, year) => {
+        try {
+            const result = await getMissingMRYInvoiceNumbers(year);
+            return result;
+        } catch (error) {
+            console.error('❌ Error getting MRY missing numbers:', error);
+            return { success: false, error: error.message };
+        }
+    });
+
+    // MRY Missing Devis Numbers handler
+    ipcMain.handle('db:mry:getMissingDevisNumbers', async (event, year) => {
+        try {
+            const result = await getMissingMRYDevisNumbers(year);
+            return result;
+        } catch (error) {
+            console.error('❌ Error getting MRY missing devis numbers:', error);
+            return { success: false, error: error.message };
+        }
+    });
+
     // Delete all data handler
     ipcMain.handle('db:deleteAllData', async () => {
         try {
@@ -147,6 +200,40 @@ async function registerDatabaseHandlers() {
             return { success: true, message: 'Toutes les données ont été supprimées' };
         } catch (error) {
             console.error('❌ Error deleting all data:', error);
+            return { success: false, error: error.message };
+        }
+    });
+
+    // Notes handlers for MRY
+    ipcMain.handle('db:saveNote', async (event, invoiceId, noteText) => {
+        try {
+            const { noteOps } = require('./db');
+            const result = await noteOps.saveNote(invoiceId, noteText);
+            return result;
+        } catch (error) {
+            console.error('[MRY] Error saving note:', error);
+            return { success: false, error: error.message };
+        }
+    });
+
+    ipcMain.handle('db:getNote', async (event, invoiceId) => {
+        try {
+            const { noteOps } = require('./db');
+            const result = await noteOps.getNote(invoiceId);
+            return result;
+        } catch (error) {
+            console.error('[MRY] Error getting note:', error);
+            return { success: false, error: error.message };
+        }
+    });
+
+    ipcMain.handle('db:deleteNote', async (event, invoiceId) => {
+        try {
+            const { noteOps } = require('./db');
+            const result = await noteOps.deleteNote(invoiceId);
+            return result;
+        } catch (error) {
+            console.error('[MRY] Error deleting note:', error);
             return { success: false, error: error.message };
         }
     });

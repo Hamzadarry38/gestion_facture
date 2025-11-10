@@ -30,6 +30,20 @@ contextBridge.exposeInMainWorld('electron', {
     deleteAttachment: (id) => ipcRenderer.invoke('db:attachments:delete', id),
     getAttachmentsByInvoice: (invoiceId) => ipcRenderer.invoke('db:attachments:getByInvoice', invoiceId),
     
+    // MRY Order Prefixes
+    getMryOrderPrefixes: () => ipcRenderer.invoke('db:mryOrderPrefixes:getAll'),
+    addMryOrderPrefix: (prefix) => ipcRenderer.invoke('db:mryOrderPrefixes:add', prefix),
+    deleteMryOrderPrefix: (prefix) => ipcRenderer.invoke('db:mryOrderPrefixes:delete', prefix),
+    
+    // MRY Missing Numbers
+    getMryMissingNumbers: (year) => ipcRenderer.invoke('db:mry:getMissingNumbers', year),
+    getMryMissingDevisNumbers: (year) => ipcRenderer.invoke('db:mry:getMissingDevisNumbers', year),
+    
+    // Notes
+    saveNote: (invoiceId, noteText) => ipcRenderer.invoke('db:saveNote', invoiceId, noteText),
+    getNote: (invoiceId) => ipcRenderer.invoke('db:getNote', invoiceId),
+    deleteNote: (invoiceId) => ipcRenderer.invoke('db:deleteNote', invoiceId),
+    
     // Backup & Restore
     exportDatabase: () => ipcRenderer.invoke('db:backup:export'),
     importDatabase: () => ipcRenderer.invoke('db:backup:import'),
@@ -83,6 +97,27 @@ contextBridge.exposeInMainWorld('electron', {
     addPrefix: (prefix) => ipcRenderer.invoke('db:chaimae:prefixes:add', prefix),
     deletePrefix: (prefix) => ipcRenderer.invoke('db:chaimae:prefixes:delete', prefix),
     
+    // Order Prefixes
+    getOrderPrefixes: () => ipcRenderer.invoke('db:chaimae:orderPrefixes:getAll'),
+    addOrderPrefix: (prefix) => ipcRenderer.invoke('db:chaimae:orderPrefixes:add', prefix),
+    deleteOrderPrefix: (prefix) => ipcRenderer.invoke('db:chaimae:orderPrefixes:delete', prefix),
+    
+    // Simple Order Prefixes
+    getSimpleOrderPrefixes: () => ipcRenderer.invoke('db:chaimae:simpleOrderPrefixes:getAll'),
+    addSimpleOrderPrefix: (prefix) => ipcRenderer.invoke('db:chaimae:simpleOrderPrefixes:add', prefix),
+    deleteSimpleOrderPrefix: (prefix) => ipcRenderer.invoke('db:chaimae:simpleOrderPrefixes:delete', prefix),
+    
+    // Missing Numbers
+    getMissingNumbers: (year) => ipcRenderer.invoke('db:chaimae:getMissingNumbers', year),
+    getMissingDevisNumbers: (year) => ipcRenderer.invoke('db:chaimae:getMissingDevisNumbers', year),
+    getMissingOrderNumbers: () => ipcRenderer.invoke('db:chaimae:getMissingOrderNumbers'),
+    getMissingBonLivraisonNumbers: (year) => ipcRenderer.invoke('db:chaimae:getMissingBonLivraisonNumbers', year),
+    
+    // Notes
+    saveNote: (invoiceId, noteText) => ipcRenderer.invoke('db:chaimae:saveNote', invoiceId, noteText),
+    getNote: (invoiceId) => ipcRenderer.invoke('db:chaimae:getNote', invoiceId),
+    deleteNote: (invoiceId) => ipcRenderer.invoke('db:chaimae:deleteNote', invoiceId),
+    
     // Backup & Restore
     exportDatabase: () => ipcRenderer.invoke('db:chaimae:backup:export'),
     importDatabase: () => ipcRenderer.invoke('db:chaimae:backup:import'),
@@ -113,6 +148,20 @@ contextBridge.exposeInMainWorld('electron', {
     deleteAttachment: (id) => ipcRenderer.invoke('dbMulti:deleteAttachment', id),
     getAttachmentsByInvoice: (invoiceId) => ipcRenderer.invoke('dbMulti:getAttachmentsByInvoice', invoiceId),
     
+    // MULTI Order Prefixes
+    getMultiOrderPrefixes: () => ipcRenderer.invoke('dbMulti:multiOrderPrefixes:getAll'),
+    addMultiOrderPrefix: (prefix) => ipcRenderer.invoke('dbMulti:multiOrderPrefixes:add', prefix),
+    deleteMultiOrderPrefix: (prefix) => ipcRenderer.invoke('dbMulti:multiOrderPrefixes:delete', prefix),
+    
+    // MULTI Missing Numbers
+    getMultiMissingNumbers: (year) => ipcRenderer.invoke('dbMulti:getMissingNumbers', year),
+    getMultiMissingDevisNumbers: (year) => ipcRenderer.invoke('dbMulti:getMissingDevisNumbers', year),
+    
+    // Notes
+    saveNote: (invoiceId, noteText) => ipcRenderer.invoke('dbMulti:saveNote', invoiceId, noteText),
+    getNote: (invoiceId) => ipcRenderer.invoke('dbMulti:getNote', invoiceId),
+    deleteNote: (invoiceId) => ipcRenderer.invoke('dbMulti:deleteNote', invoiceId),
+    
     // Backup & Restore
     exportDatabase: () => ipcRenderer.invoke('db:multi:backup:export'),
     importDatabase: () => ipcRenderer.invoke('db:multi:backup:import'),
@@ -124,10 +173,18 @@ contextBridge.exposeInMainWorld('electron', {
   // Asset loading
   getAssetPath: (assetPath) => ipcRenderer.invoke('get-asset-path', assetPath),
   
+  // Get app version
+  getAppVersion: () => ipcRenderer.invoke('get-app-version'),
+  
   // Auto-updater API
   updater: {
     checkForUpdates: () => ipcRenderer.invoke('check-for-updates'),
-    setLanguage: (language) => ipcRenderer.invoke('set-update-language', language)
+    setLanguage: (language) => ipcRenderer.invoke('set-update-language', language),
+    downloadUpdate: () => ipcRenderer.invoke('download-update'),
+    installUpdate: () => ipcRenderer.invoke('install-update'),
+    onUpdateAvailable: (callback) => ipcRenderer.on('update-available', (event, info) => callback(info)),
+    onDownloadProgress: (callback) => ipcRenderer.on('download-progress', (event, percent) => callback(percent)),
+    onUpdateDownloaded: (callback) => ipcRenderer.on('update-downloaded', (event, info) => callback(info))
   },
   
   // Add your API methods here

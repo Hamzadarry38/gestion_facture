@@ -81,16 +81,15 @@ autoUpdater.on('update-available', (info) => {
     log.info('✓ Update available:', info);
     console.log('✓ Update available:', info);
     
-    dialog.showMessageBox({
-        type: 'info',
-        title: getTranslation('updateAvailable'),
-        message: getTranslation('updateAvailableMessage'),
-        buttons: [getTranslation('yes'), getTranslation('no')]
-    }).then((result) => {
-        if (result.response === 0) {
-            autoUpdater.downloadUpdate();
-        }
-    });
+    // Send to renderer process to show beautiful notification
+    const { BrowserWindow } = require('electron');
+    const mainWindow = BrowserWindow.getAllWindows()[0];
+    if (mainWindow) {
+        mainWindow.webContents.send('update-available', {
+            version: info.version,
+            currentVersion: require('./package.json').version
+        });
+    }
 });
 
 autoUpdater.on('update-not-available', (info) => {
@@ -114,22 +113,28 @@ autoUpdater.on('download-progress', (progressObj) => {
     message += '\n' + Math.round(progressObj.percent) + '%';
     log.info(message);
     console.log(`⬇ Downloading: ${Math.round(progressObj.percent)}%`);
+    
+    // Send progress to renderer
+    const { BrowserWindow } = require('electron');
+    const mainWindow = BrowserWindow.getAllWindows()[0];
+    if (mainWindow) {
+        mainWindow.webContents.send('download-progress', Math.round(progressObj.percent));
+    }
 });
 
 autoUpdater.on('update-downloaded', (info) => {
     log.info('✓ Update downloaded:', info);
     console.log('✓ Update downloaded successfully!');
     
-    dialog.showMessageBox({
-        type: 'info',
-        title: getTranslation('updateDownloaded'),
-        message: getTranslation('updateDownloadedMessage'),
-        buttons: [getTranslation('restartNow'), getTranslation('later')]
-    }).then((result) => {
-        if (result.response === 0) {
-            autoUpdater.quitAndInstall();
-        }
-    });
+    // Send to renderer process with version info
+    const { BrowserWindow } = require('electron');
+    const mainWindow = BrowserWindow.getAllWindows()[0];
+    if (mainWindow) {
+        mainWindow.webContents.send('update-downloaded', {
+            version: info.version,
+            currentVersion: require('./package.json').version
+        });
+    }
 });
 
 // Check for updates

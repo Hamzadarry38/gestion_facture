@@ -534,6 +534,26 @@ function showSortSelectionModal(clientId, month, year, selectedInvoices, manualI
                     </div>
                 </div>
             </button>
+            
+            <button class="sort-option" data-sort="numero_asc" style="padding:1.25rem;background:#2d2d30;border:2px solid #3e3e42;border-radius:8px;color:#fff;cursor:pointer;text-align:left;transition:all 0.3s;font-size:1rem;">
+                <div style="display:flex;align-items:center;gap:1rem;">
+                    <span style="font-size:1.5rem;">🔢</span>
+                    <div>
+                        <div style="font-weight:600;margin-bottom:0.25rem;">N° Document: Du plus petit au plus grand</div>
+                        <div style="color:#999;font-size:0.85rem;">Tri par numéro croissant (1, 2, 3...)</div>
+                    </div>
+                </div>
+            </button>
+            
+            <button class="sort-option" data-sort="numero_desc" style="padding:1.25rem;background:#2d2d30;border:2px solid #3e3e42;border-radius:8px;color:#fff;cursor:pointer;text-align:left;transition:all 0.3s;font-size:1rem;">
+                <div style="display:flex;align-items:center;gap:1rem;">
+                    <span style="font-size:1.5rem;">🔠</span>
+                    <div>
+                        <div style="font-weight:600;margin-bottom:0.25rem;">N° Document: Du plus grand au plus petit</div>
+                        <div style="color:#999;font-size:0.85rem;">Tri par numéro décroissant (...3, 2, 1)</div>
+                    </div>
+                </div>
+            </button>
         </div>
         
         <button id="sortCancelBtn" style="width:100%;padding:1rem;background:#3e3e42;color:#fff;border:none;border-radius:8px;cursor:pointer;font-size:1rem;font-weight:600;transition:all 0.3s;">
@@ -761,6 +781,52 @@ window.generateSituationMensuelle = async function(clientId, month, year, sortBy
                 if (amountCompare !== 0) return amountCompare;
                 // Secondary sort by date if amounts are equal
                 return new Date(b.document_date) - new Date(a.document_date);
+            } else if (sortBy === 'numero_asc') {
+                // Sort by document number ascending (smallest to largest)
+                // Extract number from different formats: "10/2025", "MG03/2025", "01/2025", etc.
+                const getNumero = (inv) => {
+                    // Get the appropriate numero field based on document type
+                    let numero = '0';
+                    if (inv.document_type === 'facture') {
+                        numero = inv.document_numero || '0';
+                    } else if (inv.document_type === 'devis') {
+                        numero = inv.document_numero_devis || '0';
+                    } else if (inv.document_type === 'bon_livraison' || inv.document_type === 'bon de livraison') {
+                        numero = inv.document_bon_de_livraison || inv.document_numero_bl || inv.document_numero || '0';
+                    }
+                    // Remove prefix letters (MG, YT, HA, etc.) and extract only digits before /
+                    const match = numero.match(/(\d+)(?:\/|$)/);
+                    return match ? parseInt(match[1]) : 0;
+                };
+                const numA = getNumero(a);
+                const numB = getNumero(b);
+                const numCompare = numA - numB;
+                if (numCompare !== 0) return numCompare;
+                // Secondary sort by date if numbers are equal
+                return new Date(a.document_date) - new Date(b.document_date);
+            } else if (sortBy === 'numero_desc') {
+                // Sort by document number descending (largest to smallest)
+                // Extract number from different formats: "10/2025", "MG03/2025", "01/2025", etc.
+                const getNumero = (inv) => {
+                    // Get the appropriate numero field based on document type
+                    let numero = '0';
+                    if (inv.document_type === 'facture') {
+                        numero = inv.document_numero || '0';
+                    } else if (inv.document_type === 'devis') {
+                        numero = inv.document_numero_devis || '0';
+                    } else if (inv.document_type === 'bon_livraison' || inv.document_type === 'bon de livraison') {
+                        numero = inv.document_bon_de_livraison || inv.document_numero_bl || inv.document_numero || '0';
+                    }
+                    // Remove prefix letters (MG, YT, HA, etc.) and extract only digits before /
+                    const match = numero.match(/(\d+)(?:\/|$)/);
+                    return match ? parseInt(match[1]) : 0;
+                };
+                const numA = getNumero(a);
+                const numB = getNumero(b);
+                const numCompare = numB - numA;
+                if (numCompare !== 0) return numCompare;
+                // Secondary sort by date if numbers are equal
+                return new Date(b.document_date) - new Date(a.document_date);
             }
             return 0;
         });
@@ -827,7 +893,7 @@ window.generateSituationMensuelle = async function(clientId, month, year, sortBy
                 addHeaderToPDF(doc, client, month, year, monthNames, blueColor, greenColor);
                 
                 // Add table header again
-                const newStartY = 80;
+                const newStartY = 95;
                 doc.setFillColor(...blueColor);
                 doc.rect(15, newStartY, 180, 10, 'F');
                 
@@ -933,7 +999,7 @@ window.generateSituationMensuelle = async function(clientId, month, year, sortBy
             pageNumber++;
             doc.addPage();
             addHeaderToPDF(doc, client, month, year, monthNames, blueColor, greenColor);
-            currentY = 100;
+            currentY = 110;
         }
         
         const montantTVA = totalHT * 0.2;
@@ -1002,9 +1068,7 @@ window.generateSituationMensuelle = async function(clientId, month, year, sortBy
         }
         // For mixed types: shouldShowText stays false
         
-        if (shouldShowText) {
-            doc.text(`${genderPrefix} ${documentLabel} est ${genderSuffix} à la somme de : ${amountInWords}`, 15, currentY, { maxWidth: 180 });
-        }
+        // Removed amount in words text
         
         // Add footers to all pages
         pages.push(pageNumber);
@@ -1559,7 +1623,7 @@ async function showAddManualInvoiceModalChaimae(existingInvoices = []) {
                     <input type="checkbox" id="toggleOrderChaimaeManual" onchange="toggleOptionalFieldManualChaimae('Order')" style="width:16px;height:16px;margin-right:0.5rem;cursor:pointer;accent-color:#ff9800;">
                     <span style="color:#ff9800;font-weight:500;font-size:0.95rem;">N° Order</span>
                 </label>
-                <input type="text" id="manualInvoiceOrderChaimae" placeholder="Ex: 123" onblur="autoFormatManualNumeroChaimae(this)" style="display:none;width:100%;padding:0.75rem;background:#2d2d30;border:2px solid #3e3e42;border-radius:8px;color:#fff;font-size:1rem;">
+                <input type="text" id="manualInvoiceOrderChaimae" placeholder="Ex: 123" style="display:none;width:100%;padding:0.75rem;background:#2d2d30;border:2px solid #3e3e42;border-radius:8px;color:#fff;font-size:1rem;">
             </div>
             
             <div>
@@ -1567,18 +1631,52 @@ async function showAddManualInvoiceModalChaimae(existingInvoices = []) {
                     <input type="checkbox" id="toggleBonLivraisonChaimaeManual" onchange="toggleOptionalFieldManualChaimae('BonLivraison')" style="width:16px;height:16px;margin-right:0.5rem;cursor:pointer;accent-color:#ff9800;">
                     <span style="color:#ff9800;font-weight:500;font-size:0.95rem;">Bon de livraison</span>
                 </label>
-                <input type="text" id="manualInvoiceBonLivraisonChaimae" placeholder="Ex: 123" onblur="autoFormatManualNumeroChaimae(this)" style="display:none;width:100%;padding:0.75rem;background:#2d2d30;border:2px solid #3e3e42;border-radius:8px;color:#fff;font-size:1rem;">
+                <input type="text" id="manualInvoiceBonLivraisonChaimae" placeholder="Ex: 123" style="display:none;width:100%;padding:0.75rem;background:#2d2d30;border:2px solid #3e3e42;border-radius:8px;color:#fff;font-size:1rem;">
             </div>
         </div>
         
         <!-- N° Order pour Bon de livraison -->
         <div id="optionalFieldsBonLivraisonChaimae" style="display:none;margin-bottom:1.5rem;">
-            <label style="display:flex;align-items:center;cursor:pointer;">
+            <label style="display:flex;align-items:center;cursor:pointer;margin-bottom:0.5rem;">
                 <input type="checkbox" id="toggleBonCommandeChaimaeManual" onchange="toggleOptionalFieldManualChaimae('BonCommande')" style="width:16px;height:16px;margin-right:0.5rem;cursor:pointer;accent-color:#ff9800;">
                 <span style="color:#ff9800;font-weight:500;font-size:0.95rem;">N° Order (optionnel)</span>
             </label>
-            <input type="text" id="manualInvoiceBonCommandeChaimae" placeholder="Ex: BC-456 (sans /2025)" style="display:none;width:100%;padding:0.75rem;background:#2d2d30;border:2px solid #3e3e42;border-radius:8px;color:#fff;font-size:1rem;">
-            <small style="color:#999;font-size:0.85rem;display:none;margin-top:0.25rem;" id="bonCommandeHintChaimae">Le numéro sera enregistré tel quel, sans ajout automatique de /2025</small>
+            <div id="bonCommandeInputContainerChaimae" style="display:none;">
+                <div style="display:flex;gap:0.5rem;align-items:stretch;margin-bottom:0.5rem;">
+                    <!-- Prefix Selector -->
+                    <div style="position:relative;width:70px;">
+                        <input type="text" id="orderPrefixInputChaimaeManual" value="BC" readonly onclick="toggleOrderPrefixDropdownChaimaeManual()" 
+                               style="width:100%;height:100%;padding:0.75rem;background:#2d2d30;border:2px solid #3e3e42;border-radius:8px;color:#2196f3;font-size:1rem;cursor:pointer;font-weight:700;text-align:center;box-sizing:border-box;">
+                        <!-- Dropdown -->
+                        <div id="orderPrefixDropdownChaimaeManual" style="display:none;position:absolute;top:calc(100% + 0.5rem);left:0;background:#1e1e1e;border:2px solid #2196f3;border-radius:12px;box-shadow:0 8px 24px rgba(33, 150, 243, 0.3);z-index:1000;min-width:220px;">
+                            <!-- Header -->
+                            <div style="padding:0.75rem 1rem;background:linear-gradient(90deg, #2196f3 0%, #1976d2 100%);border-bottom:2px solid rgba(33, 150, 243, 0.3);border-radius:10px 10px 0 0;">
+                                <h4 style="margin:0;color:#fff;font-size:0.95rem;font-weight:600;">📋 Choisir un Prefix</h4>
+                            </div>
+                            <!-- List -->
+                            <div id="orderPrefixListChaimaeManual" style="max-height:200px;overflow-y:auto;padding:0.5rem;"></div>
+                            <!-- Add New -->
+                            <div style="padding:0.75rem;border-top:2px solid rgba(33, 150, 243, 0.2);background:rgba(0,0,0,0.2);">
+                                <input type="text" id="newOrderPrefixInputChaimaeManual" placeholder="Nouveau prefix" 
+                                       style="width:100%;padding:0.65rem;background:#2d2d30;border:2px solid #3e3e42;border-radius:6px;color:#fff;font-size:0.9rem;outline:none;box-sizing:border-box;"
+                                       onfocus="this.style.borderColor='#2196f3';"
+                                       onblur="this.style.borderColor='#3e3e42';"
+                                       onkeypress="if(event.key==='Enter'){addNewOrderPrefixChaimaeManual();event.preventDefault();}">
+                                <button type="button" onclick="addNewOrderPrefixChaimaeManual()" 
+                                        style="width:100%;margin-top:0.5rem;padding:0.65rem;background:linear-gradient(90deg, #2196f3 0%, #1976d2 100%);color:#fff;border:none;border-radius:6px;cursor:pointer;font-size:0.9rem;font-weight:600;">
+                                    ➕ Ajouter
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                    <!-- Number Input -->
+                    <input type="text" id="manualInvoiceBonCommandeChaimae" placeholder="456" 
+                           style="flex:1;padding:0.75rem;background:#2d2d30;border:2px solid #3e3e42;border-radius:8px;color:#fff;font-size:1rem;box-sizing:border-box;"
+                           onfocus="this.style.borderColor='#ff9800';"
+                           onblur="this.style.borderColor='#3e3e42';">
+                </div>
+                <small style="color:#999;font-size:0.85rem;display:block;">Ex: 456 → <span id="orderPrefixExampleChaimaeManual" style="color:#2196f3;font-weight:600;">BC</span>456</small>
+            </div>
         </div>
         
         <!-- Date -->
@@ -1794,11 +1892,16 @@ async function showAddManualInvoiceModalChaimae(existingInvoices = []) {
         // استخراج الأرقام فقط
         let numbers = value.replace(/[^0-9]/g, '');
         
-        // إذا كان هناك أرقام، أضف السنة
-        if (numbers) {
+        // إذا كان هناك أرقام، أضف السنة (فقط للحقل الرئيسي، ليس Bon de livraison)
+        if (numbers && input.id === 'manualInvoiceNumeroChaimae') {
             const year = new Date().getFullYear();
             input.value = `${numbers}/${year}`;
         }
+    };
+    
+    // N° Order and Bon de livraison - No auto-formatting
+    window.autoFormatOrderChaimae = function(input) {
+        // Keep value as-is, no automatic formatting
     };
     
     // Prefix dropdown functions
@@ -1917,19 +2020,198 @@ async function showAddManualInvoiceModalChaimae(existingInvoices = []) {
         }
     };
     
+    // ==================== ORDER PREFIX FUNCTIONS FOR MANUAL MODAL ====================
+    
+    // Toggle order prefix dropdown
+    window.toggleOrderPrefixDropdownChaimaeManual = async function() {
+        const dropdown = document.getElementById('orderPrefixDropdownChaimaeManual');
+        if (!dropdown) return;
+        
+        if (dropdown.style.display === 'none') {
+            await loadOrderPrefixesChaimaeManual();
+            renderOrderPrefixListChaimaeManual();
+            dropdown.style.display = 'block';
+        } else {
+            dropdown.style.display = 'none';
+        }
+    };
+    
+    // Render order prefix list
+    function renderOrderPrefixListChaimaeManual() {
+        const listContainer = document.getElementById('orderPrefixListChaimaeManual');
+        if (!listContainer) return;
+        
+        if (!window.orderPrefixes || window.orderPrefixes.length === 0) {
+            window.orderPrefixes = ['BC', 'CMD', 'ORD'];
+        }
+        
+        listContainer.innerHTML = window.orderPrefixes.map(prefix => `
+            <div onclick="selectOrderPrefixChaimaeManual('${prefix}')" 
+                 style="margin: 0.35rem; padding: 0.75rem 1rem; cursor: pointer; border-radius: 8px; transition: all 0.3s; color: #fff; display: flex; justify-content: space-between; align-items: center; background: ${prefix === window.selectedOrderPrefix ? 'linear-gradient(90deg, #2196f3 0%, #1976d2 100%)' : 'rgba(255,255,255,0.05)'}; border: 2px solid ${prefix === window.selectedOrderPrefix ? '#2196f3' : 'transparent'};"
+                 onmouseover="if('${prefix}' !== window.selectedOrderPrefix) { this.style.background='rgba(33, 150, 243, 0.2)'; this.style.borderColor='#2196f3'; }" 
+                 onmouseout="if('${prefix}' !== window.selectedOrderPrefix) { this.style.background='rgba(255,255,255,0.05)'; this.style.borderColor='transparent'; }">
+                <div style="display: flex; align-items: center; gap: 0.75rem;">
+                    <span style="font-size: 1.2rem;">${prefix === window.selectedOrderPrefix ? '✓' : '📌'}</span>
+                    <span style="font-weight: ${prefix === window.selectedOrderPrefix ? '700' : '500'}; font-size: 1rem;">${prefix}</span>
+                </div>
+                ${window.orderPrefixes.length > 1 ? `
+                    <button onclick="event.stopPropagation(); deleteOrderPrefixChaimaeManual('${prefix}')" 
+                            style="background: transparent; color: #e74c3c; border: 2px solid #e74c3c; border-radius: 6px; padding: 0.3rem 0.4rem; cursor: pointer; transition: all 0.3s;"
+                            onmouseover="this.style.background='#e74c3c'; this.style.color='#fff';"
+                            onmouseout="this.style.background='transparent'; this.style.color='#e74c3c';">
+                        🗑️
+                    </button>
+                ` : ''}
+            </div>
+        `).join('');
+    }
+    
+    // Select order prefix
+    window.selectOrderPrefixChaimaeManual = function(prefix) {
+        window.selectedOrderPrefix = prefix;
+        
+        const prefixInput = document.getElementById('orderPrefixInputChaimaeManual');
+        const prefixExample = document.getElementById('orderPrefixExampleChaimaeManual');
+        
+        if (prefixInput) prefixInput.value = prefix;
+        if (prefixExample) prefixExample.textContent = prefix;
+        
+        const dropdown = document.getElementById('orderPrefixDropdownChaimaeManual');
+        if (dropdown) dropdown.style.display = 'none';
+        
+        renderOrderPrefixListChaimaeManual();
+    };
+    
+    // Add new order prefix
+    window.addNewOrderPrefixChaimaeManual = async function() {
+        const newPrefixInput = document.getElementById('newOrderPrefixInputChaimaeManual');
+        if (!newPrefixInput) return;
+        
+        const newPrefix = newPrefixInput.value.trim().toUpperCase();
+        
+        if (!newPrefix) {
+            window.notify.warning('Attention', 'Veuillez saisir un prefix', 2000);
+            return;
+        }
+        
+        if (window.orderPrefixes.includes(newPrefix)) {
+            window.notify.warning('Attention', 'Ce prefix existe déjà', 2000);
+            return;
+        }
+        
+        const result = await window.electron.dbChaimae.addOrderPrefix(newPrefix);
+        
+        if (result.success) {
+            window.orderPrefixes.push(newPrefix);
+            window.orderPrefixes.sort();
+            newPrefixInput.value = '';
+            
+            renderOrderPrefixListChaimaeManual();
+            window.notify.success('Succès', `Prefix "${newPrefix}" ajouté`, 2000);
+        } else {
+            window.notify.error('Erreur', result.error || 'Impossible d\'ajouter le prefix', 3000);
+        }
+    };
+    
+    // Delete order prefix
+    window.deleteOrderPrefixChaimaeManual = async function(prefix) {
+        if (window.orderPrefixes.length <= 1) {
+            window.notify.warning('Attention', 'Vous devez garder au moins un prefix', 2000);
+            return;
+        }
+        
+        const result = await window.electron.dbChaimae.deleteOrderPrefix(prefix);
+        
+        if (result.success) {
+            const index = window.orderPrefixes.indexOf(prefix);
+            if (index > -1) {
+                window.orderPrefixes.splice(index, 1);
+                
+                if (window.selectedOrderPrefix === prefix) {
+                    window.selectedOrderPrefix = window.orderPrefixes[0];
+                    const prefixInput = document.getElementById('orderPrefixInputChaimaeManual');
+                    const prefixExample = document.getElementById('orderPrefixExampleChaimaeManual');
+                    if (prefixInput) prefixInput.value = window.selectedOrderPrefix;
+                    if (prefixExample) prefixExample.textContent = window.selectedOrderPrefix;
+                }
+                
+                renderOrderPrefixListChaimaeManual();
+                window.notify.success('Succès', `Prefix "${prefix}" supprimé`, 2000);
+            }
+        } else {
+            window.notify.error('Erreur', result.error || 'Impossible de supprimer le prefix', 3000);
+        }
+    };
+    
+    // Load order prefixes from database
+    async function loadOrderPrefixesChaimaeManual() {
+        try {
+            const result = await window.electron.dbChaimae.getOrderPrefixes();
+            if (result.success && result.data && result.data.length > 0) {
+                window.orderPrefixes = result.data;
+                if (!window.selectedOrderPrefix) {
+                    window.selectedOrderPrefix = window.orderPrefixes[0];
+                }
+            } else {
+                if (!window.orderPrefixes) {
+                    window.orderPrefixes = ['BC', 'CMD', 'ORD'];
+                    window.selectedOrderPrefix = 'BC';
+                }
+            }
+        } catch (error) {
+            console.error('Error loading order prefixes:', error);
+            if (!window.orderPrefixes) {
+                window.orderPrefixes = ['BC', 'CMD', 'ORD'];
+                window.selectedOrderPrefix = 'BC';
+            }
+        }
+    }
+    
+    // ==================== END ORDER PREFIX FUNCTIONS ====================
+    
     // Toggle optional field visibility
     window.toggleOptionalFieldManualChaimae = function(fieldName) {
         const checkbox = document.getElementById(`toggle${fieldName}ChaimaeManual`);
-        const input = document.getElementById(`manualInvoice${fieldName}Chaimae`);
-        const hint = document.getElementById(`hint${fieldName}Chaimae`);
+        console.log('🔄 Toggle field:', fieldName, 'Checked:', checkbox?.checked);
         
-        if (checkbox.checked) {
-            input.style.display = 'block';
-            if (hint) hint.style.display = 'block';
+        // For BonCommande, use the container instead of direct input
+        if (fieldName === 'BonCommande') {
+            const container = document.getElementById('bonCommandeInputContainerChaimae');
+            const input = document.getElementById(`manualInvoice${fieldName}Chaimae`);
+            console.log('📦 Container found:', !!container, 'Input found:', !!input);
+            
+            if (checkbox && checkbox.checked) {
+                if (container) {
+                    container.style.display = 'block';
+                    console.log('✅ Container displayed');
+                }
+                if (input) {
+                    input.style.display = 'block';
+                    console.log('✅ Input displayed');
+                }
+            } else {
+                if (container) {
+                    container.style.display = 'none';
+                    console.log('❌ Container hidden');
+                }
+                if (input) {
+                    input.style.display = 'none';
+                    input.value = '';
+                }
+            }
         } else {
-            input.style.display = 'none';
-            if (hint) hint.style.display = 'none';
-            input.value = '';
+            // For other fields, use the old logic
+            const input = document.getElementById(`manualInvoice${fieldName}Chaimae`);
+            const hint = document.getElementById(`hint${fieldName}Chaimae`);
+            
+            if (checkbox.checked) {
+                input.style.display = 'block';
+                if (hint) hint.style.display = 'block';
+            } else {
+                input.style.display = 'none';
+                if (hint) hint.style.display = 'none';
+                input.value = '';
+            }
         }
     };
     
@@ -2046,7 +2328,7 @@ async function showAddManualInvoiceModalChaimae(existingInvoices = []) {
         
         console.log('🔍 [DUPLICATE CHECK] Checking for numero:', numeroToCheck, 'Type:', type, '(Original:', numero, ')');
         
-        // Check in database - ONLY for the same document type
+        // Check in regular invoices database - ONLY for the same document type
         const checkResult = await window.electron.dbChaimae.getAllInvoices();
         if (checkResult.success && checkResult.data) {
             let existingInvoice = null;
@@ -2064,6 +2346,22 @@ async function showAddManualInvoiceModalChaimae(existingInvoices = []) {
                 window.notify.error('Erreur', `Le numéro ${numeroToCheck} existe déjà pour un ${typeLabel}! Veuillez utiliser un autre numéro.`, 4000);
                 console.error('❌ [DUPLICATE CHECK] Invoice number exists in DB for type:', type, '- numero:', numeroToCheck);
                 return;
+            }
+        }
+        
+        // Check in global invoices database (for facture only)
+        if (type === 'facture') {
+            const globalInvoicesResult = await window.electron.dbChaimae.getAllGlobalInvoices();
+            if (globalInvoicesResult.success && globalInvoicesResult.data) {
+                const existingGlobalInvoice = globalInvoicesResult.data.find(inv => 
+                    inv.document_numero === numeroToCheck
+                );
+                
+                if (existingGlobalInvoice) {
+                    window.notify.error('Erreur', `Le numéro ${numeroToCheck} existe déjà dans une facture globale! Veuillez utiliser un autre numéro.`, 4000);
+                    console.error('❌ [DUPLICATE CHECK] Invoice number exists in global invoices:', numeroToCheck);
+                    return;
+                }
             }
         }
         
@@ -2220,7 +2518,24 @@ async function showAddManualInvoiceModalChaimae(existingInvoices = []) {
                     const bcCheckbox = document.getElementById('toggleBonCommandeChaimaeManual');
                     
                     if (bcCheckbox && bcCheckbox.checked) {
-                        bonCommande = document.getElementById('manualInvoiceBonCommandeChaimae')?.value || null;
+                        const orderValue = document.getElementById('manualInvoiceBonCommandeChaimae')?.value?.trim();
+                        if (orderValue) {
+                            const selectedOrderPrefix = window.selectedOrderPrefix || 'BC';
+                            // Remove any existing prefix from all known prefixes
+                            let cleanValue = orderValue;
+                            if (window.orderPrefixes && window.orderPrefixes.length > 0) {
+                                for (const prefix of window.orderPrefixes) {
+                                    if (cleanValue.startsWith(prefix)) {
+                                        cleanValue = cleanValue.substring(prefix.length);
+                                        break;
+                                    }
+                                }
+                            }
+                            // Add the selected prefix
+                            bonCommande = `${selectedOrderPrefix}${cleanValue}`;
+                        } else {
+                            bonCommande = null;
+                        }
                     }
                 }
                 

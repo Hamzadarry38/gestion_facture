@@ -505,6 +505,22 @@ async function showSortSelectionModalMRY(clientId, month, year, selectedInvoices
                         <div style="color:#999;font-size:0.85rem;">Tri par montant décroissant</div>
                     </div>
                 </div>
+                
+                <div class="sort-option" data-sort="numero_asc" style="padding:1rem;background:#2d2d30;border:2px solid #3e3e42;border-radius:8px;cursor:pointer;transition:all 0.3s;display:flex;align-items:center;gap:1rem;">
+                    <div style="font-size:2rem;">🔢</div>
+                    <div style="flex:1;">
+                        <div style="color:#fff;font-weight:600;font-size:1rem;">N° Document: Du plus petit au plus grand</div>
+                        <div style="color:#999;font-size:0.85rem;">Tri par numéro croissant</div>
+                    </div>
+                </div>
+                
+                <div class="sort-option" data-sort="numero_desc" style="padding:1rem;background:#2d2d30;border:2px solid #3e3e42;border-radius:8px;cursor:pointer;transition:all 0.3s;display:flex;align-items:center;gap:1rem;">
+                    <div style="font-size:2rem;">🔢</div>
+                    <div style="flex:1;">
+                        <div style="color:#fff;font-weight:600;font-size:1rem;">N° Document: Du plus grand au plus petit</div>
+                        <div style="color:#999;font-size:0.85rem;">Tri par numéro décroissant</div>
+                    </div>
+                </div>
             </div>
             
             <button id="cancelSortBtnMRY" style="width:100%;padding:1rem;background:#3e3e42;color:#fff;border:none;border-radius:8px;cursor:pointer;font-size:1rem;font-weight:600;">
@@ -699,15 +715,15 @@ window.generateSituationMensuelleMRY = async function(clientId, month, year, sor
                 const dateCompare = new Date(a.document_date) - new Date(b.document_date);
                 if (dateCompare !== 0) return dateCompare;
                 // Secondary sort by invoice number if dates are equal
-                const numA = parseInt((a.document_numero || '0').replace(/\D/g, '')) || 0;
-                const numB = parseInt((b.document_numero || '0').replace(/\D/g, '')) || 0;
+                const numA = parseInt((a.document_numero || a.document_numero_devis || '0').replace(/\D/g, '')) || 0;
+                const numB = parseInt((b.document_numero || b.document_numero_devis || '0').replace(/\D/g, '')) || 0;
                 return numA - numB;
             } else if (sortBy === 'date_desc') {
                 const dateCompare = new Date(b.document_date) - new Date(a.document_date);
                 if (dateCompare !== 0) return dateCompare;
                 // Secondary sort by invoice number if dates are equal
-                const numA = parseInt((a.document_numero || '0').replace(/\D/g, '')) || 0;
-                const numB = parseInt((b.document_numero || '0').replace(/\D/g, '')) || 0;
+                const numA = parseInt((a.document_numero || a.document_numero_devis || '0').replace(/\D/g, '')) || 0;
+                const numB = parseInt((b.document_numero || b.document_numero_devis || '0').replace(/\D/g, '')) || 0;
                 return numB - numA;
             } else if (sortBy === 'amount_asc') {
                 const amountCompare = (parseFloat(a.total_ht) || 0) - (parseFloat(b.total_ht) || 0);
@@ -718,6 +734,20 @@ window.generateSituationMensuelleMRY = async function(clientId, month, year, sor
                 const amountCompare = (parseFloat(b.total_ht) || 0) - (parseFloat(a.total_ht) || 0);
                 if (amountCompare !== 0) return amountCompare;
                 // Secondary sort by date if amounts are equal
+                return new Date(b.document_date) - new Date(a.document_date);
+            } else if (sortBy === 'numero_asc') {
+                // Sort by document number ascending
+                const numA = parseInt((a.document_numero || a.document_numero_devis || '0').replace(/\D/g, '')) || 0;
+                const numB = parseInt((b.document_numero || b.document_numero_devis || '0').replace(/\D/g, '')) || 0;
+                if (numA !== numB) return numA - numB;
+                // Secondary sort by date if numbers are equal
+                return new Date(a.document_date) - new Date(b.document_date);
+            } else if (sortBy === 'numero_desc') {
+                // Sort by document number descending
+                const numA = parseInt((a.document_numero || a.document_numero_devis || '0').replace(/\D/g, '')) || 0;
+                const numB = parseInt((b.document_numero || b.document_numero_devis || '0').replace(/\D/g, '')) || 0;
+                if (numA !== numB) return numB - numA;
+                // Secondary sort by date if numbers are equal
                 return new Date(b.document_date) - new Date(a.document_date);
             }
             return 0;
@@ -947,9 +977,7 @@ window.generateSituationMensuelleMRY = async function(clientId, month, year, sor
             }
         }
         
-        if (shouldShowText) {
-            doc.text(`${genderPrefix} ${documentLabel} est ${genderSuffix} à la somme de : ${amountInWords}`, 15, currentY, { maxWidth: 180 });
-        }
+        // Removed amount in words text
         
         // Add footers to all pages
         pages.push(pageNumber);
@@ -1462,7 +1490,6 @@ async function showAddManualInvoiceModalMRY(existingInvoices = []) {
             <div id="orderFieldMRY" style="display:none;margin-top:0.75rem;">
                 <label style="display:block;color:#2196F3;margin-bottom:0.5rem;font-weight:600;">N° Order</label>
                 <input type="text" id="manualInvoiceOrderMRY" placeholder="Ex: 123" onblur="autoFormatOrderMRY(this, ${year})" style="width:100%;padding:0.75rem;background:#1e1e1e;border:2px solid #2196F3;border-radius:8px;color:#fff;font-size:1rem;">
-                <small style="color:#999;font-size:0.85rem;display:block;margin-top:0.25rem;">Ex: 123 → 123/2025</small>
             </div>
         </div>
         
@@ -1543,12 +1570,10 @@ async function showAddManualInvoiceModalMRY(existingInvoices = []) {
         }
     };
     
-    // Auto-format N° Order to add /year when user leaves the field
+    // Auto-format N° Order - DO NOT add /year automatically
     window.autoFormatOrderMRY = function(input, currentYear) {
-        const value = input.value.trim();
-        if (value && !value.includes('/')) {
-            input.value = value + '/' + currentYear;
-        }
+        // Just keep the value as is, don't add /2025 automatically
+        // User will type the full value themselves
     };
     
     // Toggle Order section and Numero section based on document type - REBUILD fields completely

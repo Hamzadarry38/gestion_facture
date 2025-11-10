@@ -745,8 +745,8 @@ async function generatePDFBlobMulti(invoice, includeOrder = true) {
     doc.setFontSize(9);
     doc.setFont(undefined, 'bold');
     doc.text('Description', 18, startY + 5);
-    doc.text('Quantité', 115, startY + 5, { align: 'center' });
-    doc.text('Prix unitaire HT', 150, startY + 5, { align: 'right' });
+    doc.text('Quantité', 125, startY + 5, { align: 'center' });
+    doc.text('Prix unitaire HT', 160, startY + 5, { align: 'right' });
     doc.text('Prix total HT', 188, startY + 5, { align: 'right' });
     
     // Table Body
@@ -761,7 +761,7 @@ async function generatePDFBlobMulti(invoice, includeOrder = true) {
     invoice.products.forEach((product, index) => {
         const designation = product.designation || '';
         const lines = doc.splitTextToSize(designation, 75);
-        const rowHeight = Math.max(8, lines.length * 5.5);
+        const rowHeight = Math.max(8, (lines.length * 4.5) + 4);
         
         if (currentY + rowHeight > 220) {
             pages.push(pageCount);
@@ -799,10 +799,10 @@ async function generatePDFBlobMulti(invoice, includeOrder = true) {
         const centerOffset = (lines.length > 1) ? ((lines.length - 1) * 2.25) : 0;
         
         doc.setFontSize(8);
-        doc.text(String(product.quantite || ''), 115, currentY + 3 + centerOffset, { align: 'center' });
+        doc.text(String(product.quantite || ''), 125, currentY + 3 + centerOffset, { align: 'center' });
         
         doc.setFontSize(7.5);
-        doc.text(`${formatNumberForPDF(product.prix_unitaire_ht)} DH`, 150, currentY + 3 + centerOffset, { align: 'right' });
+        doc.text(`${formatNumberForPDF(product.prix_unitaire_ht)} DH`, 160, currentY + 3 + centerOffset, { align: 'right' });
         doc.text(`${formatNumberForPDF(product.total_ht)} DH`, 188, currentY + 3 + centerOffset, { align: 'right' });
         
         currentY += rowHeight;

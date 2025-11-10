@@ -62,7 +62,8 @@ function EditGlobalInvoiceChaimaePage() {
                             <div class="form-row">
                                 <div class="form-field">
                                     <label>N° Facture <span class="required">*</span></label>
-                                    <input type="text" id="documentNumeroEditGlobal" placeholder="Numéro de facture" required>
+                                    <input type="text" id="documentNumeroEditGlobal" placeholder="Numéro de facture" required 
+                                           onblur="if(this.value && !this.value.includes('/')) { this.value = this.value + '/' + new Date().getFullYear(); }">
                                 </div>
                                 <div class="form-field">
                                     <label>Date <span class="required">*</span></label>
@@ -733,8 +734,8 @@ window.addManualProductRow = function() {
     
     row.innerHTML = `
         <td style="padding: 0.75rem;">
-            <input type="text" class="manual-product-designation" placeholder="Désignation du produit"
-                   style="width: 100%; padding: 0.5rem; background: #3e3e42; border: 1px solid #555; color: #fff; border-radius: 4px; font-size: 0.85rem;">
+            <textarea class="manual-product-designation" placeholder="Désignation du produit" rows="2"
+                   style="width: 100%; padding: 0.5rem; background: #3e3e42; border: 1px solid #555; color: #fff; border-radius: 4px; font-size: 0.85rem; resize: vertical; font-family: inherit;"></textarea>
         </td>
         <td style="padding: 0.75rem;">
             <input type="text" class="manual-product-quantity" placeholder="0"
@@ -772,7 +773,9 @@ window.removeManualProductRow = function(btn) {
 // Calculate product total
 window.calculateManualProductTotal = function(input) {
     const row = input.closest('tr');
-    const quantity = parseFloat(row.querySelector('.manual-product-quantity').value) || 0;
+    const quantityValue = row.querySelector('.manual-product-quantity').value.trim();
+    const quantityUpper = quantityValue.toUpperCase();
+    const quantity = (quantityUpper === 'F') ? 1 : (parseFloat(quantityValue) || 0);
     const price = parseFloat(row.querySelector('.manual-product-price').value) || 0;
     const total = quantity * price;
     
@@ -786,7 +789,9 @@ window.calculateManualBonTotal = function() {
     let total = 0;
     
     rows.forEach(row => {
-        const quantity = parseFloat(row.querySelector('.manual-product-quantity').value) || 0;
+        const quantityValue = row.querySelector('.manual-product-quantity').value.trim();
+        const quantityUpper = quantityValue.toUpperCase();
+        const quantity = (quantityUpper === 'F') ? 1 : (parseFloat(quantityValue) || 0);
         const price = parseFloat(row.querySelector('.manual-product-price').value) || 0;
         total += quantity * price;
     });
@@ -815,12 +820,15 @@ window.addManualBonToList = async function() {
         const prix_unitaire_ht = parseFloat(row.querySelector('.manual-product-price').value) || 0;
         
         if (designation) {
-            const qty = parseFloat(quantite) || 0;
+            // For calculation: convert 'F' or 'f' to 1, otherwise parse as number
+            const quantiteUpper = quantite.toUpperCase();
+            const qtyForCalculation = (quantiteUpper === 'F') ? 1 : (parseFloat(quantite) || 0);
+            
             products.push({
                 designation,
-                quantite: quantite || '0',
+                quantite: quantite || '0', // Keep original value for saving
                 prix_unitaire_ht,
-                total_ht: qty * prix_unitaire_ht
+                total_ht: qtyForCalculation * prix_unitaire_ht
             });
         }
     });
@@ -1064,15 +1072,28 @@ async function handleFormSubmitEdit(e) {
             total_ttc: formData.total_ttc
         });
         
-        // Check for duplicate document number (excluding current invoice)
-        const allInvoicesResult = await window.electron.dbChaimae.getAllGlobalInvoices();
-        if (allInvoicesResult.success) {
-            const duplicate = allInvoicesResult.data.find(inv => 
+        // Check for duplicate document number in global invoices (excluding current invoice)
+        const allGlobalInvoicesResult = await window.electron.dbChaimae.getAllGlobalInvoices();
+        if (allGlobalInvoicesResult.success) {
+            const duplicateGlobal = allGlobalInvoicesResult.data.find(inv => 
                 inv.document_numero === formData.document_numero && inv.id !== currentInvoiceEdit.id
             );
             
-            if (duplicate) {
-                window.notify.error('Erreur', `Le numéro "${formData.document_numero}" existe déjà`, 5000);
+            if (duplicateGlobal) {
+                window.notify.error('Erreur', `Le numéro "${formData.document_numero}" existe déjà dans une autre facture globale`, 5000);
+                return;
+            }
+        }
+        
+        // Check for duplicate document number in regular invoices
+        const allRegularInvoicesResult = await window.electron.dbChaimae.getAllInvoices();
+        if (allRegularInvoicesResult.success) {
+            const duplicateRegular = allRegularInvoicesResult.data.find(inv => 
+                inv.document_type === 'facture' && inv.document_numero === formData.document_numero
+            );
+            
+            if (duplicateRegular) {
+                window.notify.error('Erreur', `Le numéro "${formData.document_numero}" existe déjà dans une facture normale`, 5000);
                 return;
             }
         }

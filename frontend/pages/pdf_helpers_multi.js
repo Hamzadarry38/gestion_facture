@@ -223,6 +223,75 @@ window.downloadInvoicePDFMulti = async function(invoiceId) {
         
         console.log('📄 Continuing with PDF generation...');
         
+        // Check if there are products with zero quantity or price
+        const hasZeroProducts = invoice.products && invoice.products.some(p => 
+            parseFloat(p.quantite) === 0 || parseFloat(p.prix_unitaire_ht) === 0
+        );
+        
+        let includeZeroProducts = true; // Default: include all products
+        
+        if (hasZeroProducts) {
+            includeZeroProducts = await new Promise((resolve) => {
+                const overlay = document.createElement('div');
+                overlay.className = 'custom-modal-overlay';
+                
+                overlay.innerHTML = `
+                    <div class="custom-modal">
+                        <div class="custom-modal-header">
+                            <span class="custom-modal-icon warning">⚠️</span>
+                            <h3 class="custom-modal-title">Produits avec quantité ou prix zéro</h3>
+                        </div>
+                        <div class="custom-modal-body">
+                            <p style="margin-bottom:1rem;color:#e0e0e0;font-size:0.95rem;">
+                                Certains produits ont une <strong style="color:#ff9800;">quantité = 0</strong> ou un <strong style="color:#ff9800;">prix = 0</strong>.
+                            </p>
+                            <p style="color:#b0b0b0;font-size:0.9rem;">
+                                Voulez-vous les afficher dans le PDF ?
+                            </p>
+                        </div>
+                        <div class="custom-modal-footer">
+                            <button id="excludeZeroBtn" class="custom-modal-btn secondary">
+                                ❌ Non, masquer
+                            </button>
+                            <button id="includeZeroBtn" class="custom-modal-btn primary">
+                                ✅ Oui, afficher
+                            </button>
+                        </div>
+                    </div>
+                `;
+                
+                document.body.appendChild(overlay);
+                
+                const excludeBtn = document.getElementById('excludeZeroBtn');
+                const includeBtn = document.getElementById('includeZeroBtn');
+                
+                excludeBtn.addEventListener('click', () => {
+                    overlay.remove();
+                    resolve(false);
+                });
+                
+                includeBtn.addEventListener('click', () => {
+                    overlay.remove();
+                    resolve(true);
+                });
+                
+                overlay.addEventListener('click', (e) => {
+                    if (e.target === overlay) {
+                        overlay.remove();
+                        resolve(true); // Default to include if user clicks outside
+                    }
+                });
+                
+                setTimeout(() => includeBtn.focus(), 100);
+            });
+            
+            console.log('🔍 User choice for zero products:', includeZeroProducts ? 'Include' : 'Exclude');
+        }
+        
+        // Mark products with zero values for special display (don't remove them)
+        const showZeroValues = includeZeroProducts;
+        console.log('📊 Show zero values in PDF:', showZeroValues);
+        
         // Check if jsPDF is loaded
         if (typeof window.jspdf === 'undefined') {
             await loadJsPDF();
@@ -302,11 +371,18 @@ window.downloadInvoicePDFMulti = async function(invoiceId) {
         
         // Function to add footer to any page
         const addFooter = (pageNum, totalPages) => {
+            // Company info at bottom
             doc.setTextColor(0, 0, 0);
             doc.setFontSize(9);
             doc.setFont(undefined, 'normal');
             doc.text('NIF 68717422 | TP 51001343 | RC 38633 | CNSS 6446237', 105, 280, { align: 'center' });
             doc.text('ICE : 00380950500031', 105, 286, { align: 'center' });
+            
+            // Add page numbering at bottom in gray
+            doc.setTextColor(150, 150, 150); // Gray color
+            doc.setFontSize(9);
+            doc.setFont(undefined, 'normal');
+            doc.text(`Page ${pageNum} / ${totalPages}`, 105, 292, { align: 'center' });
         };
         
         // Add header to first page
@@ -341,62 +417,111 @@ window.downloadInvoicePDFMulti = async function(invoiceId) {
             const lines = doc.splitTextToSize(designation, 75);
             
             // Calculate row height based on text lines - more space per line
-            const rowHeight = Math.max(8, lines.length * 5.5);
+            const rowHeight = Math.max(8, (lines.length * 4.5) + 4);
             
-            // Check if we need a new page BEFORE drawing
-            if (currentY + rowHeight > 220) {
-                pages.push(pageCount);
-                doc.addPage();
-                addHeader(false);
-                pageCount++;
+            // Split very long products across multiple pages if needed
+            let remainingLines = [...lines];
+            let isFirstPart = true;
+            
+            while (remainingLines.length > 0) {
+                const availableSpace = 220 - currentY;
                 
-                // Re-draw table header on new page
-                let newStartY = 60;
+                // If not enough space for even one line, create new page first
+                if (availableSpace < 15) {
+                    pages.push(pageCount);
+                    doc.addPage();
+                    addHeader(false);
+                    pageCount++;
+                    
+                    let newStartY = 60;
+                    
+                    doc.setFillColor(...darkGrayColor);
+                    doc.rect(15, newStartY, 180, 7, 'F');
+                    doc.setTextColor(255, 255, 255);
+                    doc.setFontSize(9);
+                    doc.setFont(undefined, 'bold');
+                    doc.text('Description', 18, newStartY + 5);
+                    doc.text('Quantité', 115, newStartY + 5, { align: 'center' });
+                    doc.text('Prix unitaire HT', 150, newStartY + 5, { align: 'right' });
+                    doc.text('Prix total HT', 188, newStartY + 5, { align: 'right' });
+                    
+                    currentY = newStartY + 10;
+                    doc.setTextColor(0, 0, 0);
+                    doc.setFont(undefined, 'normal');
+                    doc.setFontSize(9);
+                    continue;
+                }
                 
-                doc.setFillColor(...darkGrayColor);
-                doc.rect(15, newStartY, 180, 7, 'F');
-                doc.setTextColor(255, 255, 255);
-                doc.setFontSize(9);
-                doc.setFont(undefined, 'bold');
-                doc.text('Description', 18, newStartY + 5);
-                doc.text('Quantité', 115, newStartY + 5, { align: 'center' });
-                doc.text('Prix unitaire HT', 150, newStartY + 5, { align: 'right' });
-                doc.text('Prix total HT', 188, newStartY + 5, { align: 'right' });
+                const maxLinesPerPage = Math.floor((availableSpace - 10) / 4.5);
+                const linesToDraw = remainingLines.splice(0, Math.max(1, maxLinesPerPage));
+                const partialRowHeight = Math.max(8, (linesToDraw.length * 4.5) + 4);
                 
-                currentY = newStartY + 10;
-                doc.setTextColor(0, 0, 0);
-                doc.setFont(undefined, 'normal');
-                doc.setFontSize(9);
+                // Alternate row colors (only for first part)
+                if (isFirstPart && index % 2 === 0) {
+                    doc.setFillColor(245, 245, 245);
+                    doc.rect(15, currentY - 3, 180, partialRowHeight, 'F');
+                }
+                
+                doc.setFontSize(7.5);
+                // Draw lines
+                linesToDraw.forEach((line, lineIndex) => {
+                    doc.text(line, 18, currentY + 3 + (lineIndex * 4.5));
+                });
+                
+                // Only show quantity, price, and total on the first part
+                if (isFirstPart) {
+                    const centerOffset = (linesToDraw.length > 1) ? ((linesToDraw.length - 1) * 2.25) : 0;
+                    
+                    doc.setFontSize(8);
+                    const qty = parseFloat(product.quantite);
+                    if (showZeroValues || qty !== 0) {
+                        doc.text(String(product.quantite || ''), 115, currentY + 3 + centerOffset, { align: 'center' });
+                    }
+                    
+                    doc.setFontSize(7.5);
+                    const price = parseFloat(product.prix_unitaire_ht);
+                    if (showZeroValues || price !== 0) {
+                        doc.text(`${formatNumberForPDF(product.prix_unitaire_ht)} DH`, 150, currentY + 3 + centerOffset, { align: 'right' });
+                    }
+                    
+                    const total = parseFloat(product.total_ht);
+                    if (showZeroValues || total !== 0) {
+                        doc.text(`${formatNumberForPDF(product.total_ht)} DH`, 188, currentY + 3 + centerOffset, { align: 'right' });
+                    }
+                }
+                
+                currentY += partialRowHeight;
+                isFirstPart = false;
+                
+                // If there are more lines and we're near the bottom, create new page
+                if (remainingLines.length > 0 && currentY > 200) {
+                    pages.push(pageCount);
+                    doc.addPage();
+                    addHeader(false);
+                    pageCount++;
+                    
+                    let newStartY = 60;
+                    
+                    doc.setFillColor(...darkGrayColor);
+                    doc.rect(15, newStartY, 180, 7, 'F');
+                    doc.setTextColor(255, 255, 255);
+                    doc.setFontSize(9);
+                    doc.setFont(undefined, 'bold');
+                    doc.text('Description', 18, newStartY + 5);
+                    doc.text('Quantité', 115, newStartY + 5, { align: 'center' });
+                    doc.text('Prix unitaire HT', 150, newStartY + 5, { align: 'right' });
+                    doc.text('Prix total HT', 188, newStartY + 5, { align: 'right' });
+                    
+                    currentY = newStartY + 10;
+                    doc.setTextColor(0, 0, 0);
+                    doc.setFont(undefined, 'normal');
+                    doc.setFontSize(9);
+                }
             }
-            
-            // Alternate row colors
-            if (index % 2 === 0) {
-                doc.setFillColor(245, 245, 245);
-                doc.rect(15, currentY - 3, 180, rowHeight, 'F');
-            }
-            
-            doc.setFontSize(7.5);
-            // Draw each line separately with proper spacing - show full text
-            lines.forEach((line, lineIndex) => {
-                doc.text(line, 18, currentY + 3 + (lineIndex * 4.5));
-            });
-            
-            // Center vertically for multi-line products
-            const centerOffset = (lines.length > 1) ? ((lines.length - 1) * 2.25) : 0;
-            
-            doc.setFontSize(8);
-            doc.text(String(product.quantite || ''), 115, currentY + 3 + centerOffset, { align: 'center' });
-            
-            // Use smaller font for large numbers
-            doc.setFontSize(7.5);
-            doc.text(`${formatNumberForPDF(product.prix_unitaire_ht)} DH`, 150, currentY + 3 + centerOffset, { align: 'right' });
-            doc.text(`${formatNumberForPDF(product.total_ht)} DH`, 188, currentY + 3 + centerOffset, { align: 'right' });
-            
-            currentY += rowHeight;
         });
         
         // Fixed position for Remarques and Totals (always at same Y position)
-        const fixedBottomY = 235;
+        const fixedBottomY = 220; // Moved up to give more space for notes
         
         // Remarques section - Left side
         doc.setFillColor(...darkGrayColor);
@@ -448,6 +573,22 @@ window.downloadInvoicePDFMulti = async function(invoiceId) {
         const amountInWords = numberToFrenchWords(invoice.total_ttc);
         const docTypeText = invoice.document_type === 'devis' ? 'devis' : 'facture';
         doc.text(`La Présente ${docTypeText} est Arréte à la somme de : ${amountInWords}`, 15, amountWordsY, { maxWidth: 180 });
+        
+        // Add notes if any
+        const noteResult = await window.electron.dbMulti.getNote(invoiceId);
+        if (noteResult.success && noteResult.data) {
+            const notesY = amountWordsY + 12;
+            doc.setFontSize(8);
+            doc.setFont(undefined, 'bold');
+            doc.setTextColor(96, 125, 139); // Dark gray color matching the theme
+            doc.text('Notes:', 15, notesY);
+            
+            doc.setFont(undefined, 'normal');
+            doc.setTextColor(0, 0, 0);
+            doc.setFontSize(7.5);
+            const noteLines = doc.splitTextToSize(noteResult.data, 180);
+            doc.text(noteLines, 15, notesY + 4);
+        }
         
         // Add page numbering to all pages
         pages.push(pageCount);

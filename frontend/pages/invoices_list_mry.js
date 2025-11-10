@@ -184,13 +184,21 @@ function InvoicesListMRYPage() {
                                     </th>
                                     <th>ID</th>
                                     <th>Type</th>
-                                    <th>N° Document</th>
+                                    <th onclick="sortTableMry('numero')" style="cursor: pointer; user-select: none;" title="Cliquez pour trier">
+                                        N° Document <span id="sortIconNumeroMry">⇅</span>
+                                    </th>
                                     <th>Client</th>
                                     <th>ICE</th>
-                                    <th>Date</th>
-                                    <th>Total HT</th>
+                                    <th onclick="sortTableMry('date')" style="cursor: pointer; user-select: none;" title="Cliquez pour trier">
+                                        Date <span id="sortIconDateMry">⇅</span>
+                                    </th>
+                                    <th onclick="sortTableMry('total_ht')" style="cursor: pointer; user-select: none;" title="Cliquez pour trier">
+                                        Total HT <span id="sortIconTotalHTMry">⇅</span>
+                                    </th>
                                     <th>TVA</th>
-                                    <th>Total TTC</th>
+                                    <th onclick="sortTableMry('total_ttc')" style="cursor: pointer; user-select: none;" title="Cliquez pour trier">
+                                        Total TTC <span id="sortIconTotalTTCMry">⇅</span>
+                                    </th>
                                     <th>Actions</th>
                                 </tr>
                             </thead>
@@ -247,6 +255,7 @@ function formatNumber(number) {
 
 // Load invoices from database
 window.loadInvoices = async function() {
+    console.log('🔄 [LOAD] Starting to load invoices from database...');
     const loadingSpinner = document.getElementById('loadingSpinner');
     const tableBody = document.getElementById('invoicesTableBody');
     const emptyState = document.getElementById('emptyState');
@@ -265,6 +274,8 @@ window.loadInvoices = async function() {
         // Get invoices from database
         const result = await window.electron.db.getAllInvoices('MRY');
         
+        console.log('📥 [LOAD] Received from database:', result.success ? `${result.data.length} invoices` : 'Failed');
+        
         if (result.success) {
             let invoices = result.data;
             
@@ -276,7 +287,7 @@ window.loadInvoices = async function() {
                     const year = inv.year || new Date(inv.document_date).getFullYear();
                     return year.toString() === selectedYear;
                 });
-                console.log(`📊 Filtered to year ${selectedYear}:`, invoices.length, 'invoices');
+                console.log(`📊 [LOAD] Filtered to year ${selectedYear}:`, invoices.length, 'invoices');
                 
                 // Update the year display button
                 const yearDisplay = document.getElementById('currentYearDisplayMRY');
@@ -286,7 +297,17 @@ window.loadInvoices = async function() {
             }
             
             allInvoices = invoices;
-            console.log('📊 Loaded invoices:', allInvoices.length);
+            console.log('✅ [LOAD] All invoices stored in memory:', allInvoices.length);
+            
+            // Log first 3 invoices for debugging
+            if (allInvoices.length > 0) {
+                console.log('📋 [LOAD] Sample invoices:', allInvoices.slice(0, 3).map(inv => ({
+                    id: inv.id,
+                    type: inv.document_type,
+                    numero: inv.document_numero,
+                    numero_devis: inv.document_numero_devis
+                })));
+            }
             
             // Populate filters
             populateFilters();
@@ -346,17 +367,21 @@ function displayInvoices(invoices) {
     const paginatedInvoices = invoices.slice(startIndex, endIndex);
     
     tableBody.innerHTML = paginatedInvoices.map(invoice => {
-        console.log('📊 MRY Invoice data:', {
+        console.log('📊 [DISPLAY] Invoice data:', {
             id: invoice.id,
+            document_type: invoice.document_type,
+            document_numero: invoice.document_numero,
+            document_numero_devis: invoice.document_numero_devis,
             total_ht: invoice.total_ht,
-            total_ttc: invoice.total_ttc,
-            type: typeof invoice.total_ht
+            total_ttc: invoice.total_ttc
         });
         
         const typeLabel = invoice.document_type === 'facture' ? '📄 Facture' : '📋 Devis';
         const typeBadge = invoice.document_type === 'facture' ? 'badge-facture' : 'badge-devis';
         const numero = invoice.document_numero || invoice.document_numero_devis || '-';
         const numeroOrder = invoice.document_numero_Order;
+        
+        console.log('📊 [DISPLAY] Displaying numero:', numero, 'for invoice', invoice.id);
         const date = new Date(invoice.document_date).toLocaleDateString('fr-FR');
         
         // Build document number display with N° Order below if exists
@@ -653,6 +678,14 @@ window.filterInvoices = async function() {
                     }
                     return false;
                 
+                case 'total_ht':
+                    // Search from the beginning of the number
+                    const searchNumberHT = searchInput.trim();
+                    const totalHTStr = (inv.total_ht || 0).toString();
+                    
+                    // Check if total HT starts with the search number
+                    return totalHTStr.startsWith(searchNumberHT);
+                
                 case 'total':
                     // Search from the beginning of the number
                     const searchNumber = searchInput.trim();
@@ -677,10 +710,14 @@ window.filterInvoices = async function() {
                         });
                     }
                     
+                    // Search in ALL fields when "Tout" is selected
+                    const totalHT = (inv.total_ht || 0).toString();
+                    
                     return numero.includes(searchInput) || 
                            numeroOrder.includes(searchInput) ||
                            client.includes(searchInput) || 
                            ice.includes(searchInput) ||
+                           totalHT.includes(searchInput) ||
                            totalTTC.includes(searchInput) ||
                            productMatch;
             }
@@ -709,9 +746,88 @@ window.filterInvoices = async function() {
     console.log(`🔍 Filtered: ${filtered.length} / ${allInvoices.length} invoices`);
 }
 
+// Sort table by column
+let currentSortColumnMry = null;
+let currentSortDirectionMry = 'asc';
+
+window.sortTableMry = function(column) {
+    // Toggle sort direction if clicking same column
+    if (currentSortColumnMry === column) {
+        currentSortDirectionMry = currentSortDirectionMry === 'asc' ? 'desc' : 'asc';
+    } else {
+        currentSortColumnMry = column;
+        currentSortDirectionMry = 'asc';
+    }
+    
+    // Update sort icons
+    ['numero', 'date', 'total_ht', 'total_ttc'].forEach(col => {
+        const iconId = `sortIcon${col.charAt(0).toUpperCase() + col.slice(1).replace('_', '')}Mry`;
+        const icon = document.getElementById(iconId);
+        if (icon) {
+            if (col === column) {
+                icon.textContent = currentSortDirectionMry === 'asc' ? '↑' : '↓';
+                icon.style.color = '#4caf50';
+            } else {
+                icon.textContent = '⇅';
+                icon.style.color = '';
+            }
+        }
+    });
+    
+    // Sort the filtered invoices
+    const sorted = [...filteredInvoices].sort((a, b) => {
+        let valueA, valueB;
+        
+        switch (column) {
+            case 'numero':
+                // Extract numeric part from document number
+                const getNumero = (inv) => {
+                    const numero = inv.document_numero || inv.document_numero_devis || '';
+                    const match = numero.match(/\d+/);
+                    return match ? parseInt(match[0]) : 0;
+                };
+                valueA = getNumero(a);
+                valueB = getNumero(b);
+                break;
+                
+            case 'date':
+                valueA = new Date(a.document_date || 0).getTime();
+                valueB = new Date(b.document_date || 0).getTime();
+                break;
+                
+            case 'total_ht':
+                valueA = parseFloat(a.total_ht || 0);
+                valueB = parseFloat(b.total_ht || 0);
+                break;
+                
+            case 'total_ttc':
+                valueA = parseFloat(a.total_ttc || 0);
+                valueB = parseFloat(b.total_ttc || 0);
+                break;
+                
+            default:
+                return 0;
+        }
+        
+        if (currentSortDirectionMry === 'asc') {
+            return valueA - valueB;
+        } else {
+            return valueB - valueA;
+        }
+    });
+    
+    // Update filtered invoices and display
+    filteredInvoices = sorted;
+    currentPage = 1; // Reset to first page
+    displayInvoices(sorted);
+    
+    console.log(`📊 [MRY] Sorted by ${column} (${currentSortDirectionMry})`);
+};
+
 // View invoice details
 window.viewInvoice = async function(id) {
     try {
+        console.log('👁️ [VIEW] Opening invoice details for ID:', id);
         const result = await window.electron.db.getInvoiceById(id);
         
         if (!result.success || !result.data) {
@@ -724,7 +840,9 @@ window.viewInvoice = async function(id) {
         const docNumber = invoice.document_numero || invoice.document_numero_devis || '-';
         const typeLabel = invoice.document_type === 'facture' ? 'Facture' : 'Devis';
         
+        console.log('👁️ [VIEW] Creating overlay and modal...');
         const overlay = document.createElement('div');
+        overlay.className = 'invoice-view-overlay'; // Add class for easy selection
         overlay.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.85);z-index:9999;display:flex;align-items:center;justify-content:center;padding:2rem;';
         
         const modal = document.createElement('div');
@@ -753,7 +871,7 @@ window.viewInvoice = async function(id) {
                         </svg>
                         Télécharger Bon de travaux
                     </button>
-                    <button id="closeViewModal" style="background:none;border:none;color:#999;cursor:pointer;font-size:1.5rem;padding:0;width:32px;height:32px;display:flex;align-items:center;justify-content:center;border-radius:4px;transition:all 0.2s;" onmouseover="this.style.background='#3e3e42';this.style.color='#fff'" onmouseout="this.style.background='none';this.style.color='#999'">×</button>
+                    <button id="closeViewModal" onclick="console.log('🔴🔴🔴 [BUTTON] Close button X clicked directly from HTML!');" style="background:none;border:none;color:#999;cursor:pointer;font-size:1.5rem;padding:0;width:32px;height:32px;display:flex;align-items:center;justify-content:center;border-radius:4px;transition:all 0.2s;" onmouseover="this.style.background='#3e3e42';this.style.color='#fff'" onmouseout="this.style.background='none';this.style.color='#999'">×</button>
                 </div>
             </div>
             
@@ -812,14 +930,19 @@ window.viewInvoice = async function(id) {
                                 </tr>
                             </thead>
                             <tbody>
-                                ${invoice.products.map((p, idx) => `
+                                ${invoice.products.map((p, idx) => {
+                                    // Escape HTML to prevent rendering issues
+                                    const designation = (p.designation || '').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+                                    
+                                    return `
                                     <tr style="border-bottom:1px solid #3e3e42;">
-                                        <td style="padding:0.75rem;color:#fff;">${p.designation}</td>
-                                        <td style="padding:0.75rem;text-align:center;color:#fff;">${p.quantite}</td>
-                                        <td style="padding:0.75rem;text-align:right;color:#fff;">${formatNumber(parseFloat(p.prix_unitaire_ht))} DH</td>
-                                        <td style="padding:0.75rem;text-align:right;color:#fff;font-weight:500;">${formatNumber(parseFloat(p.total_ht))} DH</td>
+                                        <td style="padding:0.75rem;color:#fff;word-break:break-word;max-width:400px;overflow-wrap:break-word;white-space:pre-wrap;">${designation}</td>
+                                        <td style="padding:0.75rem;text-align:center;color:#fff;white-space:nowrap;">${p.quantite}</td>
+                                        <td style="padding:0.75rem;text-align:right;color:#fff;white-space:nowrap;">${formatNumber(parseFloat(p.prix_unitaire_ht))} DH</td>
+                                        <td style="padding:0.75rem;text-align:right;color:#fff;font-weight:500;white-space:nowrap;">${formatNumber(parseFloat(p.total_ht))} DH</td>
                                     </tr>
-                                `).join('')}
+                                    `;
+                                }).join('')}
                             </tbody>
                         </table>
                     </div>
@@ -841,6 +964,14 @@ window.viewInvoice = async function(id) {
                             <span style="color:#fff;font-weight:600;">Total TTC:</span>
                             <span style="color:#4CAF50;font-weight:700;font-size:1.1rem;">${formatNumber(invoice.total_ttc)} DH</span>
                         </div>
+                    </div>
+                </div>
+                
+                <!-- Notes Section -->
+                <div style="margin-bottom:2rem;" id="notesSectionMRY${id}">
+                    <h3 style="color:#fff;font-size:1.1rem;margin:0 0 1rem 0;font-weight:600;">📝 Notes</h3>
+                    <div style="background:#1e1e1e;padding:1rem;border-radius:8px;">
+                        <div style="color:#999;font-size:0.9rem;font-style:italic;">Chargement...</div>
                     </div>
                 </div>
                 
@@ -885,11 +1016,47 @@ window.viewInvoice = async function(id) {
         
         overlay.appendChild(modal);
         document.body.appendChild(overlay);
+        console.log('👁️ [VIEW] Overlay added to DOM');
         
-        document.getElementById('closeViewModal').onclick = () => overlay.remove();
+        const closeBtn = document.getElementById('closeViewModal');
+        console.log('👁️ [VIEW] Close button found:', closeBtn ? 'Yes' : 'No');
+        
+        if (closeBtn) {
+            closeBtn.onclick = () => {
+                console.log('🔴🔴🔴 [CLOSE] Close button clicked from JavaScript event listener!');
+                console.log('🔴 [CLOSE] Overlay exists:', overlay ? 'Yes' : 'No');
+                console.log('🔴 [CLOSE] Overlay parent:', overlay.parentElement ? 'Yes' : 'No');
+                overlay.remove();
+                console.log('🔴 [CLOSE] Overlay removed');
+            };
+        } else {
+            console.error('❌ [VIEW] Close button not found!');
+        }
         overlay.onclick = (e) => {
-            if (e.target === overlay) overlay.remove();
+            if (e.target === overlay) {
+                console.log('🔴 [CLOSE] Overlay clicked');
+                overlay.remove();
+            }
         };
+        
+        // Load notes asynchronously
+        console.log('📝 [NOTES VIEW MRY] Loading notes for invoice:', id);
+        const noteResult = await window.electron.db.getNote(id);
+        console.log('📥 [NOTES VIEW MRY] Note result:', noteResult);
+        const notesSection = document.getElementById(`notesSectionMRY${id}`);
+        if (notesSection) {
+            const notesContent = notesSection.querySelector('div > div');
+            if (noteResult.success && noteResult.data) {
+                console.log('✅ [NOTES VIEW MRY] Displaying note:', noteResult.data);
+                notesContent.style.color = '#fff';
+                notesContent.style.fontStyle = 'normal';
+                notesContent.style.whiteSpace = 'pre-wrap';
+                notesContent.textContent = noteResult.data;
+            } else {
+                console.log('ℹ️ [NOTES VIEW MRY] No note found');
+                notesContent.textContent = 'Aucune note';
+            }
+        }
         
     } catch (error) {
         console.error('Error viewing invoice:', error);
@@ -900,20 +1067,36 @@ window.viewInvoice = async function(id) {
 // Edit invoice
 window.editInvoice = async function(id) {
     try {
-        console.log('✏️ Editing invoice:', id);
+        console.log('✏️ [EDIT] Opening edit modal for invoice ID:', id);
         const result = await window.electron.db.getInvoiceById(id);
+        
+        console.log('📥 [EDIT] Data received from database:', result);
         
         if (!result.success || !result.data) {
             throw new Error('Facture introuvable');
         }
         
         const invoice = result.data;
+        console.log('📄 [EDIT] Invoice data:', {
+            id: invoice.id,
+            document_type: invoice.document_type,
+            document_numero: invoice.document_numero,
+            document_numero_devis: invoice.document_numero_devis,
+            document_date: invoice.document_date
+        });
         
         // Determine document type labels
         const isDevis = invoice.document_type === 'devis';
         const docTypeLabel = isDevis ? 'Devis' : 'Facture';
         const docNumeroLabel = isDevis ? 'N° Devis' : 'N° Facture';
         const docNumeroValue = isDevis ? (invoice.document_numero_devis || '') : (invoice.document_numero || '');
+        
+        console.log('🏷️ [EDIT] Document info:', {
+            isDevis,
+            docTypeLabel,
+            docNumeroLabel,
+            docNumeroValue
+        });
         
         // Create edit modal
         const modal = document.createElement('div');
@@ -959,8 +1142,7 @@ window.editInvoice = async function(id) {
                             <div class="form-row">
                                 <div class="form-field">
                                     <label>N° Order (optionnel)</label>
-                                    <input type="text" id="editNumeroOrder" value="${invoice.document_numero_Order || ''}" placeholder="Ex: 123"
-                                           onblur="autoFormatDocumentNumberOnBlur(this)">
+                                    <input type="text" id="editNumeroOrder" value="${invoice.document_numero_Order || ''}" placeholder="Ex: 123">
                                 </div>
                             </div>
                             ` : ''}
@@ -972,9 +1154,9 @@ window.editInvoice = async function(id) {
                             <div id="editProductsList">
                                 ${invoice.products.map((p, index) => `
                                     <div class="edit-product-row" data-index="${index}">
-                                        <textarea placeholder="Désignation" rows="2">${p.designation || ''}</textarea>
-                                        <input type="text" placeholder="Quantité" value="${p.quantite || ''}" onchange="recalculateEditTotals()">
-                                        <input type="number" step="0.01" placeholder="Prix HT" value="${p.prix_unitaire_ht || 0}" onchange="recalculateEditTotals()">
+                                        <textarea placeholder="Désignation" rows="2" onkeydown="handleArrowNavigationEdit(event, 0)">${p.designation || ''}</textarea>
+                                        <input type="text" placeholder="Quantité" value="${p.quantite || ''}" onchange="recalculateEditTotals()" onkeydown="handleArrowNavigationEdit(event, 1)">
+                                        <input type="number" step="0.01" placeholder="Prix HT" value="${p.prix_unitaire_ht || 0}" onchange="recalculateEditTotals()" onkeydown="handleArrowNavigationEdit(event, 2)">
                                         <button type="button" onclick="this.closest('.edit-product-row').remove(); recalculateEditTotals()">
                                             <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
                                                 <path d="M5.5 5.5A.5.5 0 0 1 6 6v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5zm2.5 0a.5.5 0 0 1 .5.5v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5zm3 .5a.5.5 0 0 0-1 0v6a.5.5 0 0 0 1 0V6z"/>
@@ -1003,44 +1185,17 @@ window.editInvoice = async function(id) {
                             </div>
                         </div>
                         
-                        <!-- Attachments -->
+                        <!-- Notes Section -->
                         <div class="edit-section">
-                            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
-                                <h3 style="margin: 0;">📎 Pièces jointes (${invoice.attachments ? invoice.attachments.length : 0})</h3>
-                                <button type="button" class="btn-add-attachment" onclick="addEditAttachment(${invoice.id})" title="Ajouter un fichier">
-                                    ➕ Ajouter
-                                </button>
-                            </div>
-                            <div id="editAttachmentsList">
-                                ${invoice.attachments && invoice.attachments.length > 0 ? `
-                                    <ul class="attachments-list">
-                                        ${invoice.attachments.map(a => `
-                                            <li>
-                                                <div class="attachment-info">
-                                                    <span class="attachment-icon">${a.file_type.includes('pdf') ? '📄' : '🖼️'}</span>
-                                                    <span class="attachment-name">${a.filename}</span>
-                                                    <span class="file-size">${(a.file_size / 1024).toFixed(2)} KB</span>
-                                                </div>
-                                                <div class="attachment-actions">
-                                                    <button type="button" class="btn-attachment-action btn-open" onclick="openAttachment(${a.id})" title="Ouvrir">
-                                                        <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
-                                                            <path d="M16 8s-3-5.5-8-5.5S0 8 0 8s3 5.5 8 5.5S16 8 16 8zM1.173 8a13.133 13.133 0 0 1 1.66-2.043C4.12 4.668 5.88 3.5 8 3.5c2.12 0 3.879 1.168 5.168 2.457A13.133 13.133 0 0 1 14.828 8c-.058.087-.122.183-.195.288-.335.48-.83 1.12-1.465 1.755C11.879 11.332 10.119 12.5 8 12.5c-2.12 0-3.879-1.168-5.168-2.457A13.134 13.134 0 0 1 1.172 8z"/>
-                                                            <path d="M8 5.5a2.5 2.5 0 1 0 0 5 2.5 2.5 0 0 0 0-5zM4.5 8a3.5 3.5 0 1 1 7 0 3.5 3.5 0 0 1-7 0z"/>
-                                                        </svg>
-                                                        Ouvrir
-                                                    </button>
-                                                    <button type="button" class="btn-attachment-action btn-delete-att" onclick="deleteEditAttachment(${a.id}, ${invoice.id})" title="Supprimer">
-                                                        <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
-                                                            <path d="M5.5 5.5A.5.5 0 0 1 6 6v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5zm2.5 0a.5.5 0 0 1 .5.5v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5zm3 .5a.5.5 0 0 0-1 0v6a.5.5 0 0 0 1 0V6z"/>
-                                                            <path fill-rule="evenodd" d="M14.5 3a1 1 0 0 1-1 1H13v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V4h-.5a1 1 0 0 1-1-1V2a1 1 0 0 1 1-1H6a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1h3.5a1 1 0 0 1 1 1v1zM4.118 4 4 4.059V13a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1V4.059L11.882 4H4.118zM2.5 3V2h11v1h-11z"/>
-                                                        </svg>
-                                                        Supprimer
-                                                    </button>
-                                                </div>
-                                            </li>
-                                        `).join('')}
-                                    </ul>
-                                ` : '<p style="color: #888; text-align: center; padding: 1rem;">Aucune pièce jointe</p>'}
+                            <h3>📝 Notes</h3>
+                            <div class="form-field">
+                                <label>Notes supplémentaires (optionnel)</label>
+                                <textarea id="editNotesMRY" rows="4" 
+                                          placeholder="Ajoutez des notes ou remarques concernant cette facture..."
+                                          style="width: 100%; padding: 0.75rem; background: #2d2d30; border: 2px solid #3e3e42; border-radius: 8px; color: #fff; font-size: 0.95rem; resize: vertical; font-family: inherit;"></textarea>
+                                <small style="color: #999; font-size: 0.85rem; display: block; margin-top: 0.5rem;">
+                                    Ces notes seront affichées dans le PDF sous le texte de clôture de la facture.
+                                </small>
                             </div>
                         </div>
                         
@@ -1066,9 +1221,98 @@ window.editInvoice = async function(id) {
         // Initial calculation
         recalculateEditTotals();
         
+        // Load notes asynchronously
+        console.log('📝 [NOTES EDIT MRY] Loading notes for invoice:', id);
+        const noteResult = await window.electron.db.getNote(id);
+        console.log('📥 [NOTES EDIT MRY] Note result:', noteResult);
+        if (noteResult.success && noteResult.data) {
+            const notesTextarea = document.getElementById('editNotesMRY');
+            if (notesTextarea) {
+                notesTextarea.value = noteResult.data;
+                console.log('✅ [NOTES EDIT MRY] Loaded note into textarea:', noteResult.data);
+            }
+        } else {
+            console.log('ℹ️ [NOTES EDIT MRY] No note found for this invoice');
+        }
+        
     } catch (error) {
         console.error('Error editing invoice:', error);
         window.notify.error('Erreur', 'Impossible de charger la facture', 3000);
+    }
+}
+
+// Handle arrow key navigation in edit modal products (Global)
+window.handleArrowNavigationEdit = function(event, currentCellIndex) {
+    // Only handle arrow keys
+    if (!['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(event.key)) {
+        return;
+    }
+    
+    const currentRow = event.target.closest('.edit-product-row');
+    const container = document.getElementById('editProductsList');
+    const allRows = Array.from(container.querySelectorAll('.edit-product-row'));
+    const currentRowIndex = allRows.indexOf(currentRow);
+    
+    let targetRow = null;
+    let targetCellIndex = currentCellIndex;
+    
+    // Handle arrow keys
+    if (event.key === 'ArrowUp') {
+        // Move to row above
+        if (currentRowIndex > 0) {
+            targetRow = allRows[currentRowIndex - 1];
+            event.preventDefault();
+        }
+    } else if (event.key === 'ArrowDown') {
+        // Move to row below
+        if (currentRowIndex < allRows.length - 1) {
+            targetRow = allRows[currentRowIndex + 1];
+            event.preventDefault();
+        } else {
+            // If on last row, add new row and move to it
+            addEditProductRow();
+            setTimeout(() => {
+                const newRows = Array.from(container.querySelectorAll('.edit-product-row'));
+                targetRow = newRows[newRows.length - 1];
+                focusCellEdit(targetRow, targetCellIndex);
+            }, 50);
+            event.preventDefault();
+            return;
+        }
+    } else if (event.key === 'ArrowLeft') {
+        // Move to cell on the left
+        if (currentCellIndex > 0) {
+            targetRow = currentRow;
+            targetCellIndex = currentCellIndex - 1;
+            event.preventDefault();
+        }
+    } else if (event.key === 'ArrowRight') {
+        // Move to cell on the right
+        if (currentCellIndex < 2) { // 0=designation, 1=quantity, 2=price
+            targetRow = currentRow;
+            targetCellIndex = currentCellIndex + 1;
+            event.preventDefault();
+        }
+    }
+    
+    // Focus the target cell
+    if (targetRow) {
+        focusCellEdit(targetRow, targetCellIndex);
+    }
+};
+
+// Helper function to focus a specific cell in edit modal
+function focusCellEdit(row, cellIndex) {
+    const inputs = row.querySelectorAll('textarea, input[type="text"], input[type="number"]');
+    if (inputs[cellIndex]) {
+        inputs[cellIndex].focus();
+        // For text inputs, move cursor to end
+        if (inputs[cellIndex].type === 'text' || inputs[cellIndex].tagName === 'TEXTAREA') {
+            const length = inputs[cellIndex].value.length;
+            inputs[cellIndex].setSelectionRange(length, length);
+        } else if (inputs[cellIndex].type === 'number') {
+            inputs[cellIndex].select();
+        }
     }
 }
 
@@ -1078,9 +1322,9 @@ window.addEditProductRow = function() {
     const row = document.createElement('div');
     row.className = 'edit-product-row';
     row.innerHTML = `
-        <textarea placeholder="Désignation" rows="2"></textarea>
-        <input type="text" placeholder="Quantité" onchange="recalculateEditTotals()">
-        <input type="number" step="0.01" placeholder="Prix HT" value="0" onchange="recalculateEditTotals()">
+        <textarea placeholder="Désignation" rows="2" onkeydown="handleArrowNavigationEdit(event, 0)"></textarea>
+        <input type="text" placeholder="Quantité" onchange="recalculateEditTotals()" onkeydown="handleArrowNavigationEdit(event, 1)">
+        <input type="number" step="0.01" placeholder="Prix HT" value="0" onchange="recalculateEditTotals()" onkeydown="handleArrowNavigationEdit(event, 2)">
         <button type="button" onclick="this.closest('.edit-product-row').remove(); recalculateEditTotals()">
             <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
                 <path d="M5.5 5.5A.5.5 0 0 1 6 6v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5zm2.5 0a.5.5 0 0 1 .5.5v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5zm3 .5a.5.5 0 0 0-1 0v6a.5.5 0 0 0 1 0V6z"/>
@@ -1115,19 +1359,30 @@ window.recalculateEditTotals = function() {
 // Check if document number is unique (for edit)
 async function checkEditDocumentNumberUnique(invoiceId, currentInvoice, newNumero, newNumeroOrder) {
     try {
+        console.log('🔍 [CHECK] Starting uniqueness check:', {
+            invoiceId,
+            documentType: currentInvoice.document_type,
+            newNumero,
+            currentNumero: currentInvoice.document_numero,
+            currentNumeroDevis: currentInvoice.document_numero_devis
+        });
+        
         const result = await window.electron.db.getAllInvoices('MRY');
         if (!result.success) return true;
         
         const invoices = result.data.filter(inv => inv.id !== invoiceId); // Exclude current invoice
+        console.log('🔍 [CHECK] Checking against', invoices.length, 'other invoices');
         
         // Check based on document type
         if (currentInvoice.document_type === 'facture') {
             // Check N° Facture
             if (newNumero && newNumero !== currentInvoice.document_numero) {
+                console.log('🔍 [CHECK] Checking facture numero:', newNumero);
                 const duplicateFacture = invoices.find(inv => 
                     inv.document_type === 'facture' && inv.document_numero === newNumero
                 );
                 if (duplicateFacture) {
+                    console.log('❌ [CHECK] Duplicate facture found:', duplicateFacture.id);
                     window.notify.error(
                         'Numéro de facture déjà utilisé',
                         `Le N° Facture "${newNumero}" existe déjà. Veuillez utiliser un autre numéro.`,
@@ -1135,29 +1390,42 @@ async function checkEditDocumentNumberUnique(invoiceId, currentInvoice, newNumer
                     );
                     return false;
                 }
+            } else {
+                console.log('✅ [CHECK] Facture numero unchanged, skipping check');
             }
             
-            // Check N° Order if provided
-            if (newNumeroOrder && newNumeroOrder !== currentInvoice.document_numero_Order) {
-                const duplicateOrder = invoices.find(inv => 
-                    inv.document_numero_Order === newNumeroOrder
-                );
-                if (duplicateOrder) {
-                    window.notify.error(
-                        'Numéro de commande déjà utilisé',
-                        `Le N° Order "${newNumeroOrder}" existe déjà. Veuillez utiliser un autre numéro.`,
-                        5000
+            // Check N° Order if provided (only in factures)
+            if (newNumeroOrder && newNumeroOrder.trim() !== '') {
+                // Normalize current value (null or empty string to null)
+                const currentOrder = currentInvoice.document_numero_Order?.trim() || null;
+                const newOrder = newNumeroOrder.trim();
+                
+                // Only check if the value actually changed
+                if (newOrder !== currentOrder) {
+                    const duplicateOrder = invoices.find(inv => 
+                        inv.document_type === 'facture' &&
+                        inv.document_numero_Order &&
+                        inv.document_numero_Order.trim() === newOrder
                     );
-                    return false;
+                    if (duplicateOrder) {
+                        window.notify.error(
+                            'Numéro de commande déjà utilisé',
+                            `Le N° Order "${newNumeroOrder}" existe déjà. Veuillez utiliser un autre numéro.`,
+                            5000
+                        );
+                        return false;
+                    }
                 }
             }
         } else if (currentInvoice.document_type === 'devis') {
             // Check N° Devis
             if (newNumero && newNumero !== currentInvoice.document_numero_devis) {
+                console.log('🔍 [CHECK] Checking devis numero:', newNumero, 'vs current:', currentInvoice.document_numero_devis);
                 const duplicateDevis = invoices.find(inv => 
                     inv.document_type === 'devis' && inv.document_numero_devis === newNumero
                 );
                 if (duplicateDevis) {
+                    console.log('❌ [CHECK] Duplicate devis found:', duplicateDevis.id);
                     window.notify.error(
                         'Numéro de devis déjà utilisé',
                         `Le N° Devis "${newNumero}" existe déjà. Veuillez utiliser un autre numéro.`,
@@ -1165,9 +1433,13 @@ async function checkEditDocumentNumberUnique(invoiceId, currentInvoice, newNumer
                     );
                     return false;
                 }
+                console.log('✅ [CHECK] No duplicate devis found');
+            } else {
+                console.log('✅ [CHECK] Devis numero unchanged, skipping check');
             }
         }
         
+        console.log('✅ [CHECK] All checks passed, update allowed');
         return true;
     } catch (error) {
         console.error('Error checking document number:', error);
@@ -1190,14 +1462,20 @@ async function handleEditSubmit(e, invoiceId) {
         const products = [];
         document.querySelectorAll('.edit-product-row').forEach(row => {
             const designation = row.querySelector('textarea').value;
-            const quantite = row.querySelector('input[type="text"]').value;
+            const quantiteOriginal = row.querySelector('input[type="text"]').value;
             const prix = parseFloat(row.querySelector('input[type="number"]').value) || 0;
             
-            if (designation || quantite || prix) {
-                const qty = parseFloat(quantite) || 1;
+            if (designation || quantiteOriginal || prix) {
+                // For calculation: convert F to 1
+                let quantiteForCalc = quantiteOriginal;
+                if (quantiteForCalc.toUpperCase() === 'F') {
+                    quantiteForCalc = '1';
+                }
+                
+                const qty = parseFloat(quantiteForCalc) || 1;
                 products.push({
                     designation,
-                    quantite,
+                    quantite: quantiteOriginal,  // Save original value (F, 10 Kg, etc.)
                     prix_unitaire_ht: prix,
                     total_ht: qty * prix
                 });
@@ -1207,7 +1485,14 @@ async function handleEditSubmit(e, invoiceId) {
         const newNumero = document.getElementById('editNumero').value;
         const newNumeroOrder = document.getElementById('editNumeroOrder')?.value || null;
         
+        console.log('🔍 [UPDATE] Values from form:', {
+            newNumero,
+            newNumeroOrder,
+            currentType: currentInvoice.document_type
+        });
+        
         // Check uniqueness before proceeding
+        console.log('🔍 [UPDATE] Checking uniqueness...');
         const isUnique = await checkEditDocumentNumberUnique(
             invoiceId,
             currentInvoice,
@@ -1215,20 +1500,37 @@ async function handleEditSubmit(e, invoiceId) {
             newNumeroOrder
         );
         
+        console.log('🔍 [UPDATE] Uniqueness check result:', isUnique);
+        
         if (!isUnique) {
+            console.log('❌ [UPDATE] Update blocked - duplicate number detected');
             return;
         }
+        
+        // Prepare document data based on type
+        const documentData = {
+            date: document.getElementById('editDate').value
+        };
+        
+        // Set the correct numero field based on document type
+        if (currentInvoice.document_type === 'facture') {
+            documentData.numero = newNumero;
+            documentData.numero_Order = newNumeroOrder;
+            documentData.numero_devis = null;  // Clear devis numero for facture
+        } else {
+            documentData.numero_devis = newNumero;
+            documentData.numero = null;  // Clear facture numero for devis
+            documentData.numero_Order = null;
+        }
+        
+        console.log('📝 [UPDATE] Document data prepared:', documentData);
         
         const updateData = {
             client: {
                 nom: document.getElementById('editClientNom').value,
                 ICE: document.getElementById('editClientICE').value
             },
-            document: {
-                date: document.getElementById('editDate').value,
-                numero: newNumero,
-                numero_Order: currentInvoice.document_type === 'facture' ? newNumeroOrder : null
-            },
+            document: documentData,
             products,
             totals: {
                 total_ht: parseFloat(document.getElementById('editTotalHT').textContent.replace(' DH', '')),
@@ -1247,17 +1549,31 @@ async function handleEditSubmit(e, invoiceId) {
         console.log('📥 Update result:', result);
         
         if (result.success) {
+            console.log('✅ [UPDATE] Invoice updated successfully in database');
+            
+            // Save or delete notes
+            const noteText = document.getElementById('editNotesMRY')?.value?.trim();
+            console.log('📝 [NOTES MRY] Saving note for invoice:', invoiceId, 'Text:', noteText);
+            if (noteText) {
+                const noteResult = await window.electron.db.saveNote(invoiceId, noteText);
+                console.log('✅ [NOTES MRY] Save result:', noteResult);
+            } else {
+                // Delete note if textarea is empty
+                const deleteResult = await window.electron.db.deleteNote(invoiceId);
+                console.log('🗑️ [NOTES MRY] Delete result:', deleteResult);
+            }
+            
             window.notify.success('Succès', 'Facture mise à jour avec succès!', 3000);
             
             // Close modal
             document.querySelector('.modal-overlay').remove();
             
-            // Reload list
-            setTimeout(() => {
-                loadInvoices();
-            }, 300);
+            // Reload list immediately to ensure fresh data
+            console.log('🔄 [UPDATE] Reloading invoice list...');
+            await loadInvoices();
+            console.log('✅ [UPDATE] Invoice list reloaded successfully');
         } else {
-            console.error('❌ Update failed:', result.error);
+            console.error('❌ [UPDATE] Update failed:', result.error);
             throw new Error(result.error || 'Échec de la mise à jour');
         }
         
@@ -1308,7 +1624,7 @@ function showConvertInputModal(newType, newTypeLabel, prefillNumero = '') {
                 <input type="text" id="convertInput2" placeholder="Exemple: 555"
                        style="width:100%;padding:1rem;background:#2d2d30;border:2px solid #3e3e42;border-radius:8px;color:#fff;font-size:1.1rem;box-sizing:border-box;outline:none;transition:all 0.3s;"
                        onfocus="this.style.borderColor='#2196f3';this.style.background='#1e1e1e';"
-                       onblur="this.style.borderColor='#3e3e42';this.style.background='#2d2d30';if(this.value&&!this.value.includes('/'))this.value=this.value+'/${new Date().getFullYear()}';">
+                       onblur="this.style.borderColor='#3e3e42';this.style.background='#2d2d30';">
             </div>
             ` : ''}
             
@@ -1435,12 +1751,8 @@ function showConfirmDialog(message) {
             resolve(false);
         };
         
-        overlay.onclick = (e) => {
-            if (e.target === overlay) {
-                overlay.remove();
-                resolve(false);
-            }
-        };
+        // Removed overlay.onclick to prevent closing when clicking outside
+        // Modal should only close via Cancel or Confirm buttons
     });
 }
 
@@ -1584,6 +1896,7 @@ window.convertInvoiceType = async function(invoiceId, currentType) {
             // Check N° Order if provided (only for facture)
             if (newType === 'facture' && newNumeroOrder) {
                 const duplicateOrder = allInvoicesResult.data.find(inv => 
+                    inv.document_type === 'facture' &&
                     inv.document_numero_Order === newNumeroOrder
                 );
                 
@@ -1730,25 +2043,42 @@ window.openAttachment = async function(attachmentId) {
 
 // Delete attachment
 window.deleteAttachment = async function(attachmentId, invoiceId) {
+    console.log('🗑️ [DELETE] Delete attachment requested:', attachmentId, 'for invoice:', invoiceId);
+    
     const confirmed = await customConfirm('Confirmation', 'Êtes-vous sûr de vouloir supprimer ce fichier ?', 'warning');
     if (!confirmed) {
+        console.log('🗑️ [DELETE] User cancelled deletion');
         return;
     }
     
     try {
+        console.log('🗑️ [DELETE] Deleting attachment from database...');
         const result = await window.electron.db.deleteAttachment(attachmentId);
         
         if (result.success) {
+            console.log('🗑️ [DELETE] Attachment deleted successfully');
             window.notify.success('Supprimé', 'Fichier supprimé avec succès', 3000);
             
             // Close modal and reopen to refresh
-            document.querySelector('.modal-overlay')?.remove();
-            setTimeout(() => viewInvoice(invoiceId), 300);
+            console.log('🗑️ [DELETE] Closing modal...');
+            const modalToClose = document.querySelector('.invoice-view-overlay');
+            console.log('🗑️ [DELETE] Modal found:', modalToClose ? 'Yes' : 'No');
+            if (modalToClose) {
+                modalToClose.remove();
+                console.log('🗑️ [DELETE] Modal removed');
+            } else {
+                console.warn('🗑️ [DELETE] Warning: Modal not found!');
+            }
+            console.log('🗑️ [DELETE] Reopening invoice view in 300ms...');
+            setTimeout(() => {
+                console.log('🗑️ [DELETE] Calling viewInvoice(' + invoiceId + ')');
+                viewInvoice(invoiceId);
+            }, 300);
         } else {
             throw new Error(result.error);
         }
     } catch (error) {
-        console.error('Error deleting attachment:', error);
+        console.error('❌ [DELETE] Error deleting attachment:', error);
         window.notify.error('Erreur', 'Impossible de supprimer le fichier', 3000);
     }
 }
@@ -1805,8 +2135,20 @@ window.addNewAttachment = async function(invoiceId) {
             window.notify.success('Succès', 'Fichier(s) ajouté(s) avec succès', 3000);
             
             // Close modal and reopen to refresh
-            document.querySelector('.modal-overlay')?.remove();
-            setTimeout(() => viewInvoice(invoiceId), 300);
+            console.log('📎 [UPLOAD] Files uploaded, closing modal...');
+            const modalToClose = document.querySelector('.invoice-view-overlay');
+            console.log('📎 [UPLOAD] Modal found:', modalToClose ? 'Yes' : 'No');
+            if (modalToClose) {
+                modalToClose.remove();
+                console.log('📎 [UPLOAD] Modal removed');
+            } else {
+                console.warn('📎 [UPLOAD] Warning: Modal not found!');
+            }
+            console.log('📎 [UPLOAD] Reopening invoice view in 300ms...');
+            setTimeout(() => {
+                console.log('📎 [UPLOAD] Calling viewInvoice(' + invoiceId + ')');
+                viewInvoice(invoiceId);
+            }, 300);
             
         } catch (error) {
             console.error('Error uploading attachments:', error);
@@ -1906,6 +2248,75 @@ window.downloadInvoicePDF = async function(invoiceId) {
         }
         
         console.log('📄 Continuing with PDF generation...');
+        
+        // Check if there are products with zero quantity or price
+        const hasZeroProducts = invoice.products && invoice.products.some(p => 
+            parseFloat(p.quantite) === 0 || parseFloat(p.prix_unitaire_ht) === 0
+        );
+        
+        let includeZeroProducts = true; // Default: include all products
+        
+        if (hasZeroProducts) {
+            includeZeroProducts = await new Promise((resolve) => {
+                const overlay = document.createElement('div');
+                overlay.className = 'custom-modal-overlay';
+                
+                overlay.innerHTML = `
+                    <div class="custom-modal">
+                        <div class="custom-modal-header">
+                            <span class="custom-modal-icon warning">⚠️</span>
+                            <h3 class="custom-modal-title">Produits avec quantité ou prix zéro</h3>
+                        </div>
+                        <div class="custom-modal-body">
+                            <p style="margin-bottom:1rem;color:#e0e0e0;font-size:0.95rem;">
+                                Certains produits ont une <strong style="color:#ff9800;">quantité = 0</strong> ou un <strong style="color:#ff9800;">prix = 0</strong>.
+                            </p>
+                            <p style="color:#b0b0b0;font-size:0.9rem;">
+                                Voulez-vous les afficher dans le PDF ?
+                            </p>
+                        </div>
+                        <div class="custom-modal-footer">
+                            <button id="excludeZeroBtnMRY" class="custom-modal-btn secondary">
+                                ❌ Non, masquer
+                            </button>
+                            <button id="includeZeroBtnMRY" class="custom-modal-btn primary">
+                                ✅ Oui, afficher
+                            </button>
+                        </div>
+                    </div>
+                `;
+                
+                document.body.appendChild(overlay);
+                
+                const excludeBtn = document.getElementById('excludeZeroBtnMRY');
+                const includeBtn = document.getElementById('includeZeroBtnMRY');
+                
+                excludeBtn.addEventListener('click', () => {
+                    overlay.remove();
+                    resolve(false);
+                });
+                
+                includeBtn.addEventListener('click', () => {
+                    overlay.remove();
+                    resolve(true);
+                });
+                
+                overlay.addEventListener('click', (e) => {
+                    if (e.target === overlay) {
+                        overlay.remove();
+                        resolve(true); // Default to include if user clicks outside
+                    }
+                });
+                
+                setTimeout(() => includeBtn.focus(), 100);
+            });
+            
+            console.log('🔍 User choice for zero products:', includeZeroProducts ? 'Include' : 'Exclude');
+        }
+        
+        // Mark products with zero values for special display (don't remove them)
+        const showZeroValues = includeZeroProducts;
+        console.log('📊 Show zero values in PDF:', showZeroValues);
         
         // Check if jsPDF is loaded
         if (typeof window.jspdf === 'undefined') {
@@ -2017,15 +2428,15 @@ window.downloadInvoicePDF = async function(invoiceId) {
         // Products Table
         const startY = invoice.document_numero_Order ? 85 : 80;
         
-        // Table Header - Wider columns for large numbers
+        // Table Header - Redesigned with better column widths
         doc.setFillColor(...blueColor);
         doc.rect(15, startY, 180, 8, 'F');
         doc.setTextColor(255, 255, 255);
         doc.setFontSize(9);
         doc.setFont(undefined, 'bold');
         doc.text('Désignation', 18, startY + 5.5);
-        doc.text('QTE', 115, startY + 5.5, { align: 'center' });
-        doc.text('PU HT', 150, startY + 5.5, { align: 'right' });
+        doc.text('QTE', 125, startY + 5.5, { align: 'center' });
+        doc.text('PU HT', 160, startY + 5.5, { align: 'right' });
         doc.text('TOTAL HT', 188, startY + 5.5, { align: 'right' });
         
         // Table Body
@@ -2047,76 +2458,117 @@ window.downloadInvoicePDF = async function(invoiceId) {
         invoice.products.forEach((product, index) => {
             // Wrap long text - limit width to prevent overlap with QTE column
             const designation = product.designation || '';
+            
+            // Width set to 85 to ensure text stays within Désignation column (QTE is at position 125)
             const lines = doc.splitTextToSize(designation, 85);
             
-            // Calculate row height based on text lines
-            const rowHeight = Math.max(7, lines.length * 5);
+            // Calculate row height based on text lines - each line needs 4.5 units + padding
+            const rowHeight = Math.max(8, (lines.length * 4.5) + 4);
             
-            // Check if we need a new page BEFORE drawing
-            if (currentY + rowHeight > 250) {
-                console.log('\n--- New Page Required ---');
-                console.log('Product Index:', index);
-                console.log('Current Y before page break:', currentY);
-                console.log('Row Height:', rowHeight);
+            // Split very long products across multiple pages if needed
+            let remainingLines = [...lines];
+            let isFirstPart = true;
+            
+            while (remainingLines.length > 0) {
+                const availableSpace = 250 - currentY;
                 
-                pages.push(pageCount);
-                doc.addPage();
-                addHeader(false); // Add header to new page
-                pageCount++;
-                
-                console.log('Page Count:', pageCount);
-                
-                // Re-draw table header on new page
-                let newStartY = 80;
-                console.log('Base startY:', newStartY);
-                
-                if (invoice.document_numero_Order) {
-                    newStartY += 7;
-                    console.log('Added 7px for N° Order, new startY:', newStartY);
+                // If not enough space for even one line, create new page first
+                if (availableSpace < 15) {
+                    pages.push(pageCount);
+                    doc.addPage();
+                    addHeader(false);
+                    pageCount++;
+                    
+                    let newStartY = 80;
+                    if (invoice.document_numero_Order) {
+                        newStartY += 7;
+                    }
+                    
+                    doc.setFillColor(...blueColor);
+                    doc.rect(15, newStartY, 180, 8, 'F');
+                    doc.setTextColor(255, 255, 255);
+                    doc.setFontSize(9);
+                    doc.setFont(undefined, 'bold');
+                    doc.text('Désignation', 18, newStartY + 5.5);
+                    doc.text('QTE', 125, newStartY + 5.5, { align: 'center' });
+                    doc.text('PU HT', 160, newStartY + 5.5, { align: 'right' });
+                    doc.text('TOTAL HT', 188, newStartY + 5.5, { align: 'right' });
+                    
+                    currentY = newStartY + 10;
+                    doc.setTextColor(0, 0, 0);
+                    doc.setFont(undefined, 'normal');
+                    doc.setFontSize(9);
+                    continue; // Re-check available space on new page
                 }
                 
-                console.log('Final startY for continuation page:', newStartY);
+                const maxLinesPerPage = Math.floor((availableSpace - 10) / 4.5);
+                const linesToDraw = remainingLines.splice(0, Math.max(1, maxLinesPerPage));
+                const partialRowHeight = Math.max(8, (linesToDraw.length * 4.5) + 4);
                 
-                doc.setFillColor(...blueColor);
-                doc.rect(15, newStartY, 180, 8, 'F');
-                doc.setTextColor(255, 255, 255);
-                doc.setFontSize(9);
-                doc.setFont(undefined, 'bold');
-                doc.text('Désignation', 18, newStartY + 5.5);
-                doc.text('QTE', 115, newStartY + 5.5, { align: 'center' });
-                doc.text('PU HT', 150, newStartY + 5.5, { align: 'right' });
-                doc.text('TOTAL HT', 188, newStartY + 5.5, { align: 'right' });
+                // Alternate row colors (only for first part)
+                if (isFirstPart && index % 2 === 0) {
+                    doc.setFillColor(245, 245, 245);
+                    doc.rect(15, currentY - 3, 180, partialRowHeight, 'F');
+                }
                 
-                currentY = newStartY + 10;
-                console.log('New currentY after table header:', currentY);
-                doc.setTextColor(0, 0, 0);
-                doc.setFont(undefined, 'normal');
-                doc.setFontSize(9);
+                doc.setFontSize(8);
+                // Draw lines
+                linesToDraw.forEach((line, lineIndex) => {
+                    doc.text(line, 18, currentY + 3 + (lineIndex * 4.5));
+                });
+                
+                // Only show quantity, price, and total on the first part
+                if (isFirstPart) {
+                    const centerOffset = (linesToDraw.length > 1) ? ((linesToDraw.length - 1) * 2.25) : 0;
+                    
+                    const qty = parseFloat(product.quantite);
+                    if (showZeroValues || qty !== 0) {
+                        doc.text(String(product.quantite || ''), 125, currentY + 3 + centerOffset, { align: 'center' });
+                    }
+                    
+                    doc.setFontSize(7.5);
+                    const price = parseFloat(product.prix_unitaire_ht);
+                    if (showZeroValues || price !== 0) {
+                        doc.text(`${formatNumberForPDF(product.prix_unitaire_ht)} DH`, 160, currentY + 3 + centerOffset, { align: 'right' });
+                    }
+                    
+                    const total = parseFloat(product.total_ht);
+                    if (showZeroValues || total !== 0) {
+                        doc.text(`${formatNumberForPDF(product.total_ht)} DH`, 188, currentY + 3 + centerOffset, { align: 'right' });
+                    }
+                }
+                
+                currentY += partialRowHeight;
+                isFirstPart = false;
+                
+                // If there are more lines and we're near the bottom, create new page
+                if (remainingLines.length > 0 && currentY > 230) {
+                    pages.push(pageCount);
+                    doc.addPage();
+                    addHeader(false);
+                    pageCount++;
+                    
+                    let newStartY = 80;
+                    if (invoice.document_numero_Order) {
+                        newStartY += 7;
+                    }
+                    
+                    doc.setFillColor(...blueColor);
+                    doc.rect(15, newStartY, 180, 8, 'F');
+                    doc.setTextColor(255, 255, 255);
+                    doc.setFontSize(9);
+                    doc.setFont(undefined, 'bold');
+                    doc.text('Désignation', 18, newStartY + 5.5);
+                    doc.text('QTE', 125, newStartY + 5.5, { align: 'center' });
+                    doc.text('PU HT', 160, newStartY + 5.5, { align: 'right' });
+                    doc.text('TOTAL HT', 188, newStartY + 5.5, { align: 'right' });
+                    
+                    currentY = newStartY + 10;
+                    doc.setTextColor(0, 0, 0);
+                    doc.setFont(undefined, 'normal');
+                    doc.setFontSize(9);
+                }
             }
-            
-            // Alternate row colors
-            if (index % 2 === 0) {
-                doc.setFillColor(245, 245, 245);
-                doc.rect(15, currentY - 3, 180, rowHeight, 'F');
-            }
-            
-            doc.setFontSize(8);
-            // Draw each line separately with proper spacing - show full text
-            lines.forEach((line, lineIndex) => {
-                doc.text(line, 18, currentY + 3 + (lineIndex * 4.5));
-            });
-            
-            // Center vertically for multi-line products
-            const centerOffset = (lines.length > 1) ? ((lines.length - 1) * 2.25) : 0;
-            
-            doc.text(String(product.quantite || ''), 115, currentY + 3 + centerOffset, { align: 'center' });
-            
-            // Use smaller font for large numbers
-            doc.setFontSize(7.5);
-            doc.text(`${formatNumberForPDF(product.prix_unitaire_ht)} DH`, 150, currentY + 3 + centerOffset, { align: 'right' });
-            doc.text(`${formatNumberForPDF(product.total_ht)} DH`, 188, currentY + 3 + centerOffset, { align: 'right' });
-            
-            currentY += rowHeight;
         });
         
         // Totals
@@ -2160,6 +2612,22 @@ window.downloadInvoicePDF = async function(invoiceId) {
         const docTypeText = invoice.document_type === 'facture' ? 'Facture' : 'Devis';
         doc.text(`La Présente ${docTypeText} est Arrêtée à la somme de : ${amountInWords}`, 15, currentY, { maxWidth: 180 });
         
+        // Add notes if any
+        const noteResult = await window.electron.db.getNote(invoiceId);
+        if (noteResult.success && noteResult.data) {
+            currentY += 15;
+            doc.setFontSize(8);
+            doc.setFont(undefined, 'bold');
+            doc.setTextColor(96, 125, 139);
+            doc.text('Notes:', 15, currentY);
+            
+            doc.setFont(undefined, 'normal');
+            doc.setTextColor(0, 0, 0);
+            doc.setFontSize(7.5);
+            const noteLines = doc.splitTextToSize(noteResult.data, 180);
+            doc.text(noteLines, 15, currentY + 4);
+        }
+        
         // Add page numbering to all pages
         pages.push(pageCount);
         const totalPages = pages.length;
@@ -2199,6 +2667,75 @@ window.downloadBonDeTravauxPDF = async function(invoiceId) {
         }
         
         const invoice = result.data;
+        
+        // Check if there are products with zero quantity or price
+        const hasZeroProducts = invoice.products && invoice.products.some(p => 
+            parseFloat(p.quantite) === 0 || parseFloat(p.prix_unitaire_ht) === 0
+        );
+        
+        let includeZeroProducts = true; // Default: include all products
+        
+        if (hasZeroProducts) {
+            includeZeroProducts = await new Promise((resolve) => {
+                const overlay = document.createElement('div');
+                overlay.className = 'custom-modal-overlay';
+                
+                overlay.innerHTML = `
+                    <div class="custom-modal">
+                        <div class="custom-modal-header">
+                            <span class="custom-modal-icon warning">⚠️</span>
+                            <h3 class="custom-modal-title">Produits avec quantité ou prix zéro</h3>
+                        </div>
+                        <div class="custom-modal-body">
+                            <p style="margin-bottom:1rem;color:#e0e0e0;font-size:0.95rem;">
+                                Certains produits ont une <strong style="color:#ff9800;">quantité = 0</strong> ou un <strong style="color:#ff9800;">prix = 0</strong>.
+                            </p>
+                            <p style="color:#b0b0b0;font-size:0.9rem;">
+                                Voulez-vous les afficher dans le Bon de travaux ?
+                            </p>
+                        </div>
+                        <div class="custom-modal-footer">
+                            <button id="excludeZeroBtnBonTravauxMRY" class="custom-modal-btn secondary">
+                                ❌ Non, masquer
+                            </button>
+                            <button id="includeZeroBtnBonTravauxMRY" class="custom-modal-btn primary">
+                                ✅ Oui, afficher
+                            </button>
+                        </div>
+                    </div>
+                `;
+                
+                document.body.appendChild(overlay);
+                
+                const excludeBtn = document.getElementById('excludeZeroBtnBonTravauxMRY');
+                const includeBtn = document.getElementById('includeZeroBtnBonTravauxMRY');
+                
+                excludeBtn.addEventListener('click', () => {
+                    overlay.remove();
+                    resolve(false);
+                });
+                
+                includeBtn.addEventListener('click', () => {
+                    overlay.remove();
+                    resolve(true);
+                });
+                
+                overlay.addEventListener('click', (e) => {
+                    if (e.target === overlay) {
+                        overlay.remove();
+                        resolve(true); // Default to include if user clicks outside
+                    }
+                });
+                
+                setTimeout(() => includeBtn.focus(), 100);
+            });
+            
+            console.log('🔍 User choice for zero products in Bon de travaux:', includeZeroProducts ? 'Include' : 'Exclude');
+        }
+        
+        // Mark products with zero values for special display (don't remove them)
+        const showZeroValues = includeZeroProducts;
+        console.log('📊 Show zero values in Bon de travaux:', showZeroValues);
         
         // Check if jsPDF is loaded
         if (typeof window.jspdf === 'undefined') {
@@ -2301,8 +2838,8 @@ window.downloadBonDeTravauxPDF = async function(invoiceId) {
         doc.setFontSize(9);
         doc.setFont(undefined, 'bold');
         doc.text('Désignation', 18, startY + 5.5);
-        doc.text('QTE', 115, startY + 5.5, { align: 'center' });
-        doc.text('Prix unitaire HT', 150, startY + 5.5, { align: 'right' });
+        doc.text('QTE', 125, startY + 5.5, { align: 'center' });
+        doc.text('Prix unitaire HT', 160, startY + 5.5, { align: 'right' });
         doc.text('Prix total HT', 188, startY + 5.5, { align: 'right' });
         
         // Table Body
@@ -2316,8 +2853,11 @@ window.downloadBonDeTravauxPDF = async function(invoiceId) {
         
         invoice.products.forEach((product, index) => {
             const designation = product.designation || '';
-            const lines = doc.splitTextToSize(designation, 75);
-            const rowHeight = Math.max(7, lines.length * 5);
+            
+            const lines = doc.splitTextToSize(designation, 85);
+            
+            // Calculate row height based on text lines - each line needs 4.5 units + padding
+            const rowHeight = Math.max(8, (lines.length * 4.5) + 4);
             
             // Check if we need a new page
             if (currentY + rowHeight > 220) {
@@ -2332,8 +2872,8 @@ window.downloadBonDeTravauxPDF = async function(invoiceId) {
                 doc.setFontSize(9);
                 doc.setFont(undefined, 'bold');
                 doc.text('Désignation', 18, startY + 5.5);
-                doc.text('QTE', 115, startY + 5.5, { align: 'center' });
-                doc.text('Prix unitaire HT', 150, startY + 5.5, { align: 'right' });
+                doc.text('QTE', 125, startY + 5.5, { align: 'center' });
+                doc.text('Prix unitaire HT', 160, startY + 5.5, { align: 'right' });
                 doc.text('Prix total HT', 188, startY + 5.5, { align: 'right' });
                 
                 currentY = startY + 10;
@@ -2356,9 +2896,25 @@ window.downloadBonDeTravauxPDF = async function(invoiceId) {
             
             // Center vertically for multi-line products
             const centerOffset = (lines.length > 1) ? ((lines.length - 1) * 2.25) : 0;
-            doc.text(String(product.quantite || ''), 115, currentY + 3 + centerOffset, { align: 'center' });
-            doc.text(`${formatNumberForPDF(product.prix_unitaire_ht)} DH`, 150, currentY + 3 + centerOffset, { align: 'right' });
-            doc.text(`${formatNumberForPDF(product.total_ht)} DH`, 188, currentY + 3 + centerOffset, { align: 'right' });
+            
+            // Show quantity only if it's not zero OR if user chose to show zero values
+            const qty = parseFloat(product.quantite);
+            if (showZeroValues || qty !== 0) {
+                doc.text(String(product.quantite || ''), 125, currentY + 3 + centerOffset, { align: 'center' });
+            }
+            
+            doc.setFontSize(7.5);
+            // Show price only if it's not zero OR if user chose to show zero values
+            const price = parseFloat(product.prix_unitaire_ht);
+            if (showZeroValues || price !== 0) {
+                doc.text(`${formatNumberForPDF(product.prix_unitaire_ht)} DH`, 160, currentY + 3 + centerOffset, { align: 'right' });
+            }
+            
+            // Show total only if it's not zero OR if user chose to show zero values
+            const total = parseFloat(product.total_ht);
+            if (showZeroValues || total !== 0) {
+                doc.text(`${formatNumberForPDF(product.total_ht)} DH`, 188, currentY + 3 + centerOffset, { align: 'right' });
+            }
             
             currentY += rowHeight;
         });
@@ -2850,6 +3406,9 @@ async function generateSinglePDFBlob(invoice, organizationType, folderName, incl
     // This will use the same PDF generation logic as downloadInvoicePDF
     // but with custom filename based on organization type and includeOrder parameter
     
+    // For bulk PDF, always hide zero values (no prompt)
+    const showZeroValues = false;
+    
     const { jsPDF } = window.jspdf;
     const doc = new jsPDF();
     
@@ -2939,8 +3498,8 @@ async function generateSinglePDFBlob(invoice, organizationType, folderName, incl
     doc.setFontSize(9);
     doc.setFont(undefined, 'bold');
     doc.text('Désignation', 18, startY + 5.5);
-    doc.text('QTE', 115, startY + 5.5, { align: 'center' });
-    doc.text('PU HT', 150, startY + 5.5, { align: 'right' });
+    doc.text('QTE', 125, startY + 5.5, { align: 'center' });
+    doc.text('PU HT', 160, startY + 5.5, { align: 'right' });
     doc.text('TOTAL HT', 188, startY + 5.5, { align: 'right' });
     
     let currentY = startY + 10;
@@ -2953,7 +3512,7 @@ async function generateSinglePDFBlob(invoice, organizationType, folderName, incl
     invoice.products.forEach((product, index) => {
         const designation = product.designation || '';
         const lines = doc.splitTextToSize(designation, 85);
-        const rowHeight = Math.max(7, lines.length * 5);
+        const rowHeight = Math.max(8, (lines.length * 4.5) + 4);
         
         if (currentY + rowHeight > 250) {
             addFooter();
@@ -2971,8 +3530,8 @@ async function generateSinglePDFBlob(invoice, organizationType, folderName, incl
             doc.setFontSize(9);
             doc.setFont(undefined, 'bold');
             doc.text('Désignation', 18, newStartY + 5.5);
-            doc.text('QTE', 115, newStartY + 5.5, { align: 'center' });
-            doc.text('PU HT', 150, newStartY + 5.5, { align: 'right' });
+            doc.text('QTE', 125, newStartY + 5.5, { align: 'center' });
+            doc.text('PU HT', 160, newStartY + 5.5, { align: 'right' });
             doc.text('TOTAL HT', 188, newStartY + 5.5, { align: 'right' });
             
             currentY = newStartY + 10;
@@ -2995,11 +3554,24 @@ async function generateSinglePDFBlob(invoice, organizationType, folderName, incl
         // Center vertically for multi-line products
         const centerOffset = (lines.length > 1) ? ((lines.length - 1) * 2.25) : 0;
         
-        doc.text(String(product.quantite || ''), 115, currentY + 3 + centerOffset, { align: 'center' });
+        // Show quantity only if it's not zero (bulk PDF always shows all values)
+        const qty = parseFloat(product.quantite);
+        if (qty !== 0) {
+            doc.text(String(product.quantite || ''), 125, currentY + 3 + centerOffset, { align: 'center' });
+        }
         
         doc.setFontSize(7.5);
-        doc.text(`${formatNumberForPDF(product.prix_unitaire_ht)} DH`, 150, currentY + 3 + centerOffset, { align: 'right' });
-        doc.text(`${formatNumberForPDF(product.total_ht)} DH`, 188, currentY + 3 + centerOffset, { align: 'right' });
+        // Show price only if it's not zero
+        const price = parseFloat(product.prix_unitaire_ht);
+        if (price !== 0) {
+            doc.text(`${formatNumberForPDF(product.prix_unitaire_ht)} DH`, 160, currentY + 3 + centerOffset, { align: 'right' });
+        }
+        
+        // Show total only if it's not zero
+        const total = parseFloat(product.total_ht);
+        if (total !== 0) {
+            doc.text(`${formatNumberForPDF(product.total_ht)} DH`, 188, currentY + 3 + centerOffset, { align: 'right' });
+        }
         
         currentY += rowHeight;
     });
@@ -3040,6 +3612,28 @@ async function generateSinglePDFBlob(invoice, organizationType, folderName, incl
     const amountInWords = numberToFrenchWords(invoice.total_ttc);
     const docTypeText = invoice.document_type === 'facture' ? 'Facture' : 'Devis';
     doc.text(`La Présente ${docTypeText} est Arrêtée à la somme de : ${amountInWords}`, 15, currentY, { maxWidth: 180 });
+    
+    // Add notes if invoice has an id (for bulk download, notes might not be loaded)
+    if (invoice.id) {
+        try {
+            const noteResult = await window.electron.db.getNote(invoice.id);
+            if (noteResult.success && noteResult.data) {
+                currentY += 15;
+                doc.setFontSize(8);
+                doc.setFont(undefined, 'bold');
+                doc.setTextColor(96, 125, 139);
+                doc.text('Notes:', 15, currentY);
+                
+                doc.setFont(undefined, 'normal');
+                doc.setTextColor(0, 0, 0);
+                doc.setFontSize(7.5);
+                const noteLines = doc.splitTextToSize(noteResult.data, 180);
+                doc.text(noteLines, 15, currentY + 4);
+            }
+        } catch (error) {
+            console.log('Note not loaded for bulk PDF:', error);
+        }
+    }
     
     addFooter();
     

@@ -497,6 +497,26 @@ function showSortSelectionModalMulti(clientId, month, year, selectedInvoices, ma
                     </div>
                 </div>
             </button>
+            
+            <button class="sort-option-multi" data-sort="numero_asc" style="padding:1.25rem;background:#2d2d30;border:2px solid #3e3e42;border-radius:8px;color:#fff;cursor:pointer;text-align:left;transition:all 0.3s;font-size:1rem;">
+                <div style="display:flex;align-items:center;gap:1rem;">
+                    <span style="font-size:1.5rem;">🔢</span>
+                    <div>
+                        <div style="font-weight:600;margin-bottom:0.25rem;">N° Document: Croissant (1→9)</div>
+                        <div style="color:#999;font-size:0.85rem;">Tri par numéro de document croissant</div>
+                    </div>
+                </div>
+            </button>
+            
+            <button class="sort-option-multi" data-sort="numero_desc" style="padding:1.25rem;background:#2d2d30;border:2px solid #3e3e42;border-radius:8px;color:#fff;cursor:pointer;text-align:left;transition:all 0.3s;font-size:1rem;">
+                <div style="display:flex;align-items:center;gap:1rem;">
+                    <span style="font-size:1.5rem;">🔣</span>
+                    <div>
+                        <div style="font-weight:600;margin-bottom:0.25rem;">N° Document: Décroissant (9→1)</div>
+                        <div style="color:#999;font-size:0.85rem;">Tri par numéro de document décroissant</div>
+                    </div>
+                </div>
+            </button>
         </div>
         
         <button id="sortCancelBtnMulti" style="width:100%;padding:1rem;background:#3e3e42;color:#fff;border:none;border-radius:8px;cursor:pointer;font-size:1rem;font-weight:600;transition:all 0.3s;">
@@ -666,14 +686,14 @@ window.generateSituationMensuelleMulti = async function(clientId, month, year, s
             if (sortBy === 'date_asc') {
                 const dateCompare = new Date(a.document_date) - new Date(b.document_date);
                 if (dateCompare !== 0) return dateCompare;
-                const numA = parseInt((a.document_numero || '0').replace(/\D/g, '')) || 0;
-                const numB = parseInt((b.document_numero || '0').replace(/\D/g, '')) || 0;
+                const numA = parseInt((a.document_numero || a.document_numero_devis || '0').replace(/\D/g, '')) || 0;
+                const numB = parseInt((b.document_numero || b.document_numero_devis || '0').replace(/\D/g, '')) || 0;
                 return numA - numB;
             } else if (sortBy === 'date_desc') {
                 const dateCompare = new Date(b.document_date) - new Date(a.document_date);
                 if (dateCompare !== 0) return dateCompare;
-                const numA = parseInt((a.document_numero || '0').replace(/\D/g, '')) || 0;
-                const numB = parseInt((b.document_numero || '0').replace(/\D/g, '')) || 0;
+                const numA = parseInt((a.document_numero || a.document_numero_devis || '0').replace(/\D/g, '')) || 0;
+                const numB = parseInt((b.document_numero || b.document_numero_devis || '0').replace(/\D/g, '')) || 0;
                 return numB - numA;
             } else if (sortBy === 'amount_asc') {
                 const amountCompare = (parseFloat(a.total_ht) || 0) - (parseFloat(b.total_ht) || 0);
@@ -682,6 +702,18 @@ window.generateSituationMensuelleMulti = async function(clientId, month, year, s
             } else if (sortBy === 'amount_desc') {
                 const amountCompare = (parseFloat(b.total_ht) || 0) - (parseFloat(a.total_ht) || 0);
                 if (amountCompare !== 0) return amountCompare;
+                return new Date(b.document_date) - new Date(a.document_date);
+            } else if (sortBy === 'numero_asc') {
+                const numA = parseInt((a.document_numero || a.document_numero_devis || '0').replace(/\D/g, '')) || 0;
+                const numB = parseInt((b.document_numero || b.document_numero_devis || '0').replace(/\D/g, '')) || 0;
+                const numCompare = numA - numB;
+                if (numCompare !== 0) return numCompare;
+                return new Date(a.document_date) - new Date(b.document_date);
+            } else if (sortBy === 'numero_desc') {
+                const numA = parseInt((a.document_numero || a.document_numero_devis || '0').replace(/\D/g, '')) || 0;
+                const numB = parseInt((b.document_numero || b.document_numero_devis || '0').replace(/\D/g, '')) || 0;
+                const numCompare = numB - numA;
+                if (numCompare !== 0) return numCompare;
                 return new Date(b.document_date) - new Date(a.document_date);
             }
             return 0;
@@ -910,12 +942,7 @@ window.generateSituationMensuelleMulti = async function(clientId, month, year, s
             }
         }
         
-        if (shouldShowText) {
-            doc.setTextColor(0, 0, 0);
-            doc.setFontSize(9);
-            doc.setFont(undefined, 'italic');
-            doc.text(`${genderPrefix} ${documentLabel} est ${genderSuffix} à la somme de : ${amountInWords}`, 15, fixedBottomY + 25, { maxWidth: 180 });
-        }
+        // Removed amount in words text
         
         // Add page numbering to all pages
         pages.push(pageNumber);
@@ -1431,7 +1458,6 @@ async function showAddManualInvoiceModalMulti(existingInvoices = []) {
             <div id="orderFieldMulti" style="display:none;margin-top:0.75rem;">
                 <label style="display:block;color:#2196F3;margin-bottom:0.5rem;font-weight:600;">N° Order</label>
                 <input type="text" id="manualInvoiceOrderMulti" placeholder="Ex: 123" onblur="autoFormatOrderMulti(this, ${year})" style="width:100%;padding:0.75rem;background:#1e1e1e;border:2px solid #2196F3;border-radius:8px;color:#fff;font-size:1rem;">
-                <small style="color:#999;font-size:0.85rem;display:block;margin-top:0.25rem;">Ex: 123 → 123/${year}</small>
             </div>
         </div>
         
@@ -1664,27 +1690,37 @@ async function showAddManualInvoiceModalMulti(existingInvoices = []) {
         const formattedDate = dateObj.toLocaleDateString('fr-FR');
         
         // Check for duplicate invoice number (both in DB and manual list)
-        console.log('🔍 [MULTI DUPLICATE CHECK] Checking for numero:', numero);
+        console.log('🔍 [MULTI DUPLICATE CHECK] Checking for numero:', numero, 'type:', type);
         
-        // Check in database
+        // Check in database - must match BOTH number AND type
         const checkResult = await window.electron.dbMulti.getAllInvoices('MULTI');
         if (checkResult.success && checkResult.data) {
-            const existingInvoice = checkResult.data.find(inv => 
-                inv.document_numero === numero || inv.document_numero_devis === numero
-            );
+            const existingInvoice = checkResult.data.find(inv => {
+                if (type === 'FACTURE') {
+                    // For facture, check document_numero
+                    return inv.document_type === 'facture' && inv.document_numero === numero;
+                } else {
+                    // For devis, check document_numero_devis
+                    return inv.document_type === 'devis' && inv.document_numero_devis === numero;
+                }
+            });
             if (existingInvoice) {
-                window.notify.error('Erreur', `Le numéro ${numero} existe déjà dans la base de données! Veuillez utiliser un autre numéro.`, 4000);
-                console.error('❌ [MULTI DUPLICATE CHECK] Invoice number exists in DB:', numero);
+                const docLabel = type === 'FACTURE' ? 'Facture' : 'Devis';
+                window.notify.error('Erreur', `Le numéro ${docLabel} ${numero} existe déjà dans la base de données! Veuillez utiliser un autre numéro.`, 4000);
+                console.error('❌ [MULTI DUPLICATE CHECK] Invoice number exists in DB:', numero, 'type:', type);
                 return;
             }
         }
         
-        // Check in manual invoices list
+        // Check in manual invoices list - must match BOTH number AND type
         if (existingInvoices && existingInvoices.length > 0) {
-            const duplicateManual = existingInvoices.find(inv => inv.numero === numero);
+            const duplicateManual = existingInvoices.find(inv => 
+                inv.numero === numero && inv.type === type
+            );
             if (duplicateManual) {
-                window.notify.error('Erreur', `Le numéro ${numero} existe déjà dans les factures manuelles! Veuillez utiliser un autre numéro.`, 4000);
-                console.error('❌ [MULTI DUPLICATE CHECK] Invoice number exists in manual list:', numero);
+                const docLabel = type === 'FACTURE' ? 'Facture' : 'Devis';
+                window.notify.error('Erreur', `Le numéro ${docLabel} ${numero} existe déjà dans les factures manuelles! Veuillez utiliser un autre numéro.`, 4000);
+                console.error('❌ [MULTI DUPLICATE CHECK] Invoice number exists in manual list:', numero, 'type:', type);
                 return;
             }
         }

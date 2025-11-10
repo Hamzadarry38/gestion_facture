@@ -184,13 +184,21 @@ function InvoicesListMultiPage() {
                                     </th>
                                     <th>ID</th>
                                     <th>Type</th>
-                                    <th>N° Document</th>
+                                    <th onclick="sortTableMulti('numero')" style="cursor: pointer; user-select: none;" title="Cliquer pour trier">
+                                        N° Document <span id="sortIconNumero">⇅</span>
+                                    </th>
                                     <th>Client</th>
                                     <th>ICE</th>
-                                    <th>Date</th>
-                                    <th>Total HT</th>
+                                    <th onclick="sortTableMulti('date')" style="cursor: pointer; user-select: none;" title="Cliquer pour trier">
+                                        Date <span id="sortIconDate">⇅</span>
+                                    </th>
+                                    <th onclick="sortTableMulti('total_ht')" style="cursor: pointer; user-select: none;" title="Cliquer pour trier">
+                                        Total HT <span id="sortIconHT">⇅</span>
+                                    </th>
                                     <th>TVA</th>
-                                    <th>Total TTC</th>
+                                    <th onclick="sortTableMulti('total_ttc')" style="cursor: pointer; user-select: none;" title="Cliquer pour trier">
+                                        Total TTC <span id="sortIconTTC">⇅</span>
+                                    </th>
                                     <th>Actions</th>
                                 </tr>
                             </thead>
@@ -325,7 +333,8 @@ function filterInvoicesMulti() {
         if (searchInput) {
             switch(searchType) {
                 case 'numero':
-                    searchMatch = invoice.document_numero && invoice.document_numero.toLowerCase().includes(searchInput);
+                    searchMatch = (invoice.document_numero && invoice.document_numero.toLowerCase().includes(searchInput)) ||
+                                  (invoice.document_numero_devis && invoice.document_numero_devis.toLowerCase().includes(searchInput));
                     break;
                 case 'order':
                     searchMatch = invoice.document_numero_Order && invoice.document_numero_Order.toLowerCase().includes(searchInput);
@@ -338,12 +347,12 @@ function filterInvoicesMulti() {
                     break;
                 case 'product':
                     searchMatch = invoice.products && invoice.products.some(p => 
-                        p.description.toLowerCase().includes(searchInput)
+                        p.designation && p.designation.toLowerCase().includes(searchInput)
                     );
                     break;
                 case 'price':
                     searchMatch = invoice.products && invoice.products.some(p => 
-                        p.unit_price.toString().includes(searchInput)
+                        p.prix_unitaire_ht && p.prix_unitaire_ht.toString().includes(searchInput)
                     );
                     break;
                 case 'total_ht':
@@ -354,13 +363,19 @@ function filterInvoicesMulti() {
                     break;
                 case 'all':
                 default:
+                    const productMatchAll = invoice.products && invoice.products.some(p => 
+                        (p.designation && p.designation.toLowerCase().includes(searchInput)) ||
+                        (p.prix_unitaire_ht && p.prix_unitaire_ht.toString().includes(searchInput))
+                    );
                     searchMatch = 
                         (invoice.document_numero && invoice.document_numero.toLowerCase().includes(searchInput)) ||
+                        (invoice.document_numero_devis && invoice.document_numero_devis.toLowerCase().includes(searchInput)) ||
                         (invoice.document_numero_Order && invoice.document_numero_Order.toLowerCase().includes(searchInput)) ||
                         invoice.client_nom.toLowerCase().includes(searchInput) ||
                         invoice.client_ice.toLowerCase().includes(searchInput) ||
                         invoice.total_ht.toString().includes(searchInput) ||
-                        invoice.total_ttc.toString().includes(searchInput);
+                        invoice.total_ttc.toString().includes(searchInput) ||
+                        productMatchAll;
                     break;
             }
         }
@@ -496,6 +511,7 @@ window.viewInvoiceMulti = async function(id) {
         const typeLabel = invoice.document_type === 'facture' ? 'Facture' : 'Devis';
         
         const overlay = document.createElement('div');
+        overlay.className = 'invoice-view-overlay';
         overlay.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.85);z-index:9999;display:flex;align-items:center;justify-content:center;padding:2rem;';
         
         const modal = document.createElement('div');
@@ -583,21 +599,23 @@ window.viewInvoiceMulti = async function(id) {
                                 </tr>
                             </thead>
                             <tbody>
-                                ${invoice.products.map((p, idx) => `
+                                ${invoice.products.map((p, idx) => {
+                                    const designation = String(p.designation || '').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+                                    return `
                                     <tr style="border-bottom:1px solid #3e3e42;">
-                                        <td style="padding:0.75rem;color:#fff;">${p.designation}</td>
+                                        <td style="padding:0.75rem;color:#fff;max-width:400px;word-break:break-word;overflow-wrap:break-word;white-space:pre-wrap;">${designation}</td>
                                         <td style="padding:0.75rem;text-align:center;color:#fff;">${p.quantite}</td>
                                         <td style="padding:0.75rem;text-align:right;color:#fff;">${p.prix_unitaire_ht.toFixed(2)} DH</td>
                                         <td style="padding:0.75rem;text-align:right;color:#fff;font-weight:500;">${p.total_ht.toFixed(2)} DH</td>
                                     </tr>
-                                `).join('')}
+                                `}).join('')}
                             </tbody>
                         </table>
                     </div>
                 </div>
                 
                 <!-- Totals Section -->
-                <div>
+                <div style="margin-bottom:2rem;">
                     <h3 style="color:#fff;font-size:1.1rem;margin:0 0 1rem 0;font-weight:600;">Totaux</h3>
                     <div style="background:#1e1e1e;padding:1rem;border-radius:8px;">
                         <div style="display:flex;justify-content:space-between;margin-bottom:0.75rem;">
@@ -614,6 +632,59 @@ window.viewInvoiceMulti = async function(id) {
                         </div>
                     </div>
                 </div>
+                
+                <!-- Notes Section -->
+                <div style="margin-bottom:2rem;" id="notesSectionMulti${id}">
+                    <h3 style="color:#fff;font-size:1.1rem;margin:0 0 1rem 0;font-weight:600;">📝 Notes</h3>
+                    <div style="background:#1e1e1e;padding:1rem;border-radius:8px;">
+                        <div style="color:#999;font-size:0.9rem;font-style:italic;">Chargement...</div>
+                    </div>
+                </div>
+                
+                <!-- Attachments Section -->
+                <div>
+                    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1rem;">
+                        <h3 style="color:#fff;font-size:1.1rem;margin:0;font-weight:600;">Pièces jointes</h3>
+                        <button onclick="addNewAttachmentMulti(${id})" style="padding:0.5rem 1rem;background:#4CAF50;color:#fff;border:none;border-radius:6px;cursor:pointer;font-size:0.85rem;font-weight:600;display:flex;align-items:center;gap:0.5rem;transition:all 0.2s;" onmouseover="this.style.background='#45a049'" onmouseout="this.style.background='#4CAF50'">
+                            <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor">
+                                <path d="M8 4a.5.5 0 0 1 .5.5v3h3a.5.5 0 0 1 0 1h-3v3a.5.5 0 0 1-1 0v-3h-3a.5.5 0 0 1 0-1h3v-3A.5.5 0 0 1 8 4z"/>
+                            </svg>
+                            Ajouter
+                        </button>
+                    </div>
+                    ${invoice.attachments && invoice.attachments.length > 0 ? `
+                        <div style="display:grid;gap:0.75rem;">
+                            ${invoice.attachments.map(a => `
+                                <div style="background:#1e1e1e;padding:1rem;border-radius:8px;display:flex;align-items:center;justify-content:space-between;">
+                                    <div style="display:flex;align-items:center;gap:1rem;flex:1;min-width:0;">
+                                        <div style="width:40px;height:40px;background:#2d2d30;border-radius:8px;display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+                                            ${a.file_type.includes('pdf') ? 
+                                                '<svg width="20" height="20" viewBox="0 0 16 16" fill="#f44336"><path d="M14 4.5V14a2 2 0 0 1-2 2h-1v-1h1a1 1 0 0 0 1-1V4.5h-2A1.5 1.5 0 0 1 9.5 3V1H4a1 1 0 0 0-1 1v9H2V2a2 2 0 0 1 2-2h5.5L14 4.5z"/><path d="M1.6 11.85H0v3.999h.791v-1.342h.803c.287 0 .531-.057.732-.173.203-.117.358-.275.463-.474a1.42 1.42 0 0 0 .161-.677c0-.25-.053-.476-.158-.677a1.176 1.176 0 0 0-.46-.477c-.2-.12-.443-.179-.732-.179Zm.545 1.333a.795.795 0 0 1-.085.38.574.574 0 0 1-.238.241.794.794 0 0 1-.375.082H.788V12.48h.66c.218 0 .389.06.512.181.123.122.185.296.185.522Zm1.217-1.333v3.999h1.46c.401 0 .734-.08.998-.237a1.45 1.45 0 0 0 .595-.689c.13-.3.196-.662.196-1.084 0-.42-.065-.778-.196-1.075a1.426 1.426 0 0 0-.589-.68c-.264-.156-.599-.234-1.005-.234H3.362Zm.791.645h.563c.248 0 .45.05.609.152a.89.89 0 0 1 .354.454c.079.201.118.452.118.753a2.3 2.3 0 0 1-.068.592 1.14 1.14 0 0 1-.196.422.8.8 0 0 1-.334.252 1.298 1.298 0 0 1-.483.082h-.563v-2.707Zm3.743 1.763v1.591h-.79V11.85h2.548v.653H7.896v1.117h1.606v.638H7.896Z"/></svg>' :
+                                                '<svg width="20" height="20" viewBox="0 0 16 16" fill="#2196F3"><path d="M6.002 5.5a1.5 1.5 0 1 1-3 0 1.5 1.5 0 0 1 3 0z"/><path d="M2.002 1a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V3a2 2 0 0 0-2-2h-12zm12 1a1 1 0 0 1 1 1v6.5l-3.777-1.947a.5.5 0 0 0-.577.093l-3.71 3.71-2.66-1.772a.5.5 0 0 0-.63.062L1.002 12V3a1 1 0 0 1 1-1h12z"/></svg>'
+                                            }
+                                        </div>
+                                        <div style="flex:1;min-width:0;">
+                                            <div style="color:#fff;font-weight:500;font-size:0.9rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${a.filename}</div>
+                                            <div style="color:#999;font-size:0.8rem;margin-top:0.25rem;">${(a.file_size / 1024).toFixed(1)} KB • ${new Date(a.uploaded_at).toLocaleDateString('fr-FR')}</div>
+                                        </div>
+                                    </div>
+                                    <div style="display:flex;gap:0.5rem;flex-shrink:0;">
+                                        <button onclick="openAttachmentMulti(${a.id})" style="padding:0.4rem 0.8rem;background:#2196F3;color:#fff;border:none;border-radius:4px;cursor:pointer;font-size:0.8rem;">
+                                            👁️ Ouvrir
+                                        </button>
+                                        <button onclick="deleteAttachmentMulti(${a.id}, ${id})" style="padding:0.4rem 0.8rem;background:#f44336;color:#fff;border:none;border-radius:4px;cursor:pointer;font-size:0.8rem;display:flex;align-items:center;gap:0.4rem;">
+                                            <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor">
+                                                <path d="M5.5 5.5A.5.5 0 0 1 6 6v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5zm2.5 0a.5.5 0 0 1 .5.5v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5zm3 .5a.5.5 0 0 0-1 0v6a.5.5 0 0 0 1 0V6z"/>
+                                                <path fill-rule="evenodd" d="M14.5 3a1 1 0 0 1-1 1H13v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V4h-.5a1 1 0 0 1-1-1V2a1 1 0 0 1 1-1H6a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1h3.5a1 1 0 0 1 1 1v1zM4.118 4 4 4.059V13a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1V4.059L11.882 4H4.118zM2.5 3V2h11v1h-11z"/>
+                                            </svg>
+                                            Supprimer
+                                        </button>
+                                    </div>
+                                </div>
+                            `).join('')}
+                        </div>
+                    ` : '<p style="color:#999;text-align:center;padding:2rem;background:#1e1e1e;border-radius:8px;">Aucune pièce jointe</p>'}
+                </div>
             </div>
         `;
         
@@ -624,6 +695,25 @@ window.viewInvoiceMulti = async function(id) {
         overlay.onclick = (e) => {
             if (e.target === overlay) overlay.remove();
         };
+        
+        // Load notes asynchronously
+        console.log('📝 [NOTES VIEW MULTI] Loading notes for invoice:', id);
+        const noteResult = await window.electron.dbMulti.getNote(id);
+        console.log('📥 [NOTES VIEW MULTI] Note result:', noteResult);
+        const notesSection = document.getElementById(`notesSectionMulti${id}`);
+        if (notesSection) {
+            const notesContent = notesSection.querySelector('div > div');
+            if (noteResult.success && noteResult.data) {
+                console.log('✅ [NOTES VIEW MULTI] Displaying note:', noteResult.data);
+                notesContent.style.color = '#fff';
+                notesContent.style.fontStyle = 'normal';
+                notesContent.style.whiteSpace = 'pre-wrap';
+                notesContent.textContent = noteResult.data;
+            } else {
+                console.log('ℹ️ [NOTES VIEW MULTI] No note found');
+                notesContent.textContent = 'Aucune note';
+            }
+        }
         
     } catch (error) {
         console.error('[MULTI] Error viewing invoice:', error);
@@ -658,6 +748,107 @@ window.editInvoiceMulti = function(id) {
     router.navigate('/edit-invoice-multi');
 }
 
+// Open attachment
+window.openAttachmentMulti = async function(attachmentId) {
+    try {
+        const result = await window.electron.dbMulti.getAttachment(attachmentId);
+        
+        if (result.success && result.data) {
+            const blob = new Blob([result.data.file_data], { type: result.data.file_type });
+            const url = URL.createObjectURL(blob);
+            window.open(url, '_blank');
+        } else {
+            throw new Error(result.error || 'Fichier introuvable');
+        }
+    } catch (error) {
+        console.error('❌ Error opening attachment:', error);
+        window.notify.error('Erreur', 'Impossible d\'ouvrir le fichier: ' + error.message, 4000);
+    }
+}
+
+// Delete attachment
+window.deleteAttachmentMulti = async function(attachmentId, invoiceId) {
+    const confirmed = await customConfirm('Confirmation', 'Êtes-vous sûr de vouloir supprimer ce fichier ?', 'warning');
+    if (!confirmed) {
+        return;
+    }
+    
+    try {
+        const result = await window.electron.dbMulti.deleteAttachment(attachmentId);
+        
+        if (result.success) {
+            window.notify.success('Supprimé', 'Fichier supprimé avec succès', 3000);
+            
+            // Close modal and reopen to refresh
+            const modalToClose = document.querySelector('.invoice-view-overlay');
+            if (modalToClose) {
+                modalToClose.remove();
+            }
+            setTimeout(() => viewInvoiceMulti(invoiceId), 300);
+        } else {
+            throw new Error(result.error);
+        }
+    } catch (error) {
+        console.error('Error deleting attachment:', error);
+        window.notify.error('Erreur', 'Impossible de supprimer le fichier', 3000);
+    }
+}
+
+// Add new attachment
+window.addNewAttachmentMulti = async function(invoiceId) {
+    // Create file input
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = '.png,.jpg,.jpeg,.pdf';
+    input.multiple = true;
+    
+    input.onchange = async (e) => {
+        const files = Array.from(e.target.files);
+        if (files.length === 0) return;
+        
+        const loadingNotif = window.notify.loading('Téléchargement en cours...', 'Veuillez patienter');
+        
+        try {
+            for (const file of files) {
+                // Read file as ArrayBuffer
+                const arrayBuffer = await file.arrayBuffer();
+                const uint8Array = new Uint8Array(arrayBuffer);
+                
+                // Add attachment
+                const result = await window.electron.dbMulti.addAttachment(
+                    invoiceId,
+                    file.name,
+                    file.type,
+                    uint8Array
+                );
+                
+                if (result.success) {
+                    console.log('✅ Attachment uploaded:', file.name);
+                } else {
+                    throw new Error(result.error);
+                }
+            }
+            
+            window.notify.remove(loadingNotif);
+            window.notify.success('Succès', `${files.length} fichier(s) ajouté(s) avec succès`, 3000);
+            
+            // Close modal and reopen to refresh
+            const modalToClose = document.querySelector('.invoice-view-overlay');
+            if (modalToClose) {
+                modalToClose.remove();
+            }
+            setTimeout(() => viewInvoiceMulti(invoiceId), 300);
+            
+        } catch (error) {
+            window.notify.remove(loadingNotif);
+            console.error('Error uploading attachments:', error);
+            window.notify.error('Erreur', 'Erreur lors du téléchargement: ' + error.message, 4000);
+        }
+    };
+    
+    input.click();
+}
+
 // Download Bon de travaux as PDF (without prices) - MULTI TRAVAUX TETOUAN Design
 window.downloadBonDeTravaux = async function(invoiceId) {
     try {
@@ -671,6 +862,75 @@ window.downloadBonDeTravaux = async function(invoiceId) {
         }
         
         const invoice = result.data;
+        
+        // Check if there are products with zero quantity or price
+        const hasZeroProducts = invoice.products && invoice.products.some(p => 
+            parseFloat(p.quantite) === 0 || parseFloat(p.prix_unitaire_ht) === 0
+        );
+        
+        let includeZeroProducts = true; // Default: include all products
+        
+        if (hasZeroProducts) {
+            includeZeroProducts = await new Promise((resolve) => {
+                const overlay = document.createElement('div');
+                overlay.className = 'custom-modal-overlay';
+                
+                overlay.innerHTML = `
+                    <div class="custom-modal">
+                        <div class="custom-modal-header">
+                            <span class="custom-modal-icon warning">⚠️</span>
+                            <h3 class="custom-modal-title">Produits avec quantité ou prix zéro</h3>
+                        </div>
+                        <div class="custom-modal-body">
+                            <p style="margin-bottom:1rem;color:#e0e0e0;font-size:0.95rem;">
+                                Certains produits ont une <strong style="color:#ff9800;">quantité = 0</strong> ou un <strong style="color:#ff9800;">prix = 0</strong>.
+                            </p>
+                            <p style="color:#b0b0b0;font-size:0.9rem;">
+                                Voulez-vous les afficher dans le Bon de travaux ?
+                            </p>
+                        </div>
+                        <div class="custom-modal-footer">
+                            <button id="excludeZeroBtnBonTravaux" class="custom-modal-btn secondary">
+                                ❌ Non, masquer
+                            </button>
+                            <button id="includeZeroBtnBonTravaux" class="custom-modal-btn primary">
+                                ✅ Oui, afficher
+                            </button>
+                        </div>
+                    </div>
+                `;
+                
+                document.body.appendChild(overlay);
+                
+                const excludeBtn = document.getElementById('excludeZeroBtnBonTravaux');
+                const includeBtn = document.getElementById('includeZeroBtnBonTravaux');
+                
+                excludeBtn.addEventListener('click', () => {
+                    overlay.remove();
+                    resolve(false);
+                });
+                
+                includeBtn.addEventListener('click', () => {
+                    overlay.remove();
+                    resolve(true);
+                });
+                
+                overlay.addEventListener('click', (e) => {
+                    if (e.target === overlay) {
+                        overlay.remove();
+                        resolve(true); // Default to include if user clicks outside
+                    }
+                });
+                
+                setTimeout(() => includeBtn.focus(), 100);
+            });
+            
+            console.log('🔍 User choice for zero products in Bon de travaux:', includeZeroProducts ? 'Include' : 'Exclude');
+        }
+        
+        // Mark products with zero values for special display (don't remove them)
+        const showZeroValues = includeZeroProducts;
+        console.log('📊 Show zero values in Bon de travaux:', showZeroValues);
         
         // Check if jsPDF is loaded
         if (typeof window.jspdf === 'undefined') {
@@ -740,11 +1000,18 @@ window.downloadBonDeTravaux = async function(invoiceId) {
         
         // Function to add footer
         const addFooter = (pageNum, totalPages) => {
+            // Company info at bottom
             doc.setTextColor(0, 0, 0);
             doc.setFontSize(9);
             doc.setFont(undefined, 'normal');
             doc.text('NIF 68717422 | TP 51001343 | RC 38633 | CNSS 6446237', 105, 280, { align: 'center' });
             doc.text('ICE : 00380950500031', 105, 286, { align: 'center' });
+            
+            // Add page numbering at bottom in gray
+            doc.setTextColor(150, 150, 150); // Gray color
+            doc.setFontSize(9);
+            doc.setFont(undefined, 'normal');
+            doc.text(`Page ${pageNum} / ${totalPages}`, 105, 292, { align: 'center' });
         };
         
         // Add header to first page
@@ -780,7 +1047,7 @@ window.downloadBonDeTravaux = async function(invoiceId) {
         invoice.products.forEach((product, index) => {
             const designation = product.designation || '';
             const lines = doc.splitTextToSize(designation, 75);
-            const rowHeight = Math.max(8, lines.length * 5.5);
+            const rowHeight = Math.max(8, (lines.length * 4.5) + 4);
             
             // Check if we need a new page
             if (currentY + rowHeight > 220) {
@@ -820,11 +1087,24 @@ window.downloadBonDeTravaux = async function(invoiceId) {
             const centerOffset = (lines.length > 1) ? ((lines.length - 1) * 2.25) : 0;
             
             doc.setFontSize(8);
-            doc.text(String(product.quantite || ''), 115, currentY + 3 + centerOffset, { align: 'center' });
+            // Show quantity only if it's not zero OR if user chose to show zero values
+            const qty = parseFloat(product.quantite);
+            if (showZeroValues || qty !== 0) {
+                doc.text(String(product.quantite || ''), 115, currentY + 3 + centerOffset, { align: 'center' });
+            }
             
             doc.setFontSize(7.5);
-            doc.text(`${formatNumberForPDF(product.prix_unitaire_ht)} DH`, 150, currentY + 3 + centerOffset, { align: 'right' });
-            doc.text(`${formatNumberForPDF(product.total_ht)} DH`, 188, currentY + 3 + centerOffset, { align: 'right' });
+            // Show price only if it's not zero OR if user chose to show zero values
+            const price = parseFloat(product.prix_unitaire_ht);
+            if (showZeroValues || price !== 0) {
+                doc.text(`${formatNumberForPDF(product.prix_unitaire_ht)} DH`, 150, currentY + 3 + centerOffset, { align: 'right' });
+            }
+            
+            // Show total only if it's not zero OR if user chose to show zero values
+            const total = parseFloat(product.total_ht);
+            if (showZeroValues || total !== 0) {
+                doc.text(`${formatNumberForPDF(product.total_ht)} DH`, 188, currentY + 3 + centerOffset, { align: 'right' });
+            }
             
             currentY += rowHeight;
         });
@@ -1046,7 +1326,7 @@ window.downloadInvoicePDFMulti = async function(invoiceId) {
             const lines = doc.splitTextToSize(designation, 75);
             
             // Calculate row height based on text lines - more space per line
-            const rowHeight = Math.max(8, lines.length * 5.5);
+            const rowHeight = Math.max(8, (lines.length * 4.5) + 4);
             
             // Check if we need a new page BEFORE drawing
             if (currentY + rowHeight > 220) {
@@ -1203,4 +1483,77 @@ window.changeYearMulti = function() {
     localStorage.removeItem('multi_selected_year');
     // Navigate to year selector
     router.navigate('/year-selector-multi');
+};
+
+// Sort table by column
+let currentSortColumnMulti = null;
+let currentSortDirectionMulti = 'asc';
+
+window.sortTableMulti = function(column) {
+    console.log('🔄 [MULTI SORT] Sorting by:', column);
+    
+    // Toggle sort direction if clicking same column
+    if (currentSortColumnMulti === column) {
+        currentSortDirectionMulti = currentSortDirectionMulti === 'asc' ? 'desc' : 'asc';
+    } else {
+        currentSortColumnMulti = column;
+        currentSortDirectionMulti = 'asc';
+    }
+    
+    // Update sort icons
+    ['Numero', 'Date', 'HT', 'TTC'].forEach(col => {
+        const icon = document.getElementById(`sortIcon${col}`);
+        if (icon) icon.textContent = '⇅';
+    });
+    
+    const iconMap = {
+        'numero': 'Numero',
+        'date': 'Date',
+        'total_ht': 'HT',
+        'total_ttc': 'TTC'
+    };
+    
+    const currentIcon = document.getElementById(`sortIcon${iconMap[column]}`);
+    if (currentIcon) {
+        currentIcon.textContent = currentSortDirectionMulti === 'asc' ? '↑' : '↓';
+    }
+    
+    // Sort the filtered invoices
+    filteredInvoicesMulti.sort((a, b) => {
+        let valueA, valueB;
+        
+        switch(column) {
+            case 'numero':
+                // Extract number from document_numero or document_numero_devis
+                valueA = parseInt((a.document_numero || a.document_numero_devis || '0').replace(/\D/g, '')) || 0;
+                valueB = parseInt((b.document_numero || b.document_numero_devis || '0').replace(/\D/g, '')) || 0;
+                break;
+            case 'date':
+                valueA = new Date(a.document_date).getTime();
+                valueB = new Date(b.document_date).getTime();
+                break;
+            case 'total_ht':
+                valueA = parseFloat(a.total_ht) || 0;
+                valueB = parseFloat(b.total_ht) || 0;
+                break;
+            case 'total_ttc':
+                valueA = parseFloat(a.total_ttc) || 0;
+                valueB = parseFloat(b.total_ttc) || 0;
+                break;
+            default:
+                return 0;
+        }
+        
+        if (currentSortDirectionMulti === 'asc') {
+            return valueA - valueB;
+        } else {
+            return valueB - valueA;
+        }
+    });
+    
+    // Reset to first page and display
+    currentPageMulti = 1;
+    displayInvoicesMulti();
+    
+    console.log('✅ [MULTI SORT] Sorted successfully:', column, currentSortDirectionMulti);
 };

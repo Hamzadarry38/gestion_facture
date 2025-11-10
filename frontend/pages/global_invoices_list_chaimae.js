@@ -159,6 +159,21 @@ async function loadGlobalInvoices() {
         if (result.success) {
             allGlobalInvoices = result.data;
             
+            // Sort all invoices by document number (ascending - smallest to largest)
+            allGlobalInvoices.sort((a, b) => {
+                const getNumero = (invoice) => {
+                    const numero = invoice.document_numero || '0';
+                    const match = numero.match(/(\d+)(?:\/|$)/);
+                    return match ? parseInt(match[1]) : 0;
+                };
+                const numA = getNumero(a);
+                const numB = getNumero(b);
+                const numCompare = numA - numB;
+                if (numCompare !== 0) return numCompare;
+                // Secondary sort by date if numbers are equal
+                return new Date(a.document_date) - new Date(b.document_date);
+            });
+            
             // Populate year filter
             const years = [...new Set(allGlobalInvoices.map(inv => new Date(inv.document_date).getFullYear()))].sort((a, b) => b - a);
             const yearFilter = document.getElementById('filterYearGlobalInvoices');
@@ -216,6 +231,21 @@ window.filterGlobalInvoices = function() {
         }
         
         return true;
+    });
+    
+    // Sort by document number (ascending - smallest to largest)
+    filteredGlobalInvoices.sort((a, b) => {
+        const getNumero = (invoice) => {
+            const numero = invoice.document_numero || '0';
+            const match = numero.match(/(\d+)(?:\/|$)/);
+            return match ? parseInt(match[1]) : 0;
+        };
+        const numA = getNumero(a);
+        const numB = getNumero(b);
+        const numCompare = numA - numB;
+        if (numCompare !== 0) return numCompare;
+        // Secondary sort by date if numbers are equal
+        return new Date(a.document_date) - new Date(b.document_date);
     });
     
     displayGlobalInvoices();
@@ -356,11 +386,43 @@ window.viewGlobalInvoice = async function(id) {
             
             const formatNumber = (num) => num.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ' ');
             
-            // Sort bons based on user selection
+            // Sort bons by document number (ascending by default)
+            const sortOrder = 'numero_asc'; // Default sort order
+            
             if (invoice.bons && invoice.bons.length > 0) {
                 let sortedBons = [...invoice.bons];
                 
-                if (sortOrder === 'oldest') {
+                if (sortOrder === 'numero_asc') {
+                    // Sort by document number ascending (smallest to largest)
+                    sortedBons.sort((a, b) => {
+                        const getNumero = (bon) => {
+                            const numero = bon.document_numero_bl || bon.document_numero || '0';
+                            const match = numero.match(/(\d+)(?:\/|$)/);
+                            return match ? parseInt(match[1]) : 0;
+                        };
+                        const numA = getNumero(a);
+                        const numB = getNumero(b);
+                        const numCompare = numA - numB;
+                        if (numCompare !== 0) return numCompare;
+                        // Secondary sort by date if numbers are equal
+                        return new Date(a.document_date) - new Date(b.document_date);
+                    });
+                } else if (sortOrder === 'numero_desc') {
+                    // Sort by document number descending (largest to smallest)
+                    sortedBons.sort((a, b) => {
+                        const getNumero = (bon) => {
+                            const numero = bon.document_numero_bl || bon.document_numero || '0';
+                            const match = numero.match(/(\d+)(?:\/|$)/);
+                            return match ? parseInt(match[1]) : 0;
+                        };
+                        const numA = getNumero(a);
+                        const numB = getNumero(b);
+                        const numCompare = numB - numA;
+                        if (numCompare !== 0) return numCompare;
+                        // Secondary sort by date if numbers are equal
+                        return new Date(b.document_date) - new Date(a.document_date);
+                    });
+                } else if (sortOrder === 'oldest') {
                     // Sort from oldest to newest (ascending by date)
                     sortedBons.sort((a, b) => new Date(a.document_date) - new Date(b.document_date));
                 } else if (sortOrder === 'newest') {
@@ -761,6 +823,16 @@ window.downloadGlobalInvoicePDF = async function(invoiceId, sortOrder = null) {
                             Comment souhaitez-vous trier les bons de livraison dans le PDF ?
                         </p>
                         <div style="display:flex;flex-direction:column;gap:1rem;">
+                            <button onclick="this.closest('.modal-overlay').remove(); window.downloadGlobalInvoicePDF(${invoiceId}, 'numero_asc')" 
+                                    style="padding:1rem;background:linear-gradient(135deg, #4CAF50 0%, #45a049 100%);color:#fff;border:none;border-radius:8px;font-size:1rem;cursor:pointer;transition:transform 0.2s;"
+                                    onmouseover="this.style.transform='scale(1.02)'" onmouseout="this.style.transform='scale(1)'">
+                                🔢 Par numéro croissant (1 → 99)
+                            </button>
+                            <button onclick="this.closest('.modal-overlay').remove(); window.downloadGlobalInvoicePDF(${invoiceId}, 'numero_desc')" 
+                                    style="padding:1rem;background:linear-gradient(135deg, #FF9800 0%, #F57C00 100%);color:#fff;border:none;border-radius:8px;font-size:1rem;cursor:pointer;transition:transform 0.2s;"
+                                    onmouseover="this.style.transform='scale(1.02)'" onmouseout="this.style.transform='scale(1)'">
+                                🔠 Par numéro décroissant (99 → 1)
+                            </button>
                             <button onclick="this.closest('.modal-overlay').remove(); window.downloadGlobalInvoicePDF(${invoiceId}, 'oldest')" 
                                     style="padding:1rem;background:linear-gradient(135deg, #667eea 0%, #764ba2 100%);color:#fff;border:none;border-radius:8px;font-size:1rem;cursor:pointer;transition:transform 0.2s;"
                                     onmouseover="this.style.transform='scale(1.02)'" onmouseout="this.style.transform='scale(1)'">
@@ -914,7 +986,37 @@ window.downloadGlobalInvoicePDF = async function(invoiceId, sortOrder = null) {
         if (invoice.bons && invoice.bons.length > 0) {
             let sortedBons = [...invoice.bons];
             
-            if (sortOrder === 'oldest') {
+            if (sortOrder === 'numero_asc') {
+                // Sort by document number ascending (smallest to largest)
+                sortedBons.sort((a, b) => {
+                    const getNumero = (bon) => {
+                        const numero = bon.document_numero_bl || bon.document_numero || '0';
+                        const match = numero.match(/(\d+)(?:\/|$)/);
+                        return match ? parseInt(match[1]) : 0;
+                    };
+                    const numA = getNumero(a);
+                    const numB = getNumero(b);
+                    const numCompare = numA - numB;
+                    if (numCompare !== 0) return numCompare;
+                    // Secondary sort by date if numbers are equal
+                    return new Date(a.document_date) - new Date(b.document_date);
+                });
+            } else if (sortOrder === 'numero_desc') {
+                // Sort by document number descending (largest to smallest)
+                sortedBons.sort((a, b) => {
+                    const getNumero = (bon) => {
+                        const numero = bon.document_numero_bl || bon.document_numero || '0';
+                        const match = numero.match(/(\d+)(?:\/|$)/);
+                        return match ? parseInt(match[1]) : 0;
+                    };
+                    const numA = getNumero(a);
+                    const numB = getNumero(b);
+                    const numCompare = numB - numA;
+                    if (numCompare !== 0) return numCompare;
+                    // Secondary sort by date if numbers are equal
+                    return new Date(b.document_date) - new Date(a.document_date);
+                });
+            } else if (sortOrder === 'oldest') {
                 // Sort from oldest to newest (ascending by date)
                 sortedBons.sort((a, b) => new Date(a.document_date) - new Date(b.document_date));
             } else if (sortOrder === 'newest') {

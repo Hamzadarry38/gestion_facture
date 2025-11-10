@@ -108,7 +108,6 @@ function InvoicesListChaimaePage() {
                                     <option value="numero">📄 N° Document</option>
                                     <option value="order">📋 N° Order</option>
                                     <option value="bon_livraison">📦 Bon de livraison</option>
-                                    <option value="bon_commande">📋 N° Order</option>
                                     <option value="client">👤 Client</option>
                                     <option value="ice">🏢 ICE</option>
                                     <option value="product">📦 Produit</option>
@@ -206,20 +205,28 @@ function InvoicesListChaimaePage() {
                         <table class="invoices-table">
                             <thead>
                                 <tr>
-                                    <th>
-                                        <input type="checkbox" id="selectAllInvoicesChaimae" 
+                                    <th style="width: 40px;">
+                                        <input type="checkbox" id="selectAllChaimae" onchange="selectAllInvoicesChaimae()"
                                                style="width: 18px; height: 18px; cursor: pointer;"
                                                title="Sélectionner tout">
                                     </th>
                                     <th>ID</th>
                                     <th>Type</th>
-                                    <th>N° Document</th>
+                                    <th onclick="sortTableChaimae('numero')" style="cursor: pointer; user-select: none;" title="Cliquez pour trier">
+                                        N° Document <span id="sortIconNumeroChaimae">⇅</span>
+                                    </th>
                                     <th>Client</th>
                                     <th>ICE</th>
-                                    <th>Date</th>
-                                    <th>Total HT</th>
+                                    <th onclick="sortTableChaimae('date')" style="cursor: pointer; user-select: none;" title="Cliquez pour trier">
+                                        Date <span id="sortIconDateChaimae">⇅</span>
+                                    </th>
+                                    <th onclick="sortTableChaimae('total_ht')" style="cursor: pointer; user-select: none;" title="Cliquez pour trier">
+                                        Total HT <span id="sortIconTotalHTChaimae">⇅</span>
+                                    </th>
                                     <th>TVA</th>
-                                    <th>Total TTC</th>
+                                    <th onclick="sortTableChaimae('total_ttc')" style="cursor: pointer; user-select: none;" title="Cliquez pour trier">
+                                        Total TTC <span id="sortIconTotalTTCChaimae">⇅</span>
+                                    </th>
                                     <th>Actions</th>
                                 </tr>
                             </thead>
@@ -877,7 +884,8 @@ window.filterInvoicesChaimae = function() {
                     if (!numero.includes(searchText)) return false;
                     break;
                 case 'order':
-                    if (!order.includes(searchText)) return false;
+                    // Search in both Facture (document_numero_Order) and Bon de livraison (document_numero_commande)
+                    if (!order.includes(searchText) && !bonCommande.includes(searchText)) return false;
                     break;
                 case 'bon_livraison':
                     if (!bonLivraison.includes(searchText)) return false;
@@ -897,6 +905,14 @@ window.filterInvoicesChaimae = function() {
                 case 'price':
                     if (!pricesText.includes(searchText)) return false;
                     break;
+                case 'total_ht':
+                    // Search from the beginning of the number
+                    const searchNumberHT = searchText.trim();
+                    const totalHTStr = (invoice.total_ht || 0).toString();
+                    
+                    // Check if total HT starts with the search number
+                    if (!totalHTStr.startsWith(searchNumberHT)) return false;
+                    break;
                 case 'total':
                     // Search from the beginning of the number
                     const searchNumber = searchText.trim();
@@ -906,6 +922,9 @@ window.filterInvoicesChaimae = function() {
                     if (!totalStr.startsWith(searchNumber)) return false;
                     break;
                 default:
+                    // Search in ALL fields when "Tout" is selected
+                    const totalHT = (invoice.total_ht || 0).toString();
+                    
                     if (!numero.includes(searchText) && 
                         !order.includes(searchText) &&
                         !bonLivraison.includes(searchText) &&
@@ -913,6 +932,8 @@ window.filterInvoicesChaimae = function() {
                         !client.includes(searchText) && 
                         !ice.includes(searchText) &&
                         !productsText.includes(searchText) &&
+                        !pricesText.includes(searchText) &&
+                        !totalHT.includes(searchText) &&
                         !totalTTC.includes(searchText)) {
                         return false;
                     }
@@ -940,9 +961,86 @@ window.resetFiltersChaimae = function() {
     displayInvoicesChaimae(allInvoicesChaimae);
 }
 
+// Sort table by column
+let currentSortColumnChaimae = null;
+let currentSortDirectionChaimae = 'asc';
+
+window.sortTableChaimae = function(column) {
+    // Toggle sort direction if clicking same column
+    if (currentSortColumnChaimae === column) {
+        currentSortDirectionChaimae = currentSortDirectionChaimae === 'asc' ? 'desc' : 'asc';
+    } else {
+        currentSortColumnChaimae = column;
+        currentSortDirectionChaimae = 'asc';
+    }
+    
+    // Update sort icons
+    ['numero', 'date', 'total_ht', 'total_ttc'].forEach(col => {
+        const icon = document.getElementById(`sortIcon${col.charAt(0).toUpperCase() + col.slice(1).replace('_', '')}Chaimae`);
+        if (icon) {
+            if (col === column) {
+                icon.textContent = currentSortDirectionChaimae === 'asc' ? '↑' : '↓';
+                icon.style.color = '#4caf50';
+            } else {
+                icon.textContent = '⇅';
+                icon.style.color = '';
+            }
+        }
+    });
+    
+    // Sort the filtered invoices
+    const sorted = [...filteredInvoicesChaimae].sort((a, b) => {
+        let valueA, valueB;
+        
+        switch (column) {
+            case 'numero':
+                // Extract numeric part from document number
+                const getNumero = (inv) => {
+                    const numero = inv.document_numero || inv.document_numero_devis || inv.document_numero_bl || '';
+                    const match = numero.match(/\d+/);
+                    return match ? parseInt(match[0]) : 0;
+                };
+                valueA = getNumero(a);
+                valueB = getNumero(b);
+                break;
+                
+            case 'date':
+                valueA = new Date(a.document_date || 0).getTime();
+                valueB = new Date(b.document_date || 0).getTime();
+                break;
+                
+            case 'total_ht':
+                valueA = parseFloat(a.total_ht || 0);
+                valueB = parseFloat(b.total_ht || 0);
+                break;
+                
+            case 'total_ttc':
+                valueA = parseFloat(a.total_ttc || 0);
+                valueB = parseFloat(b.total_ttc || 0);
+                break;
+                
+            default:
+                return 0;
+        }
+        
+        if (currentSortDirectionChaimae === 'asc') {
+            return valueA - valueB;
+        } else {
+            return valueB - valueA;
+        }
+    });
+    
+    // Update filtered invoices and display
+    filteredInvoicesChaimae = sorted;
+    currentPageChaimae = 1; // Reset to first page
+    displayInvoicesChaimae(sorted);
+    
+    console.log(`📊 [CHAIMAE] Sorted by ${column} (${currentSortDirectionChaimae})`);
+};
+
 // Update select all checkbox
 function updateSelectAllChaimae() {
-    const selectAll = document.getElementById('selectAllInvoicesChaimae');
+    const selectAll = document.getElementById('selectAllChaimae');
     const checkboxes = document.querySelectorAll('.invoice-checkbox-chaimae');
     const checkedBoxes = document.querySelectorAll('.invoice-checkbox-chaimae:checked');
     
@@ -956,7 +1054,7 @@ function updateSelectAllChaimae() {
 
 // Select all invoices
 window.selectAllInvoicesChaimae = function() {
-    const selectAll = document.getElementById('selectAllInvoicesChaimae');
+    const selectAll = document.getElementById('selectAllChaimae');
     const checkboxes = document.querySelectorAll('.invoice-checkbox-chaimae');
     
     checkboxes.forEach(cb => {
@@ -1026,6 +1124,7 @@ window.viewInvoiceChaimae = async function(id, documentType) {
         const docNumber = invoice.document_numero || invoice.document_numero_devis || invoice.document_numero_bl || '-';
         
         const overlay = document.createElement('div');
+        overlay.className = 'invoice-view-overlay';
         overlay.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.85);z-index:9999;display:flex;align-items:center;justify-content:center;padding:2rem;';
         
         const modal = document.createElement('div');
@@ -1127,10 +1226,10 @@ window.viewInvoiceChaimae = async function(id, documentType) {
                             <tbody>
                                 ${invoice.products.map((p, idx) => `
                                     <tr style="border-bottom:1px solid #3e3e42;">
-                                        <td style="padding:0.75rem;color:#fff;">${p.designation}</td>
-                                        <td style="padding:0.75rem;text-align:center;color:#fff;">${p.quantite}</td>
-                                        <td style="padding:0.75rem;text-align:right;color:#fff;">${formatNumberChaimae(parseFloat(p.prix_unitaire_ht))} DH</td>
-                                        <td style="padding:0.75rem;text-align:right;color:#fff;font-weight:500;">${formatNumberChaimae(parseFloat(p.total_ht))} DH</td>
+                                        <td style="padding:0.75rem;color:#fff;max-width:300px;word-wrap:break-word;white-space:normal;overflow-wrap:break-word;">${p.designation}</td>
+                                        <td style="padding:0.75rem;text-align:center;color:#fff;white-space:nowrap;">${p.quantite}</td>
+                                        <td style="padding:0.75rem;text-align:right;color:#fff;white-space:nowrap;">${formatNumberChaimae(parseFloat(p.prix_unitaire_ht))} DH</td>
+                                        <td style="padding:0.75rem;text-align:right;color:#fff;font-weight:500;white-space:nowrap;">${formatNumberChaimae(parseFloat(p.total_ht))} DH</td>
                                     </tr>
                                 `).join('')}
                             </tbody>
@@ -1157,10 +1256,18 @@ window.viewInvoiceChaimae = async function(id, documentType) {
                     </div>
                 </div>
                 
+                <!-- Notes Section -->
+                <div style="margin-bottom:2rem;" id="notesSection${id}">
+                    <h3 style="color:#fff;font-size:1.1rem;margin:0 0 1rem 0;font-weight:600;">📝 Notes</h3>
+                    <div style="background:#1e1e1e;padding:1rem;border-radius:8px;">
+                        <div style="color:#999;font-size:0.9rem;font-style:italic;">Chargement...</div>
+                    </div>
+                </div>
+                
                 <!-- Attachments Section -->
                 <div>
                     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem;">
-                        <h3 style="color:#fff;font-size:1.1rem;margin:0;font-weight:600;">Pièces jointes (${invoice.attachments ? invoice.attachments.length : 0})</h3>
+                        <h3 style="color:#fff;font-size:1.1rem;margin:0;font-weight:600;"> Pièces jointes (${invoice.attachments ? invoice.attachments.length : 0})</h3>
                         <button onclick="addNewAttachmentChaimae(${id})" style="padding:0.5rem 1rem;background:#4CAF50;color:#fff;border:none;border-radius:6px;cursor:pointer;font-size:0.85rem;font-weight:600;display:flex;align-items:center;gap:0.5rem;transition:all 0.2s;" onmouseover="this.style.background='#45a049'" onmouseout="this.style.background='#4CAF50'">
                             ➕ Ajouter
                         </button>
@@ -1203,6 +1310,25 @@ window.viewInvoiceChaimae = async function(id, documentType) {
         overlay.onclick = (e) => {
             if (e.target === overlay) overlay.remove();
         };
+        
+        // Load notes asynchronously
+        console.log('📝 [NOTES VIEW] Loading notes for invoice:', id);
+        const noteResult = await window.electron.dbChaimae.getNote(id);
+        console.log('📥 [NOTES VIEW] Note result:', noteResult);
+        const notesSection = document.getElementById(`notesSection${id}`);
+        if (notesSection) {
+            const notesContent = notesSection.querySelector('div > div');
+            if (noteResult.success && noteResult.data) {
+                console.log('✅ [NOTES VIEW] Displaying note:', noteResult.data);
+                notesContent.style.color = '#fff';
+                notesContent.style.fontStyle = 'normal';
+                notesContent.style.whiteSpace = 'pre-wrap';
+                notesContent.textContent = noteResult.data;
+            } else {
+                console.log('ℹ️ [NOTES VIEW] No note found');
+                notesContent.textContent = 'Aucune note';
+            }
+        }
         
     } catch (error) {
         console.error('Error viewing invoice:', error);
@@ -1273,31 +1399,88 @@ window.editInvoiceChaimae = async function(id) {
                                     <label>Date</label>
                                     <input type="date" id="editDateChaimae" value="${invoice.document_date}" required>
                                 </div>
+                            </div>
+                            <div class="form-row">
                                 <div class="form-field">
-                                    <label>${docNumeroLabel}</label>
-                                    <input type="text" id="editNumeroChaimae" value="${docNumeroValue}" required
+                                    <label id="editNumeroLabelChaimae">${docNumeroLabel}</label>
+                                    ${isBonLivraison ? `
+                                    <div style="display: flex; gap: 0.5rem; align-items: center;">
+                                        <div style="position: relative; flex: 0 0 auto;">
+                                            <input type="text" id="editPrefixInputChaimae" value="${docNumeroValue.split(/[0-9]/)[0] || 'MG'}" placeholder="MG" 
+                                                   style="width: 80px; padding: 0.75rem; background: #2d2d30; border: 2px solid #3e3e42; border-radius: 8px; color: #fff; font-size: 1rem; outline: none; cursor: pointer; font-weight: 600;"
+                                                   readonly onclick="toggleEditPrefixDropdownChaimae()">
+                                            <div id="editPrefixDropdownChaimae" style="display: none; position: absolute; top: 100%; left: 0; background: linear-gradient(135deg, #1e1e1e 0%, #2d2d30 100%); border: 2px solid #667eea; border-radius: 12px; margin-top: 0.5rem; box-shadow: 0 8px 24px rgba(102, 126, 234, 0.3); z-index: 1000; min-width: 200px; max-height: 350px; overflow: hidden;">
+                                                <div style="padding: 0.75rem 1rem; background: linear-gradient(90deg, #667eea 0%, #764ba2 100%); border-bottom: 2px solid rgba(102, 126, 234, 0.3);">
+                                                    <h4 style="margin: 0; color: #fff; font-size: 0.95rem; font-weight: 600;">📋 Choisir un Prefix</h4>
+                                                </div>
+                                                <div id="editPrefixListChaimae" style="max-height: 200px; overflow-y: auto; padding: 0.5rem;"></div>
+                                                <div style="padding: 0.75rem; border-top: 2px solid rgba(102, 126, 234, 0.2); background: rgba(0,0,0,0.2);">
+                                                    <input type="text" id="editNewPrefixInputChaimae" placeholder="Nouveau prefix (ex: AB)" 
+                                                           style="width: 100%; padding: 0.65rem; background: #1e1e1e; border: 2px solid #3e3e42; border-radius: 6px; color: #fff; font-size: 0.9rem; outline: none;"
+                                                           onkeypress="if(event.key==='Enter'){addEditPrefixChaimae(); event.preventDefault();}">
+                                                    <button type="button" onclick="addEditPrefixChaimae()" 
+                                                            style="width: 100%; margin-top: 0.5rem; padding: 0.65rem; background: linear-gradient(90deg, #667eea 0%, #764ba2 100%); color: #fff; border: none; border-radius: 6px; cursor: pointer; font-size: 0.9rem; font-weight: 600;">
+                                                        ➕ Ajouter le Prefix
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <input type="text" id="editNumeroChaimae" value="${docNumeroValue.replace(/^[A-Z]+/, '')}" placeholder="123/2025" required
+                                               style="flex: 1; padding: 0.75rem; background: #2d2d30; border: 2px solid #3e3e42; border-radius: 8px; color: #fff; font-size: 1rem; outline: none; font-weight: 600;"
+                                               onblur="autoFormatDocumentNumberOnBlurChaimae(this)">
+                                    </div>
+                                    ` : `
+                                    <input type="text" id="editNumeroChaimae" value="${docNumeroValue}" placeholder="123/2025" required
+                                           style="width: 100%; padding: 0.75rem; background: #2d2d30; border: 2px solid #3e3e42; border-radius: 8px; color: #fff; font-size: 1rem; outline: none; font-weight: 600;"
                                            onblur="autoFormatDocumentNumberOnBlurChaimae(this)">
+                                    `}
                                 </div>
                             </div>
                             ${invoice.document_type === 'facture' ? `
                             <div class="form-row">
                                 <div class="form-field">
                                     <label>N° Order (optionnel)</label>
-                                    <input type="text" id="editNumeroOrderChaimae" value="${invoice.document_numero_Order || ''}" placeholder="Ex: 123"
-                                           onblur="autoFormatDocumentNumberOnBlurChaimae(this)">
+                                    <input type="text" id="editNumeroOrderChaimae" value="${invoice.document_numero_Order || ''}" placeholder="Ex: 123">
                                 </div>
                                 <div class="form-field">
                                     <label>Bon de livraison (optionnel)</label>
-                                    <input type="text" id="editBonLivraisonChaimae" value="${invoice.document_bon_de_livraison || ''}" placeholder="Ex: 123"
-                                           onblur="autoFormatDocumentNumberOnBlurChaimae(this)">
+                                    <input type="text" id="editBonLivraisonChaimae" value="${invoice.document_bon_de_livraison || ''}" placeholder="Ex: 123">
                                 </div>
                             </div>
                             ` : ''}
                             ${invoice.document_type === 'bon_livraison' ? `
                             <div class="form-row">
-                                <div class="form-field">
+                                <div class="form-field" style="position: relative;">
                                     <label>N° Order (optionnel)</label>
-                                    <input type="text" id="editBonCommandeChaimae" value="${invoice.document_numero_commande || ''}" placeholder="Ex: BC-123">
+                                    <div style="display: flex; gap: 0.5rem; align-items: flex-start;">
+                                        <div style="position: relative; flex: 0 0 auto;">
+                                            <input type="text" id="editOrderPrefixInputChaimae" value="${window.selectedOrderPrefix || 'BC'}" placeholder="BC" 
+                                                   style="width: 80px; padding: 0.75rem; background: #2d2d30; border: 2px solid #3e3e42; border-radius: 8px; color: #fff; font-size: 1rem; outline: none; cursor: pointer; font-weight: 600;"
+                                                   readonly onclick="toggleEditOrderPrefixDropdownChaimae()">
+                                            <div id="editOrderPrefixDropdownChaimae" style="display: none; position: absolute; top: 100%; left: 0; background: linear-gradient(135deg, #1e1e1e 0%, #2d2d30 100%); border: 2px solid #2196f3; border-radius: 12px; margin-top: 0.5rem; box-shadow: 0 8px 24px rgba(33, 150, 243, 0.3), 0 0 0 1px rgba(33, 150, 243, 0.1); z-index: 1000; min-width: 200px; max-height: 350px; overflow: hidden;">
+                                                <div style="padding: 0.75rem 1rem; background: linear-gradient(90deg, #2196f3 0%, #1976d2 100%); border-bottom: 2px solid rgba(33, 150, 243, 0.3);">
+                                                    <h4 style="margin: 0; color: #fff; font-size: 0.95rem; font-weight: 600; letter-spacing: 0.5px;">📋 Choisir un Prefix</h4>
+                                                </div>
+                                                <div id="editOrderPrefixListChaimae" style="max-height: 200px; overflow-y: auto; padding: 0.5rem;"></div>
+                                                <div style="padding: 0.75rem; border-top: 2px solid rgba(33, 150, 243, 0.2); background: rgba(0,0,0,0.2);">
+                                                    <input type="text" id="editNewOrderPrefixInputChaimae" placeholder="Nouveau prefix (ex: BC)" 
+                                                           style="width: 100%; padding: 0.65rem; background: #1e1e1e; border: 2px solid #3e3e42; border-radius: 6px; color: #fff; font-size: 0.9rem; outline: none; transition: all 0.3s;"
+                                                           onfocus="this.style.borderColor='#2196f3'; this.style.boxShadow='0 0 0 3px rgba(33, 150, 243, 0.1)';"
+                                                           onblur="this.style.borderColor='#3e3e42'; this.style.boxShadow='none';"
+                                                           onkeypress="if(event.key==='Enter'){addEditNewOrderPrefixChaimae(); event.preventDefault();}">
+                                                    <button type="button" onclick="addEditNewOrderPrefixChaimae()" 
+                                                            style="width: 100%; margin-top: 0.5rem; padding: 0.65rem; background: linear-gradient(90deg, #2196f3 0%, #1976d2 100%); color: #fff; border: none; border-radius: 6px; cursor: pointer; font-size: 0.9rem; font-weight: 600; transition: all 0.3s; box-shadow: 0 2px 8px rgba(33, 150, 243, 0.3);"
+                                                            onmouseover="this.style.transform='translateY(-2px)'; this.style.boxShadow='0 4px 12px rgba(33, 150, 243, 0.4)';"
+                                                            onmouseout="this.style.transform='translateY(0)'; this.style.boxShadow='0 2px 8px rgba(33, 150, 243, 0.3)';">
+                                                        ➕ Ajouter le Prefix
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <input type="text" id="editBonCommandeChaimae" value="${invoice.document_numero_commande || ''}" placeholder="456" 
+                                               style="flex: 1; padding: 0.75rem; background: #2d2d30; border: 2px solid #3e3e42; border-radius: 8px; color: #fff; font-size: 1rem; outline: none;">
+                                    </div>
+                                    <small style="color: #999; font-size: 0.85rem; display: block; margin-top: 0.5rem;">Ex: 456 → <span id="editOrderPrefixExampleChaimae">BC</span>456</small>
                                 </div>
                             </div>
                             ` : ''}
@@ -1309,9 +1492,9 @@ window.editInvoiceChaimae = async function(id) {
                             <div id="editProductsListChaimae">
                                 ${invoice.products && invoice.products.length > 0 ? invoice.products.map((p, index) => `
                                     <div class="edit-product-row" data-index="${index}">
-                                        <textarea placeholder="Désignation" rows="2">${p.designation || ''}</textarea>
-                                        <input type="text" placeholder="Quantité" value="${p.quantite || ''}" onchange="recalculateEditTotalsChaimae()">
-                                        <input type="number" step="0.01" placeholder="Prix HT" value="${p.prix_unitaire_ht || 0}" onchange="recalculateEditTotalsChaimae()">
+                                        <textarea placeholder="Désignation" rows="2" onkeydown="handleArrowNavigationEditChaimae(event, 0)">${p.designation || ''}</textarea>
+                                        <input type="text" placeholder="Quantité" value="${p.quantite || ''}" onchange="recalculateEditTotalsChaimae()" onkeydown="handleArrowNavigationEditChaimae(event, 1)">
+                                        <input type="number" step="0.01" placeholder="Prix HT" value="${p.prix_unitaire_ht || 0}" onchange="recalculateEditTotalsChaimae()" onkeydown="handleArrowNavigationEditChaimae(event, 2)">
                                         <button type="button" onclick="this.closest('.edit-product-row').remove(); recalculateEditTotalsChaimae()">
                                             <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
                                                 <path d="M5.5 5.5A.5.5 0 0 1 6 6v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5zm2.5 0a.5.5 0 0 1 .5.5v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5zm3 .5a.5.5 0 0 0-1 0v6a.5.5 0 0 0 1 0V6z"/>
@@ -1340,44 +1523,17 @@ window.editInvoiceChaimae = async function(id) {
                             </div>
                         </div>
                         
-                        <!-- Attachments -->
+                        <!-- Notes Section -->
                         <div class="edit-section">
-                            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
-                                <h3 style="margin: 0;">📎 Pièces jointes (${invoice.attachments ? invoice.attachments.length : 0})</h3>
-                                <button type="button" class="btn-add-attachment" onclick="addEditAttachmentChaimae(${invoice.id})" title="Ajouter un fichier">
-                                    ➕ Ajouter
-                                </button>
-                            </div>
-                            <div id="editAttachmentsListChaimae">
-                                ${invoice.attachments && invoice.attachments.length > 0 ? `
-                                    <ul class="attachments-list">
-                                        ${invoice.attachments.map(a => `
-                                            <li>
-                                                <div class="attachment-info">
-                                                    <span class="attachment-icon">${a.file_type.includes('pdf') ? '📄' : '🖼️'}</span>
-                                                    <span class="attachment-name">${a.filename}</span>
-                                                    <span class="file-size">${(a.file_size / 1024).toFixed(2)} KB</span>
-                                                </div>
-                                                <div class="attachment-actions">
-                                                    <button type="button" class="btn-attachment-action btn-open" onclick="openAttachmentChaimae(${a.id})" title="Ouvrir">
-                                                        <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
-                                                            <path d="M16 8s-3-5.5-8-5.5S0 8 0 8s3 5.5 8 5.5S16 8 16 8zM1.173 8a13.133 13.133 0 0 1 1.66-2.043C4.12 4.668 5.88 3.5 8 3.5c2.12 0 3.879 1.168 5.168 2.457A13.133 13.133 0 0 1 14.828 8c-.058.087-.122.183-.195.288-.335.48-.83 1.12-1.465 1.755C11.879 11.332 10.119 12.5 8 12.5c-2.12 0-3.879-1.168-5.168-2.457A13.134 13.134 0 0 1 1.172 8z"/>
-                                                            <path d="M8 5.5a2.5 2.5 0 1 0 0 5 2.5 2.5 0 0 0 0-5zM4.5 8a3.5 3.5 0 1 1 7 0 3.5 3.5 0 0 1-7 0z"/>
-                                                        </svg>
-                                                        Ouvrir
-                                                    </button>
-                                                    <button type="button" class="btn-attachment-action btn-delete-att" onclick="deleteEditAttachmentChaimae(${a.id}, ${invoice.id})" title="Supprimer">
-                                                        <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
-                                                            <path d="M5.5 5.5A.5.5 0 0 1 6 6v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5zm2.5 0a.5.5 0 0 1 .5.5v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5zm3 .5a.5.5 0 0 0-1 0v6a.5.5 0 0 0 1 0V6z"/>
-                                                            <path fill-rule="evenodd" d="M14.5 3a1 1 0 0 1-1 1H13v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V4h-.5a1 1 0 0 1-1-1V2a1 1 0 0 1 1-1H6a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1h3.5a1 1 0 0 1 1 1v1zM4.118 4 4 4.059V13a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1V4.059L11.882 4H4.118zM2.5 3V2h11v1h-11z"/>
-                                                        </svg>
-                                                        Supprimer
-                                                    </button>
-                                                </div>
-                                            </li>
-                                        `).join('')}
-                                    </ul>
-                                ` : '<p style="color: #888; text-align: center; padding: 1rem;">Aucune pièce jointe</p>'}
+                            <h3>📝 Notes</h3>
+                            <div class="form-field">
+                                <label>Notes supplémentaires (optionnel)</label>
+                                <textarea id="editNotesChaimae" rows="4" 
+                                          placeholder="Ajoutez des notes ou remarques concernant cette facture..."
+                                          style="width: 100%; padding: 0.75rem; background: #2d2d30; border: 2px solid #3e3e42; border-radius: 8px; color: #fff; font-size: 0.95rem; resize: vertical; font-family: inherit;"></textarea>
+                                <small style="color: #999; font-size: 0.85rem; display: block; margin-top: 0.5rem;">
+                                    Ces notes seront affichées dans le PDF sous le texte de clôture de la facture.
+                                </small>
                             </div>
                         </div>
                         
@@ -1397,15 +1553,104 @@ window.editInvoiceChaimae = async function(id) {
         
         document.body.appendChild(modal);
         
-        // Attach form submit handler
-        document.getElementById('editInvoiceFormChaimae').addEventListener('submit', (e) => handleEditSubmitChaimae(e, id));
+        // Attach form submit handler - pass invoice data including document_type
+        document.getElementById('editInvoiceFormChaimae').addEventListener('submit', (e) => handleEditSubmitChaimae(e, id, invoice.document_type));
         
         // Initial calculation
         recalculateEditTotalsChaimae();
         
+        // Load notes asynchronously
+        console.log('📝 [NOTES EDIT] Loading notes for invoice:', id);
+        const noteResult = await window.electron.dbChaimae.getNote(id);
+        console.log('📥 [NOTES EDIT] Note result:', noteResult);
+        if (noteResult.success && noteResult.data) {
+            const notesTextarea = document.getElementById('editNotesChaimae');
+            if (notesTextarea) {
+                notesTextarea.value = noteResult.data;
+                console.log('✅ [NOTES EDIT] Loaded note into textarea:', noteResult.data);
+            }
+        } else {
+            console.log('ℹ️ [NOTES EDIT] No note found for this invoice');
+        }
+        
     } catch (error) {
         console.error('Error editing invoice:', error);
         window.notify.error('Erreur', 'Impossible de charger le document', 3000);
+    }
+}
+
+// Handle arrow key navigation in edit modal products (Global)
+window.handleArrowNavigationEditChaimae = function(event, currentCellIndex) {
+    // Only handle arrow keys
+    if (!['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(event.key)) {
+        return;
+    }
+    
+    const currentRow = event.target.closest('.edit-product-row');
+    const container = document.getElementById('editProductsListChaimae');
+    const allRows = Array.from(container.querySelectorAll('.edit-product-row'));
+    const currentRowIndex = allRows.indexOf(currentRow);
+    
+    let targetRow = null;
+    let targetCellIndex = currentCellIndex;
+    
+    // Handle arrow keys
+    if (event.key === 'ArrowUp') {
+        // Move to row above
+        if (currentRowIndex > 0) {
+            targetRow = allRows[currentRowIndex - 1];
+            event.preventDefault();
+        }
+    } else if (event.key === 'ArrowDown') {
+        // Move to row below
+        if (currentRowIndex < allRows.length - 1) {
+            targetRow = allRows[currentRowIndex + 1];
+            event.preventDefault();
+        } else {
+            // If on last row, add new row and move to it
+            addEditProductRowChaimae();
+            setTimeout(() => {
+                const newRows = Array.from(container.querySelectorAll('.edit-product-row'));
+                targetRow = newRows[newRows.length - 1];
+                focusCellEditChaimae(targetRow, targetCellIndex);
+            }, 50);
+            event.preventDefault();
+            return;
+        }
+    } else if (event.key === 'ArrowLeft') {
+        // Move to cell on the left
+        if (currentCellIndex > 0) {
+            targetRow = currentRow;
+            targetCellIndex = currentCellIndex - 1;
+            event.preventDefault();
+        }
+    } else if (event.key === 'ArrowRight') {
+        // Move to cell on the right
+        if (currentCellIndex < 2) { // 0=designation, 1=quantity, 2=price
+            targetRow = currentRow;
+            targetCellIndex = currentCellIndex + 1;
+            event.preventDefault();
+        }
+    }
+    
+    // Focus the target cell
+    if (targetRow) {
+        focusCellEditChaimae(targetRow, targetCellIndex);
+    }
+};
+
+// Helper function to focus a specific cell in edit modal
+function focusCellEditChaimae(row, cellIndex) {
+    const inputs = row.querySelectorAll('textarea, input[type="text"], input[type="number"]');
+    if (inputs[cellIndex]) {
+        inputs[cellIndex].focus();
+        // For text inputs, move cursor to end
+        if (inputs[cellIndex].type === 'text' || inputs[cellIndex].tagName === 'TEXTAREA') {
+            const length = inputs[cellIndex].value.length;
+            inputs[cellIndex].setSelectionRange(length, length);
+        } else if (inputs[cellIndex].type === 'number') {
+            inputs[cellIndex].select();
+        }
     }
 }
 
@@ -1419,9 +1664,9 @@ window.addEditProductRowChaimae = function() {
     const row = document.createElement('div');
     row.className = 'edit-product-row';
     row.innerHTML = `
-        <textarea placeholder="Désignation" rows="2"></textarea>
-        <input type="text" placeholder="Quantité" onchange="recalculateEditTotalsChaimae()">
-        <input type="number" step="0.01" placeholder="Prix HT" value="0" onchange="recalculateEditTotalsChaimae()">
+        <textarea placeholder="Désignation" rows="2" onkeydown="handleArrowNavigationEditChaimae(event, 0)"></textarea>
+        <input type="text" placeholder="Quantité" onchange="recalculateEditTotalsChaimae()" onkeydown="handleArrowNavigationEditChaimae(event, 1)">
+        <input type="number" step="0.01" placeholder="Prix HT" value="0" onchange="recalculateEditTotalsChaimae()" onkeydown="handleArrowNavigationEditChaimae(event, 2)">
         <button type="button" onclick="this.closest('.edit-product-row').remove(); recalculateEditTotalsChaimae()">
             <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
                 <path d="M5.5 5.5A.5.5 0 0 1 6 6v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5zm2.5 0a.5.5 0 0 1 .5.5v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5zm3 .5a.5.5 0 0 0-1 0v6a.5.5 0 0 0 1 0V6z"/>
@@ -1431,6 +1676,8 @@ window.addEditProductRowChaimae = function() {
     `;
     container.appendChild(row);
 }
+
+// Bon de livraison field - No auto-formatting (user enters value as-is)
 
 // Recalculate totals in edit modal
 window.recalculateEditTotalsChaimae = function() {
@@ -1453,28 +1700,349 @@ window.recalculateEditTotalsChaimae = function() {
     document.getElementById('editTotalTTCChaimae').textContent = totalTTC.toFixed(2) + ' DH';
 }
 
+// Toggle edit prefix dropdown
+window.toggleEditPrefixDropdownChaimae = async function() {
+    const dropdown = document.getElementById('editPrefixDropdownChaimae');
+    if (!dropdown) return;
+    
+    if (dropdown.style.display === 'none') {
+        // Load prefixes from DB if not loaded
+        if (!window.prefixesLoaded) {
+            await loadPrefixesFromDB();
+        }
+        dropdown.style.display = 'block';
+        renderEditPrefixListChaimae();
+    } else {
+        dropdown.style.display = 'none';
+    }
+};
+
+// Render edit prefix list
+window.renderEditPrefixListChaimae = function() {
+    const listContainer = document.getElementById('editPrefixListChaimae');
+    if (!listContainer) return;
+    
+    const currentPrefix = document.getElementById('editPrefixInputChaimae').value;
+    
+    listContainer.innerHTML = window.bonLivraisonPrefixes.map(prefix => `
+        <div onclick="selectEditPrefixChaimae('${prefix}')" 
+             style="padding: 0.75rem 1rem; margin: 0.25rem 0; background: ${prefix === currentPrefix ? 'rgba(102, 126, 234, 0.3)' : 'rgba(255,255,255,0.05)'}; border: 2px solid ${prefix === currentPrefix ? '#667eea' : 'transparent'}; border-radius: 8px; cursor: pointer; transition: all 0.3s; display: flex; justify-content: space-between; align-items: center;"
+             onmouseover="if('${prefix}' !== '${currentPrefix}') { this.style.background='rgba(102, 126, 234, 0.2)'; this.style.borderColor='#667eea'; }" 
+             onmouseout="if('${prefix}' !== '${currentPrefix}') { this.style.background='rgba(255,255,255,0.05)'; this.style.borderColor='transparent'; }">
+            <div style="display: flex; align-items: center; gap: 0.75rem;">
+                <span style="font-size: 1.2rem;">${prefix === currentPrefix ? '✓' : '📌'}</span>
+                <span style="font-weight: ${prefix === currentPrefix ? '700' : '500'}; font-size: 1rem; letter-spacing: 1px; color: #fff;">${prefix}</span>
+            </div>
+            ${window.bonLivraisonPrefixes.length > 1 ? `
+                <button onclick="event.stopPropagation(); deleteEditPrefixChaimae('${prefix}')" 
+                        style="background: transparent; color: #e74c3c; border: 2px solid #e74c3c; border-radius: 6px; padding: 0.3rem 0.4rem; cursor: pointer; font-size: 0.9rem; font-weight: 600; transition: all 0.3s;"
+                        onmouseover="this.style.background='#e74c3c'; this.style.color='#fff';"
+                        onmouseout="this.style.background='transparent'; this.style.color='#e74c3c';">
+                    🗑️
+                </button>
+            ` : ''}
+        </div>
+    `).join('');
+};
+
+// Select edit prefix
+window.selectEditPrefixChaimae = function(prefix) {
+    console.log('🔵 [EDIT PREFIX SELECT] Selecting prefix:', prefix);
+    
+    const prefixInput = document.getElementById('editPrefixInputChaimae');
+    if (prefixInput) {
+        prefixInput.value = prefix;
+        console.log('✅ [EDIT PREFIX SELECT] Updated editPrefixInputChaimae to:', prefix);
+    } else {
+        console.log('❌ [EDIT PREFIX SELECT] editPrefixInputChaimae not found');
+    }
+    
+    const dropdown = document.getElementById('editPrefixDropdownChaimae');
+    if (dropdown) {
+        dropdown.style.display = 'none';
+        console.log('✅ [EDIT PREFIX SELECT] Closed dropdown');
+    }
+    
+    console.log('✅ [CHAIMAE EDIT] Prefix selected:', prefix);
+};
+
+// Add new prefix in edit
+window.addEditPrefixChaimae = async function() {
+    const newPrefixInput = document.getElementById('editNewPrefixInputChaimae');
+    if (!newPrefixInput) return;
+    
+    const newPrefix = newPrefixInput.value.trim().toUpperCase();
+    
+    if (!newPrefix) {
+        window.notify.warning('Attention', 'Veuillez saisir un prefix', 2000);
+        return;
+    }
+    
+    if (window.bonLivraisonPrefixes.includes(newPrefix)) {
+        window.notify.warning('Attention', 'Ce prefix existe déjà', 2000);
+        return;
+    }
+    
+    // Add to database
+    const result = await window.electron.dbChaimae.addPrefix(newPrefix);
+    
+    if (result.success) {
+        window.bonLivraisonPrefixes.push(newPrefix);
+        window.bonLivraisonPrefixes.sort();
+        newPrefixInput.value = '';
+        
+        renderEditPrefixListChaimae();
+        window.notify.success('Succès', `Prefix "${newPrefix}" ajouté`, 2000);
+    } else {
+        window.notify.error('Erreur', result.error || 'Impossible d\'ajouter le prefix', 3000);
+    }
+};
+
+// Delete prefix in edit
+window.deleteEditPrefixChaimae = async function(prefix) {
+    if (window.bonLivraisonPrefixes.length <= 1) {
+        window.notify.warning('Attention', 'Vous devez garder au moins un prefix', 2000);
+        return;
+    }
+    
+    // Delete from database
+    const result = await window.electron.dbChaimae.deletePrefix(prefix);
+    
+    if (result.success) {
+        window.bonLivraisonPrefixes = window.bonLivraisonPrefixes.filter(p => p !== prefix);
+        
+        // If deleted prefix was selected, select first available
+        const currentPrefix = document.getElementById('editPrefixInputChaimae').value;
+        if (currentPrefix === prefix) {
+            document.getElementById('editPrefixInputChaimae').value = window.bonLivraisonPrefixes[0];
+        }
+        
+        renderEditPrefixListChaimae();
+        window.notify.success('Succès', `Prefix "${prefix}" supprimé`, 2000);
+    } else {
+        window.notify.error('Erreur', result.error || 'Impossible de supprimer le prefix', 3000);
+    }
+};
+
+// Load prefixes from database (shared function)
+async function loadPrefixesFromDB() {
+    if (window.prefixesLoaded) return;
+    
+    try {
+        const result = await window.electron.dbChaimae.getAllPrefixes();
+        if (result.success && result.data.length > 0) {
+            window.bonLivraisonPrefixes = result.data;
+            window.prefixesLoaded = true;
+        } else {
+            // Initialize default prefixes if none exist
+            if (!window.bonLivraisonPrefixes) {
+                window.bonLivraisonPrefixes = ['MG', 'TL', 'BL'];
+            }
+        }
+    } catch (error) {
+        console.error('Error loading prefixes:', error);
+        if (!window.bonLivraisonPrefixes) {
+            window.bonLivraisonPrefixes = ['MG', 'TL', 'BL'];
+        }
+    }
+}
+
+// ==================== EDIT ORDER PREFIX FUNCTIONS ====================
+
+// Toggle edit order prefix dropdown
+window.toggleEditOrderPrefixDropdownChaimae = async function() {
+    const dropdown = document.getElementById('editOrderPrefixDropdownChaimae');
+    if (!dropdown) return;
+    
+    if (dropdown.style.display === 'none') {
+        await loadEditOrderPrefixesFromDB();
+        renderEditOrderPrefixListChaimae();
+        dropdown.style.display = 'block';
+    } else {
+        dropdown.style.display = 'none';
+    }
+};
+
+// Render edit order prefix list
+function renderEditOrderPrefixListChaimae() {
+    const listContainer = document.getElementById('editOrderPrefixListChaimae');
+    if (!listContainer) return;
+    
+    if (!window.orderPrefixes || window.orderPrefixes.length === 0) {
+        window.orderPrefixes = ['BC', 'CMD', 'ORD'];
+    }
+    
+    listContainer.innerHTML = window.orderPrefixes.map(prefix => `
+        <div onclick="selectEditOrderPrefixChaimae('${prefix}')" 
+             style="margin: 0.35rem; padding: 0.75rem 1rem; cursor: pointer; border-radius: 8px; transition: all 0.3s; color: #fff; display: flex; justify-content: space-between; align-items: center; background: ${prefix === window.selectedOrderPrefix ? 'linear-gradient(90deg, #2196f3 0%, #1976d2 100%)' : 'rgba(255,255,255,0.05)'}; border: 2px solid ${prefix === window.selectedOrderPrefix ? '#2196f3' : 'transparent'};"
+             onmouseover="if('${prefix}' !== window.selectedOrderPrefix) { this.style.background='rgba(33, 150, 243, 0.2)'; this.style.borderColor='#2196f3'; }" 
+             onmouseout="if('${prefix}' !== window.selectedOrderPrefix) { this.style.background='rgba(255,255,255,0.05)'; this.style.borderColor='transparent'; }">
+            <div style="display: flex; align-items: center; gap: 0.75rem;">
+                <span style="font-size: 1.2rem;">${prefix === window.selectedOrderPrefix ? '✓' : '📌'}</span>
+                <span style="font-weight: ${prefix === window.selectedOrderPrefix ? '700' : '500'}; font-size: 1rem;">${prefix}</span>
+            </div>
+            ${window.orderPrefixes.length > 1 ? `
+                <button onclick="event.stopPropagation(); deleteEditOrderPrefixChaimae('${prefix}')" 
+                        style="background: transparent; color: #e74c3c; border: 2px solid #e74c3c; border-radius: 6px; padding: 0.3rem 0.4rem; cursor: pointer; transition: all 0.3s;"
+                        onmouseover="this.style.background='#e74c3c'; this.style.color='#fff';"
+                        onmouseout="this.style.background='transparent'; this.style.color='#e74c3c';">
+                    🗑️
+                </button>
+            ` : ''}
+        </div>
+    `).join('');
+}
+
+// Select edit order prefix
+window.selectEditOrderPrefixChaimae = function(prefix) {
+    window.selectedOrderPrefix = prefix;
+    
+    const prefixInput = document.getElementById('editOrderPrefixInputChaimae');
+    const prefixExample = document.getElementById('editOrderPrefixExampleChaimae');
+    
+    if (prefixInput) prefixInput.value = prefix;
+    if (prefixExample) prefixExample.textContent = prefix;
+    
+    const dropdown = document.getElementById('editOrderPrefixDropdownChaimae');
+    if (dropdown) dropdown.style.display = 'none';
+    
+    renderEditOrderPrefixListChaimae();
+};
+
+// Add new edit order prefix
+window.addEditNewOrderPrefixChaimae = async function() {
+    const newPrefixInput = document.getElementById('editNewOrderPrefixInputChaimae');
+    if (!newPrefixInput) return;
+    
+    const newPrefix = newPrefixInput.value.trim().toUpperCase();
+    
+    if (!newPrefix) {
+        window.notify.warning('Attention', 'Veuillez saisir un prefix', 2000);
+        return;
+    }
+    
+    if (window.orderPrefixes.includes(newPrefix)) {
+        window.notify.warning('Attention', 'Ce prefix existe déjà', 2000);
+        return;
+    }
+    
+    const result = await window.electron.dbChaimae.addOrderPrefix(newPrefix);
+    
+    if (result.success) {
+        window.orderPrefixes.push(newPrefix);
+        window.orderPrefixes.sort();
+        newPrefixInput.value = '';
+        
+        renderEditOrderPrefixListChaimae();
+        window.notify.success('Succès', `Prefix "${newPrefix}" ajouté`, 2000);
+    } else {
+        window.notify.error('Erreur', result.error || 'Impossible d\'ajouter le prefix', 3000);
+    }
+};
+
+// Delete edit order prefix
+window.deleteEditOrderPrefixChaimae = async function(prefix) {
+    if (window.orderPrefixes.length <= 1) {
+        window.notify.warning('Attention', 'Vous devez garder au moins un prefix', 2000);
+        return;
+    }
+    
+    const result = await window.electron.dbChaimae.deleteOrderPrefix(prefix);
+    
+    if (result.success) {
+        const index = window.orderPrefixes.indexOf(prefix);
+        if (index > -1) {
+            window.orderPrefixes.splice(index, 1);
+            
+            if (window.selectedOrderPrefix === prefix) {
+                window.selectedOrderPrefix = window.orderPrefixes[0];
+                const prefixInput = document.getElementById('editOrderPrefixInputChaimae');
+                const prefixExample = document.getElementById('editOrderPrefixExampleChaimae');
+                if (prefixInput) prefixInput.value = window.selectedOrderPrefix;
+                if (prefixExample) prefixExample.textContent = window.selectedOrderPrefix;
+            }
+            
+            renderEditOrderPrefixListChaimae();
+            window.notify.success('Succès', `Prefix "${prefix}" supprimé`, 2000);
+        }
+    } else {
+        window.notify.error('Erreur', result.error || 'Impossible de supprimer le prefix', 3000);
+    }
+};
+
+// Load edit order prefixes from database
+async function loadEditOrderPrefixesFromDB() {
+    try {
+        const result = await window.electron.dbChaimae.getOrderPrefixes();
+        if (result.success && result.data && result.data.length > 0) {
+            window.orderPrefixes = result.data;
+            if (!window.selectedOrderPrefix) {
+                window.selectedOrderPrefix = window.orderPrefixes[0];
+            }
+        } else {
+            if (!window.orderPrefixes) {
+                window.orderPrefixes = ['BC', 'CMD', 'ORD'];
+                window.selectedOrderPrefix = 'BC';
+            }
+        }
+    } catch (error) {
+        console.error('Error loading order prefixes:', error);
+        if (!window.orderPrefixes) {
+            window.orderPrefixes = ['BC', 'CMD', 'ORD'];
+            window.selectedOrderPrefix = 'BC';
+        }
+    }
+}
+
+// ==================== END EDIT ORDER PREFIX FUNCTIONS ====================
+
 // Format number helper (duplicate - will be removed)
 function formatNumberChaimaeOld(num) {
     return parseFloat(num).toFixed(2);
 }
 
 // Handle edit form submit
-async function handleEditSubmitChaimae(e, invoiceId) {
+async function handleEditSubmitChaimae(e, invoiceId, documentType) {
     e.preventDefault();
     
     try {
+        // Get prefix and numero
+        // For Bon de livraison: combine prefix + numero
+        // For Facture/Devis: use numero directly (no prefix)
+        const prefixInput = document.getElementById('editPrefixInputChaimae');
+        const numeroInput = document.getElementById('editNumeroChaimae');
+        
+        let fullNumero;
+        if (prefixInput && prefixInput.offsetParent !== null) {
+            // Prefix input is visible (Bon de livraison)
+            const prefix = prefixInput.value || '';
+            const numero = numeroInput?.value || '';
+            fullNumero = prefix + numero;
+        } else {
+            // Prefix input is hidden (Facture/Devis)
+            fullNumero = numeroInput?.value || '';
+        }
+        
+        console.log('📝 [CHAIMAE EDIT] Full numero:', fullNumero);
+        
         // Collect products data
         const products = [];
         document.querySelectorAll('#editProductsListChaimae .edit-product-row').forEach(row => {
             const designation = row.querySelector('textarea').value;
-            const quantite = row.querySelector('input[type="text"]').value;
+            const quantiteOriginal = row.querySelector('input[type="text"]').value;
             const prix = parseFloat(row.querySelector('input[type="number"]').value) || 0;
             
-            if (designation || quantite || prix) {
-                const qty = parseFloat(quantite) || 1;
+            if (designation || quantiteOriginal || prix) {
+                // For calculation: convert F to 1
+                let quantiteForCalc = quantiteOriginal;
+                if (quantiteForCalc.toUpperCase() === 'F') {
+                    quantiteForCalc = '1';
+                }
+                
+                const qty = parseFloat(quantiteForCalc) || 1;
                 products.push({
                     designation,
-                    quantite,
+                    quantite: quantiteOriginal,  // Save original value (F, 10 Kg, etc.)
                     prix_unitaire_ht: prix,
                     total_ht: qty * prix
                 });
@@ -1488,10 +2056,30 @@ async function handleEditSubmitChaimae(e, invoiceId) {
             },
             document: {
                 date: document.getElementById('editDateChaimae').value,
-                numero: document.getElementById('editNumeroChaimae').value,
+                numero: fullNumero, // Combined prefix + numero
                 numero_Order: document.getElementById('editNumeroOrderChaimae')?.value || null,
                 bon_de_livraison: document.getElementById('editBonLivraisonChaimae')?.value || null,
-                numero_commande: document.getElementById('editBonCommandeChaimae')?.value || null
+                numero_commande: (() => {
+                    const orderValue = document.getElementById('editBonCommandeChaimae')?.value?.trim();
+                    if (orderValue && documentType === 'bon_livraison') {
+                        const selectedOrderPrefix = window.selectedOrderPrefix || 'BC';
+                        
+                        // Remove any existing prefix from all known prefixes
+                        let cleanValue = orderValue;
+                        if (window.orderPrefixes && window.orderPrefixes.length > 0) {
+                            for (const prefix of window.orderPrefixes) {
+                                if (cleanValue.startsWith(prefix)) {
+                                    cleanValue = cleanValue.substring(prefix.length);
+                                    break;
+                                }
+                            }
+                        }
+                        
+                        // Add the selected prefix
+                        return `${selectedOrderPrefix}${cleanValue}`;
+                    }
+                    return orderValue || null;
+                })()
             },
             products,
             totals: {
@@ -1501,6 +2089,118 @@ async function handleEditSubmitChaimae(e, invoiceId) {
                 total_ttc: parseFloat(document.getElementById('editTotalTTCChaimae').textContent.replace(' DH', ''))
             }
         };
+        
+        // Check for duplicate document numero in regular invoices
+        const allInvoicesResult = await window.electron.dbChaimae.getAllInvoices('CHAIMAE');
+        if (allInvoicesResult.success) {
+            // Check main document number
+            const duplicateNumero = allInvoicesResult.data.find(inv => {
+                if (inv.id === invoiceId) return false; // Skip current invoice
+                
+                if (documentType === 'facture') {
+                    return inv.document_type === 'facture' && inv.document_numero === fullNumero;
+                } else if (documentType === 'devis') {
+                    return inv.document_type === 'devis' && inv.document_numero_devis === fullNumero;
+                } else if (documentType === 'bon_livraison') {
+                    return (inv.document_type === 'bon_livraison' || inv.document_type === 'bon de livraison') && 
+                           (inv.document_numero === fullNumero || 
+                            inv.document_numero_bl === fullNumero || 
+                            inv.document_bon_de_livraison === fullNumero);
+                }
+                return false;
+            });
+            
+            if (duplicateNumero) {
+                const docTypeLabel = documentType === 'facture' ? 'Facture' : 
+                                   documentType === 'devis' ? 'Devis' : 
+                                   'Bon de livraison';
+                window.notify.error(
+                    'Numéro déjà utilisé',
+                    `Le N° ${docTypeLabel} "${fullNumero}" existe déjà. Veuillez utiliser un autre numéro.`,
+                    5000
+                );
+                return;
+            }
+        }
+        
+        // Check for duplicate in global invoices (for facture only)
+        if (documentType === 'facture' && fullNumero) {
+            const allGlobalInvoicesResult = await window.electron.dbChaimae.getAllGlobalInvoices();
+            if (allGlobalInvoicesResult.success) {
+                const duplicateGlobal = allGlobalInvoicesResult.data.find(inv => 
+                    inv.document_numero === fullNumero
+                );
+                
+                if (duplicateGlobal) {
+                    window.notify.error(
+                        'Numéro déjà utilisé',
+                        `Le N° Facture "${fullNumero}" existe déjà dans une facture globale. Veuillez utiliser un autre numéro.`,
+                        5000
+                    );
+                    return;
+                }
+            }
+        }
+        
+        if (allInvoicesResult.success) {
+            
+            // Check for duplicate N° Order if provided (for FACTURE only)
+            if (documentType === 'facture' && updateData.document.numero_Order) {
+                const duplicateOrder = allInvoicesResult.data.find(inv => 
+                    inv.id !== invoiceId && 
+                    inv.document_type === 'facture' &&
+                    inv.document_numero_Order && 
+                    inv.document_numero_Order.trim() === updateData.document.numero_Order.trim()
+                );
+                
+                if (duplicateOrder) {
+                    window.notify.error(
+                        'Numéro de commande déjà utilisé',
+                        `Le N° Order "${updateData.document.numero_Order}" existe déjà. Veuillez utiliser un autre numéro.`,
+                        5000
+                    );
+                    return;
+                }
+            }
+            
+            // Check for duplicate Bon de livraison if provided (for FACTURE only)
+            if (documentType === 'facture' && updateData.document.bon_de_livraison) {
+                const duplicateBL = allInvoicesResult.data.find(inv => 
+                    inv.id !== invoiceId && 
+                    inv.document_type === 'facture' &&
+                    inv.document_bon_de_livraison && 
+                    inv.document_bon_de_livraison.trim() === updateData.document.bon_de_livraison.trim()
+                );
+                
+                if (duplicateBL) {
+                    window.notify.error(
+                        'Bon de livraison déjà utilisé',
+                        `Le Bon de livraison "${updateData.document.bon_de_livraison}" existe déjà. Veuillez utiliser un autre numéro.`,
+                        5000
+                    );
+                    return;
+                }
+            }
+            
+            // Check for duplicate N° Order if provided (for BON_LIVRAISON only)
+            if (documentType === 'bon_livraison' && updateData.document.numero_commande) {
+                const duplicateOrderBL = allInvoicesResult.data.find(inv => 
+                    inv.id !== invoiceId && 
+                    (inv.document_type === 'bon_livraison' || inv.document_type === 'bon de livraison') &&
+                    inv.document_numero_commande && 
+                    inv.document_numero_commande.trim() === updateData.document.numero_commande.trim()
+                );
+                
+                if (duplicateOrderBL) {
+                    window.notify.error(
+                        'Numéro de commande déjà utilisé',
+                        `Le N° Order "${updateData.document.numero_commande}" existe déjà dans un autre Bon de livraison. Veuillez utiliser un autre numéro.`,
+                        5000
+                    );
+                    return;
+                }
+            }
+        }
         
         console.log('📝 Updating invoice:', invoiceId);
         console.log('📊 Update data:', updateData);
@@ -1549,6 +2249,18 @@ async function handleEditSubmitChaimae(e, invoiceId) {
                         console.log('✅ Updated global invoice:', globalInvoice.id, 'New total:', totalTTC);
                     }
                 }
+            }
+            
+            // Save or delete notes
+            const noteText = document.getElementById('editNotesChaimae')?.value?.trim();
+            console.log('📝 [NOTES] Saving note for invoice:', invoiceId, 'Text:', noteText);
+            if (noteText) {
+                const noteResult = await window.electron.dbChaimae.saveNote(invoiceId, noteText);
+                console.log('✅ [NOTES] Save result:', noteResult);
+            } else {
+                // Delete note if textarea is empty
+                const deleteResult = await window.electron.dbChaimae.deleteNote(invoiceId);
+                console.log('🗑️ [NOTES] Delete result:', deleteResult);
             }
             
             window.notify.success('Succès', 'Document mis à jour avec succès!', 3000);
@@ -1731,25 +2443,51 @@ function showConvertInputModalChaimae(newType, newTypeLabel, prefillNumero = '',
                 <input type="text" id="convertInput2Chaimae" placeholder="Exemple: 555"
                        style="width:100%;padding:1rem;background:#2d2d30;border:2px solid #3e3e42;border-radius:8px;color:#fff;font-size:1.1rem;box-sizing:border-box;outline:none;transition:all 0.3s;"
                        onfocus="this.style.borderColor='#9c27b0';this.style.background='#1e1e1e';"
-                       onblur="this.style.borderColor='#3e3e42';this.style.background='#2d2d30';if(this.value&&!this.value.includes('/'))this.value=this.value+'/${new Date().getFullYear()}';">
+                       onblur="this.style.borderColor='#3e3e42';this.style.background='#2d2d30';">
             </div>
             <div style="margin-bottom:2rem;">
                 <label style="display:block;color:#9e9e9e;margin-bottom:0.75rem;font-weight:500;font-size:1rem;">Bon de livraison (optionnel)</label>
                 <input type="text" id="convertInput3Chaimae" placeholder="Exemple: 123, 123/2025" value="${prefillBonLivraison}"
                        style="width:100%;padding:1rem;background:#2d2d30;border:2px solid #3e3e42;border-radius:8px;color:#fff;font-size:1.1rem;box-sizing:border-box;outline:none;transition:all 0.3s;"
                        onfocus="this.style.borderColor='#9c27b0';this.style.background='#1e1e1e';"
-                       onblur="this.style.borderColor='#3e3e42';this.style.background='#2d2d30';addYearOnBlurChaimae(this);">
-                <div style="margin-top:0.5rem;color:#9e9e9e;font-size:0.9rem;">Ex: 123 → 123/${new Date().getFullYear()}</div>
+                       onblur="this.style.borderColor='#3e3e42';this.style.background='#2d2d30';">
             </div>
             ` : ''}
             
             ${newType === 'bon_livraison' ? `
             <div style="margin-bottom:2rem;">
                 <label style="display:block;color:#9e9e9e;margin-bottom:0.75rem;font-weight:500;font-size:1rem;">N° Order (optionnel)</label>
-                <input type="text" id="convertInput2Chaimae" placeholder="Entrez le numéro (ex: 123, 4567, etc.)"
-                       style="width:100%;padding:1rem;background:#2d2d30;border:2px solid #3e3e42;border-radius:8px;color:#fff;font-size:1.1rem;box-sizing:border-box;outline:none;transition:all 0.3s;"
-                       onfocus="this.style.borderColor='#9c27b0';this.style.background='#1e1e1e';"
-                       onblur="this.style.borderColor='#3e3e42';this.style.background='#2d2d30';">
+                <div style="display:flex;gap:0.5rem;align-items:flex-start;">
+                    <div style="position:relative;flex:0 0 auto;">
+                        <input type="text" id="convertOrderPrefixInput" placeholder="BC" value="${window.selectedOrderPrefix || 'BC'}"
+                               style="width:80px;padding:1rem;background:#2d2d30;border:2px solid #3e3e42;border-radius:8px;color:#fff;font-size:1.1rem;outline:none;cursor:pointer;font-weight:600;"
+                               readonly onclick="toggleConvertOrderPrefixDropdown()">
+                        <div id="convertOrderPrefixDropdown" style="display:none;position:absolute;top:100%;left:0;background:linear-gradient(135deg, #1e1e1e 0%, #2d2d30 100%);border:2px solid #2196f3;border-radius:12px;margin-top:0.5rem;box-shadow:0 8px 24px rgba(33, 150, 243, 0.3), 0 0 0 1px rgba(33, 150, 243, 0.1);z-index:1000;min-width:200px;max-height:350px;overflow:hidden;">
+                            <div style="padding:0.75rem 1rem;background:linear-gradient(90deg, #2196f3 0%, #1976d2 100%);border-bottom:2px solid rgba(33, 150, 243, 0.3);">
+                                <h4 style="margin:0;color:#fff;font-size:0.95rem;font-weight:600;letter-spacing:0.5px;">📋 Choisir un Prefix</h4>
+                            </div>
+                            <div id="convertOrderPrefixList" style="max-height:200px;overflow-y:auto;padding:0.5rem;"></div>
+                            <div style="padding:0.75rem;border-top:2px solid rgba(33, 150, 243, 0.2);background:rgba(0,0,0,0.2);">
+                                <input type="text" id="convertNewOrderPrefixInput" placeholder="Nouveau prefix (ex: BC)"
+                                       style="width:100%;padding:0.65rem;background:#1e1e1e;border:2px solid #3e3e42;border-radius:6px;color:#fff;font-size:0.9rem;outline:none;transition:all 0.3s;"
+                                       onfocus="this.style.borderColor='#2196f3';this.style.boxShadow='0 0 0 3px rgba(33, 150, 243, 0.1)';"
+                                       onblur="this.style.borderColor='#3e3e42';this.style.boxShadow='none';"
+                                       onkeypress="if(event.key==='Enter'){addConvertNewOrderPrefix();event.preventDefault();}">
+                                <button type="button" onclick="addConvertNewOrderPrefix()"
+                                        style="width:100%;margin-top:0.5rem;padding:0.65rem;background:linear-gradient(90deg, #2196f3 0%, #1976d2 100%);color:#fff;border:none;border-radius:6px;cursor:pointer;font-size:0.9rem;font-weight:600;transition:all 0.3s;box-shadow:0 2px 8px rgba(33, 150, 243, 0.3);"
+                                        onmouseover="this.style.transform='translateY(-2px)';this.style.boxShadow='0 4px 12px rgba(33, 150, 243, 0.4)';"
+                                        onmouseout="this.style.transform='translateY(0)';this.style.boxShadow='0 2px 8px rgba(33, 150, 243, 0.3)';">
+                                    ➕ Ajouter le Prefix
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                    <input type="text" id="convertInput2Chaimae" placeholder="456"
+                           style="flex:1;padding:1rem;background:#2d2d30;border:2px solid #3e3e42;border-radius:8px;color:#fff;font-size:1.1rem;box-sizing:border-box;outline:none;transition:all 0.3s;"
+                           onfocus="this.style.borderColor='#9c27b0';this.style.background='#1e1e1e';"
+                           onblur="this.style.borderColor='#3e3e42';this.style.background='#2d2d30';">
+                </div>
+                <small style="color:#999;font-size:0.85rem;display:block;margin-top:0.5rem;">Ex: 456 → <span id="convertOrderPrefixExample">BC</span>456</small>
             </div>
             ` : ''}
             
@@ -1812,15 +2550,30 @@ function showConvertInputModalChaimae(newType, newTypeLabel, prefillNumero = '',
                 
                 // Update val1 with full numero including prefix
                 val1 = fullNumero;
-                // val2 is Order - keep as is, no formatting needed
+                
+                // Format val2 (Order) with prefix if provided
+                if (val2) {
+                    const selectedOrderPrefix = window.selectedOrderPrefix || 'BC';
+                    // Remove any existing prefix from all known prefixes
+                    let cleanValue = val2;
+                    if (window.orderPrefixes && window.orderPrefixes.length > 0) {
+                        for (const prefix of window.orderPrefixes) {
+                            if (cleanValue.startsWith(prefix)) {
+                                cleanValue = cleanValue.substring(prefix.length);
+                                break;
+                            }
+                        }
+                    }
+                    // Add the selected prefix
+                    val2 = `${selectedOrderPrefix}${cleanValue}`;
+                }
             } else {
                 // For facture and devis - auto-add year if not present
                 if (val1 && !val1.includes('/')) {
                     val1 = val1 + '/' + currentYear;
                 }
-                if (val2 && !val2.includes('/')) {
-                    val2 = val2 + '/' + currentYear;
-                }
+                // val2 is N° Order - keep as is, no formatting needed
+                // Only format val3 (Bon de livraison) for facture
                 if (val3 && !val3.includes('/')) {
                     val3 = val3 + '/' + currentYear;
                 }
@@ -1861,12 +2614,7 @@ function showConvertInputModalChaimae(newType, newTypeLabel, prefillNumero = '',
             });
         }
         
-        overlay.onclick = (e) => {
-            if (e.target === overlay) {
-                cleanup();
-                resolve(null);
-            }
-        };
+        // Removed overlay click to close - user must use Cancel button
     });
 }
 
@@ -2005,7 +2753,10 @@ window.convertInvoiceTypeChaimae = async function(invoiceId, currentType) {
                     }
                 } else if (newType === 'bon_livraison') {
                     const duplicateNumero = invoices.find(inv => 
-                        inv.document_type === 'bon_livraison' && inv.document_numero_bl === newNumero
+                        (inv.document_type === 'bon_livraison' || inv.document_type === 'bon de livraison') && 
+                        (inv.document_numero === newNumero || 
+                         inv.document_numero_bl === newNumero || 
+                         inv.document_bon_de_livraison === newNumero)
                     );
                     if (duplicateNumero) {
                         window.notify.error('Erreur', `Le N° Bon de livraison "${newNumero}" existe déjà`, 5000);
@@ -2013,13 +2764,15 @@ window.convertInvoiceTypeChaimae = async function(invoiceId, currentType) {
                     }
                 }
                 
-                // Check N° Order if provided (for facture)
+                // Check N° Order if provided (for facture only)
                 if (newType === 'facture' && newNumeroOrder) {
                     const duplicateOrder = invoices.find(inv => 
-                        inv.document_numero_Order === newNumeroOrder
+                        inv.document_type === 'facture' &&
+                        inv.document_numero_Order && 
+                        inv.document_numero_Order.trim() === newNumeroOrder.trim()
                     );
                     if (duplicateOrder) {
-                        window.notify.error('Erreur', `Le N° Order "${newNumeroOrder}" existe déjà`, 5000);
+                        window.notify.error('Erreur', `Le N° Order "${newNumeroOrder}" existe déjà dans une autre Facture`, 5000);
                         return;
                     }
                 }
@@ -2027,10 +2780,12 @@ window.convertInvoiceTypeChaimae = async function(invoiceId, currentType) {
                 // Check Bon de livraison if provided (for facture)
                 if (newType === 'facture' && newBonLivraison) {
                     const duplicateBL = invoices.find(inv => 
-                        inv.document_bon_de_livraison === newBonLivraison
+                        inv.document_type === 'facture' &&
+                        inv.document_bon_de_livraison && 
+                        inv.document_bon_de_livraison.trim() === newBonLivraison.trim()
                     );
                     if (duplicateBL) {
-                        window.notify.error('Erreur', `Le Bon de livraison "${newBonLivraison}" existe déjà`, 5000);
+                        window.notify.error('Erreur', `Le Bon de livraison "${newBonLivraison}" existe déjà dans une autre Facture`, 5000);
                         return;
                     }
                 }
@@ -2038,10 +2793,12 @@ window.convertInvoiceTypeChaimae = async function(invoiceId, currentType) {
                 // Check N° Order if provided (for bon_livraison)
                 if (newType === 'bon_livraison' && newBonCommande) {
                     const duplicateBC = invoices.find(inv => 
-                        inv.document_numero_commande === newBonCommande
+                        (inv.document_type === 'bon_livraison' || inv.document_type === 'bon de livraison') &&
+                        inv.document_numero_commande && 
+                        inv.document_numero_commande.trim() === newBonCommande.trim()
                     );
                     if (duplicateBC) {
-                        window.notify.error('Erreur', `Le N° Order "${newBonCommande}" existe déjà`, 5000);
+                        window.notify.error('Erreur', `Le N° Order "${newBonCommande}" existe déjà dans un autre Bon de livraison`, 5000);
                         return;
                     }
                 }
@@ -2274,6 +3031,75 @@ window.downloadInvoicePDFChaimae = async function(invoiceId) {
         
         console.log('📄 Continuing with PDF generation...');
         
+        // Check if there are products with zero quantity or price
+        const hasZeroProducts = invoice.products && invoice.products.some(p => 
+            parseFloat(p.quantite) === 0 || parseFloat(p.prix_unitaire_ht) === 0
+        );
+        
+        let includeZeroProducts = true; // Default: include all products
+        
+        if (hasZeroProducts) {
+            includeZeroProducts = await new Promise((resolve) => {
+                const overlay = document.createElement('div');
+                overlay.className = 'custom-modal-overlay';
+                
+                overlay.innerHTML = `
+                    <div class="custom-modal">
+                        <div class="custom-modal-header">
+                            <span class="custom-modal-icon warning">⚠️</span>
+                            <h3 class="custom-modal-title">Produits avec quantité ou prix zéro</h3>
+                        </div>
+                        <div class="custom-modal-body">
+                            <p style="margin-bottom:1rem;color:#e0e0e0;font-size:0.95rem;">
+                                Certains produits ont une <strong style="color:#ff9800;">quantité = 0</strong> ou un <strong style="color:#ff9800;">prix = 0</strong>.
+                            </p>
+                            <p style="color:#b0b0b0;font-size:0.9rem;">
+                                Voulez-vous les afficher dans le PDF ?
+                            </p>
+                        </div>
+                        <div class="custom-modal-footer">
+                            <button id="excludeZeroBtnChaimae" class="custom-modal-btn secondary">
+                                ❌ Non, masquer
+                            </button>
+                            <button id="includeZeroBtnChaimae" class="custom-modal-btn primary">
+                                ✅ Oui, afficher
+                            </button>
+                        </div>
+                    </div>
+                `;
+                
+                document.body.appendChild(overlay);
+                
+                const excludeBtn = document.getElementById('excludeZeroBtnChaimae');
+                const includeBtn = document.getElementById('includeZeroBtnChaimae');
+                
+                excludeBtn.addEventListener('click', () => {
+                    overlay.remove();
+                    resolve(false);
+                });
+                
+                includeBtn.addEventListener('click', () => {
+                    overlay.remove();
+                    resolve(true);
+                });
+                
+                overlay.addEventListener('click', (e) => {
+                    if (e.target === overlay) {
+                        overlay.remove();
+                        resolve(true); // Default to include if user clicks outside
+                    }
+                });
+                
+                setTimeout(() => includeBtn.focus(), 100);
+            });
+            
+            console.log('🔍 User choice for zero products:', includeZeroProducts ? 'Include' : 'Exclude');
+        }
+        
+        // Mark products with zero values for special display (don't remove them)
+        const showZeroValues = includeZeroProducts;
+        console.log('📊 Show zero values in PDF:', showZeroValues);
+        
         // Check if jsPDF is loaded
         if (typeof window.jspdf === 'undefined') {
             await loadJsPDFChaimae();
@@ -2383,7 +3209,7 @@ window.downloadInvoicePDFChaimae = async function(invoiceId) {
                 doc.setTextColor(0, 0, 0);
                 doc.text('N° Order :', 15, currentY);
                 doc.setTextColor(255, 152, 0);
-                doc.text(invoice.document_numero_commande, 62, currentY);
+                doc.text(invoice.document_numero_commande, 40, currentY);
             }
         };
         
@@ -2446,82 +3272,122 @@ window.downloadInvoicePDFChaimae = async function(invoiceId) {
         invoice.products.forEach((product, index) => {
             const designation = product.designation || '';
             const lines = doc.splitTextToSize(designation, 85);
-            const rowHeight = Math.max(7, lines.length * 5);
+            const rowHeight = Math.max(8, (lines.length * 4.5) + 4);
             
-            // Check if we need a new page
-            if (currentY + rowHeight > 250) {
-                console.log('\n--- New Page Required ---');
-                console.log('Product Index:', index);
-                console.log('Current Y before page break:', currentY);
-                console.log('Row Height:', rowHeight);
+            // Split very long products across multiple pages if needed
+            let remainingLines = [...lines];
+            let isFirstPart = true;
+            
+            while (remainingLines.length > 0) {
+                const availableSpace = 250 - currentY;
                 
-                pages.push(pageCount);
-                doc.addPage();
-                addHeader(false);
-                pageCount++;
-                
-                console.log('Page Count:', pageCount);
-                
-                // Recalculate startY for new page based on document type (no offset)
-                let newStartY = 85;
-                console.log('Base startY:', newStartY);
-                
-                if (invoice.document_type === 'facture') {
-                    if (invoice.document_numero_Order) {
+                // If not enough space for even one line, create new page first
+                if (availableSpace < 15) {
+                    pages.push(pageCount);
+                    doc.addPage();
+                    addHeader(false);
+                    pageCount++;
+                    
+                    let newStartY = 85;
+                    if (invoice.document_type === 'facture') {
+                        if (invoice.document_numero_Order) newStartY += 7;
+                        if (invoice.document_bon_de_livraison) newStartY += 7;
+                    } else if (invoice.document_type === 'bon_livraison' && invoice.document_numero_commande) {
                         newStartY += 7;
-                        console.log('Added 7px for N° Order, new startY:', newStartY);
                     }
-                    if (invoice.document_bon_de_livraison) {
-                        newStartY += 7;
-                        console.log('Added 7px for Bon de livraison, new startY:', newStartY);
-                    }
-                } else if (invoice.document_type === 'bon_livraison' && invoice.document_numero_commande) {
-                    newStartY += 7;
-                    console.log('Added 7px for N° Order, new startY:', newStartY);
+                    
+                    doc.setFillColor(...blueColor);
+                    doc.rect(15, newStartY, 180, 8, 'F');
+                    doc.setTextColor(255, 255, 255);
+                    doc.setFontSize(9);
+                    doc.setFont(undefined, 'bold');
+                    doc.text('Désignation', 18, newStartY + 5.5);
+                    doc.text('QTE', 115, newStartY + 5.5, { align: 'center' });
+                    doc.text('PU HT', 150, newStartY + 5.5, { align: 'right' });
+                    doc.text('TOTAL HT', 188, newStartY + 5.5, { align: 'right' });
+                    
+                    currentY = newStartY + 10;
+                    doc.setTextColor(0, 0, 0);
+                    doc.setFont(undefined, 'normal');
+                    doc.setFontSize(9);
+                    continue;
                 }
                 
-                console.log('Final startY for continuation page:', newStartY);
+                const maxLinesPerPage = Math.floor((availableSpace - 10) / 4.5);
+                const linesToDraw = remainingLines.splice(0, Math.max(1, maxLinesPerPage));
+                const partialRowHeight = Math.max(8, (linesToDraw.length * 4.5) + 4);
                 
-                doc.setFillColor(...blueColor);
-                doc.rect(15, newStartY, 180, 8, 'F');
-                doc.setTextColor(255, 255, 255);
-                doc.setFontSize(9);
-                doc.setFont(undefined, 'bold');
-                doc.text('Désignation', 18, newStartY + 5.5);
-                doc.text('QTE', 115, newStartY + 5.5, { align: 'center' });
-                doc.text('PU HT', 150, newStartY + 5.5, { align: 'right' });
-                doc.text('TOTAL HT', 188, newStartY + 5.5, { align: 'right' });
+                // Alternate row colors (only for first part)
+                if (isFirstPart && index % 2 === 0) {
+                    doc.setFillColor(245, 245, 245);
+                    doc.rect(15, currentY - 3, 180, partialRowHeight, 'F');
+                }
                 
-                currentY = newStartY + 10;
-                console.log('New currentY after table header:', currentY);
-                doc.setTextColor(0, 0, 0);
-                doc.setFont(undefined, 'normal');
-                doc.setFontSize(9);
+                doc.setFontSize(8);
+                // Draw lines
+                linesToDraw.forEach((line, lineIndex) => {
+                    doc.text(line, 18, currentY + 3 + (lineIndex * 4.5));
+                });
+                
+                // Only show quantity, price, and total on the first part
+                if (isFirstPart) {
+                    const centerOffset = (linesToDraw.length > 1) ? ((linesToDraw.length - 1) * 2.25) : 0;
+                    
+                    const qty = parseFloat(product.quantite);
+                    if (showZeroValues || qty !== 0) {
+                        doc.text(String(product.quantite || ''), 115, currentY + 3 + centerOffset, { align: 'center' });
+                    }
+                    
+                    doc.setFontSize(7.5);
+                    const price = parseFloat(product.prix_unitaire_ht);
+                    if (showZeroValues || price !== 0) {
+                        doc.text(`${formatNumberForPDFChaimae(product.prix_unitaire_ht)} DH`, 150, currentY + 3 + centerOffset, { align: 'right' });
+                    }
+                    
+                    const total = parseFloat(product.total_ht);
+                    if (showZeroValues || total !== 0) {
+                        doc.text(`${formatNumberForPDFChaimae(product.total_ht)} DH`, 188, currentY + 3 + centerOffset, { align: 'right' });
+                    }
+                }
+                
+                currentY += partialRowHeight;
+                isFirstPart = false;
+                
+                // If there are more lines and we're near the bottom, create new page
+                if (remainingLines.length > 0 && currentY > 230) {
+                    pages.push(pageCount);
+                    doc.addPage();
+                    addHeader(false);
+                    pageCount++;
+                    
+                    let newStartY = 85;
+                    if (invoice.document_type === 'facture') {
+                        if (invoice.document_numero_Order) {
+                            newStartY += 7;
+                        }
+                        if (invoice.document_bon_de_livraison) {
+                            newStartY += 7;
+                        }
+                    } else if (invoice.document_type === 'bon_livraison' && invoice.document_numero_commande) {
+                        newStartY += 7;
+                    }
+                    
+                    doc.setFillColor(...blueColor);
+                    doc.rect(15, newStartY, 180, 8, 'F');
+                    doc.setTextColor(255, 255, 255);
+                    doc.setFontSize(9);
+                    doc.setFont(undefined, 'bold');
+                    doc.text('Désignation', 18, newStartY + 5.5);
+                    doc.text('QTE', 115, newStartY + 5.5, { align: 'center' });
+                    doc.text('PU HT', 150, newStartY + 5.5, { align: 'right' });
+                    doc.text('TOTAL HT', 188, newStartY + 5.5, { align: 'right' });
+                    
+                    currentY = newStartY + 10;
+                    doc.setTextColor(0, 0, 0);
+                    doc.setFont(undefined, 'normal');
+                    doc.setFontSize(9);
+                }
             }
-            
-            // Alternate row colors
-            if (index % 2 === 0) {
-                doc.setFillColor(245, 245, 245);
-                doc.rect(15, currentY - 3, 180, rowHeight, 'F');
-            }
-            
-            doc.setFontSize(8);
-            // Draw each line separately with proper spacing - show full text
-            lines.forEach((line, lineIndex) => {
-                doc.text(line, 18, currentY + 3 + (lineIndex * 4.5));
-            });
-            
-            // Center vertically for multi-line products
-            const centerOffset = (lines.length > 1) ? ((lines.length - 1) * 2.25) : 0;
-            
-            doc.text(String(product.quantite || ''), 115, currentY + 3 + centerOffset, { align: 'center' });
-            
-            // Use smaller font for large numbers
-            doc.setFontSize(7.5);
-            doc.text(`${formatNumberForPDFChaimae(product.prix_unitaire_ht)} DH`, 150, currentY + 3 + centerOffset, { align: 'right' });
-            doc.text(`${formatNumberForPDFChaimae(product.total_ht)} DH`, 188, currentY + 3 + centerOffset, { align: 'right' });
-            
-            currentY += rowHeight;
         });
         
         // Totals
@@ -2568,6 +3434,22 @@ window.downloadInvoicePDFChaimae = async function(invoiceId) {
             doc.text(`La Présente ${docTypeText} est Arrêtée à la somme de : ${amountInWords}`, 15, currentY, { maxWidth: 180 });
         }
         
+        // Add notes if any
+        const noteResult = await window.electron.dbChaimae.getNote(invoiceId);
+        if (noteResult.success && noteResult.data) {
+            currentY += 15;
+            doc.setFontSize(8);
+            doc.setFont(undefined, 'bold');
+            doc.setTextColor(96, 125, 139);
+            doc.text('Notes:', 15, currentY);
+            
+            doc.setFont(undefined, 'normal');
+            doc.setTextColor(0, 0, 0);
+            doc.setFontSize(7.5);
+            const noteLines = doc.splitTextToSize(noteResult.data, 180);
+            doc.text(noteLines, 15, currentY + 4);
+        }
+        
         // Add page numbering to all pages
         pages.push(pageCount);
         const totalPages = pages.length;
@@ -2602,6 +3484,75 @@ window.downloadBonDeTravauxPDFChaimae = async function(invoiceId) {
         }
         
         const invoice = result.data;
+        
+        // Check if there are products with zero quantity or price
+        const hasZeroProducts = invoice.products && invoice.products.some(p => 
+            parseFloat(p.quantite) === 0 || parseFloat(p.prix_unitaire_ht) === 0
+        );
+        
+        let includeZeroProducts = true; // Default: include all products
+        
+        if (hasZeroProducts) {
+            includeZeroProducts = await new Promise((resolve) => {
+                const overlay = document.createElement('div');
+                overlay.className = 'custom-modal-overlay';
+                
+                overlay.innerHTML = `
+                    <div class="custom-modal">
+                        <div class="custom-modal-header">
+                            <span class="custom-modal-icon warning">⚠️</span>
+                            <h3 class="custom-modal-title">Produits avec quantité ou prix zéro</h3>
+                        </div>
+                        <div class="custom-modal-body">
+                            <p style="margin-bottom:1rem;color:#e0e0e0;font-size:0.95rem;">
+                                Certains produits ont une <strong style="color:#ff9800;">quantité = 0</strong> ou un <strong style="color:#ff9800;">prix = 0</strong>.
+                            </p>
+                            <p style="color:#b0b0b0;font-size:0.9rem;">
+                                Voulez-vous les afficher dans le Bon de travaux ?
+                            </p>
+                        </div>
+                        <div class="custom-modal-footer">
+                            <button id="excludeZeroBtnBonTravauxChaimae" class="custom-modal-btn secondary">
+                                ❌ Non, masquer
+                            </button>
+                            <button id="includeZeroBtnBonTravauxChaimae" class="custom-modal-btn primary">
+                                ✅ Oui, afficher
+                            </button>
+                        </div>
+                    </div>
+                `;
+                
+                document.body.appendChild(overlay);
+                
+                const excludeBtn = document.getElementById('excludeZeroBtnBonTravauxChaimae');
+                const includeBtn = document.getElementById('includeZeroBtnBonTravauxChaimae');
+                
+                excludeBtn.addEventListener('click', () => {
+                    overlay.remove();
+                    resolve(false);
+                });
+                
+                includeBtn.addEventListener('click', () => {
+                    overlay.remove();
+                    resolve(true);
+                });
+                
+                overlay.addEventListener('click', (e) => {
+                    if (e.target === overlay) {
+                        overlay.remove();
+                        resolve(true); // Default to include if user clicks outside
+                    }
+                });
+                
+                setTimeout(() => includeBtn.focus(), 100);
+            });
+            
+            console.log('🔍 User choice for zero products in Bon de travaux:', includeZeroProducts ? 'Include' : 'Exclude');
+        }
+        
+        // Mark products with zero values for special display (don't remove them)
+        const showZeroValues = includeZeroProducts;
+        console.log('📊 Show zero values in Bon de travaux:', showZeroValues);
         
         // Check if jsPDF is loaded
         if (typeof window.jspdf === 'undefined') {
@@ -2720,50 +3671,101 @@ window.downloadBonDeTravauxPDFChaimae = async function(invoiceId) {
         invoice.products.forEach((product, index) => {
             const designation = product.designation || '';
             const lines = doc.splitTextToSize(designation, 75);
-            const rowHeight = Math.max(7, lines.length * 5);
+            const rowHeight = Math.max(8, (lines.length * 4.5) + 4);
             
-            // Check if we need a new page
-            if (currentY + rowHeight > 220) {
-                pages.push(pageCount);
-                doc.addPage();
-                addHeader(false);
-                pageCount++;
+            // Split very long products across multiple pages if needed
+            let remainingLines = [...lines];
+            let isFirstPart = true;
+            
+            while (remainingLines.length > 0) {
+                const availableSpace = 220 - currentY;
                 
-                doc.setFillColor(...blueColor);
-                doc.rect(15, startY, 180, 8, 'F');
-                doc.setTextColor(255, 255, 255);
-                doc.setFontSize(9);
-                doc.setFont(undefined, 'bold');
-                doc.text('Désignation', 18, startY + 5.5);
-                doc.text('QTE', 115, startY + 5.5, { align: 'center' });
-                doc.text('Prix unitaire HT', 150, startY + 5.5, { align: 'right' });
-                doc.text('Prix total HT', 188, startY + 5.5, { align: 'right' });
+                // If not enough space for even one line, create new page first
+                if (availableSpace < 15) {
+                    pages.push(pageCount);
+                    doc.addPage();
+                    addHeader(false);
+                    pageCount++;
+                    
+                    doc.setFillColor(...blueColor);
+                    doc.rect(15, startY, 180, 8, 'F');
+                    doc.setTextColor(255, 255, 255);
+                    doc.setFontSize(9);
+                    doc.setFont(undefined, 'bold');
+                    doc.text('Désignation', 18, startY + 5.5);
+                    doc.text('QTE', 115, startY + 5.5, { align: 'center' });
+                    doc.text('Prix unitaire HT', 150, startY + 5.5, { align: 'right' });
+                    doc.text('Prix total HT', 188, startY + 5.5, { align: 'right' });
+                    
+                    currentY = startY + 10;
+                    doc.setTextColor(0, 0, 0);
+                    doc.setFont(undefined, 'normal');
+                    doc.setFontSize(9);
+                    continue;
+                }
                 
-                currentY = startY + 10;
-                doc.setTextColor(0, 0, 0);
-                doc.setFont(undefined, 'normal');
-                doc.setFontSize(9);
+                const maxLinesPerPage = Math.floor((availableSpace - 10) / 4.5);
+                const linesToDraw = remainingLines.splice(0, Math.max(1, maxLinesPerPage));
+                const partialRowHeight = Math.max(8, (linesToDraw.length * 4.5) + 4);
+                
+                // Alternate row colors (only for first part)
+                if (isFirstPart && index % 2 === 0) {
+                    doc.setFillColor(245, 245, 245);
+                    doc.rect(15, currentY - 3, 180, partialRowHeight, 'F');
+                }
+                
+                doc.setFontSize(8);
+                // Draw lines
+                linesToDraw.forEach((line, lineIndex) => {
+                    doc.text(line, 18, currentY + 3 + (lineIndex * 4.5));
+                });
+                
+                // Only show quantity, price, and total on the first part
+                if (isFirstPart) {
+                    const centerOffset = (linesToDraw.length > 1) ? ((linesToDraw.length - 1) * 2.25) : 0;
+                    
+                    const qty = parseFloat(product.quantite);
+                    if (showZeroValues || qty !== 0) {
+                        doc.text(String(product.quantite || ''), 115, currentY + 3 + centerOffset, { align: 'center' });
+                    }
+                    
+                    const price = parseFloat(product.prix_unitaire_ht);
+                    if (showZeroValues || price !== 0) {
+                        doc.text(`${formatNumberForPDF(product.prix_unitaire_ht)} DH`, 150, currentY + 3 + centerOffset, { align: 'right' });
+                    }
+                    
+                    const total = parseFloat(product.total_ht);
+                    if (showZeroValues || total !== 0) {
+                        doc.text(`${formatNumberForPDF(product.total_ht)} DH`, 188, currentY + 3 + centerOffset, { align: 'right' });
+                    }
+                }
+                
+                currentY += partialRowHeight;
+                isFirstPart = false;
+                
+                // If there are more lines and we're near the bottom, create new page
+                if (remainingLines.length > 0 && currentY > 200) {
+                    pages.push(pageCount);
+                    doc.addPage();
+                    addHeader(false);
+                    pageCount++;
+                    
+                    doc.setFillColor(...blueColor);
+                    doc.rect(15, startY, 180, 8, 'F');
+                    doc.setTextColor(255, 255, 255);
+                    doc.setFontSize(9);
+                    doc.setFont(undefined, 'bold');
+                    doc.text('Désignation', 18, startY + 5.5);
+                    doc.text('QTE', 115, startY + 5.5, { align: 'center' });
+                    doc.text('Prix unitaire HT', 150, startY + 5.5, { align: 'right' });
+                    doc.text('Prix total HT', 188, startY + 5.5, { align: 'right' });
+                    
+                    currentY = startY + 10;
+                    doc.setTextColor(0, 0, 0);
+                    doc.setFont(undefined, 'normal');
+                    doc.setFontSize(9);
+                }
             }
-            
-            // Alternate row colors
-            if (index % 2 === 0) {
-                doc.setFillColor(245, 245, 245);
-                doc.rect(15, currentY - 3, 180, rowHeight, 'F');
-            }
-            
-            doc.setFontSize(8);
-            // Draw each line separately
-            lines.forEach((line, lineIndex) => {
-                doc.text(line, 18, currentY + 3 + (lineIndex * 4.5));
-            });
-            
-            // Center vertically for multi-line products
-            const centerOffset = (lines.length > 1) ? ((lines.length - 1) * 2.25) : 0;
-            doc.text(String(product.quantite || ''), 115, currentY + 3 + centerOffset, { align: 'center' });
-            doc.text(`${formatNumberForPDF(product.prix_unitaire_ht)} DH`, 150, currentY + 3 + centerOffset, { align: 'right' });
-            doc.text(`${formatNumberForPDF(product.total_ht)} DH`, 188, currentY + 3 + centerOffset, { align: 'right' });
-            
-            currentY += rowHeight;
         });
         
         // Totals section - directly below table (dynamic position)
@@ -2907,6 +3909,9 @@ function numberToFrenchWordsChaimae(number) {
 
 // Generate single PDF as Blob (for ZIP)
 async function generateSinglePDFBlobChaimae(invoice, organizationType, folderName, includeOrder = true, includeBL = true, includeBC = true) {
+    // For bulk PDF, always hide zero values (no prompt)
+    const showZeroValues = false;
+    
     const { jsPDF } = window.jspdf;
     const doc = new jsPDF();
     
@@ -3036,8 +4041,8 @@ async function generateSinglePDFBlobChaimae(invoice, organizationType, folderNam
     doc.setFontSize(9);
     doc.setFont(undefined, 'bold');
     doc.text('Désignation', 18, startY + 5.5);
-    doc.text('QTE', 115, startY + 5.5, { align: 'center' });
-    doc.text('PU HT', 150, startY + 5.5, { align: 'right' });
+    doc.text('QTE', 125, startY + 5.5, { align: 'center' });
+    doc.text('PU HT', 160, startY + 5.5, { align: 'right' });
     doc.text('TOTAL HT', 188, startY + 5.5, { align: 'right' });
     
     let currentY = startY + 10;
@@ -3051,61 +4056,118 @@ async function generateSinglePDFBlobChaimae(invoice, organizationType, folderNam
     invoice.products.forEach((product, index) => {
         const designation = product.designation || '';
         const lines = doc.splitTextToSize(designation, 85);
-        const rowHeight = Math.max(7, lines.length * 5);
+        const rowHeight = Math.max(8, (lines.length * 4.5) + 4);
         
-        if (currentY + rowHeight > 250) {
-            pages.push(pageCount);
-            doc.addPage();
-            addHeader(false);
-            pageCount++;
+        // Split very long products across multiple pages if needed
+        let remainingLines = [...lines];
+        let isFirstPart = true;
+        
+        while (remainingLines.length > 0) {
+            const availableSpace = 250 - currentY;
             
-            let newStartY = 85;
-            if (invoice.document_type === 'facture') {
-                if (invoice.document_numero_Order) newStartY += 7;
-                if (invoice.document_bon_de_livraison) newStartY += 7;
-            } else if (invoice.document_type === 'bon_livraison' && invoice.document_numero_commande) {
-                newStartY += 7;
+            // If not enough space for even one line, create new page first
+            if (availableSpace < 15) {
+                pages.push(pageCount);
+                doc.addPage();
+                addHeader(false);
+                pageCount++;
+                
+                let newStartY = 85;
+                if (invoice.document_type === 'facture') {
+                    if (invoice.document_numero_Order) newStartY += 7;
+                    if (invoice.document_bon_de_livraison) newStartY += 7;
+                } else if (invoice.document_type === 'bon_livraison' && invoice.document_numero_commande) {
+                    newStartY += 7;
+                }
+                
+                doc.setFillColor(...blueColor);
+                doc.rect(15, newStartY, 180, 8, 'F');
+                doc.setTextColor(255, 255, 255);
+                doc.setFontSize(9);
+                doc.setFont(undefined, 'bold');
+                doc.text('Désignation', 18, newStartY + 5.5);
+                doc.text('QTE', 125, newStartY + 5.5, { align: 'center' });
+                doc.text('PU HT', 160, newStartY + 5.5, { align: 'right' });
+                doc.text('TOTAL HT', 188, newStartY + 5.5, { align: 'right' });
+                
+                currentY = newStartY + 10;
+                doc.setTextColor(0, 0, 0);
+                doc.setFont(undefined, 'normal');
+                doc.setFontSize(9);
+                continue;
             }
             
-            doc.setFillColor(...blueColor);
-            doc.rect(15, newStartY, 180, 8, 'F');
-            doc.setTextColor(255, 255, 255);
-            doc.setFontSize(9);
-            doc.setFont(undefined, 'bold');
-            doc.text('Désignation', 18, newStartY + 5.5);
-            doc.text('QTE', 115, newStartY + 5.5, { align: 'center' });
-            doc.text('PU HT', 150, newStartY + 5.5, { align: 'right' });
-            doc.text('TOTAL HT', 188, newStartY + 5.5, { align: 'right' });
+            const maxLinesPerPage = Math.floor((availableSpace - 10) / 4.5);
+            const linesToDraw = remainingLines.splice(0, Math.max(1, maxLinesPerPage));
+            const partialRowHeight = Math.max(8, (linesToDraw.length * 4.5) + 4);
             
-            currentY = newStartY + 10;
-            doc.setTextColor(0, 0, 0);
-            doc.setFont(undefined, 'normal');
-            doc.setFontSize(9);
+            // Alternate row colors (only for first part)
+            if (isFirstPart && index % 2 === 0) {
+                doc.setFillColor(245, 245, 245);
+                doc.rect(15, currentY - 3, 180, partialRowHeight, 'F');
+            }
+            
+            doc.setFontSize(8);
+            // Draw lines
+            linesToDraw.forEach((line, lineIndex) => {
+                doc.text(line, 18, currentY + 3 + (lineIndex * 4.5));
+            });
+            
+            // Only show quantity, price, and total on the first part
+            if (isFirstPart) {
+                const centerOffset = (linesToDraw.length > 1) ? ((linesToDraw.length - 1) * 2.25) : 0;
+                
+                const qty = parseFloat(product.quantite);
+                if (qty !== 0) {
+                    doc.text(String(product.quantite || ''), 125, currentY + 3 + centerOffset, { align: 'center' });
+                }
+                
+                doc.setFontSize(7.5);
+                const price = parseFloat(product.prix_unitaire_ht);
+                if (price !== 0) {
+                    doc.text(`${formatNumberForPDFChaimae(product.prix_unitaire_ht)} DH`, 160, currentY + 3 + centerOffset, { align: 'right' });
+                }
+                
+                const total = parseFloat(product.total_ht);
+                if (total !== 0) {
+                    doc.text(`${formatNumberForPDFChaimae(product.total_ht)} DH`, 188, currentY + 3 + centerOffset, { align: 'right' });
+                }
+            }
+            
+            currentY += partialRowHeight;
+            isFirstPart = false;
+            
+            // If there are more lines and we're near the bottom, create new page
+            if (remainingLines.length > 0 && currentY > 230) {
+                pages.push(pageCount);
+                doc.addPage();
+                addHeader(false);
+                pageCount++;
+                
+                let newStartY = 85;
+                if (invoice.document_type === 'facture') {
+                    if (invoice.document_numero_Order) newStartY += 7;
+                    if (invoice.document_bon_de_livraison) newStartY += 7;
+                } else if (invoice.document_type === 'bon_livraison' && invoice.document_numero_commande) {
+                    newStartY += 7;
+                }
+                
+                doc.setFillColor(...blueColor);
+                doc.rect(15, newStartY, 180, 8, 'F');
+                doc.setTextColor(255, 255, 255);
+                doc.setFontSize(9);
+                doc.setFont(undefined, 'bold');
+                doc.text('Désignation', 18, newStartY + 5.5);
+                doc.text('QTE', 125, newStartY + 5.5, { align: 'center' });
+                doc.text('PU HT', 160, newStartY + 5.5, { align: 'right' });
+                doc.text('TOTAL HT', 188, newStartY + 5.5, { align: 'right' });
+                
+                currentY = newStartY + 10;
+                doc.setTextColor(0, 0, 0);
+                doc.setFont(undefined, 'normal');
+                doc.setFontSize(9);
+            }
         }
-        
-        if (index % 2 === 0) {
-            doc.setFillColor(245, 245, 245);
-            doc.rect(15, currentY - 3, 180, rowHeight, 'F');
-        }
-        
-        doc.setFontSize(8);
-        // Draw each line separately with proper spacing - clip text to prevent overlap
-        lines.forEach((line, lineIndex) => {
-            // Ensure text doesn't exceed column boundary
-            const clippedLine = line.length > 60 ? line.substring(0, 60) + '...' : line;
-            doc.text(clippedLine, 18, currentY + 3 + (lineIndex * 4.5));
-        });
-        
-        // Center vertically for multi-line products
-        const centerOffset = (lines.length > 1) ? ((lines.length - 1) * 2.25) : 0;
-        
-        doc.text(String(product.quantite || ''), 115, currentY + 3 + centerOffset, { align: 'center' });
-        
-        doc.setFontSize(7.5);
-        doc.text(`${formatNumberForPDFChaimae(product.prix_unitaire_ht)} DH`, 150, currentY + 3 + centerOffset, { align: 'right' });
-        doc.text(`${formatNumberForPDFChaimae(product.total_ht)} DH`, 188, currentY + 3 + centerOffset, { align: 'right' });
-        
-        currentY += rowHeight;
     });
     
     currentY += 10;
@@ -3145,6 +4207,28 @@ async function generateSinglePDFBlobChaimae(invoice, organizationType, folderNam
     if (invoice.document_type !== 'bon_livraison') {
         const docTypeText = invoice.document_type === 'facture' ? 'Facture' : 'Devis';
         doc.text(`La Présente ${docTypeText} est Arrêtée à la somme de : ${amountInWords}`, 15, currentY, { maxWidth: 180 });
+    }
+    
+    // Add notes if invoice has an id
+    if (invoice.id) {
+        try {
+            const noteResult = await window.electron.dbChaimae.getNote(invoice.id);
+            if (noteResult.success && noteResult.data) {
+                currentY += 15;
+                doc.setFontSize(8);
+                doc.setFont(undefined, 'bold');
+                doc.setTextColor(96, 125, 139);
+                doc.text('Notes:', 15, currentY);
+                
+                doc.setFont(undefined, 'normal');
+                doc.setTextColor(0, 0, 0);
+                doc.setFontSize(7.5);
+                const noteLines = doc.splitTextToSize(noteResult.data, 180);
+                doc.text(noteLines, 15, currentY + 4);
+            }
+        } catch (error) {
+            console.log('Note not loaded for bulk PDF:', error);
+        }
     }
     
     // Add page numbering to all pages
@@ -3868,7 +4952,7 @@ window.addNewAttachmentChaimae = function(invoiceId) {
         }
         
         // Close modal and reopen to refresh
-        document.querySelector('.modal-overlay')?.remove();
+        document.querySelector('.invoice-view-overlay')?.remove();
         setTimeout(() => viewInvoiceChaimae(invoiceId), 300);
     };
     
@@ -3924,7 +5008,7 @@ window.deleteAttachmentChaimae = async function(attachmentId, invoiceId) {
             window.notify.success('Succès', 'Pièce jointe supprimée', 2000);
             
             // Close modal and reopen to refresh
-            document.querySelector('.modal-overlay')?.remove();
+            document.querySelector('.invoice-view-overlay')?.remove();
             setTimeout(() => viewInvoiceChaimae(invoiceId), 300);
         } else {
             window.notify.error('Erreur', result.error || 'Impossible de supprimer', 3000);
@@ -4285,6 +5369,16 @@ window.initInvoicesListChaimaePage = function() {
                                     Comment souhaitez-vous trier les bons de livraison dans le PDF ?
                                 </p>
                                 <div style="display:flex;flex-direction:column;gap:1rem;">
+                                    <button onclick="this.closest('.modal-overlay').remove(); window.downloadGlobalInvoicePDF(${invoiceId}, 'numero_asc')" 
+                                            style="padding:1rem;background:linear-gradient(135deg, #11998e 0%, #38ef7d 100%);color:#fff;border:none;border-radius:8px;font-size:1rem;cursor:pointer;transition:transform 0.2s;"
+                                            onmouseover="this.style.transform='scale(1.02)'" onmouseout="this.style.transform='scale(1)'">
+                                        🔢 Par numéro croissant (1 → 99)
+                                    </button>
+                                    <button onclick="this.closest('.modal-overlay').remove(); window.downloadGlobalInvoicePDF(${invoiceId}, 'numero_desc')" 
+                                            style="padding:1rem;background:linear-gradient(135deg, #fa709a 0%, #fee140 100%);color:#fff;border:none;border-radius:8px;font-size:1rem;cursor:pointer;transition:transform 0.2s;"
+                                            onmouseover="this.style.transform='scale(1.02)'" onmouseout="this.style.transform='scale(1)'">
+                                        🔢 Par numéro décroissant (99 → 1)
+                                    </button>
                                     <button onclick="this.closest('.modal-overlay').remove(); window.downloadGlobalInvoicePDF(${invoiceId}, 'oldest')" 
                                             style="padding:1rem;background:linear-gradient(135deg, #667eea 0%, #764ba2 100%);color:#fff;border:none;border-radius:8px;font-size:1rem;cursor:pointer;transition:transform 0.2s;"
                                             onmouseover="this.style.transform='scale(1.02)'" onmouseout="this.style.transform='scale(1)'">
@@ -4454,6 +5548,36 @@ window.initInvoicesListChaimaePage = function() {
                     } else if (sortOrder === 'newest') {
                         // Sort from newest to oldest (descending by date)
                         sortedBons.sort((a, b) => new Date(b.document_date) - new Date(a.document_date));
+                    } else if (sortOrder === 'numero_asc') {
+                        // Sort by document number ascending (1 → 99)
+                        sortedBons.sort((a, b) => {
+                            const getNumero = (bon) => {
+                                const numero = bon.document_numero_bl || bon.document_numero || '0';
+                                const match = numero.match(/(\d+)(?:\/|$)/);
+                                return match ? parseInt(match[1]) : 0;
+                            };
+                            const numA = getNumero(a);
+                            const numB = getNumero(b);
+                            const numCompare = numA - numB;
+                            if (numCompare !== 0) return numCompare;
+                            // Secondary sort by date if numbers are equal
+                            return new Date(a.document_date) - new Date(b.document_date);
+                        });
+                    } else if (sortOrder === 'numero_desc') {
+                        // Sort by document number descending (99 → 1)
+                        sortedBons.sort((a, b) => {
+                            const getNumero = (bon) => {
+                                const numero = bon.document_numero_bl || bon.document_numero || '0';
+                                const match = numero.match(/(\d+)(?:\/|$)/);
+                                return match ? parseInt(match[1]) : 0;
+                            };
+                            const numA = getNumero(a);
+                            const numB = getNumero(b);
+                            const numCompare = numB - numA;
+                            if (numCompare !== 0) return numCompare;
+                            // Secondary sort by date if numbers are equal
+                            return new Date(b.document_date) - new Date(a.document_date);
+                        });
                     }
                     // If sortOrder is null, keep original order
                     
@@ -4539,6 +5663,22 @@ window.initInvoicesListChaimaePage = function() {
                     const docTypeText = invoice.document_type === 'facture' ? 'Facture' : 'Devis';
                     console.log('📄 [REGULAR INVOICE PDF] Regular invoice type:', docTypeText);
                     doc.text(`La Présente ${docTypeText} est Arrêtée à la somme de : ${amountInWords}`, 15, currentY, { maxWidth: 180 });
+                }
+                
+                // Add notes if any
+                const noteResult = await window.electron.dbChaimae.getNote(invoiceId);
+                if (noteResult.success && noteResult.data) {
+                    currentY += 15;
+                    doc.setFontSize(8);
+                    doc.setFont(undefined, 'bold');
+                    doc.setTextColor(96, 125, 139);
+                    doc.text('Notes:', 15, currentY);
+                    
+                    doc.setFont(undefined, 'normal');
+                    doc.setTextColor(0, 0, 0);
+                    doc.setFontSize(7.5);
+                    const noteLines = doc.splitTextToSize(noteResult.data, 180);
+                    doc.text(noteLines, 15, currentY + 4);
                 }
                 
                 // Add page numbering to all pages
@@ -4722,6 +5862,155 @@ window.deletePrefixConvert = async function(prefix) {
         window.notify.error('Erreur', result.error || 'Impossible de supprimer le prefix', 3000);
     }
 }
+
+// ==================== CONVERT ORDER PREFIX FUNCTIONS ====================
+
+// Toggle convert order prefix dropdown
+window.toggleConvertOrderPrefixDropdown = async function() {
+    const dropdown = document.getElementById('convertOrderPrefixDropdown');
+    if (!dropdown) return;
+    
+    if (dropdown.style.display === 'none') {
+        await loadConvertOrderPrefixes();
+        renderConvertOrderPrefixList();
+        dropdown.style.display = 'block';
+    } else {
+        dropdown.style.display = 'none';
+    }
+};
+
+// Render convert order prefix list
+function renderConvertOrderPrefixList() {
+    const listContainer = document.getElementById('convertOrderPrefixList');
+    if (!listContainer) return;
+    
+    if (!window.orderPrefixes || window.orderPrefixes.length === 0) {
+        window.orderPrefixes = ['BC', 'CMD', 'ORD'];
+    }
+    
+    listContainer.innerHTML = window.orderPrefixes.map(prefix => `
+        <div onclick="selectConvertOrderPrefix('${prefix}')" 
+             style="margin: 0.35rem; padding: 0.75rem 1rem; cursor: pointer; border-radius: 8px; transition: all 0.3s; color: #fff; display: flex; justify-content: space-between; align-items: center; background: ${prefix === window.selectedOrderPrefix ? 'linear-gradient(90deg, #2196f3 0%, #1976d2 100%)' : 'rgba(255,255,255,0.05)'}; border: 2px solid ${prefix === window.selectedOrderPrefix ? '#2196f3' : 'transparent'};"
+             onmouseover="if('${prefix}' !== window.selectedOrderPrefix) { this.style.background='rgba(33, 150, 243, 0.2)'; this.style.borderColor='#2196f3'; }" 
+             onmouseout="if('${prefix}' !== window.selectedOrderPrefix) { this.style.background='rgba(255,255,255,0.05)'; this.style.borderColor='transparent'; }">
+            <div style="display: flex; align-items: center; gap: 0.75rem;">
+                <span style="font-size: 1.2rem;">${prefix === window.selectedOrderPrefix ? '✓' : '📌'}</span>
+                <span style="font-weight: ${prefix === window.selectedOrderPrefix ? '700' : '500'}; font-size: 1rem;">${prefix}</span>
+            </div>
+            ${window.orderPrefixes.length > 1 ? `
+                <button onclick="event.stopPropagation(); deleteConvertOrderPrefix('${prefix}')" 
+                        style="background: transparent; color: #e74c3c; border: 2px solid #e74c3c; border-radius: 6px; padding: 0.3rem 0.4rem; cursor: pointer; transition: all 0.3s;"
+                        onmouseover="this.style.background='#e74c3c'; this.style.color='#fff';"
+                        onmouseout="this.style.background='transparent'; this.style.color='#e74c3c';">
+                    🗑️
+                </button>
+            ` : ''}
+        </div>
+    `).join('');
+}
+
+// Select convert order prefix
+window.selectConvertOrderPrefix = function(prefix) {
+    window.selectedOrderPrefix = prefix;
+    
+    const prefixInput = document.getElementById('convertOrderPrefixInput');
+    const prefixExample = document.getElementById('convertOrderPrefixExample');
+    
+    if (prefixInput) prefixInput.value = prefix;
+    if (prefixExample) prefixExample.textContent = prefix;
+    
+    const dropdown = document.getElementById('convertOrderPrefixDropdown');
+    if (dropdown) dropdown.style.display = 'none';
+    
+    renderConvertOrderPrefixList();
+};
+
+// Add new convert order prefix
+window.addConvertNewOrderPrefix = async function() {
+    const newPrefixInput = document.getElementById('convertNewOrderPrefixInput');
+    if (!newPrefixInput) return;
+    
+    const newPrefix = newPrefixInput.value.trim().toUpperCase();
+    
+    if (!newPrefix) {
+        window.notify.warning('Attention', 'Veuillez saisir un prefix', 2000);
+        return;
+    }
+    
+    if (window.orderPrefixes.includes(newPrefix)) {
+        window.notify.warning('Attention', 'Ce prefix existe déjà', 2000);
+        return;
+    }
+    
+    const result = await window.electron.dbChaimae.addOrderPrefix(newPrefix);
+    
+    if (result.success) {
+        window.orderPrefixes.push(newPrefix);
+        window.orderPrefixes.sort();
+        newPrefixInput.value = '';
+        
+        renderConvertOrderPrefixList();
+        window.notify.success('Succès', `Prefix "${newPrefix}" ajouté`, 2000);
+    } else {
+        window.notify.error('Erreur', result.error || 'Impossible d\'ajouter le prefix', 3000);
+    }
+};
+
+// Delete convert order prefix
+window.deleteConvertOrderPrefix = async function(prefix) {
+    if (window.orderPrefixes.length <= 1) {
+        window.notify.warning('Attention', 'Vous devez garder au moins un prefix', 2000);
+        return;
+    }
+    
+    const result = await window.electron.dbChaimae.deleteOrderPrefix(prefix);
+    
+    if (result.success) {
+        const index = window.orderPrefixes.indexOf(prefix);
+        if (index > -1) {
+            window.orderPrefixes.splice(index, 1);
+            
+            if (window.selectedOrderPrefix === prefix) {
+                window.selectedOrderPrefix = window.orderPrefixes[0];
+                const prefixInput = document.getElementById('convertOrderPrefixInput');
+                const prefixExample = document.getElementById('convertOrderPrefixExample');
+                if (prefixInput) prefixInput.value = window.selectedOrderPrefix;
+                if (prefixExample) prefixExample.textContent = window.selectedOrderPrefix;
+            }
+            
+            renderConvertOrderPrefixList();
+            window.notify.success('Succès', `Prefix "${prefix}" supprimé`, 2000);
+        }
+    } else {
+        window.notify.error('Erreur', result.error || 'Impossible de supprimer le prefix', 3000);
+    }
+};
+
+// Load convert order prefixes from database
+async function loadConvertOrderPrefixes() {
+    try {
+        const result = await window.electron.dbChaimae.getOrderPrefixes();
+        if (result.success && result.data && result.data.length > 0) {
+            window.orderPrefixes = result.data;
+            if (!window.selectedOrderPrefix) {
+                window.selectedOrderPrefix = window.orderPrefixes[0];
+            }
+        } else {
+            if (!window.orderPrefixes) {
+                window.orderPrefixes = ['BC', 'CMD', 'ORD'];
+                window.selectedOrderPrefix = 'BC';
+            }
+        }
+    } catch (error) {
+        console.error('Error loading order prefixes:', error);
+        if (!window.orderPrefixes) {
+            window.orderPrefixes = ['BC', 'CMD', 'ORD'];
+            window.selectedOrderPrefix = 'BC';
+        }
+    }
+}
+
+// ==================== END CONVERT ORDER PREFIX FUNCTIONS ====================
 
 // Format Bon numero with selected prefix for Convert modal (Global)
 window.formatBonNumeroWithPrefixConvert = function(input) {

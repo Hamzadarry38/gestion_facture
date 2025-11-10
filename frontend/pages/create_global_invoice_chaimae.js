@@ -397,15 +397,28 @@ async function handleFormSubmitGlobal(e) {
         
         console.log('📤 Creating global invoice for Chaimae:', formData);
         
-        // Check for duplicate document number
-        const allInvoicesResult = await window.electron.dbChaimae.getAllGlobalInvoices();
-        if (allInvoicesResult.success) {
-            const duplicate = allInvoicesResult.data.find(inv => 
+        // Check for duplicate document number in global invoices
+        const allGlobalInvoicesResult = await window.electron.dbChaimae.getAllGlobalInvoices();
+        if (allGlobalInvoicesResult.success) {
+            const duplicateGlobal = allGlobalInvoicesResult.data.find(inv => 
                 inv.document_numero === formData.document_numero
             );
             
-            if (duplicate) {
-                window.notify.error('Erreur', `Le numéro "${formData.document_numero}" existe déjà`, 5000);
+            if (duplicateGlobal) {
+                window.notify.error('Erreur', `Le numéro "${formData.document_numero}" existe déjà dans une autre facture globale`, 5000);
+                return;
+            }
+        }
+        
+        // Check for duplicate document number in regular invoices
+        const allRegularInvoicesResult = await window.electron.dbChaimae.getAllInvoices();
+        if (allRegularInvoicesResult.success) {
+            const duplicateRegular = allRegularInvoicesResult.data.find(inv => 
+                inv.document_type === 'facture' && inv.document_numero === formData.document_numero
+            );
+            
+            if (duplicateRegular) {
+                window.notify.error('Erreur', `Le numéro "${formData.document_numero}" existe déjà dans une facture normale`, 5000);
                 return;
             }
         }

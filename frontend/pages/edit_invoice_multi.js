@@ -76,11 +76,18 @@ function EditInvoiceMultiPage() {
                             <div class="form-row">
                                 <div class="form-field">
                                     <label id="editDocumentNumeroLabelMulti">N° Document <span class="required">*</span></label>
-                                    <input type="text" id="editDocumentNumeroMulti" required readonly style="background: #2d2d30; cursor: not-allowed;">
+                                    <input type="text" id="editDocumentNumeroMulti" required placeholder="Saisir les chiffres (ex: 001)" onblur="formatEditInvoiceNumberMulti(this)">
+                                    <small style="color: #999; font-size: 0.85rem; display: block; margin-top: 0.25rem;">Saisir uniquement les chiffres, MTT et l'année seront ajoutés automatiquement</small>
                                 </div>
-                                <div class="form-field" id="editFieldOrderMulti" style="display: none;">
-                                    <label>N° Order</label>
-                                    <input type="text" id="editDocumentNumeroOrderMulti" placeholder="Ex: 123">
+                            </div>
+                            
+                            <div class="form-row" id="editFieldOrderMulti" style="display: none;">
+                                <div class="form-field" style="max-width: 50%;">
+                                    <label>📋 N° Order <span style="color: #999; font-size: 0.85rem; font-weight: normal;">(optionnel)</span></label>
+                                    <input type="text" id="editDocumentNumeroOrderMulti" placeholder="Ex: 123" style="border: 1px solid #3e3e42;">
+                                </div>
+                                <div class="form-field" style="max-width: 50%; visibility: hidden;">
+                                    <!-- Empty space for alignment -->
                                 </div>
                             </div>
                         </div>
@@ -137,6 +144,24 @@ function EditInvoiceMultiPage() {
                         </div>
                     </div>
 
+                    <!-- Section 4: Notes -->
+                    <div class="invoice-section">
+                        <div class="section-header">
+                            <h2>📝 Notes</h2>
+                        </div>
+                        <div class="section-body">
+                            <div class="form-field">
+                                <label>Notes supplémentaires (optionnel)</label>
+                                <textarea id="editInvoiceNotesMulti" rows="4" 
+                                          placeholder="Ajoutez des notes ou remarques concernant cette facture..."
+                                          style="width: 100%; padding: 0.75rem; background: #2d2d30; border: 2px solid #3e3e42; border-radius: 8px; color: #fff; font-size: 0.95rem; resize: vertical; font-family: inherit;"></textarea>
+                                <small style="color: #999; font-size: 0.85rem; display: block; margin-top: 0.5rem;">
+                                    Ces notes seront affichées dans le PDF sous le texte de clôture de la facture.
+                                </small>
+                            </div>
+                        </div>
+                    </div>
+
                     <!-- Form Actions -->
                     <div class="form-actions" style="display: flex; justify-content: space-between; align-items: center;">
                         <button type="button" class="btn-convert-bottom" onclick="showConvertDocumentTypeModal()" style="background: #9c27b0; color: white; padding: 0.75rem 1.5rem; border: none; border-radius: 6px; cursor: pointer; font-weight: 500; display: flex; align-items: center; gap: 0.5rem; transition: all 0.3s;" onmouseover="this.style.background='#7b1fa2'" onmouseout="this.style.background='#9c27b0'">
@@ -163,6 +188,7 @@ let productRowCounterEditMulti = 0;
 let allClientsEditMulti = [];
 let filteredClientsEditMulti = [];
 let currentDocumentTypeMulti = null;
+let currentNumeroOrderMulti = null; // Store original N° Order
 
 // Load invoice data
 async function loadInvoiceDataMulti(invoiceId) {
@@ -175,8 +201,9 @@ async function loadInvoiceDataMulti(invoiceId) {
         
         const invoice = result.data;
         
-        // Store current document type
+        // Store current document type and N° Order
         currentDocumentTypeMulti = invoice.document_type;
+        currentNumeroOrderMulti = invoice.document_numero_Order?.trim() || null;
         
         // Fill client info
         document.getElementById('editClientNomMulti').value = invoice.client_nom;
@@ -201,10 +228,12 @@ async function loadInvoiceDataMulti(invoiceId) {
         const label = invoice.document_type === 'facture' ? 'N° Facture' : 'N° Devis';
         document.getElementById('editDocumentNumeroLabelMulti').innerHTML = `${label} <span class="required">*</span>`;
         
-        // Show Order field if facture and has value
-        if (invoice.document_type === 'facture' && invoice.document_numero_Order) {
+        // Show Order field if facture (always show for facture, even if empty)
+        if (invoice.document_type === 'facture') {
             document.getElementById('editFieldOrderMulti').style.display = 'block';
-            document.getElementById('editDocumentNumeroOrderMulti').value = invoice.document_numero_Order;
+            document.getElementById('editDocumentNumeroOrderMulti').value = invoice.document_numero_Order || '';
+        } else {
+            document.getElementById('editFieldOrderMulti').style.display = 'none';
         }
         
         // Fill TVA
@@ -222,10 +251,97 @@ async function loadInvoiceDataMulti(invoiceId) {
         
         calculateTotalsEditMulti();
         
+        // Load notes if any
+        const noteResult = await window.electron.dbMulti.getNote(invoiceId);
+        if (noteResult.success && noteResult.data) {
+            const noteTextarea = document.getElementById('editInvoiceNotesMulti');
+            if (noteTextarea) {
+                noteTextarea.value = noteResult.data;
+            }
+        }
+        
     } catch (error) {
         console.error('[MULTI] Error loading invoice:', error);
         window.notify.error('Erreur', 'Impossible de charger la facture', 3000);
         router.navigate('/invoices-list-multi');
+    }
+}
+
+// Handle arrow key navigation in edit products table (Global)
+window.handleArrowNavigationEditMulti = function(event, currentRowId, currentCellIndex) {
+    // Only handle arrow keys
+    if (!['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(event.key)) {
+        return;
+    }
+    
+    const currentRow = document.getElementById(currentRowId);
+    const tbody = document.getElementById('editProductsTableBodyMulti');
+    const allRows = Array.from(tbody.querySelectorAll('tr'));
+    const currentRowIndex = allRows.indexOf(currentRow);
+    
+    let targetRow = null;
+    let targetCellIndex = currentCellIndex;
+    
+    // Handle arrow keys
+    if (event.key === 'ArrowUp') {
+        // Move to row above
+        if (currentRowIndex > 0) {
+            targetRow = allRows[currentRowIndex - 1];
+            event.preventDefault();
+        }
+    } else if (event.key === 'ArrowDown') {
+        // Move to row below
+        if (currentRowIndex < allRows.length - 1) {
+            targetRow = allRows[currentRowIndex + 1];
+            event.preventDefault();
+        } else {
+            // If on last row, add new row and move to it
+            addProductRowEditMulti();
+            setTimeout(() => {
+                const newRows = Array.from(tbody.querySelectorAll('tr'));
+                targetRow = newRows[newRows.length - 1];
+                focusCellEditMulti(targetRow, targetCellIndex);
+            }, 50);
+            event.preventDefault();
+            return;
+        }
+    } else if (event.key === 'ArrowLeft') {
+        // Move to cell on the left
+        if (currentCellIndex > 0) {
+            targetRow = currentRow;
+            targetCellIndex = currentCellIndex - 1;
+            event.preventDefault();
+        }
+    } else if (event.key === 'ArrowRight') {
+        // Move to cell on the right
+        if (currentCellIndex < 2) { // 0=designation, 1=quantity, 2=price
+            targetRow = currentRow;
+            targetCellIndex = currentCellIndex + 1;
+            event.preventDefault();
+        }
+    }
+    
+    // Focus the target cell
+    if (targetRow) {
+        focusCellEditMulti(targetRow, targetCellIndex);
+    }
+};
+
+// Helper function to focus a specific cell in edit row
+function focusCellEditMulti(row, cellIndex) {
+    const cells = row.querySelectorAll('td');
+    if (cells[cellIndex]) {
+        const input = cells[cellIndex].querySelector('textarea, input');
+        if (input) {
+            input.focus();
+            // For text inputs, move cursor to end
+            if (input.type === 'text' || input.tagName === 'TEXTAREA') {
+                const length = input.value.length;
+                input.setSelectionRange(length, length);
+            } else if (input.type === 'number') {
+                input.select();
+            }
+        }
     }
 }
 
@@ -238,15 +354,17 @@ window.addProductRowEditMulti = function(productData = null) {
     row.id = rowId;
     row.innerHTML = `
         <td>
-            <textarea class="product-designation" rows="2" placeholder="Description du produit...">${productData ? productData.designation : ''}</textarea>
+            <textarea class="product-designation" rows="2" placeholder="Description du produit..." onkeydown="handleArrowNavigationEditMulti(event, '${rowId}', 0)">${productData ? productData.designation : ''}</textarea>
         </td>
         <td>
             <input type="text" class="product-quantity" placeholder="ex: 50 Kg, F, 10" value="${productData ? productData.quantite : ''}"
-                   onchange="calculateRowTotalEditMulti('${rowId}')" onblur="calculateRowTotalEditMulti('${rowId}')">
+                   onchange="calculateRowTotalEditMulti('${rowId}')" onblur="calculateRowTotalEditMulti('${rowId}')"
+                   onkeydown="handleArrowNavigationEditMulti(event, '${rowId}', 1)">
         </td>
         <td>
             <input type="number" class="product-price" step="0.01" placeholder="0.00" value="${productData ? productData.prix_unitaire_ht : ''}"
-                   onchange="calculateRowTotalEditMulti('${rowId}')" onblur="calculateRowTotalEditMulti('${rowId}')">
+                   onchange="calculateRowTotalEditMulti('${rowId}')" onblur="calculateRowTotalEditMulti('${rowId}')"
+                   onkeydown="handleArrowNavigationEditMulti(event, '${rowId}', 2)">
         </td>
         <td>
             <span class="product-total">${productData ? (productData.total_ht || 0).toFixed(2) : '0.00'} DH</span>
@@ -396,6 +514,8 @@ async function handleEditInvoiceSubmitMulti(e) {
     submitBtn.disabled = true;
     
     try {
+        const documentNumeroValue = document.getElementById('editDocumentNumeroMulti').value;
+        
         const formData = {
             company_code: 'MULTI',
             client: {
@@ -404,8 +524,7 @@ async function handleEditInvoiceSubmitMulti(e) {
             },
             document: {
                 type: currentDocumentTypeMulti,
-                date: document.getElementById('editDocumentDateMulti').value,
-                numero: document.getElementById('editDocumentNumeroMulti').value
+                date: document.getElementById('editDocumentDateMulti').value
             },
             products: [],
             totals: {
@@ -415,6 +534,15 @@ async function handleEditInvoiceSubmitMulti(e) {
                 total_ttc: parseFloat(document.getElementById('editTotalTTCMulti').textContent.replace(/\s/g, '').replace('DH', '').replace(',', '.')) || 0
             }
         };
+        
+        // Set document number in correct field based on type
+        if (currentDocumentTypeMulti === 'facture') {
+            formData.document.numero = documentNumeroValue;
+            formData.document.numero_devis = null;
+        } else {
+            formData.document.numero_devis = documentNumeroValue;
+            formData.document.numero = null;
+        }
         
         const numeroOrder = document.getElementById('editDocumentNumeroOrderMulti');
         if (numeroOrder && numeroOrder.value) {
@@ -426,29 +554,95 @@ async function handleEditInvoiceSubmitMulti(e) {
         const rows = document.querySelectorAll('#editProductsTableBodyMulti tr');
         rows.forEach(row => {
             const designation = row.querySelector('.product-designation').value.trim();
-            let quantity = row.querySelector('.product-quantity').value.trim();
+            const quantityOriginal = row.querySelector('.product-quantity').value.trim();
             const price = parseFloat(row.querySelector('.product-price').value) || 0;
             
-            if (quantity.toUpperCase() === 'F') {
-                quantity = '1';
+            // For calculation: convert F to 1
+            let quantityForCalc = quantityOriginal;
+            if (quantityForCalc.toUpperCase() === 'F') {
+                quantityForCalc = '1';
             }
             
-            const qty = parseFloat(quantity) || 0;
+            const qty = parseFloat(quantityForCalc) || 0;
             const total_ht = qty * price;
             
             if (designation) {
                 formData.products.push({
                     designation,
-                    quantite: quantity || '0',
+                    quantite: quantityOriginal || '0',  // Save original value (F, 10 Kg, etc.)
                     prix_unitaire_ht: price,
                     total_ht: total_ht
                 });
             }
         });
         
+        // Get current invoice data to check what changed
+        const currentInvoiceResult = await window.electron.dbMulti.getInvoiceById(currentInvoiceIdMulti);
+        if (!currentInvoiceResult.success) {
+            throw new Error('Impossible de charger les données actuelles de la facture');
+        }
+        const currentInvoice = currentInvoiceResult.data;
+        
+        // Get current document number based on type
+        const currentNumero = currentDocumentTypeMulti === 'facture' 
+            ? currentInvoice.document_numero 
+            : currentInvoice.document_numero_devis;
+        
+        // Get new document number from correct field
+        const newNumero = currentDocumentTypeMulti === 'facture'
+            ? formData.document.numero
+            : formData.document.numero_devis;
+        
+        // Check for duplicate document number only if it changed
+        if (newNumero !== currentNumero) {
+            const allInvoicesResult = await window.electron.dbMulti.getAllInvoices();
+            if (allInvoicesResult.success) {
+                const duplicateNumero = allInvoicesResult.data.find(inv => 
+                    inv.id !== currentInvoiceIdMulti && 
+                    inv.document_type === currentDocumentTypeMulti &&
+                    (currentDocumentTypeMulti === 'facture' 
+                        ? inv.document_numero === newNumero
+                        : inv.document_numero_devis === newNumero)
+                );
+                
+                if (duplicateNumero) {
+                    const docLabel = currentDocumentTypeMulti === 'facture' ? 'Facture' : 'Devis';
+                    throw new Error(`Le N° ${docLabel} "${newNumero}" existe déjà pour ${docLabel.toLowerCase()} #${duplicateNumero.id}!`);
+                }
+            }
+        }
+        
+        // Check for duplicate N° Order if provided (for FACTURE only)
+        if (currentDocumentTypeMulti === 'facture' && formData.document.numero_Order) {
+            const newOrder = formData.document.numero_Order.trim();
+            
+            // Only check if the value actually changed
+            if (newOrder !== currentNumeroOrderMulti) {
+                const allInvoicesResult = await window.electron.dbMulti.getAllInvoices();
+                if (allInvoicesResult.success) {
+                    const duplicateOrder = allInvoicesResult.data.find(inv => 
+                        inv.id !== currentInvoiceIdMulti && 
+                        inv.document_type === 'facture' &&
+                        inv.document_numero_Order && 
+                        inv.document_numero_Order.trim() === newOrder
+                    );
+                    
+                    if (duplicateOrder) {
+                        throw new Error(`Le N° Order "${formData.document.numero_Order}" existe déjà pour la facture #${duplicateOrder.id}!`);
+                    }
+                }
+            }
+        }
+        
         const result = await window.electron.dbMulti.updateInvoice(currentInvoiceIdMulti, formData);
         
         if (result.success) {
+            // Save notes if any
+            const noteText = document.getElementById('editInvoiceNotesMulti')?.value?.trim();
+            if (noteText) {
+                await window.electron.dbMulti.saveNote(currentInvoiceIdMulti, noteText);
+            }
+            
             window.notify.remove(loadingNotif);
             window.notify.success('Succès', 'Facture mise à jour avec succès!', 3000);
             
@@ -492,7 +686,9 @@ function showConvertInputModalMulti(newType, newTypeLabel, prefillNumero = '') {
             <div style="margin-bottom:2rem;">
                 <label style="display:block;color:#2196F3;margin-bottom:0.75rem;font-weight:600;font-size:1.1rem;">${newType === 'facture' ? 'N° Facture' : 'N° Devis'}</label>
                 <input type="text" id="convertInputMulti1" placeholder="Exemple: 548" value="${prefillNumero}"
-                       style="width:100%;padding:1rem;background:#2d2d30;border:2px solid #3e3e42;border-radius:8px;color:#fff;font-size:1.1rem;box-sizing:border-box;outline:none;transition:all 0.3s;">
+                       style="width:100%;padding:1rem;background:#2d2d30;border:2px solid #3e3e42;border-radius:8px;color:#fff;font-size:1.1rem;box-sizing:border-box;outline:none;transition:all 0.3s;"
+                       onblur="formatEditInvoiceNumberMulti(this)">
+                <small style="color: #999; font-size: 0.85rem; display: block; margin-top: 0.25rem;">Saisir uniquement les chiffres, MTT et l'année seront ajoutés automatiquement</small>
             </div>
             
             ${newType === 'facture' ? `
@@ -541,12 +737,8 @@ function showConvertInputModalMulti(newType, newTypeLabel, prefillNumero = '') {
             resolve(null);
         };
         
-        overlay.onclick = (e) => {
-            if (e.target === overlay) {
-                overlay.remove();
-                resolve(null);
-            }
-        };
+        // Removed overlay.onclick to prevent closing when clicking outside
+        // Modal should only close via Cancel or Confirm buttons
     });
 }
 
@@ -588,12 +780,8 @@ function showConfirmDialogMulti(message) {
             resolve(false);
         };
         
-        overlay.onclick = (e) => {
-            if (e.target === overlay) {
-                overlay.remove();
-                resolve(false);
-            }
-        };
+        // Removed overlay.onclick to prevent closing when clicking outside
+        // Dialog should only close via Yes or No buttons
     });
 }
 
@@ -657,6 +845,7 @@ window.showConvertDocumentTypeModal = async function() {
             
             if (newType === 'facture' && newNumeroOrder) {
                 const duplicateOrder = allInvoicesResult.data.find(inv => 
+                    inv.document_type === 'facture' &&
                     inv.document_numero_Order === newNumeroOrder
                 );
                 
@@ -716,6 +905,29 @@ window.showConvertDocumentTypeModal = async function() {
     } catch (error) {
         console.error('[MULTI] Error converting invoice:', error);
         window.notify.error('Erreur', 'Erreur lors de la conversion: ' + error.message, 5000);
+    }
+}
+
+// Format invoice number on blur - add MTT prefix and year suffix
+window.formatEditInvoiceNumberMulti = function(input) {
+    let value = input.value.trim();
+    
+    // Check if already fully formatted (MTT + numbers + year)
+    if (value.startsWith('MTT') && /MTT\d+\d{4}$/.test(value)) {
+        input.style.color = '#4caf50';
+        input.style.fontWeight = '600';
+        return; // Already formatted correctly
+    }
+    
+    // Remove MTT and year if user added them
+    value = value.replace(/^MTT/i, '').replace(/\d{4}$/, '').trim();
+    
+    if (value) {
+        const currentYear = new Date().getFullYear();
+        // Format: MTT + numbers + year
+        input.value = `MTT${value}${currentYear}`;
+        input.style.color = '#4caf50';
+        input.style.fontWeight = '600';
     }
 }
 
