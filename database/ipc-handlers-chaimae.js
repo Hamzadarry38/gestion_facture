@@ -25,6 +25,16 @@ async function registerChaimaeHandlers() {
         }
     });
 
+    ipcMain.handle('db:chaimae:clients:delete', async (event, clientId) => {
+        try {
+            clientOps.delete(clientId);
+            return { success: true };
+        } catch (error) {
+            console.error('❌ Error deleting CHAIMAE client:', error);
+            return { success: false, error: error.message };
+        }
+    });
+
     // Invoice handlers for CHAIMAE
     ipcMain.handle('db:chaimae:invoices:create', async (event, invoiceData) => {
         try {

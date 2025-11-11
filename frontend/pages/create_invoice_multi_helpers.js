@@ -400,9 +400,20 @@ function displayClientsListMulti() {
     }
     
     dropdown.innerHTML = filteredClientsMulti.slice(0, 10).map(client => `
-        <div class="dropdown-item" onmousedown="selectClientMulti('${client.nom.replace(/'/g, "\\'")}', '${client.ice}')">
-            <div class="client-name">${client.nom}</div>
-            <div class="client-ice">ICE: ${client.ice}</div>
+        <div class="dropdown-item" style="display: flex; justify-content: space-between; align-items: center;">
+            <div style="flex: 1;" onmousedown="selectClientMulti('${client.nom.replace(/'/g, "\\'")}', '${client.ice}')">
+                <div class="client-name">${client.nom}</div>
+                <div class="client-ice">ICE: ${client.ice}</div>
+            </div>
+            <button class="delete-client-btn" onclick="event.stopPropagation(); deleteClientMulti(${client.id}, '${client.nom.replace(/'/g, "\\'")}');" 
+                    style="background: #dc3545; color: white; border: none; padding: 0.4rem 0.5rem; border-radius: 4px; cursor: pointer; margin-left: 0.5rem; display: flex; align-items: center; justify-content: center;">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <polyline points="3 6 5 6 21 6"></polyline>
+                    <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+                    <line x1="10" y1="11" x2="10" y2="17"></line>
+                    <line x1="14" y1="11" x2="14" y2="17"></line>
+                </svg>
+            </button>
         </div>
     `).join('');
     dropdown.style.display = 'block';
@@ -427,6 +438,242 @@ window.selectClientMulti = function(nom, ice) {
     document.getElementById('clientICEMulti').value = ice;
     const dropdown = document.getElementById('clientsDropdownMulti');
     if (dropdown) dropdown.style.display = 'none';
+}
+
+// Show custom delete error modal for MULTI
+function showDeleteErrorModalMulti(clientName, errorMessage) {
+    const overlay = document.createElement('div');
+    overlay.style.cssText = `
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: rgba(0, 0, 0, 0.75);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        z-index: 10000;
+        backdrop-filter: blur(4px);
+        animation: fadeIn 0.2s ease-out;
+    `;
+    
+    const isReferenceError = errorMessage.includes('referenced in existing invoices');
+    
+    const modal = document.createElement('div');
+    modal.style.cssText = `
+        background: linear-gradient(135deg, #2d2d30 0%, #1e1e1e 100%);
+        border-radius: 16px;
+        padding: 0;
+        max-width: 500px;
+        width: 90%;
+        box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+        border: 1px solid #ff4444;
+        animation: slideUp 0.3s ease-out;
+        overflow: hidden;
+    `;
+    
+    modal.innerHTML = `
+        <style>
+            @keyframes fadeIn {
+                from { opacity: 0; }
+                to { opacity: 1; }
+            }
+            @keyframes slideUp {
+                from { transform: translateY(30px); opacity: 0; }
+                to { transform: translateY(0); opacity: 1; }
+            }
+            @keyframes pulse {
+                0%, 100% { transform: scale(1); }
+                50% { transform: scale(1.1); }
+            }
+        </style>
+        <div style="background: linear-gradient(135deg, #ff4444 0%, #cc0000 100%); padding: 24px; text-align: center;">
+            <div style="width: 64px; height: 64px; margin: 0 auto 16px; background: rgba(255, 255, 255, 0.2); border-radius: 50%; display: flex; align-items: center; justify-content: center; animation: pulse 2s infinite;">
+                <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5">
+                    <circle cx="12" cy="12" r="10"></circle>
+                    <line x1="12" y1="8" x2="12" y2="12"></line>
+                    <line x1="12" y1="16" x2="12.01" y2="16"></line>
+                </svg>
+            </div>
+            <h2 style="color: white; margin: 0; font-size: 24px; font-weight: 700;">تعذر حذف العميل</h2>
+        </div>
+        
+        <div style="padding: 32px 24px;">
+            <div style="background: rgba(255, 68, 68, 0.1); border: 1px solid rgba(255, 68, 68, 0.3); border-radius: 12px; padding: 20px; margin-bottom: 24px;">
+                <div style="color: #fff; font-size: 16px; font-weight: 600; margin-bottom: 8px; display: flex; align-items: center; gap: 8px;">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#ff4444" stroke-width="2">
+                        <path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"></path>
+                        <line x1="12" y1="9" x2="12" y2="13"></line>
+                        <line x1="12" y1="17" x2="12.01" y2="17"></line>
+                    </svg>
+                    <span>العميل: ${clientName}</span>
+                </div>
+                ${isReferenceError ? `
+                    <p style="color: #ccc; margin: 12px 0 0 0; line-height: 1.6; font-size: 14px;">
+                        Impossible de supprimer ce client car il est lié à des factures existantes dans le système. Vous devez d'abord supprimer toutes les factures associées à ce client.
+                    </p>
+                ` : `
+                    <p style="color: #ccc; margin: 12px 0 0 0; line-height: 1.6; font-size: 14px;">
+                        ${errorMessage}
+                    </p>
+                `}
+            </div>
+            
+            ${isReferenceError ? `
+                <div style="background: rgba(74, 144, 226, 0.1); border: 1px solid rgba(74, 144, 226, 0.3); border-radius: 12px; padding: 16px; margin-bottom: 24px;">
+                    <div style="display: flex; align-items: start; gap: 12px;">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#4a90e2" stroke-width="2" style="flex-shrink: 0; margin-top: 2px;">
+                            <circle cx="12" cy="12" r="10"></circle>
+                            <line x1="12" y1="16" x2="12" y2="12"></line>
+                            <line x1="12" y1="8" x2="12.01" y2="8"></line>
+                        </svg>
+                        <div style="color: #4a90e2; font-size: 13px; line-height: 1.5;">
+                            <strong style="display: block; margin-bottom: 4px;">Conseil:</strong>
+                            Vous pouvez afficher toutes les factures liées à ce client depuis la page de liste des factures, puis les supprimer si nécessaire.
+                        </div>
+                    </div>
+                </div>
+            ` : ''}
+            
+            <button onclick="this.closest('[style*=\\'position: fixed\\']').remove()" 
+                    style="width: 100%; padding: 14px; background: linear-gradient(135deg, #4a90e2 0%, #357abd 100%); 
+                           color: white; border: none; border-radius: 10px; font-size: 16px; font-weight: 600; 
+                           cursor: pointer; transition: all 0.2s; box-shadow: 0 4px 12px rgba(74, 144, 226, 0.3);"
+                    onmouseover="this.style.transform='translateY(-2px)'; this.style.boxShadow='0 6px 16px rgba(74, 144, 226, 0.4)'"
+                    onmouseout="this.style.transform='translateY(0)'; this.style.boxShadow='0 4px 12px rgba(74, 144, 226, 0.3)'">
+                فهمت
+            </button>
+        </div>
+    `;
+    
+    overlay.appendChild(modal);
+    document.body.appendChild(overlay);
+    
+    overlay.addEventListener('click', (e) => {
+        if (e.target === overlay) {
+            overlay.remove();
+        }
+    });
+    
+    const escapeHandler = (e) => {
+        if (e.key === 'Escape') {
+            overlay.remove();
+            document.removeEventListener('keydown', escapeHandler);
+        }
+    };
+    document.addEventListener('keydown', escapeHandler);
+}
+
+// Delete a client
+window.deleteClientMulti = async function(clientId, clientName) {
+    const overlay = document.createElement('div');
+    overlay.style.cssText = `
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: rgba(0, 0, 0, 0.75);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        z-index: 10000;
+        backdrop-filter: blur(4px);
+        animation: fadeIn 0.2s ease-out;
+    `;
+    
+    const modal = document.createElement('div');
+    modal.style.cssText = `
+        background: linear-gradient(135deg, #2d2d30 0%, #1e1e1e 100%);
+        border-radius: 16px;
+        padding: 0;
+        max-width: 450px;
+        width: 90%;
+        box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+        border: 1px solid #ff9800;
+        animation: slideUp 0.3s ease-out;
+        overflow: hidden;
+    `;
+    
+    modal.innerHTML = `
+        <div style="background: linear-gradient(135deg, #ff9800 0%, #f57c00 100%); padding: 24px; text-align: center;">
+            <div style="width: 64px; height: 64px; margin: 0 auto 16px; background: rgba(255, 255, 255, 0.2); border-radius: 50%; display: flex; align-items: center; justify-content: center;">
+                <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5">
+                    <path d="M3 6h18"></path>
+                    <path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"></path>
+                    <path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"></path>
+                    <line x1="10" y1="11" x2="10" y2="17"></line>
+                    <line x1="14" y1="11" x2="14" y2="17"></line>
+                </svg>
+            </div>
+            <h2 style="color: white; margin: 0; font-size: 22px; font-weight: 700;">تأكيد الحذف</h2>
+        </div>
+        
+        <div style="padding: 28px 24px;">
+            <p style="color: #fff; font-size: 16px; margin: 0 0 20px 0; text-align: center; line-height: 1.6;">
+                هل أنت متأكد من حذف العميل<br>
+                <strong style="color: #ff9800; font-size: 18px;">"${clientName}"</strong>؟
+            </p>
+            
+            <div style="background: rgba(255, 152, 0, 0.1); border: 1px solid rgba(255, 152, 0, 0.3); border-radius: 10px; padding: 14px; margin-bottom: 24px;">
+                <p style="color: #ff9800; margin: 0; font-size: 13px; line-height: 1.5; text-align: center;">
+                    ⚠️ تحذير: لا يمكن التراجع عن هذا الإجراء
+                </p>
+            </div>
+            
+            <div style="display: flex; gap: 12px;">
+                <button id="cancelDeleteBtn" 
+                        style="flex: 1; padding: 12px; background: #3e3e42; color: white; border: none; 
+                               border-radius: 10px; font-size: 15px; font-weight: 600; cursor: pointer; 
+                               transition: all 0.2s;"
+                        onmouseover="this.style.background='#4e4e52'"
+                        onmouseout="this.style.background='#3e3e42'">
+                    إلغاء
+                </button>
+                <button id="confirmDeleteBtn" 
+                        style="flex: 1; padding: 12px; background: linear-gradient(135deg, #ff4444 0%, #cc0000 100%); 
+                               color: white; border: none; border-radius: 10px; font-size: 15px; font-weight: 600; 
+                               cursor: pointer; transition: all 0.2s; box-shadow: 0 4px 12px rgba(255, 68, 68, 0.3);"
+                        onmouseover="this.style.transform='translateY(-2px)'; this.style.boxShadow='0 6px 16px rgba(255, 68, 68, 0.4)'"
+                        onmouseout="this.style.transform='translateY(0)'; this.style.boxShadow='0 4px 12px rgba(255, 68, 68, 0.3)'">
+                    حذف
+                </button>
+            </div>
+        </div>
+    `;
+    
+    overlay.appendChild(modal);
+    document.body.appendChild(overlay);
+    
+    modal.querySelector('#cancelDeleteBtn').addEventListener('click', () => {
+        overlay.remove();
+    });
+    
+    overlay.addEventListener('click', (e) => {
+        if (e.target === overlay) {
+            overlay.remove();
+        }
+    });
+    
+    modal.querySelector('#confirmDeleteBtn').addEventListener('click', async () => {
+        overlay.remove();
+        
+        try {
+            const result = await window.electron.dbMulti.deleteClient(clientId);
+            
+            if (result.success) {
+                window.notify.success('تم الحذف', `تم حذف الزبون "${clientName}" بنجاح`);
+                await loadAllClientsMulti();
+                searchClientsMulti(document.getElementById('clientNomMulti').value);
+            } else {
+                showDeleteErrorModalMulti(clientName, result.error || 'فشل حذف الزبون');
+            }
+        } catch (error) {
+            console.error('Error deleting client:', error);
+            showDeleteErrorModalMulti(clientName, 'حدث خطأ أثناء حذف الزبون');
+        }
+    });
 }
 
 function initializeInvoiceFormMulti() {

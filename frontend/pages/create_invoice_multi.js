@@ -51,8 +51,8 @@ function CreateInvoiceMultiPage() {
                                     <div id="clientsDropdownMulti" class="clients-dropdown" style="display: none;"></div>
                                 </div>
                                 <div class="form-field">
-                                    <label>N° ICE <span class="required">*</span></label>
-                                    <input type="text" id="clientICEMulti" placeholder="Numéro ICE" required>
+                                    <label>N° ICE</label>
+                                    <input type="text" id="clientICEMulti" placeholder="Numéro ICE (optionnel)">
                                 </div>
                             </div>
                         </div>

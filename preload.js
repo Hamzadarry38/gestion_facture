@@ -13,6 +13,7 @@ contextBridge.exposeInMainWorld('electron', {
     // Clients
     searchClients: (query) => ipcRenderer.invoke('db:clients:search', query),
     getAllClients: () => ipcRenderer.invoke('db:clients:getAll'),
+    deleteClient: (clientId) => ipcRenderer.invoke('db:clients:delete', clientId),
     
     // Invoices
     createInvoice: (data) => ipcRenderer.invoke('db:invoices:create', data),
@@ -65,6 +66,7 @@ contextBridge.exposeInMainWorld('electron', {
     // Clients
     searchClients: (query) => ipcRenderer.invoke('db:chaimae:clients:search', query),
     getAllClients: () => ipcRenderer.invoke('db:chaimae:clients:getAll'),
+    deleteClient: (clientId) => ipcRenderer.invoke('db:chaimae:clients:delete', clientId),
     
     // Invoices
     createInvoice: (data) => ipcRenderer.invoke('db:chaimae:invoices:create', data),
@@ -131,6 +133,7 @@ contextBridge.exposeInMainWorld('electron', {
     // Clients
     searchClients: (query) => ipcRenderer.invoke('dbMulti:searchClients', query),
     getAllClients: () => ipcRenderer.invoke('dbMulti:getAllClients'),
+    deleteClient: (clientId) => ipcRenderer.invoke('dbMulti:deleteClient', clientId),
     
     // Invoices
     createInvoice: (data) => ipcRenderer.invoke('dbMulti:createInvoice', data),

@@ -1340,6 +1340,13 @@ window.viewInvoiceChaimae = async function(id, documentType) {
 window.editInvoiceChaimae = async function(id) {
     try {
         console.log('✏️ Editing invoice:', id);
+        
+        // Load clients if not already loaded
+        if (!allClientsChaimae || allClientsChaimae.length === 0) {
+            console.log('🔄 Loading clients for edit modal...');
+            await loadAllClientsChaimae();
+        }
+        
         const result = await window.electron.dbChaimae.getInvoiceById(id);
         
         if (!result.success || !result.data) {
@@ -1380,13 +1387,16 @@ window.editInvoiceChaimae = async function(id) {
                         <div class="edit-section">
                             <h3>Client</h3>
                             <div class="form-row">
-                                <div class="form-field">
+                                <div class="form-field" style="position: relative;">
                                     <label>Nom du client</label>
-                                    <input type="text" id="editClientNomChaimae" value="${invoice.client_nom}" required>
+                                    <input type="text" id="editClientNomChaimae" value="${invoice.client_nom}" required
+                                           autocomplete="off" oninput="searchClientsEditChaimae(this.value)" 
+                                           onfocus="showClientsListEditChaimae()" onblur="hideClientsListEditChaimae()">
+                                    <div id="clientsDropdownEditChaimae" class="clients-dropdown" style="display: none;"></div>
                                 </div>
                                 <div class="form-field">
                                     <label>N° ICE</label>
-                                    <input type="text" id="editClientICEChaimae" value="${invoice.client_ice}" required>
+                                    <input type="text" id="editClientICEChaimae" value="${invoice.client_ice}">
                                 </div>
                             </div>
                         </div>
@@ -3155,10 +3165,13 @@ window.downloadInvoicePDFChaimae = async function(invoiceId) {
             doc.setTextColor(...greenColor);
             doc.text(invoice.client_nom, 40, 55);
             
-            doc.setTextColor(0, 0, 0);
-            doc.text('ICE :', 15, 62);
-            doc.setTextColor(...greenColor);
-            doc.text(invoice.client_ice, 40, 62);
+            // Only show ICE if it exists and is not "0"
+            if (invoice.client_ice && invoice.client_ice !== '0') {
+                doc.setTextColor(0, 0, 0);
+                doc.text('ICE :', 15, 62);
+                doc.setTextColor(...greenColor);
+                doc.text(invoice.client_ice, 40, 62);
+            }
             
             // Date
             doc.setTextColor(0, 0, 0);
@@ -3604,10 +3617,13 @@ window.downloadBonDeTravauxPDFChaimae = async function(invoiceId) {
             doc.setTextColor(...greenColor);
             doc.text(invoice.client_nom, 40, 50);
             
-            doc.setTextColor(0, 0, 0);
-            doc.text('ICE :', 15, 57);
-            doc.setTextColor(...greenColor);
-            doc.text(invoice.client_ice, 40, 57);
+            // Only show ICE if it exists and is not "0"
+            if (invoice.client_ice && invoice.client_ice !== '0') {
+                doc.setTextColor(0, 0, 0);
+                doc.text('ICE :', 15, 57);
+                doc.setTextColor(...greenColor);
+                doc.text(invoice.client_ice, 40, 57);
+            }
             
             // Date
             doc.setTextColor(0, 0, 0);
@@ -3954,10 +3970,13 @@ async function generateSinglePDFBlobChaimae(invoice, organizationType, folderNam
         doc.setTextColor(...greenColor);
         doc.text(invoice.client_nom, 40, 55);
         
-        doc.setTextColor(0, 0, 0);
-        doc.text('ICE :', 15, 62);
-        doc.setTextColor(...greenColor);
-        doc.text(invoice.client_ice, 40, 62);
+        // Only show ICE if it exists and is not "0"
+        if (invoice.client_ice && invoice.client_ice !== '0') {
+            doc.setTextColor(0, 0, 0);
+            doc.text('ICE :', 15, 62);
+            doc.setTextColor(...greenColor);
+            doc.text(invoice.client_ice, 40, 62);
+        }
         
         doc.setTextColor(0, 0, 0);
         doc.text(`Date: ${dateStr}`, 150, 55);
@@ -5483,10 +5502,13 @@ window.initInvoicesListChaimaePage = function() {
                     doc.setTextColor(0, 128, 0); // Green color
                     doc.text(invoice.client_nom, 40, 50);
                     
-                    doc.setTextColor(0, 0, 0);
-                    doc.text('ICE :', 15, 57);
-                    doc.setTextColor(0, 128, 0); // Green color
-                    doc.text(invoice.client_ice, 40, 57);
+                    // Only show ICE if it exists and is not "0"
+                    if (invoice.client_ice && invoice.client_ice !== '0') {
+                        doc.setTextColor(0, 0, 0);
+                        doc.text('ICE :', 15, 57);
+                        doc.setTextColor(0, 128, 0); // Green color
+                        doc.text(invoice.client_ice, 40, 57);
+                    }
                     
                     doc.setTextColor(0, 0, 0);
                     doc.text(`Date: ${dateStr}`, 150, 50);
@@ -6011,6 +6033,103 @@ async function loadConvertOrderPrefixes() {
 }
 
 // ==================== END CONVERT ORDER PREFIX FUNCTIONS ====================
+
+// Search clients in edit mode for Chaimae
+let filteredClientsEditChaimae = [];
+window.searchClientsEditChaimae = function(query) {
+    const dropdown = document.getElementById('clientsDropdownEditChaimae');
+    if (!dropdown) return;
+    
+    if (!query || query.trim().length === 0) {
+        filteredClientsEditChaimae = allClientsChaimae;
+    } else {
+        const searchTerm = query.toLowerCase().trim();
+        filteredClientsEditChaimae = allClientsChaimae.filter(client => 
+            client.nom.toLowerCase().includes(searchTerm) || 
+            client.ice.toLowerCase().includes(searchTerm)
+        );
+    }
+    
+    displayClientsListEditChaimae();
+}
+
+function displayClientsListEditChaimae() {
+    const dropdown = document.getElementById('clientsDropdownEditChaimae');
+    if (!dropdown) return;
+    
+    if (filteredClientsEditChaimae.length === 0) {
+        dropdown.innerHTML = '<div class="dropdown-item no-results">Aucun client trouvé</div>';
+        dropdown.style.display = 'block';
+        return;
+    }
+    
+    dropdown.innerHTML = filteredClientsEditChaimae.slice(0, 10).map(client => `
+        <div class="dropdown-item" style="display: flex; justify-content: space-between; align-items: center;">
+            <div style="flex: 1;" onmousedown="selectClientEditChaimae('${client.nom.replace(/'/g, "\\'")}', '${client.ice}')">
+                <div class="client-name">${client.nom}</div>
+                <div class="client-ice">ICE: ${client.ice}</div>
+            </div>
+            <button class="delete-client-btn" onclick="event.stopPropagation(); deleteClientEditChaimae(${client.id}, '${client.nom.replace(/'/g, "\\'")}');" 
+                    style="background: #dc3545; color: white; border: none; padding: 0.4rem 0.5rem; border-radius: 4px; cursor: pointer; margin-left: 0.5rem; display: flex; align-items: center; justify-content: center;">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <polyline points="3 6 5 6 21 6"></polyline>
+                    <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+                    <line x1="10" y1="11" x2="10" y2="17"></line>
+                    <line x1="14" y1="11" x2="14" y2="17"></line>
+                </svg>
+            </button>
+        </div>
+    `).join('');
+    
+    dropdown.style.display = 'block';
+}
+
+window.showClientsListEditChaimae = function() {
+    if (allClientsChaimae.length > 0) {
+        filteredClientsEditChaimae = allClientsChaimae;
+        displayClientsListEditChaimae();
+    }
+}
+
+window.hideClientsListEditChaimae = function() {
+    setTimeout(() => {
+        const dropdown = document.getElementById('clientsDropdownEditChaimae');
+        if (dropdown) dropdown.style.display = 'none';
+    }, 200);
+}
+
+window.selectClientEditChaimae = function(nom, ice) {
+    document.getElementById('editClientNomChaimae').value = nom;
+    document.getElementById('editClientICEChaimae').value = ice;
+    const dropdown = document.getElementById('clientsDropdownEditChaimae');
+    if (dropdown) dropdown.style.display = 'none';
+}
+
+// Delete a client from edit mode
+window.deleteClientEditChaimae = async function(clientId, clientName) {
+    if (!confirm(`هل أنت متأكد من حذف الزبون "${clientName}"؟`)) {
+        return;
+    }
+    
+    try {
+        const response = await fetch(`http://localhost:3000/api/clients/${clientId}`, {
+            method: 'DELETE'
+        });
+        
+        if (response.ok) {
+            window.notify.success('تم الحذف', `تم حذف الزبون "${clientName}" بنجاح`);
+            // Reload clients list
+            await loadAllClientsChaimae();
+            // Refresh dropdown
+            searchClientsEditChaimae(document.getElementById('editClientNomChaimae').value);
+        } else {
+            window.notify.error('خطأ', 'فشل حذف الزبون');
+        }
+    } catch (error) {
+        console.error('Error deleting client:', error);
+        window.notify.error('خطأ', 'حدث خطأ أثناء حذف الزبون');
+    }
+}
 
 // Format Bon numero with selected prefix for Convert modal (Global)
 window.formatBonNumeroWithPrefixConvert = function(input) {

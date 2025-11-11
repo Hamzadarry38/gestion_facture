@@ -192,7 +192,7 @@ window.showSituationMensuelleModal = async function() {
             dropdown.innerHTML = situationFilteredClients.slice(0, 10).map(client => `
                 <div class="situation-dropdown-item" onmousedown="selectSituationClient(${client.id}, '${client.nom.replace(/'/g, "\\'")}', '${client.ice}')">
                     <div class="situation-client-name">${client.nom}</div>
-                    <div class="situation-client-ice" style="color:white;hover-color:white">ICE: ${client.ice}</div>
+                    ${client.ice && client.ice !== '0' ? `<div class="situation-client-ice" style="color:white;hover-color:white">ICE: ${client.ice}</div>` : ''}
                 </div>
             `).join('');
             
@@ -440,10 +440,13 @@ function addHeaderToPDF(doc, client, month, year, monthNames, blueColor, greenCo
     doc.setTextColor(...greenColor);
     doc.text(client.nom.toUpperCase(), 40, 55);
     
-    doc.setTextColor(0, 0, 0);
-    doc.text('ICE :', 15, 62);
-    doc.setTextColor(...greenColor);
-    doc.text(client.ice, 40, 62);
+    // Only show ICE if it exists and is not empty or zero
+    if (client.ice && client.ice.trim() !== '' && client.ice !== '0') {
+        doc.setTextColor(0, 0, 0);
+        doc.text('ICE :', 15, 62);
+        doc.setTextColor(...greenColor);
+        doc.text(client.ice, 40, 62);
+    }
     
     // Date
     doc.setTextColor(0, 0, 0);

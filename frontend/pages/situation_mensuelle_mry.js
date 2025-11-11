@@ -192,7 +192,7 @@ window.showSituationMensuelleModalMRY = async function() {
             dropdown.innerHTML = situationFilteredClientsMRY.slice(0, 10).map(client => `
                 <div class="situation-dropdown-item-mry" onmousedown="selectSituationClientMRY(${client.id}, '${client.nom.replace(/'/g, "\\'")}', '${client.ice}')">
                     <div class="situation-client-name-mry">${client.nom}</div>
-                    <div class="situation-client-ice-mry" style="color:white;hover-color:white">ICE: ${client.ice}</div>
+                    ${client.ice && client.ice !== '0' ? `<div class="situation-client-ice-mry" style="color:white;hover-color:white">ICE: ${client.ice}</div>` : ''}
                 </div>
             `).join('');
             
@@ -422,10 +422,13 @@ function addHeaderToPDFMRY(doc, client, month, year, monthNames, blueColor, gree
     doc.setTextColor(...greenColor);
     doc.text(client.nom.toUpperCase(), 40, 50);
     
-    doc.setTextColor(0, 0, 0);
-    doc.text('ICE :', 15, 57);
-    doc.setTextColor(...greenColor);
-    doc.text(client.ice, 40, 57);
+    // Only show ICE if it exists and is not '0'
+    if (client.ice && client.ice !== '0') {
+        doc.setTextColor(0, 0, 0);
+        doc.text('ICE :', 15, 57);
+        doc.setTextColor(...greenColor);
+        doc.text(client.ice, 40, 57);
+    }
     
     // Date
     doc.setTextColor(0, 0, 0);

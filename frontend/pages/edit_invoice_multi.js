@@ -49,8 +49,8 @@ function EditInvoiceMultiPage() {
                                     <div id="clientsDropdownEditMulti" class="clients-dropdown" style="display: none;"></div>
                                 </div>
                                 <div class="form-field">
-                                    <label>N° ICE <span class="required">*</span></label>
-                                    <input type="text" id="editClientICEMulti" placeholder="Numéro ICE" required>
+                                    <label>N° ICE</label>
+                                    <input type="text" id="editClientICEMulti" placeholder="Numéro ICE (optionnel)">
                                 </div>
                             </div>
                         </div>
@@ -473,9 +473,20 @@ function displayClientsListEditMulti() {
     }
     
     dropdown.innerHTML = filteredClientsEditMulti.slice(0, 10).map(client => `
-        <div class="dropdown-item" onmousedown="selectClientEditMulti('${client.nom.replace(/'/g, "\\'")}', '${client.ice}')">
-            <div class="client-name">${client.nom}</div>
-            <div class="client-ice">ICE: ${client.ice}</div>
+        <div class="dropdown-item" style="display: flex; justify-content: space-between; align-items: center;">
+            <div style="flex: 1;" onmousedown="selectClientEditMulti('${client.nom.replace(/'/g, "\\'")}', '${client.ice}')">
+                <div class="client-name">${client.nom}</div>
+                <div class="client-ice">ICE: ${client.ice}</div>
+            </div>
+            <button class="delete-client-btn" onclick="event.stopPropagation(); deleteClientEditMulti(${client.id}, '${client.nom.replace(/'/g, "\\'")}');" 
+                    style="background: #dc3545; color: white; border: none; padding: 0.4rem 0.5rem; border-radius: 4px; cursor: pointer; margin-left: 0.5rem; display: flex; align-items: center; justify-content: center;">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <polyline points="3 6 5 6 21 6"></polyline>
+                    <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+                    <line x1="10" y1="11" x2="10" y2="17"></line>
+                    <line x1="14" y1="11" x2="14" y2="17"></line>
+                </svg>
+            </button>
         </div>
     `).join('');
     dropdown.style.display = 'block';
@@ -500,6 +511,32 @@ window.selectClientEditMulti = function(nom, ice) {
     document.getElementById('editClientICEMulti').value = ice;
     const dropdown = document.getElementById('clientsDropdownEditMulti');
     if (dropdown) dropdown.style.display = 'none';
+}
+
+// Delete a client from edit mode
+window.deleteClientEditMulti = async function(clientId, clientName) {
+    if (!confirm(`هل أنت متأكد من حذف الزبون "${clientName}"؟`)) {
+        return;
+    }
+    
+    try {
+        const response = await fetch(`http://localhost:3000/api/clients/${clientId}`, {
+            method: 'DELETE'
+        });
+        
+        if (response.ok) {
+            window.notify.success('تم الحذف', `تم حذف الزبون "${clientName}" بنجاح`);
+            // Reload clients list
+            await loadClientsEditMulti();
+            // Refresh dropdown
+            searchClientsEditMulti(document.getElementById('editClientNomMulti').value);
+        } else {
+            window.notify.error('خطأ', 'فشل حذف الزبون');
+        }
+    } catch (error) {
+        console.error('Error deleting client:', error);
+        window.notify.error('خطأ', 'حدث خطأ أثناء حذف الزبون');
+    }
 }
 
 // Handle form submission

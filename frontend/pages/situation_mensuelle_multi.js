@@ -192,7 +192,7 @@ window.showSituationMensuelleModalMulti = async function() {
             dropdown.innerHTML = situationFilteredClientsMulti.slice(0, 10).map(client => `
                 <div class="situation-dropdown-item-multi" onmousedown="selectSituationClientMulti(${client.id}, '${client.nom.replace(/'/g, "\\'")}', '${client.ice}')">
                     <div class="situation-client-name-multi">${client.nom}</div>
-                    <div class="situation-client-ice-multi">ICE: ${client.ice}</div>
+                    ${client.ice && client.ice !== '0' ? `<div class="situation-client-ice-multi">ICE: ${client.ice}</div>` : ''}
                 </div>
             `).join('');
             
@@ -426,11 +426,14 @@ function addHeaderToPDFMulti(doc, client, month, year, monthNames, darkGrayColor
     doc.setFontSize(8);
     doc.text(`SITUATION à : ${client.nom}`, 117, 42);
     
-    doc.setFillColor(...lightGrayBg);
-    doc.rect(115, 44, 80, 6, 'F');
-    doc.setTextColor(0, 0, 0);
-    doc.setFontSize(7);
-    doc.text(`ICE : ${client.ice}`, 117, 48);
+    // Only show ICE if it exists and is not '0'
+    if (client.ice && client.ice !== '0') {
+        doc.setFillColor(...lightGrayBg);
+        doc.rect(115, 44, 80, 6, 'F');
+        doc.setTextColor(0, 0, 0);
+        doc.setFontSize(7);
+        doc.text(`ICE : 555 ${client.ice}`, 117, 48);
+    }
 }
 
 // Add footer to PDF page

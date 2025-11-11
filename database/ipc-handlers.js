@@ -24,6 +24,16 @@ async function registerDatabaseHandlers() {
         }
     });
 
+    ipcMain.handle('db:clients:delete', async (event, clientId) => {
+        try {
+            clientOps.delete(clientId);
+            return { success: true };
+        } catch (error) {
+            console.error('❌ Error deleting client:', error);
+            return { success: false, error: error.message };
+        }
+    });
+
     // Invoice handlers
     ipcMain.handle('db:invoices:create', async (event, invoiceData) => {
         try {

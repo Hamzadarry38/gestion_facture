@@ -1068,6 +1068,13 @@ window.viewInvoice = async function(id) {
 window.editInvoice = async function(id) {
     try {
         console.log('✏️ [EDIT] Opening edit modal for invoice ID:', id);
+        
+        // Load clients if not already loaded
+        if (!allClients || allClients.length === 0) {
+            console.log('🔄 Loading clients for edit modal...');
+            await loadAllClients();
+        }
+        
         const result = await window.electron.db.getInvoiceById(id);
         
         console.log('📥 [EDIT] Data received from database:', result);
@@ -1113,13 +1120,16 @@ window.editInvoice = async function(id) {
                         <div class="edit-section">
                             <h3>Client</h3>
                             <div class="form-row">
-                                <div class="form-field">
+                                <div class="form-field" style="position: relative;">
                                     <label>Nom du client</label>
-                                    <input type="text" id="editClientNom" value="${invoice.client_nom}" required>
+                                    <input type="text" id="editClientNom" value="${invoice.client_nom}" required
+                                           autocomplete="off" oninput="searchClientsEdit(this.value)" 
+                                           onfocus="showClientsListEdit()" onblur="hideClientsListEdit()">
+                                    <div id="clientsDropdownEdit" class="clients-dropdown" style="display: none;"></div>
                                 </div>
                                 <div class="form-field">
                                     <label>N° ICE</label>
-                                    <input type="text" id="editClientICE" value="${invoice.client_ice}" required>
+                                    <input type="text" id="editClientICE" value="${invoice.client_ice}">
                                 </div>
                             </div>
                         </div>
@@ -2368,10 +2378,13 @@ window.downloadInvoicePDF = async function(invoiceId) {
             doc.setTextColor(...greenColor);
             doc.text(invoice.client_nom, 40, 50);
             
-            doc.setTextColor(0, 0, 0);
-            doc.text('ICE :', 15, 57);
-            doc.setTextColor(...greenColor);
-            doc.text(invoice.client_ice, 40, 57);
+            // Only show ICE if it exists and is not "0"
+            if (invoice.client_ice && invoice.client_ice !== '0') {
+                doc.setTextColor(0, 0, 0);
+                doc.text('ICE :', 15, 57);
+                doc.setTextColor(...greenColor);
+                doc.text(invoice.client_ice, 40, 57);
+            }
             
             // Date
             doc.setTextColor(0, 0, 0);
@@ -2787,10 +2800,13 @@ window.downloadBonDeTravauxPDF = async function(invoiceId) {
             doc.setTextColor(...greenColor);
             doc.text(invoice.client_nom, 40, 50);
             
-            doc.setTextColor(0, 0, 0);
-            doc.text('ICE :', 15, 57);
-            doc.setTextColor(...greenColor);
-            doc.text(invoice.client_ice, 40, 57);
+            // Only show ICE if it exists and is not "0"
+            if (invoice.client_ice && invoice.client_ice !== '0') {
+                doc.setTextColor(0, 0, 0);
+                doc.text('ICE :', 15, 57);
+                doc.setTextColor(...greenColor);
+                doc.text(invoice.client_ice, 40, 57);
+            }
             
             // Date
             doc.setTextColor(0, 0, 0);
@@ -3447,10 +3463,13 @@ async function generateSinglePDFBlob(invoice, organizationType, folderName, incl
         doc.setTextColor(...greenColor);
         doc.text(invoice.client_nom, 40, 50);
         
-        doc.setTextColor(0, 0, 0);
-        doc.text('ICE :', 15, 57);
-        doc.setTextColor(...greenColor);
-        doc.text(invoice.client_ice, 40, 57);
+        // Only show ICE if it exists and is not "0"
+        if (invoice.client_ice && invoice.client_ice !== '0') {
+            doc.setTextColor(0, 0, 0);
+            doc.text('ICE :', 15, 57);
+            doc.setTextColor(...greenColor);
+            doc.text(invoice.client_ice, 40, 57);
+        }
         
         doc.setTextColor(0, 0, 0);
         doc.text(`Date: ${dateStr}`, 150, 50);
@@ -3841,6 +3860,103 @@ window.handleBulkDeleteMRY = async function() {
         console.error('Error in bulk delete:', error);
         document.body.removeChild(progressOverlay);
         window.notify.error('Erreur', 'Une erreur est survenue lors de la suppression', 3000);
+    }
+}
+
+// Search clients in edit mode
+let filteredClientsEdit = [];
+window.searchClientsEdit = function(query) {
+    const dropdown = document.getElementById('clientsDropdownEdit');
+    if (!dropdown) return;
+    
+    if (!query || query.trim().length === 0) {
+        filteredClientsEdit = allClients;
+    } else {
+        const searchTerm = query.toLowerCase().trim();
+        filteredClientsEdit = allClients.filter(client => 
+            client.nom.toLowerCase().includes(searchTerm) || 
+            client.ice.toLowerCase().includes(searchTerm)
+        );
+    }
+    
+    displayClientsListEdit();
+}
+
+function displayClientsListEdit() {
+    const dropdown = document.getElementById('clientsDropdownEdit');
+    if (!dropdown) return;
+    
+    if (filteredClientsEdit.length === 0) {
+        dropdown.innerHTML = '<div class="dropdown-item no-results">Aucun client trouvé</div>';
+        dropdown.style.display = 'block';
+        return;
+    }
+    
+    dropdown.innerHTML = filteredClientsEdit.slice(0, 10).map(client => `
+        <div class="dropdown-item" style="display: flex; justify-content: space-between; align-items: center;">
+            <div style="flex: 1;" onmousedown="selectClientEdit('${client.nom.replace(/'/g, "\\'")}', '${client.ice}')">
+                <div class="client-name">${client.nom}</div>
+                <div class="client-ice">ICE: ${client.ice}</div>
+            </div>
+            <button class="delete-client-btn" onclick="event.stopPropagation(); deleteClientEdit(${client.id}, '${client.nom.replace(/'/g, "\\'")}');" 
+                    style="background: #dc3545; color: white; border: none; padding: 0.4rem 0.5rem; border-radius: 4px; cursor: pointer; margin-left: 0.5rem; display: flex; align-items: center; justify-content: center;">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <polyline points="3 6 5 6 21 6"></polyline>
+                    <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+                    <line x1="10" y1="11" x2="10" y2="17"></line>
+                    <line x1="14" y1="11" x2="14" y2="17"></line>
+                </svg>
+            </button>
+        </div>
+    `).join('');
+    
+    dropdown.style.display = 'block';
+}
+
+window.showClientsListEdit = function() {
+    if (allClients.length > 0) {
+        filteredClientsEdit = allClients;
+        displayClientsListEdit();
+    }
+}
+
+window.hideClientsListEdit = function() {
+    setTimeout(() => {
+        const dropdown = document.getElementById('clientsDropdownEdit');
+        if (dropdown) dropdown.style.display = 'none';
+    }, 200);
+}
+
+window.selectClientEdit = function(nom, ice) {
+    document.getElementById('editClientNom').value = nom;
+    document.getElementById('editClientICE').value = ice;
+    const dropdown = document.getElementById('clientsDropdownEdit');
+    if (dropdown) dropdown.style.display = 'none';
+}
+
+// Delete a client from edit mode
+window.deleteClientEdit = async function(clientId, clientName) {
+    if (!confirm(`هل أنت متأكد من حذف الزبون "${clientName}"؟`)) {
+        return;
+    }
+    
+    try {
+        const response = await fetch(`http://localhost:3000/api/clients/${clientId}`, {
+            method: 'DELETE'
+        });
+        
+        if (response.ok) {
+            window.notify.success('تم الحذف', `تم حذف الزبون "${clientName}" بنجاح`);
+            // Reload clients list
+            await loadClients();
+            // Refresh dropdown
+            searchClientsEdit(document.getElementById('editClientNom').value);
+        } else {
+            window.notify.error('خطأ', 'فشل حذف الزبون');
+        }
+    } catch (error) {
+        console.error('Error deleting client:', error);
+        window.notify.error('خطأ', 'حدث خطأ أثناء حذف الزبون');
     }
 }
 

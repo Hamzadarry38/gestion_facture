@@ -228,6 +228,20 @@ const clientOps = {
             ice: row[2],
             created_at: row[3]
         }));
+    },
+    
+    delete: (clientId) => {
+        // Check if client is used in any invoices
+        const invoiceCheck = db.exec('SELECT COUNT(*) as count FROM invoices WHERE client_id = ?', [clientId]);
+        const invoiceCount = invoiceCheck[0].values[0][0];
+        
+        if (invoiceCount > 0) {
+            throw new Error('Cannot delete client: client is referenced in existing invoices');
+        }
+        
+        // Delete the client
+        db.run('DELETE FROM clients WHERE id = ?', [clientId]);
+        saveDatabase();
     }
 };
 

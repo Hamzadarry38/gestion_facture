@@ -98,6 +98,16 @@ async function registerMultiHandlers() {
         }
     });
     
+    ipcMain.handle('dbMulti:deleteClient', async (event, clientId) => {
+        try {
+            dbMulti.clientOps.delete(clientId);
+            return { success: true };
+        } catch (error) {
+            console.error('[MULTI] Error deleting client:', error);
+            return { success: false, error: error.message };
+        }
+    });
+    
     // Attachment operations
     ipcMain.handle('dbMulti:addAttachment', async (event, invoiceId, filename, fileType, fileData) => {
         try {

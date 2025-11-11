@@ -1,4 +1,16 @@
 {
+  "1.1.23": {
+    "ar": [
+      "🗑️ إضافة نظام حذف العملاء مع مودال تأكيد احترافي وتحقق من الارتباطات",
+      "👁️ إخفاء حقل ICE تلقائياً في القوائم والـ PDF عندما يكون فارغاً أو يساوي صفر",
+      "🔄 إصلاح تحميل قائمة العملاء تلقائياً عند فتح نافذة التعديل في جميع الشركات"
+    ],
+    "fr": [
+      "🗑️ Ajout du système de suppression des clients avec modal de confirmation professionnel et vérification des références",
+      "👁️ Masquage automatique du champ ICE dans les listes et PDF lorsqu'il est vide ou égal à zéro",
+      "🔄 Correction du chargement automatique de la liste des clients lors de l'ouverture de la fenêtre d'édition pour toutes les sociétés"
+    ]
+  },
   "1.1.22": {
     "ar": [
       "📄 إصلاح شامل لمشكلة التداخل بين جدول المنتجات والفوتر في PDF",

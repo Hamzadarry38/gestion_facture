@@ -362,11 +362,14 @@ window.downloadInvoicePDFMulti = async function(invoiceId) {
             const devisLabel = invoice.document_type === 'devis' ? 'DEVIS à :' : 'FACTURE à :';
             doc.text(`${devisLabel} ${invoice.client_nom}`, 117, 42);
             
-            doc.setFillColor(...lightGrayBg);
-            doc.rect(115, 44, 80, 6, 'F');
-            doc.setTextColor(0, 0, 0);
-            doc.setFontSize(7);
-            doc.text(`ICE : ${invoice.client_ice}`, 117, 48);
+            // Only show ICE if it exists and is not "0"
+            if (invoice.client_ice && invoice.client_ice !== '0') {
+                doc.setFillColor(...lightGrayBg);
+                doc.rect(115, 44, 80, 6, 'F');
+                doc.setTextColor(0, 0, 0);
+                doc.setFontSize(7);
+                doc.text(`ICE : ${invoice.client_ice}`, 117, 48);
+            }
         };
         
         // Function to add footer to any page
