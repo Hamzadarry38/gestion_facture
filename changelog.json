@@ -1,4 +1,16 @@
 {
+  "1.1.24": {
+    "ar": [
+      "📝 ضبط موضع بداية الملاحظات في الصفحات التالية لشركة CHAIMAE ليكون أسفل الهيدر مباشرة",
+      "📄 الإبقاء على رقم الوثيقة وN° Order ظاهرَين في جميع صفحات الـ PDF",
+      "🎯 تحسين تنسيق عنوان \"Notes (suite)\" ومنع أي تداخل مع عناصر الهيدر"
+    ],
+    "fr": [
+      "📝 Ajustement de la position de début des notes sur les pages suivantes pour CHAIMAE (juste sous l'en-tête)",
+      "📄 Conservation du numéro du document et du N° Order sur toutes les pages du PDF",
+      "🎯 Amélioration de la mise en forme de \"Notes (suite)\" et prévention de tout chevauchement avec l'en-tête"
+    ]
+  },
   "1.1.23": {
     "ar": [
       "🗑️ إضافة نظام حذف العملاء مع مودال تأكيد احترافي وتحقق من الارتباطات",
