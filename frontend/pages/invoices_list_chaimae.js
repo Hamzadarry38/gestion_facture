@@ -3460,7 +3460,37 @@ window.downloadInvoicePDFChaimae = async function(invoiceId) {
             doc.setTextColor(0, 0, 0);
             doc.setFontSize(9);
             const noteLines = doc.splitTextToSize(noteResult.data, 180);
-            doc.text(noteLines, 15, currentY + 4);
+            const footerTopY = 270;
+            let lineY = currentY + 4;
+            for (let i = 0; i < noteLines.length; i++) {
+                if (lineY > footerTopY) {
+                    // finalize current page and start a new one
+                    pages.push(pageCount);
+                    doc.addPage();
+                    addHeader(false);
+                    pageCount++;
+                    // continuation title positioned below header (same logic as table startY)
+                    let notesStartY = 85;
+                    if (invoice.document_type === 'facture') {
+                        if (invoice.document_numero_Order) notesStartY += 7;
+                        if (invoice.document_bon_de_livraison) notesStartY += 7;
+                    } else if (invoice.document_type === 'bon_livraison' && invoice.document_numero_commande) {
+                        notesStartY += 7;
+                    }
+                    // Lower slightly
+                    notesStartY += 6;
+                    doc.setFontSize(8);
+                    doc.setFont(undefined, 'bold');
+                    doc.setTextColor(96, 125, 139);
+                    doc.text('Notes (suite) :', 15, notesStartY - 4);
+                    doc.setTextColor(0, 0, 0);
+                    doc.setFont(undefined, 'bold');
+                    doc.setFontSize(9);
+                    lineY = notesStartY;
+                }
+                doc.text(noteLines[i], 15, lineY);
+                lineY += 4.5;
+            }
         }
         
         // Add page numbering to all pages
@@ -4243,7 +4273,26 @@ async function generateSinglePDFBlobChaimae(invoice, organizationType, folderNam
                 doc.setTextColor(0, 0, 0);
                 doc.setFontSize(9);
                 const noteLines = doc.splitTextToSize(noteResult.data, 180);
-                doc.text(noteLines, 15, currentY + 4);
+                const footerTopY = 270;
+                let lineY = currentY + 4;
+                for (let i = 0; i < noteLines.length; i++) {
+                    if (lineY > footerTopY) {
+                        pages.push(pageCount);
+                        doc.addPage();
+                        addHeader(false);
+                        pageCount++;
+                        doc.setFontSize(8);
+                        doc.setFont(undefined, 'bold');
+                        doc.setTextColor(96, 125, 139);
+                        doc.text('Notes (suite) :', 15, 60);
+                        doc.setTextColor(0, 0, 0);
+                        doc.setFont(undefined, 'bold');
+                        doc.setFontSize(9);
+                        lineY = 64;
+                    }
+                    doc.text(noteLines[i], 15, lineY);
+                    lineY += 4.5;
+                }
             }
         } catch (error) {
             console.log('Note not loaded for bulk PDF:', error);
@@ -5700,7 +5749,26 @@ window.initInvoicesListChaimaePage = function() {
                     doc.setTextColor(0, 0, 0);
                     doc.setFontSize(9);
                     const noteLines = doc.splitTextToSize(noteResult.data, 180);
-                    doc.text(noteLines, 15, currentY + 4);
+                    const footerTopY = 270;
+                    let lineY = currentY + 4;
+                    for (let i = 0; i < noteLines.length; i++) {
+                        if (lineY > footerTopY) {
+                            pages.push(pageCount);
+                            doc.addPage();
+                            addHeader(false);
+                            pageCount++;
+                            doc.setFontSize(8);
+                            doc.setFont(undefined, 'bold');
+                            doc.setTextColor(96, 125, 139);
+                            doc.text('Notes (suite) :', 15, 60);
+                            doc.setTextColor(0, 0, 0);
+                            doc.setFont(undefined, 'bold');
+                            doc.setFontSize(9);
+                            lineY = 64;
+                        }
+                        doc.text(noteLines[i], 15, lineY);
+                        lineY += 4.5;
+                    }
                 }
                 
                 // Add page numbering to all pages

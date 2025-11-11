@@ -581,16 +581,49 @@ window.downloadInvoicePDFMulti = async function(invoiceId) {
         const noteResult = await window.electron.dbMulti.getNote(invoiceId);
         if (noteResult.success && noteResult.data) {
             const notesY = amountWordsY + 12;
+            const footerTopY = 270; // keep clear space above footer
+
+            // Title for first notes block
             doc.setFontSize(8);
             doc.setFont(undefined, 'bold');
             doc.setTextColor(96, 125, 139); // Dark gray color matching the theme
             doc.text('Notes:', 15, notesY);
-            
-            doc.setFont(undefined, 'bold');
+
+            // Prepare text rendering
             doc.setTextColor(0, 0, 0);
+            doc.setFont(undefined, 'bold');
             doc.setFontSize(9);
             const noteLines = doc.splitTextToSize(noteResult.data, 180);
-            doc.text(noteLines, 15, notesY + 4);
+
+            let lineY = notesY + 4;
+            const lineStep = 4.5; // line height used across the document
+
+            // Render line by line and add pages if needed
+            for (let i = 0; i < noteLines.length; i++) {
+                // If next line would collide with footer, break to a new page
+                if (lineY > footerTopY) {
+                    // track current page and add a fresh one
+                    pages.push(pageCount);
+                    doc.addPage();
+                    addHeader(false);
+                    pageCount++;
+
+                    // Start notes continuation at top area of new page
+                    let contStartY = 60; // below header
+                    doc.setFontSize(8);
+                    doc.setFont(undefined, 'bold');
+                    doc.setTextColor(96, 125, 139);
+                    doc.text('Notes (suite) :', 15, contStartY);
+
+                    doc.setTextColor(0, 0, 0);
+                    doc.setFont(undefined, 'bold');
+                    doc.setFontSize(9);
+                    lineY = contStartY + 4;
+                }
+
+                doc.text(noteLines[i], 15, lineY);
+                lineY += lineStep;
+            }
         }
         
         // Add page numbering to all pages

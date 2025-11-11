@@ -2390,11 +2390,9 @@ window.downloadInvoicePDF = async function(invoiceId) {
             doc.setTextColor(0, 0, 0);
             doc.text(`Date: ${dateStr}`, 150, 50);
             
-            // Document Number (Facture or Devis)
+            // Always show document and order numbers on every page
             doc.setFontSize(14);
             doc.setFont(undefined, 'bold');
-            
-            // Check document type
             if (invoice.document_type === 'devis') {
                 doc.text('DEVIS N°:', 15, 70);
                 doc.setTextColor(...orangeColor);
@@ -2404,8 +2402,6 @@ window.downloadInvoicePDF = async function(invoiceId) {
                 doc.setTextColor(...orangeColor);
                 doc.text(invoice.document_numero || '-', 55, 70);
             }
-            
-            // Order Number if exists
             if (invoice.document_numero_Order) {
                 doc.setFontSize(12);
                 doc.setFont(undefined, 'bold');
@@ -2638,7 +2634,29 @@ window.downloadInvoicePDF = async function(invoiceId) {
             doc.setTextColor(0, 0, 0);
             doc.setFontSize(9);
             const noteLines = doc.splitTextToSize(noteResult.data, 180);
-            doc.text(noteLines, 15, currentY + 4);
+            const footerTopY = 270;
+            let lineY = currentY + 4;
+            for (let i = 0; i < noteLines.length; i++) {
+                if (lineY > footerTopY) {
+                    // new page for overflowing notes
+                    pages.push(pageCount);
+                    doc.addPage();
+                    addHeader(false);
+                    pageCount++;
+                    // Notes continuation title – align below header (same vertical zone as table area)
+                    const notesStartY = invoice.document_numero_Order ? 95 : 88;
+                    doc.setFontSize(8);
+                    doc.setFont(undefined, 'bold');
+                    doc.setTextColor(96, 125, 139);
+                    doc.text('Notes (suite) :', 15, notesStartY - 4);
+                    doc.setTextColor(0, 0, 0);
+                    doc.setFont(undefined, 'bold');
+                    doc.setFontSize(9);
+                    lineY = notesStartY;
+                }
+                doc.text(noteLines[i], 15, lineY);
+                lineY += 4.5;
+            }
         }
         
         // Add page numbering to all pages
@@ -3647,7 +3665,27 @@ async function generateSinglePDFBlob(invoice, organizationType, folderName, incl
                 doc.setTextColor(0, 0, 0);
                 doc.setFontSize(9);
                 const noteLines = doc.splitTextToSize(noteResult.data, 180);
-                doc.text(noteLines, 15, currentY + 4);
+                const footerTopY = 270;
+                let lineY = currentY + 4;
+                for (let i = 0; i < noteLines.length; i++) {
+                    if (lineY > footerTopY) {
+                        addFooter();
+                        doc.addPage();
+                        addHeader();
+                        // start continuation on new page below header
+                        const notesStartY = invoice.document_numero_Order ? 95 : 88;
+                        doc.setFontSize(8);
+                        doc.setFont(undefined, 'bold');
+                        doc.setTextColor(96, 125, 139);
+                        doc.text('Notes (suite) :', 15, notesStartY - 4);
+                        doc.setTextColor(0, 0, 0);
+                        doc.setFont(undefined, 'bold');
+                        doc.setFontSize(9);
+                        lineY = notesStartY;
+                    }
+                    doc.text(noteLines[i], 15, lineY);
+                    lineY += 4.5;
+                }
             }
         } catch (error) {
             console.log('Note not loaded for bulk PDF:', error);
