@@ -2470,7 +2470,7 @@ window.downloadInvoicePDF = async function(invoiceId) {
             let isFirstPart = true;
             
             while (remainingLines.length > 0) {
-                const availableSpace = 250 - currentY;
+                const availableSpace = 215 - currentY;
                 
                 // If not enough space for even one line, create new page first
                 if (availableSpace < 15) {
@@ -2542,7 +2542,7 @@ window.downloadInvoicePDF = async function(invoiceId) {
                 isFirstPart = false;
                 
                 // If there are more lines and we're near the bottom, create new page
-                if (remainingLines.length > 0 && currentY > 230) {
+                if (remainingLines.length > 0 && currentY > 200) {
                     pages.push(pageCount);
                     doc.addPage();
                     addHeader(false);
@@ -2621,9 +2621,9 @@ window.downloadInvoicePDF = async function(invoiceId) {
             doc.setTextColor(96, 125, 139);
             doc.text('Notes:', 15, currentY);
             
-            doc.setFont(undefined, 'normal');
+            doc.setFont(undefined, 'bold');
             doc.setTextColor(0, 0, 0);
-            doc.setFontSize(7.5);
+            doc.setFontSize(9);
             const noteLines = doc.splitTextToSize(noteResult.data, 180);
             doc.text(noteLines, 15, currentY + 4);
         }
@@ -2860,7 +2860,7 @@ window.downloadBonDeTravauxPDF = async function(invoiceId) {
             const rowHeight = Math.max(8, (lines.length * 4.5) + 4);
             
             // Check if we need a new page
-            if (currentY + rowHeight > 220) {
+            if (currentY + rowHeight > 215) {
                 pages.push(pageCount);
                 doc.addPage();
                 addHeader(false);
@@ -3514,7 +3514,7 @@ async function generateSinglePDFBlob(invoice, organizationType, folderName, incl
         const lines = doc.splitTextToSize(designation, 85);
         const rowHeight = Math.max(8, (lines.length * 4.5) + 4);
         
-        if (currentY + rowHeight > 250) {
+        if (currentY + rowHeight > 215) {
             addFooter();
             doc.addPage();
             addHeader();
@@ -3624,9 +3624,9 @@ async function generateSinglePDFBlob(invoice, organizationType, folderName, incl
                 doc.setTextColor(96, 125, 139);
                 doc.text('Notes:', 15, currentY);
                 
-                doc.setFont(undefined, 'normal');
+                doc.setFont(undefined, 'bold');
                 doc.setTextColor(0, 0, 0);
-                doc.setFontSize(7.5);
+                doc.setFontSize(9);
                 const noteLines = doc.splitTextToSize(noteResult.data, 180);
                 doc.text(noteLines, 15, currentY + 4);
             }

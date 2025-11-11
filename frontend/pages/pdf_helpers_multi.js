@@ -583,9 +583,9 @@ window.downloadInvoicePDFMulti = async function(invoiceId) {
             doc.setTextColor(96, 125, 139); // Dark gray color matching the theme
             doc.text('Notes:', 15, notesY);
             
-            doc.setFont(undefined, 'normal');
+            doc.setFont(undefined, 'bold');
             doc.setTextColor(0, 0, 0);
-            doc.setFontSize(7.5);
+            doc.setFontSize(9);
             const noteLines = doc.splitTextToSize(noteResult.data, 180);
             doc.text(noteLines, 15, notesY + 4);
         }

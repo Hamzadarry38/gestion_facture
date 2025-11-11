@@ -1027,7 +1027,7 @@ window.downloadGlobalInvoicePDF = async function(invoiceId, sortOrder = null) {
             
             sortedBons.forEach((bon, index) => {
                 // Check if we need a new page
-                if (currentY > 250) {
+                if (currentY > 240) {
                     pages.push(pageCount);
                     doc.addPage();
                     addHeader();

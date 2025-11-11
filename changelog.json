@@ -1,4 +1,27 @@
 {
+  "1.1.22": {
+    "ar": [
+      "📄 إصلاح شامل لمشكلة التداخل بين جدول المنتجات والفوتر في PDF",
+      "🎯 تطبيق الإصلاح على جميع الشركات (CHAIMAE و MRY)"
+    ],
+    "fr": [
+      "📄 Correction complète du problème de chevauchement entre tableau et footer dans PDF",
+      "🎯 Correction appliquée à toutes les sociétés (CHAIMAE et MRY)"
+    ]
+  },
+  "1.1.21": {
+    "ar": [
+      "📝 زيادة حجم خط الملاحظات من 7.5 إلى 9 لسهولة القراءة",
+      "💪 جعل خط الملاحظات غليظاً (Bold) لوضوح أفضل",
+      "📊 تطبيق التحسينات على جميع الشركات (MRY, CHAIMAE, MULTI)"
+    ],
+    "fr": [
+      "✨ Amélioration de l'affichage des notes dans les fichiers PDF",
+      "📝 Augmentation de la taille de police des notes de 7.5 à 9 pour faciliter la lecture",
+      "💪 Mise en gras (Bold) de la police des notes pour une meilleure clarté",
+      "📊 Améliorations appliquées à toutes les sociétés (MRY, CHAIMAE, MULTI)"
+    ]
+  },
   "1.1.20": {
     "ar": [
       "📄 إصلاح شامل لتقسيم المنتجات الطويلة عبر صفحات PDF متعددة",

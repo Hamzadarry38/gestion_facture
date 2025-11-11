@@ -882,7 +882,7 @@ window.generateSituationMensuelle = async function(clientId, month, year, sortBy
         
         allInvoices.forEach((inv, index) => {
             // Check if we need a new page (with more space for multi-line rows)
-            if (currentY > 250) {
+            if (currentY > 240) {
                 pages.push(pageNumber);
                 pageNumber++;
                 
@@ -994,7 +994,7 @@ window.generateSituationMensuelle = async function(clientId, month, year, sortBy
         currentY += 10;
         
         // Check if totals fit on current page
-        if (currentY > 230) {
+        if (currentY > 220) {
             pages.push(pageNumber);
             pageNumber++;
             doc.addPage();
