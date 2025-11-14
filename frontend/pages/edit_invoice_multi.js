@@ -700,7 +700,39 @@ async function handleEditInvoiceSubmitMulti(e) {
 
 // Show input modal for conversion
 function showConvertInputModalMulti(newType, newTypeLabel, prefillNumero = '') {
-    return new Promise((resolve) => {
+    return new Promise(async (resolve) => {
+        // Get highest number for the target type
+        let highestNumber = 'Aucun';
+        try {
+            const invoicesResult = await window.electron.dbMulti.getAllInvoices('MULTI');
+            if (invoicesResult.success && invoicesResult.data && invoicesResult.data.length > 0) {
+                const invoices = invoicesResult.data;
+                
+                // Helper function to extract numeric value
+                const extractNumber = (docNumber) => {
+                    if (!docNumber) return 0;
+                    const match = docNumber.toString().match(/\d+/);
+                    return match ? parseInt(match[0], 10) : 0;
+                };
+
+                if (newType === 'facture') {
+                    const factures = invoices.filter(inv => inv.document_type === 'facture' && inv.document_numero);
+                    if (factures.length > 0) {
+                        factures.sort((a, b) => extractNumber(b.document_numero) - extractNumber(a.document_numero));
+                        highestNumber = factures[0].document_numero;
+                    }
+                } else if (newType === 'devis') {
+                    const devisList = invoices.filter(inv => inv.document_type === 'devis' && inv.document_numero_devis);
+                    if (devisList.length > 0) {
+                        devisList.sort((a, b) => extractNumber(b.document_numero_devis) - extractNumber(a.document_numero_devis));
+                        highestNumber = devisList[0].document_numero_devis;
+                    }
+                }
+            }
+        } catch (error) {
+            console.error('Error getting highest numbers for conversion:', error);
+        }
+
         const overlay = document.createElement('div');
         overlay.className = 'modal-overlay';
         overlay.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.85);display:flex;align-items:center;justify-content:center;z-index:10000;';
@@ -726,6 +758,7 @@ function showConvertInputModalMulti(newType, newTypeLabel, prefillNumero = '') {
                        style="width:100%;padding:1rem;background:#2d2d30;border:2px solid #3e3e42;border-radius:8px;color:#fff;font-size:1.1rem;box-sizing:border-box;outline:none;transition:all 0.3s;"
                        onblur="formatEditInvoiceNumberMulti(this)">
                 <small style="color: #999; font-size: 0.85rem; display: block; margin-top: 0.25rem;">Saisir uniquement les chiffres, MTT et l'année seront ajoutés automatiquement</small>
+                ${highestNumber !== 'Aucun' ? `<div style="margin-top:0.5rem;color:${newType === 'facture' ? '#4caf50' : '#9c27b0'};font-size:0.85rem;font-weight:500;">📌 Plus grand numéro actuel: ${highestNumber}</div>` : ''}
             </div>
             
             ${newType === 'facture' ? `

@@ -3297,6 +3297,10 @@ window.downloadInvoicePDFChaimae = async function(invoiceId) {
             }
         };
         
+        // ===== FOOTER PROTECTION - NO CONTENT BEYOND THIS LINE =====
+        const FOOTER_BOUNDARY = 248;  // Absolute limit - footer starts here
+        const TOTALS_HEIGHT = 36;     // Space needed for totals + amount words
+        
         // Add header to first page
         addHeader(true);
         
@@ -3345,10 +3349,10 @@ window.downloadInvoicePDFChaimae = async function(invoiceId) {
             let isFirstPart = true;
             
             while (remainingLines.length > 0) {
-                const availableSpace = 215 - currentY;
+                const availableSpace = FOOTER_BOUNDARY - currentY;
                 
                 // If not enough space for even one line, create new page first
-                if (availableSpace < 15) {
+                if (availableSpace < 12) {
                     pages.push(pageCount);
                     doc.addPage();
                     addHeader(false);
@@ -3420,7 +3424,7 @@ window.downloadInvoicePDFChaimae = async function(invoiceId) {
                 isFirstPart = false;
                 
                 // If there are more lines and we're near the bottom, create new page
-                if (remainingLines.length > 0 && currentY > 200) {
+                if (remainingLines.length > 0 && currentY > PAGE_BREAK_Y) {
                     pages.push(pageCount);
                     doc.addPage();
                     addHeader(false);
@@ -3456,7 +3460,7 @@ window.downloadInvoicePDFChaimae = async function(invoiceId) {
             }
         });
         
-        // Totals
+        // Totals (no check needed - space already reserved)
         currentY += 10;
         
         // TOTAL HT
@@ -3503,6 +3507,16 @@ window.downloadInvoicePDFChaimae = async function(invoiceId) {
         // Add notes if any
         const noteResult = await window.electron.dbChaimae.getNote(invoiceId);
         if (noteResult.success && noteResult.data) {
+            // --- NOTES CAN SPLIT ACROSS PAGES ---
+            const noteLines = doc.splitTextToSize(noteResult.data, 180);
+            // Just check if we have space for the title
+            if (currentY + 15 > FOOTER_BOUNDARY) {
+                pages.push(pageCount);
+                doc.addPage();
+                addHeader(false);
+                pageCount++;
+                currentY = 85;
+            }
             currentY += 15;
             doc.setFontSize(8);
             doc.setFont(undefined, 'bold');
@@ -3512,11 +3526,10 @@ window.downloadInvoicePDFChaimae = async function(invoiceId) {
             doc.setFont(undefined, 'bold');
             doc.setTextColor(0, 0, 0);
             doc.setFontSize(9);
-            const noteLines = doc.splitTextToSize(noteResult.data, 180);
-            const footerTopY = 270;
+            // noteLines already prepared above
             let lineY = currentY + 4;
             for (let i = 0; i < noteLines.length; i++) {
-                if (lineY > footerTopY) {
+                if (lineY + 4.5 > FOOTER_BOUNDARY) {
                     // finalize current page and start a new one
                     pages.push(pageCount);
                     doc.addPage();
@@ -3777,10 +3790,10 @@ window.downloadBonDeTravauxPDFChaimae = async function(invoiceId) {
             let isFirstPart = true;
             
             while (remainingLines.length > 0) {
-                const availableSpace = 215 - currentY;
+                const availableSpace = FOOTER_BOUNDARY - currentY;
                 
                 // If not enough space for even one line, create new page first
-                if (availableSpace < 15) {
+                if (availableSpace < 12) {
                     pages.push(pageCount);
                     doc.addPage();
                     addHeader(false);
@@ -3843,7 +3856,7 @@ window.downloadBonDeTravauxPDFChaimae = async function(invoiceId) {
                 isFirstPart = false;
                 
                 // If there are more lines and we're near the bottom, create new page
-                if (remainingLines.length > 0 && currentY > 200) {
+                if (remainingLines.length > 0 && currentY > PAGE_BREAK_Y) {
                     pages.push(pageCount);
                     doc.addPage();
                     addHeader(false);
@@ -3867,7 +3880,15 @@ window.downloadBonDeTravauxPDFChaimae = async function(invoiceId) {
             }
         });
         
-        // Totals section - directly below table (dynamic position)
+        // === TOTALS SECTION - MUST STAY WITH TABLE ===
+        // If totals won't fit, move everything to new page
+        if (currentY + 10 + TOTALS_HEIGHT > FOOTER_BOUNDARY) {
+            pages.push(pageCount);
+            doc.addPage();
+            addHeader(false);
+            pageCount++;
+            currentY = startY + 10;
+        }
         currentY += 10; // Add some spacing after table
         
         doc.setFillColor(...blueColor);
@@ -4165,10 +4186,10 @@ async function generateSinglePDFBlobChaimae(invoice, organizationType, folderNam
         let isFirstPart = true;
         
         while (remainingLines.length > 0) {
-            const availableSpace = 215 - currentY;
+            const availableSpace = FOOTER_BOUNDARY - currentY;
             
             // If not enough space for even one line, create new page first
-            if (availableSpace < 15) {
+            if (availableSpace < 12) {
                 pages.push(pageCount);
                 doc.addPage();
                 addHeader(false);
@@ -4239,8 +4260,8 @@ async function generateSinglePDFBlobChaimae(invoice, organizationType, folderNam
             currentY += partialRowHeight;
             isFirstPart = false;
             
-            // If there are more lines and we're near the bottom, create new page
-            if (remainingLines.length > 0 && currentY > 200) {
+            // If there are more lines and we're near the footer boundary, create new page
+            if (remainingLines.length > 0 && currentY + 12 > FOOTER_BOUNDARY) {
                 pages.push(pageCount);
                 doc.addPage();
                 addHeader(false);
@@ -4274,6 +4295,7 @@ async function generateSinglePDFBlobChaimae(invoice, organizationType, folderNam
     
     currentY += 10;
     
+    // Totals (no check needed - space already reserved)
     doc.setFillColor(245, 245, 245);
     doc.rect(110, currentY, 85, 8, 'F');
     doc.setFont(undefined, 'bold');
@@ -4326,7 +4348,7 @@ async function generateSinglePDFBlobChaimae(invoice, organizationType, folderNam
                 doc.setTextColor(0, 0, 0);
                 doc.setFontSize(9);
                 const noteLines = doc.splitTextToSize(noteResult.data, 180);
-                const footerTopY = 270;
+                const footerTopY = 268;
                 let lineY = currentY + 4;
                 for (let i = 0; i < noteLines.length; i++) {
                     if (lineY > footerTopY) {
@@ -5706,7 +5728,7 @@ window.initInvoicesListChaimaePage = function() {
                     // If sortOrder is null, keep original order
                     
                     sortedBons.forEach((bon, index) => {
-                        if (currentY > 240) {
+                        if (currentY > PAGE_BREAK_Y) {
                             pages.push(pageCount);
                             doc.addPage();
                             addHeader();
@@ -5741,6 +5763,16 @@ window.initInvoicesListChaimaePage = function() {
                 }
                 
                 currentY += 10;
+                
+                // Check if we need a new page before adding totals (totals need ~34 height + 15 for amount in words = 49)
+                if (currentY + 49 > 268) {
+                    pages.push(pageCount);
+                    doc.addPage();
+                    addHeader();
+                    pageCount++;
+                    currentY = startY + 10;
+                }
+                
                 doc.setFillColor(245, 245, 245);
                 doc.rect(110, currentY, 85, 8, 'F');
                 doc.setFont(undefined, 'bold');
@@ -5802,7 +5834,7 @@ window.initInvoicesListChaimaePage = function() {
                     doc.setTextColor(0, 0, 0);
                     doc.setFontSize(9);
                     const noteLines = doc.splitTextToSize(noteResult.data, 180);
-                    const footerTopY = 270;
+                    const footerTopY = 268;
                     let lineY = currentY + 4;
                     for (let i = 0; i < noteLines.length; i++) {
                         if (lineY > footerTopY) {

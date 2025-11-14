@@ -22,17 +22,35 @@ window.handleDocumentTypeChangeMulti = async function() {
         if (invoicesResult.success && invoicesResult.data && invoicesResult.data.length > 0) {
             const invoices = invoicesResult.data;
             
-            // Get last main number based on type
+            // Helper function to extract numeric value from document number
+            const extractNumber = (docNumber) => {
+                if (!docNumber) return 0;
+                // Extract the first number from the document string
+                // Examples: "123/2025" -> 123, "MTT456/2025" -> 456
+                const match = docNumber.toString().match(/\d+/);
+                return match ? parseInt(match[0], 10) : 0;
+            };
+
+            // Get highest main number based on type
             if (type === 'facture') {
-                const lastFacture = invoices.find(inv => inv.document_numero);
-                if (lastFacture) lastNumbers.main = lastFacture.document_numero;
+                const factures = invoices.filter(inv => inv.document_numero);
+                if (factures.length > 0) {
+                    factures.sort((a, b) => extractNumber(b.document_numero) - extractNumber(a.document_numero));
+                    lastNumbers.main = factures[0].document_numero;
+                }
                 
-                // Get last N° Order
-                const lastOrder = invoices.find(inv => inv.document_numero_Order);
-                if (lastOrder) lastNumbers.order = lastOrder.document_numero_Order;
+                // Get highest N° Order
+                const orders = invoices.filter(inv => inv.document_numero_Order);
+                if (orders.length > 0) {
+                    orders.sort((a, b) => extractNumber(b.document_numero_Order) - extractNumber(a.document_numero_Order));
+                    lastNumbers.order = orders[0].document_numero_Order;
+                }
             } else if (type === 'devis') {
-                const lastDevis = invoices.find(inv => inv.document_numero_devis);
-                if (lastDevis) lastNumbers.main = lastDevis.document_numero_devis;
+                const devisList = invoices.filter(inv => inv.document_numero_devis);
+                if (devisList.length > 0) {
+                    devisList.sort((a, b) => extractNumber(b.document_numero_devis) - extractNumber(a.document_numero_devis));
+                    lastNumbers.main = devisList[0].document_numero_devis;
+                }
             }
         }
     } catch (error) {
@@ -57,7 +75,7 @@ window.handleDocumentTypeChangeMulti = async function() {
                     </button>
                 </div>
                 <small style="color: #999; font-size: 0.85rem;">Saisir uniquement les chiffres, MTT et l'année seront ajoutés automatiquement</small>
-                ${lastNumbers.main !== 'Aucun' ? `<small style="color: #4caf50; font-size: 0.8rem; display: block; margin-top: 0.25rem;">📌 Dernier numéro: ${lastNumbers.main}</small>` : ''}
+                ${lastNumbers.main !== 'Aucun' ? `<small style="color: #4caf50; font-size: 0.8rem; display: block; margin-top: 0.25rem;">📌 Plus grand numéro: ${lastNumbers.main}</small>` : ''}
             </div>
         `;
         html += '</div>';
@@ -103,7 +121,7 @@ window.handleDocumentTypeChangeMulti = async function() {
                                style="flex: 1; padding: 0.75rem; background: #2d2d30; border: 2px solid #3e3e42; border-radius: 8px; color: #fff; font-size: 1rem; outline: none;">
                     </div>
                     <small style="color: #999; font-size: 0.85rem; display: block; margin-top: 0.5rem;">Ex: 123 → <span id="multiOrderPrefixExample"></span>123</small>
-                    ${lastNumbers.order !== 'Aucun' ? `<small style="color: #2196f3; font-size: 0.8rem; display: block; margin-top: 0.25rem;">📌 Dernier N° Order: ${lastNumbers.order}</small>` : ''}
+                    ${lastNumbers.order !== 'Aucun' ? `<small style="color: #2196f3; font-size: 0.8rem; display: block; margin-top: 0.25rem;">📌 Plus grand N° Order: ${lastNumbers.order}</small>` : ''}
                 </div>
             </div>
         `;
@@ -123,7 +141,7 @@ window.handleDocumentTypeChangeMulti = async function() {
                     </button>
                 </div>
                 <small style="color: #999; font-size: 0.85rem;">Saisir uniquement les chiffres, MTT et l'année seront ajoutés automatiquement</small>
-                ${lastNumbers.main !== 'Aucun' ? `<small style="color: #9c27b0; font-size: 0.8rem; display: block; margin-top: 0.25rem;">📌 Dernier numéro: ${lastNumbers.main}</small>` : ''}
+                ${lastNumbers.main !== 'Aucun' ? `<small style="color: #9c27b0; font-size: 0.8rem; display: block; margin-top: 0.25rem;">📌 Plus grand numéro: ${lastNumbers.main}</small>` : ''}
             </div>
         `;
         html += '</div>';

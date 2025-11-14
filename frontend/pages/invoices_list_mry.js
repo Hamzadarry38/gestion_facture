@@ -1595,12 +1595,46 @@ async function handleEditSubmit(e, invoiceId) {
 
 // Show input modal for conversion - INLINE EDIT VERSION
 function showConvertInputModal(newType, newTypeLabel, prefillNumero = '') {
-    return new Promise((resolve) => {
+    return new Promise(async (resolve) => {
         // Close edit modal temporarily
         const editModal = document.querySelector('.modal-overlay');
         const wasVisible = editModal && editModal.style.display !== 'none';
         if (editModal) {
             editModal.style.display = 'none';
+        }
+        
+        // Get highest number for the target type
+        let highestNumber = 'Aucun';
+        try {
+            const allInvoicesResult = await window.electron.db.getAllInvoices('MRY');
+            if (allInvoicesResult.success) {
+                const invoices = allInvoicesResult.data;
+                let maxNum = 0;
+                
+                if (newType === 'facture') {
+                    // Find highest facture number
+                    invoices.forEach(inv => {
+                        if (inv.document_type === 'facture' && inv.document_numero) {
+                            const numPart = parseInt(inv.document_numero.split('/')[0]) || 0;
+                            if (numPart > maxNum) maxNum = numPart;
+                        }
+                    });
+                } else if (newType === 'devis') {
+                    // Find highest devis number
+                    invoices.forEach(inv => {
+                        if (inv.document_type === 'devis' && inv.document_numero_devis) {
+                            const numPart = parseInt(inv.document_numero_devis.split('/')[0]) || 0;
+                            if (numPart > maxNum) maxNum = numPart;
+                        }
+                    });
+                }
+                
+                if (maxNum > 0) {
+                    highestNumber = maxNum;
+                }
+            }
+        } catch (error) {
+            console.log('Error getting highest number:', error);
         }
         
         // Create floating input box
@@ -1626,6 +1660,7 @@ function showConvertInputModal(newType, newTypeLabel, prefillNumero = '') {
                        style="width:100%;padding:1rem;background:#2d2d30;border:2px solid #3e3e42;border-radius:8px;color:#fff;font-size:1.1rem;box-sizing:border-box;outline:none;transition:all 0.3s;"
                        onfocus="this.style.borderColor='#2196F3';this.style.background='#1e1e1e';"
                        onblur="this.style.borderColor='#3e3e42';this.style.background='#2d2d30';autoFormatDocumentNumberOnBlur(this);">
+                ${highestNumber !== 'Aucun' ? `<small style="color: #2196F3; font-size: 0.8rem; display: block; margin-top: 0.25rem;">📌 Plus grand numéro: ${highestNumber}</small>` : ''}
             </div>
             
             ${newType === 'facture' ? `
@@ -1860,10 +1895,13 @@ window.convertInvoiceType = async function(invoiceId, currentType) {
         const invoice = result.data;
         console.log('📊 [CONVERT] Invoice data loaded:', invoice);
         
-        // Validate invoice data
-        if (!invoice.client_nom || !invoice.client_ice) {
-            throw new Error('Données client manquantes');
+        // Validate invoice data - at least client name should exist
+        if (!invoice.client_nom || invoice.client_nom.trim() === '') {
+            throw new Error('Données client manquantes - Le nom du client est requis');
         }
+        
+        // ICE is optional, but if it exists, it should be valid
+        const clientIce = invoice.client_ice && invoice.client_ice.trim() !== '' ? invoice.client_ice : '0';
         
         // Get current document number
         let currentNumero = '';
@@ -1927,7 +1965,7 @@ window.convertInvoiceType = async function(invoiceId, currentType) {
             company_code: 'MRY',
             client: {
                 nom: invoice.client_nom || invoice.client?.nom || '',
-                ICE: invoice.client_ice || invoice.client?.ICE || ''
+                ICE: clientIce
             },
             document: {
                 type: newType,

@@ -206,54 +206,65 @@ window.handleDocumentTypeChangeChaimae = async function() {
         if (invoicesResult.success && invoicesResult.data && invoicesResult.data.length > 0) {
             const invoices = invoicesResult.data;
             
-            // Get last main number based on type - filter by type first!
+            // Helper function to extract numeric value from document number
+            const extractNumber = (docNumber) => {
+                if (!docNumber) return 0;
+                // Extract the first number from the document string
+                // Examples: "123/2025" -> 123, "MG456/2025" -> 456, "BC789" -> 789
+                const match = docNumber.toString().match(/\d+/);
+                return match ? parseInt(match[0], 10) : 0;
+            };
+
+            // Get highest main number based on type - filter by type first!
             if (type === 'facture') {
-                // Get only factures and sort by ID descending to get the most recent
+                // Get only factures with document numbers
                 const factures = invoices.filter(inv => inv.document_type === 'facture' && inv.document_numero);
                 if (factures.length > 0) {
-                    // Sort by ID descending to get the latest
-                    factures.sort((a, b) => b.id - a.id);
+                    // Sort by extracted numeric value descending to get the highest number
+                    factures.sort((a, b) => extractNumber(b.document_numero) - extractNumber(a.document_numero));
                     lastNumbers.main = factures[0].document_numero;
                 }
                 
-                // Get last N° Order from factures only
+                // Get highest N° Order from factures only
                 const facturesWithOrder = invoices.filter(inv => inv.document_type === 'facture' && inv.document_numero_Order);
                 if (facturesWithOrder.length > 0) {
-                    facturesWithOrder.sort((a, b) => b.id - a.id);
+                    facturesWithOrder.sort((a, b) => extractNumber(b.document_numero_Order) - extractNumber(a.document_numero_Order));
                     lastNumbers.order = facturesWithOrder[0].document_numero_Order;
                 }
                 
-                // Get last Bon de livraison from factures only
+                // Get highest Bon de livraison from factures only
                 const facturesWithBL = invoices.filter(inv => inv.document_type === 'facture' && inv.document_bon_de_livraison);
                 if (facturesWithBL.length > 0) {
-                    facturesWithBL.sort((a, b) => b.id - a.id);
+                    facturesWithBL.sort((a, b) => extractNumber(b.document_bon_de_livraison) - extractNumber(a.document_bon_de_livraison));
                     lastNumbers.bonLivraison = facturesWithBL[0].document_bon_de_livraison;
                 }
             } else if (type === 'devis') {
-                // Get only devis and sort by ID descending
+                // Get only devis with document numbers
                 const devisList = invoices.filter(inv => inv.document_type === 'devis' && inv.document_numero_devis);
                 if (devisList.length > 0) {
-                    devisList.sort((a, b) => b.id - a.id);
+                    // Sort by extracted numeric value descending to get the highest number
+                    devisList.sort((a, b) => extractNumber(b.document_numero_devis) - extractNumber(a.document_numero_devis));
                     lastNumbers.main = devisList[0].document_numero_devis;
                 }
             } else if (type === 'bon_livraison') {
-                // Get only bon_livraison and sort by ID descending
+                // Get only bon_livraison with document numbers
                 const bonsList = invoices.filter(inv => 
                     (inv.document_type === 'bon_livraison' || inv.document_type === 'bon de livraison') && 
                     (inv.document_numero || inv.document_bon_de_livraison || inv.document_numero_bl)
                 );
                 if (bonsList.length > 0) {
+                    // Sort by ID descending to get the LAST entered number (most recent)
                     bonsList.sort((a, b) => b.id - a.id);
                     lastNumbers.main = bonsList[0].document_numero || bonsList[0].document_bon_de_livraison || bonsList[0].document_numero_bl;
                 }
                 
-                // Get last N° Order from bon_livraison only
+                // Get highest N° Order from bon_livraison only
                 const bonsWithCommande = invoices.filter(inv => 
                     (inv.document_type === 'bon_livraison' || inv.document_type === 'bon de livraison') && 
                     inv.document_numero_commande
                 );
                 if (bonsWithCommande.length > 0) {
-                    bonsWithCommande.sort((a, b) => b.id - a.id);
+                    bonsWithCommande.sort((a, b) => extractNumber(b.document_numero_commande) - extractNumber(a.document_numero_commande));
                     lastNumbers.bonCommande = bonsWithCommande[0].document_numero_commande;
                 }
             }
@@ -280,7 +291,7 @@ window.handleDocumentTypeChangeChaimae = async function() {
                     </button>
                 </div>
                 <small style="color: #999; font-size: 0.85rem;">Ex: 123 → 123/2025</small>
-                ${lastNumbers.main !== 'Aucun' ? `<small style="color: #4caf50; font-size: 0.8rem; display: block; margin-top: 0.25rem;">📌 Dernier numéro: ${lastNumbers.main}</small>` : ''}
+                ${lastNumbers.main !== 'Aucun' ? `<small style="color: #4caf50; font-size: 0.8rem; display: block; margin-top: 0.25rem;">📌 Plus grand numéro: ${lastNumbers.main}</small>` : ''}
             </div>
         `;
         html += '</div>';
@@ -327,7 +338,7 @@ window.handleDocumentTypeChangeChaimae = async function() {
                                style="flex: 1; padding: 0.75rem; background: #2d2d30; border: 2px solid #3e3e42; border-radius: 8px; color: #fff; font-size: 1rem; outline: none;">
                     </div>
                     <small style="color: #999; font-size: 0.85rem; display: block; margin-top: 0.5rem;">Ex: 123 → <span id="simpleOrderPrefixExampleChaimae"></span>123</small>
-                    ${lastNumbers.order !== 'Aucun' ? `<small style="color: #2196f3; font-size: 0.8rem; display: block; margin-top: 0.25rem;">📌 Dernier N° Order: ${lastNumbers.order}</small>` : ''}
+                    ${lastNumbers.order !== 'Aucun' ? `<small style="color: #2196f3; font-size: 0.8rem; display: block; margin-top: 0.25rem;">📌 Plus grand N° Order: ${lastNumbers.order}</small>` : ''}
                 </div>
             </div>
             
@@ -342,7 +353,7 @@ window.handleDocumentTypeChangeChaimae = async function() {
                 <div class="form-field" id="fieldBonLivraisonChaimae" style="display: none;">
                     <label>Bon de livraison</label>
                     <input type="text" id="documentBonLivraisonChaimae" placeholder="Ex: 123">
-                    ${lastNumbers.bonLivraison !== 'Aucun' ? `<small style="color: #4caf50; font-size: 0.8rem; display: block; margin-top: 0.25rem;">📌 Dernier Bon de livraison: ${lastNumbers.bonLivraison}</small>` : ''}
+                    ${lastNumbers.bonLivraison !== 'Aucun' ? `<small style="color: #4caf50; font-size: 0.8rem; display: block; margin-top: 0.25rem;">📌 Plus grand Bon de livraison: ${lastNumbers.bonLivraison}</small>` : ''}
                 </div>
             </div>
         `;
@@ -362,7 +373,7 @@ window.handleDocumentTypeChangeChaimae = async function() {
                     </button>
                 </div>
                 <small style="color: #999; font-size: 0.85rem;">Ex: 123 → 123/2025</small>
-                ${lastNumbers.main !== 'Aucun' ? `<small style="color: #9c27b0; font-size: 0.8rem; display: block; margin-top: 0.25rem;">📌 Dernier numéro: ${lastNumbers.main}</small>` : ''}
+                ${lastNumbers.main !== 'Aucun' ? `<small style="color: #9c27b0; font-size: 0.8rem; display: block; margin-top: 0.25rem;">📌 Plus grand numéro: ${lastNumbers.main}</small>` : ''}
             </div>
         `;
         html += '</div>';
@@ -412,7 +423,7 @@ window.handleDocumentTypeChangeChaimae = async function() {
                     </button>
                 </div>
                 <small style="color: #999; font-size: 0.85rem; display: block; margin-top: 0.5rem;">Ex: 123 → <span id="prefixExampleChaimae">MG</span>123/2025</small>
-                ${lastNumbers.main !== 'Aucun' ? `<small style="color: #ff9800; font-size: 0.8rem; display: block; margin-top: 0.25rem;">📌 Dernier numéro: ${lastNumbers.main}</small>` : ''}
+                ${lastNumbers.main !== 'Aucun' ? `<small style="color: #ff9800; font-size: 0.8rem; display: block; margin-top: 0.25rem;">📌 Dernier numéro saisi: ${lastNumbers.main}</small>` : ''}
             </div>
         `;
         html += '</div>';
@@ -459,7 +470,7 @@ window.handleDocumentTypeChangeChaimae = async function() {
                                style="flex: 1; padding: 0.75rem; background: #2d2d30; border: 2px solid #3e3e42; border-radius: 8px; color: #fff; font-size: 1rem; outline: none;">
                     </div>
                     <small style="color: #999; font-size: 0.85rem; display: block; margin-top: 0.5rem;">Ex: 456 → <span id="orderPrefixExampleChaimae">BC</span>456</small>
-                    ${lastNumbers.bonCommande !== 'Aucun' ? `<small style="color: #ff9800; font-size: 0.8rem; display: block; margin-top: 0.25rem;">📌 Dernier N° Order: ${lastNumbers.bonCommande}</small>` : ''}
+                    ${lastNumbers.bonCommande !== 'Aucun' ? `<small style="color: #ff9800; font-size: 0.8rem; display: block; margin-top: 0.25rem;">📌 Plus grand N° Order: ${lastNumbers.bonCommande}</small>` : ''}
                 </div>
             </div>
         `;
