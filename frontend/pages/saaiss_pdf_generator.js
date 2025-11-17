@@ -108,6 +108,21 @@ window.downloadSAAISSDevisPDF = async function(invoiceId) {
         customizedInvoice.document_numero_devis = customizationData.customDevisNumber;
         customizedInvoice.document_date = customizationData.customDate;
         
+        // Apply percentage to products (but don't show percentage in PDF)
+        if (customizationData.percentage && customizationData.percentage > 0) {
+            customizedInvoice.products = customizedInvoice.products.map(product => ({
+                ...product,
+                prix_unitaire_ht: parseFloat(product.prix_unitaire_ht) * (1 + customizationData.percentage / 100),
+                total_ht: parseFloat(product.total_ht) * (1 + customizationData.percentage / 100)
+            }));
+            // Recalculate totals
+            const newTotalHT = customizedInvoice.products.reduce((sum,p)=> sum + parseFloat(p.total_ht),0);
+            const newMontantTVA = newTotalHT * (parseFloat(customizedInvoice.tva_rate)/100);
+            const newTotalTTC = newTotalHT + newMontantTVA;
+            customizedInvoice.total_ht = newTotalHT;
+            customizedInvoice.montant_tva = newMontantTVA;
+            customizedInvoice.total_ttc = newTotalTTC;
+        }
         // Apply modified product names
         if (customizationData.modifiedProducts) {
             customizedInvoice.products = customizedInvoice.products.map((product, index) => ({
@@ -643,13 +658,13 @@ async function generateSAAISSPDF(doc, invoice, includeZeroProducts = true) {
             const maxWidth = colWidths[0] - 4;
             const descriptionLines = doc.splitTextToSize(product.designation, maxWidth);
             const isZeroProduct = parseFloat(product.quantite) === 0 || parseFloat(product.prix_unitaire_ht) === 0;
-            const quantityText = includeZeroProducts || !isZeroProduct ? product.quantite : '0';
+            const quantityText = includeZeroProducts || !isZeroProduct ? product.quantite : '';
             const unitPriceText = includeZeroProducts || !isZeroProduct
                 ? formatNumberForPDF(product.prix_unitaire_ht) + ' DH'
-                : '0.00 DH';
+                : '';
             const totalHtText = includeZeroProducts || !isZeroProduct
                 ? formatNumberForPDF(product.total_ht) + ' DH'
-                : '0.00 DH';
+                : '';
 
             let lineIndex = 0;
 

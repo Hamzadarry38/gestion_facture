@@ -1,4 +1,14 @@
 {
+  "1.1.27": {
+    "ar": [
+      "✨ إضافة دعم النسبة المئوية لأسعار المنتجات في PDF SAAISS لشركتي MRY و MULTI",
+      "🐛 إصلاح إخفاء قيم المنتجات الصفرية في ملفات PDF SKM/SAAISS عند اختيار خيار الإخفاء"
+    ],
+    "fr": [
+      "✨ Ajout du support du pourcentage d'ajustement des prix dans les PDFs SAAISS pour les sociétés MRY et MULTI",
+      "🐛 Correction de l'affichage des produits à valeur zéro dans les PDFs SKM/SAAISS lorsque l'option masquer est sélectionnée"
+    ]
+  },
   "1.1.26": {
     "ar": [
       "🐛 حل مشكلة إضافة السنة /2025 إلى حقل N° Order عند التحويل من Devis إلى Facture",

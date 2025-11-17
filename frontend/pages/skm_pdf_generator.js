@@ -30,6 +30,7 @@ window.downloadSKMDevisPDF = async function(invoiceId) {
         
         let includeZeroProducts = true; // Default: include all products
         
+        console.log('⚙️ hasZeroProducts =', hasZeroProducts);
         if (hasZeroProducts) {
             includeZeroProducts = await new Promise((resolve) => {
                 const overlay = document.createElement('div');
@@ -89,6 +90,7 @@ window.downloadSKMDevisPDF = async function(invoiceId) {
         }
         
         // Show simple customization modal
+        console.log('➡️ includeZeroProducts chosen =', includeZeroProducts);
         const customizationData = await showSimpleSKMModal(invoice);
         if (!customizationData) {
             console.log('❌ User cancelled SKM PDF generation');
@@ -155,6 +157,7 @@ window.downloadSKMDevisPDF = async function(invoiceId) {
         }
         
         // Generate SKM PDF with special design
+        console.log('🛠️ Calling generateSKMPDF with includeZeroProducts =', includeZeroProducts);
         await generateSKMPDF(doc, customizedInvoice, includeZeroProducts);
         
         // Save the PDF
@@ -741,13 +744,13 @@ async function generateSKMPDF(doc, invoice, includeZeroProducts = true) {
             
             // Row data with zero handling (fixed per product)
             const isZeroProduct = parseFloat(product.quantite) === 0 || parseFloat(product.prix_unitaire_ht) === 0;
-            const quantityText = includeZeroProducts || !isZeroProduct ? product.quantite : '0';
+            const quantityText = includeZeroProducts || !isZeroProduct ? product.quantite : '';
             const unitPriceText = includeZeroProducts || !isZeroProduct
                 ? formatNumberForPDF(product.prix_unitaire_ht) + ' DH'
-                : '0.00 DH';
+                : '';
             const totalHtText = includeZeroProducts || !isZeroProduct
                 ? formatNumberForPDF(product.total_ht) + ' DH'
-                : '0.00 DH';
+                : '';
 
             let lineIndex = 0;
 

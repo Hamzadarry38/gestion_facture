@@ -902,7 +902,7 @@ window.viewInvoice = async function(id) {
                     </svg>
                     <h2 style="color:#fff;margin:0;font-size:1.3rem;font-weight:600;">Détails de la ${typeLabel} #${docNumber}</h2>
                 </div>
-                <div style="display:flex;align-items:center;gap:1rem;">
+                <div style="display:flex;align-items:center;gap:1rem;flex-wrap:wrap;">
                     <button onclick="downloadInvoicePDF(${id})" style="padding:0.6rem 1.2rem;background:#2196F3;color:#fff;border:none;border-radius:8px;cursor:pointer;font-size:0.9rem;font-weight:600;display:flex;align-items:center;gap:0.5rem;transition:all 0.2s;" onmouseover="this.style.background='#1976D2'" onmouseout="this.style.background='#2196F3'">
                         <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
                             <path d="M.5 9.9a.5.5 0 0 1 .5.5v2.5a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-2.5a.5.5 0 0 1 1 0v2.5a2 2 0 0 1-2 2H2a2 2 0 0 1-2-2v-2.5a.5.5 0 0 1 .5-.5z"/>
@@ -933,7 +933,7 @@ window.viewInvoice = async function(id) {
                         Télécharger le PDF SAAISS
                     </button>
                     ` : ''}
-                    <button id="closeViewModal" onclick="console.log('🔴🔴🔴 [BUTTON] Close button X clicked directly from HTML!');" style="background:none;border:none;color:#999;cursor:pointer;font-size:1.5rem;padding:0;width:32px;height:32px;display:flex;align-items:center;justify-content:center;border-radius:4px;transition:all 0.2s;" onmouseover="this.style.background='#3e3e42';this.style.color='#fff'" onmouseout="this.style.background='none';this.style.color='#999'">×</button>
+                    <button id="closeViewModal" style="background:none;border:none;color:#999;cursor:pointer;font-size:1.5rem;padding:0;width:32px;height:32px;display:flex;align-items:center;justify-content:center;border-radius:4px;transition:all 0.2s;margin-left:auto;" onmouseover="this.style.background='#3e3e42';this.style.color='#fff'" onmouseout="this.style.background='none';this.style.color='#999'">×</button>
                 </div>
             </div>
             

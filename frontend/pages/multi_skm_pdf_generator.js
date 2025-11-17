@@ -749,7 +749,7 @@ async function generateSKMPDF(doc, invoice, includeZeroProducts = true) {
         // Show all products but display zeros based on user choice
         const productsToShow = invoice.products;
         
-        console.log(`📦 Showing ${productsToShow.length} products with zero handling: ${includeZeroProducts ? 'Show zeros' : 'Display as 0.00'}`);
+        console.log(`📦 Showing ${productsToShow.length} products with zero handling: ${includeZeroProducts ? 'Show zeros' : 'Hide zeros'}`);
         
         productsToShow.forEach((product, index) => {
             const maxWidth = colWidths[0] - 4; // Description column width
@@ -757,13 +757,13 @@ async function generateSKMPDF(doc, invoice, includeZeroProducts = true) {
             
             // Row data with zero handling (fixed per product)
             const isZeroProduct = parseFloat(product.quantite) === 0 || parseFloat(product.prix_unitaire_ht) === 0;
-            const quantityText = includeZeroProducts || !isZeroProduct ? product.quantite : '0';
+            const quantityText = includeZeroProducts || !isZeroProduct ? product.quantite : '';
             const unitPriceText = includeZeroProducts || !isZeroProduct
                 ? formatNumberForPDF(product.prix_unitaire_ht) + ' DH'
-                : '0.00 DH';
+                : '';
             const totalHtText = includeZeroProducts || !isZeroProduct
                 ? formatNumberForPDF(product.total_ht) + ' DH'
-                : '0.00 DH';
+                : '';
 
             let lineIndex = 0;
 
