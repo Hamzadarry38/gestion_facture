@@ -565,88 +565,99 @@ async function generateSAAISSPDF(doc, invoice, includeZeroProducts = true) {
         // Add header to first page
         addSAAISSHeader();
         
-        // Client info section - New elegant design without frame
-        const addClientInfoSection = () => {
-            const infoY = currentY;
+        // Function to add header section (DEVIS, N°, DATE, CLIENT)
+        const addHeaderSection = () => {
+            // Add "DEVIS" title at top
+            doc.setFontSize(14);
+            doc.setFont(undefined, 'bold');
+            doc.setTextColor(0, 0, 0);
+            doc.text('DEVIS', 20, currentY);
             
-            // Left column - Client info (CLIENT label + name on same line)
+            // Date on the right
+            doc.setFontSize(9);
+            doc.setFont(undefined, 'bold');
+            const dateStr = new Date(invoice.document_date).toLocaleDateString('fr-FR');
+            doc.text(`DATE : ${dateStr}`, pageWidth - 20, currentY, { align: 'right' });
+            
+            currentY += 6;
+            
+            // Devis number on the left (below DEVIS)
+            doc.setFontSize(9);
+            doc.setFont(undefined, 'bold');
+            doc.text(`N°: ${invoice.document_numero_devis}`, 20, currentY);
+            currentY += 10;
+            
+            // Client info section - in a box with rounded corners
+            const boxX = 20;
+            const boxY = currentY;
+            const boxWidth = 100;
+            const boxHeight = 20;
+            const borderRadius = 2;
+            
+            // Draw rounded rectangle border
+            doc.setDrawColor(0, 0, 0);
+            doc.setLineWidth(0.5);
+            doc.roundedRect(boxX, boxY, boxWidth, boxHeight, borderRadius, borderRadius);
+            
+            // Client info inside box
             doc.setFontSize(10);
             doc.setFont(undefined, 'bold');
-            doc.setTextColor(0, 0, 0); // Black color for labels
-            doc.text('CLIENT:', 20, infoY);
+            doc.setTextColor(0, 0, 0);
+            doc.text(`CLIENT :${invoice.client_nom}`, boxX + 3, boxY + 6);
             
-            doc.setFont(undefined, 'normal');
-            doc.setTextColor(0, 0, 0); // Black text
-            doc.setFontSize(11);
-            doc.text(invoice.client_nom, 50, infoY); // Name next to CLIENT label
-            
-            // ICE below client name
             if (invoice.client_ice && invoice.client_ice !== '0') {
-                doc.setFontSize(10);
-                doc.setFont(undefined, 'normal');
-                doc.setTextColor(0, 0, 0); // Black for ICE
-                doc.text('ICE: ' + invoice.client_ice, 20, infoY + 7);
+                doc.setFontSize(8);
+                doc.setFont(undefined, 'bold');
+                doc.text(`ICE:${invoice.client_ice}`, boxX + 3, boxY + 13);
             }
             
-            // Right column - Date (on the right side)
-            doc.setFontSize(10);
-            doc.setFont(undefined, 'bold');
-            doc.setTextColor(0, 0, 0); // Black
-            doc.text('DATE:', pageWidth - 60, infoY);
-            
-            doc.setFont(undefined, 'normal');
-            doc.setTextColor(0, 0, 0); // Black text
-            doc.setFontSize(11);
-            doc.text(new Date(invoice.document_date).toLocaleDateString('fr-FR'), pageWidth - 30, infoY, { align: 'right' });
-            
-            // No separator line - clean design
-            currentY += 20;
+            currentY += boxHeight + 8;
         };
         
-        addClientInfoSection();
+        addHeaderSection();
         
-        // Add Devis number near table (LARGE and prominent)
-        const addDevisNumberSection = () => {
-            doc.setFontSize(14); // Much larger
-            doc.setFont(undefined, 'bold');
-            doc.setTextColor(0, 0, 0); // Black color
-            doc.text('N° Devis: ' + invoice.document_numero_devis, 20, currentY + 3);
-            currentY += 10;
-        };
-        
-        addDevisNumberSection();
-        
-        // Table setup with new design
-        const tableHeaders = ['Désignation', 'Qté', 'Prix U. HT', 'Total HT'];
-        const colWidths = [95, 20, 30, 30];
-        const colPositions = [20, 115, 135, 165];
+        // Table setup with new design - matching image exactly
+        const tableHeaders = ['QTE', 'DESCRIPTION', 'PRIX HT', 'TOTAL HT'];
+        const colWidths = [25, 95, 25, 30];
+        const colPositions = [20, 45, 140, 165];
+        const tableEndX = 195;
         
         const addCompleteTableSection = () => {
             const tableStartY = currentY;
             
-            // New table header design with orange background
-            doc.setFillColor(255, 140, 0); // Orange header
-            doc.rect(20, currentY, 175, 12, 'F');
+            // Simple black borders header - matching SKM design
+            doc.setDrawColor(0, 0, 0);
+            doc.setLineWidth(0.3);
+            doc.rect(20, currentY, 175, 8);
             
-            // Header text - white on orange
-            doc.setTextColor(255, 255, 255); // White text
+            // Header text - black on white
+            doc.setTextColor(0, 0, 0); // Black text
             doc.setFont(undefined, 'bold');
-            doc.setFontSize(11);
+            doc.setFontSize(9);
             
             tableHeaders.forEach((header, index) => {
                 const align = index > 0 ? 'right' : 'left';
                 const x = align === 'right' ? colPositions[index] + colWidths[index] - 2 : colPositions[index] + 2;
-                doc.text(header, x, currentY + 8, { align });
+                doc.text(header, x, currentY + 6, { align });
             });
             
-            currentY += 12;
+            // Draw vertical lines for columns
+            let xPos = 20;
+            colWidths.forEach((width, index) => {
+                if (index < colWidths.length - 1) {
+                    xPos += width;
+                    doc.line(xPos, currentY, xPos, currentY + 8);
+                }
+            });
+            
+            currentY += 8;
             return tableStartY;
         };
         
         const firstTableStartY = addCompleteTableSection();
         
         // Process products
-        doc.setTextColor(...textColor);
+        doc.setTextColor(0, 0, 0); // Black text
         doc.setFont(undefined, 'normal');
         doc.setFontSize(9);
         
@@ -682,10 +693,9 @@ async function generateSAAISSPDF(doc, invoice, includeZeroProducts = true) {
                     doc.addPage();
                     pageCount++;
                     addSAAISSHeader();
-                    addClientInfoSection();
-                    addDevisNumberSection();
+                    addHeaderSection();
                     currentSegmentStart = addCompleteTableSection();
-                    doc.setTextColor(...textColor);
+                    doc.setTextColor(0, 0, 0); // Black text
                     doc.setFont(undefined, 'normal');
                     doc.setFontSize(9);
 
@@ -700,39 +710,42 @@ async function generateSAAISSPDF(doc, invoice, includeZeroProducts = true) {
 
                 const rowY = currentY;
 
-                // Alternate row background color for better readability (per product)
-                const isEvenRow = index % 2 === 0;
-                if (isEvenRow) {
-                    doc.setFillColor(245, 245, 245); // Light gray background
-                    doc.rect(20, rowY, 175, rowHeight, 'F');
-                }
-
                 // Set text color for row
-                doc.setTextColor(...textColor);
+                doc.setTextColor(0, 0, 0); // Black text
                 doc.setFont(undefined, 'normal');
                 doc.setFontSize(9);
 
-                // Draw description chunk (only the lines that fit on this page)
+                // Draw quantity in first column
+                doc.text(quantityText, colPositions[0] + 2, rowY + 6, { align: 'left' });
+                
+                // Draw description chunk in second column (only the lines that fit on this page)
                 const descriptionChunk = descriptionLines.slice(lineIndex, lineIndex + linesForThisRow);
                 descriptionChunk.forEach((line, chunkIndex) => {
-                    doc.text(line, colPositions[0] + 2, rowY + 6 + (chunkIndex * 4));
+                    doc.text(line, colPositions[1] + 2, rowY + 6 + (chunkIndex * 4));
                 });
 
-                // Draw quantity, unit price and total for this visual row
-                const otherColumns = [quantityText, unitPriceText, totalHtText];
+                // Draw unit price and total for this visual row
+                const otherColumns = [unitPriceText, totalHtText];
                 otherColumns.forEach((data, offset) => {
-                    const colIndex = offset + 1; // columns 1,2,3
-                    const align = colIndex > 1 ? 'right' : 'left';
-                    const x = align === 'right'
-                        ? colPositions[colIndex] + colWidths[colIndex] - 2
-                        : colPositions[colIndex] + 2;
+                    const colIndex = offset + 2; // columns 2,3
+                    const align = 'right';
+                    const x = colPositions[colIndex] + colWidths[colIndex] - 2;
                     doc.text(data, x, rowY + 6, { align });
                 });
 
                 // Bottom border for this visual row
-                doc.setDrawColor(200, 200, 200); // Light gray border
-                doc.setLineWidth(0.2);
+                doc.setDrawColor(0, 0, 0); // Black border
+                doc.setLineWidth(0.3);
                 doc.line(20, rowY + rowHeight, 195, rowY + rowHeight);
+                
+                // Draw vertical lines for columns
+                let xPos = 20;
+                colWidths.forEach((width, index) => {
+                    if (index < colWidths.length - 1) {
+                        xPos += width;
+                        doc.line(xPos, rowY, xPos, rowY + rowHeight);
+                    }
+                });
 
                 currentY += rowHeight;
                 lineIndex += linesForThisRow;
@@ -762,53 +775,49 @@ async function generateSAAISSPDF(doc, invoice, includeZeroProducts = true) {
             invoice.total_ttc = displayedTotalTTC;
         }
         
-        const totalsX = pageWidth - 95;
-        const totalsWidth = 90;
-        const totalsHeight = 35;
         const totalsStartY = currentY;
+        const totalsX = 140; // Start position for totals (right side)
+        const totalsWidth = 55; // Width of totals box
         
-        // New elegant totals design with orange header
-        doc.setFillColor(255, 140, 0); // Orange header
-        doc.rect(totalsX - 10, totalsStartY - 5, totalsWidth, 8, 'F');
-        
-        // Header text
-        doc.setFontSize(10);
-        doc.setFont(undefined, 'bold');
-        doc.setTextColor(255, 255, 255); // White text
-        doc.text('RÉSUMÉ', totalsX - 5, totalsStartY + 1);
-        
-        // White background for totals
-        doc.setFillColor(255, 255, 255);
-        doc.rect(totalsX - 10, totalsStartY + 3, totalsWidth, totalsHeight - 8, 'F');
-        
-        // Border
-        doc.setDrawColor(255, 140, 0); // Orange border
-        doc.setLineWidth(1);
-        doc.rect(totalsX - 10, totalsStartY - 5, totalsWidth, totalsHeight);
-        
-        // Totals content
-        doc.setFontSize(10);
-        doc.setFont(undefined, 'normal');
-        doc.setTextColor(...textColor);
-        
-        doc.text('Total HT:', totalsX - 5, totalsStartY + 10);
-        doc.text(formatNumberForPDF(invoice.total_ht) + ' DH', totalsX + 75, totalsStartY + 10, { align: 'right' });
-        
-        doc.text(`TVA (${invoice.tva_rate}%):`, totalsX - 5, totalsStartY + 17);
-        doc.text(formatNumberForPDF(invoice.montant_tva) + ' DH', totalsX + 75, totalsStartY + 17, { align: 'right' });
-        
-        // Total TTC - highlighted
-        doc.setFontSize(12);
-        doc.setFont(undefined, 'bold');
-        doc.setTextColor(0, 0, 0); // Black color
-        doc.text('Total TTC:', totalsX - 5, totalsStartY + 26);
-        doc.text(formatNumberForPDF(invoice.total_ttc) + ' DH', totalsX + 75, totalsStartY + 26, { align: 'right' });
-        
-        // Draw borders and add footers
-        const totalPages = pageCount;
-        
+        // Row 1: TOTALE H.T
         doc.setDrawColor(0, 0, 0);
-        doc.setLineWidth(0.5);
+        doc.setLineWidth(0.3);
+        doc.line(totalsX, totalsStartY, totalsX + totalsWidth, totalsStartY); // Top border
+        doc.line(totalsX, totalsStartY, totalsX, totalsStartY + 8); // Left border
+        doc.line(totalsX + totalsWidth, totalsStartY, totalsX + totalsWidth, totalsStartY + 8); // Right border
+        doc.line(totalsX + 25, totalsStartY, totalsX + 25, totalsStartY + 8); // Middle vertical separator
+        doc.setTextColor(0, 0, 0);
+        doc.setFont(undefined, 'bold');
+        doc.setFontSize(8);
+        doc.text('TOTALE H.T', totalsX + 2, totalsStartY + 5.5);
+        doc.text(formatNumberForPDF(invoice.total_ht) + ' DH', totalsX + totalsWidth - 2, totalsStartY + 5.5, { align: 'right' });
+        doc.line(totalsX, totalsStartY + 8, totalsX + totalsWidth, totalsStartY + 8); // Bottom border
+        
+        // Row 2: TVA
+        const tvaY = totalsStartY + 8;
+        doc.line(totalsX, tvaY, totalsX + totalsWidth, tvaY); // Top border
+        doc.line(totalsX, tvaY, totalsX, tvaY + 8); // Left border
+        doc.line(totalsX + totalsWidth, tvaY, totalsX + totalsWidth, tvaY + 8); // Right border
+        doc.line(totalsX + 25, tvaY, totalsX + 25, tvaY + 8); // Middle vertical separator
+        doc.setTextColor(0, 0, 0);
+        doc.setFont(undefined, 'normal');
+        doc.setFontSize(8);
+        doc.text(`TVA ${invoice.tva_rate}%`, totalsX + 2, tvaY + 5.5);
+        doc.text(formatNumberForPDF(invoice.montant_tva) + ' DH', totalsX + totalsWidth - 2, tvaY + 5.5, { align: 'right' });
+        doc.line(totalsX, tvaY + 8, totalsX + totalsWidth, tvaY + 8); // Bottom border
+        
+        // Row 3: TOTALE T.T.C
+        const ttcY = tvaY + 8;
+        doc.line(totalsX, ttcY, totalsX + totalsWidth, ttcY); // Top border
+        doc.line(totalsX, ttcY, totalsX, ttcY + 8); // Left border
+        doc.line(totalsX + totalsWidth, ttcY, totalsX + totalsWidth, ttcY + 8); // Right border
+        doc.line(totalsX + 25, ttcY, totalsX + 25, ttcY + 8); // Middle vertical separator
+        doc.setTextColor(0, 0, 0);
+        doc.setFont(undefined, 'bold');
+        doc.setFontSize(8);
+        doc.text('TOTALE T.T.C', totalsX + 2, ttcY + 5.5);
+        doc.text(formatNumberForPDF(invoice.total_ttc) + ' DH', totalsX + totalsWidth - 2, ttcY + 5.5, { align: 'right' });
+        doc.line(totalsX, ttcY + 8, totalsX + totalsWidth, ttcY + 8); // Bottom border
         
         tableSegments.forEach(segment => {
             doc.setPage(segment.page);
@@ -822,6 +831,8 @@ async function generateSAAISSPDF(doc, invoice, includeZeroProducts = true) {
                 }
             });
         });
+        
+        const totalPages = pageCount;
         
         for (let i = 1; i <= totalPages; i++) {
             doc.setPage(i);

@@ -664,7 +664,7 @@ async function generateSKMPDF(doc, invoice, includeZeroProducts = true) {
             const dateStr = new Date(invoice.document_date).toLocaleDateString('fr-FR');
             
             doc.setFontSize(12);
-            doc.setTextColor(...textColor);
+            doc.setTextColor(0, 0, 0); // Black color
             doc.setFont(undefined, 'bold');
             
             // Client name on the left
@@ -677,6 +677,7 @@ async function generateSKMPDF(doc, invoice, includeZeroProducts = true) {
             // ICE number if exists - FORCE display
             doc.setFont(undefined, 'normal');
             doc.setFontSize(10);
+            doc.setTextColor(0, 0, 0); // Black color
             const iceValue = invoice.client_ice && invoice.client_ice !== '0' ? invoice.client_ice : 'Non spécifié';
             doc.text(`ICE: ${iceValue}`, 20, currentY);
             currentY += 6; // Reduced space
@@ -686,7 +687,7 @@ async function generateSKMPDF(doc, invoice, includeZeroProducts = true) {
             // Devis number at the bottom before table
             doc.setFontSize(14);
             doc.setFont(undefined, 'bold');
-            doc.setTextColor(...primaryColor);
+            doc.setTextColor(0, 0, 0); // Black color
             doc.text(`N° Devis: ${invoice.document_numero_devis}`, 20, currentY);
             currentY += 10; // Reduced space
         };
@@ -694,23 +695,48 @@ async function generateSKMPDF(doc, invoice, includeZeroProducts = true) {
         // Add client info section to first page
         addClientInfoSection();
         
-        // Products table - clean design (remove N° column)
-        const tableHeaders = ['Désignation', 'Qté', 'Prix U. HT', 'Total HT'];
-        const colWidths = [95, 20, 30, 30];
-        const colPositions = [20, 115, 135, 165];
+        // Products table - matching image design
+        const tableHeaders = ['DESCRIPTION', 'QTE', 'PRIX HT', 'TOTAL HT'];
+        const colWidths = [95, 25, 25, 30];  // TOTAL width reduced from 50 to 30
+        const colPositions = [20, 115, 140, 165];
+        const tableEndX = 195; // Right edge of table
         
-        // Function to add table header (exactly like first page)
+        console.log('📊 TABLE CONFIG:');
+        console.log('  colPositions:', colPositions);
+        console.log('  colWidths:', colWidths);
+        console.log('  Column 4 (TOTAL): start=' + colPositions[3] + ', width=' + colWidths[3] + ', end=' + (colPositions[3] + colWidths[3]));
+        console.log('  Table end: ' + tableEndX);
+        
+        // Function to add table header (simple black borders)
         const addTableHeader = () => {
-            doc.setFillColor(255, 182, 193); // Light red/pink header
-            doc.rect(20, currentY, 175, 10, 'F');
+            // Draw header row with black borders
+            doc.setDrawColor(0, 0, 0);
+            doc.setLineWidth(0.5);
             
-            doc.setTextColor(0, 0, 0); // Black text on light red
+            // Top border
+            doc.line(20, currentY, 195, currentY);
+            
+            // Draw each header cell with borders
+            doc.setTextColor(0, 0, 0);
             doc.setFont(undefined, 'bold');
             doc.setFontSize(10);
             
             tableHeaders.forEach((header, index) => {
-                doc.text(header, colPositions[index] + 2, currentY + 7);
+                const x = colPositions[index];
+                const width = colWidths[index];
+                
+                // Right border for each column
+                doc.line(x + width, currentY, x + width, currentY + 10);
+                
+                // Text
+                doc.text(header, x + 2, currentY + 7);
             });
+            
+            // Left border
+            doc.line(20, currentY, 20, currentY + 10);
+            
+            // Bottom border
+            doc.line(20, currentY + 10, 195, currentY + 10);
             
             currentY += 10;
         };
@@ -805,16 +831,34 @@ async function generateSKMPDF(doc, invoice, includeZeroProducts = true) {
                 const otherColumns = [quantityText, unitPriceText, totalHtText];
                 otherColumns.forEach((data, offset) => {
                     const colIndex = offset + 1; // 1, 2, 3
+                    const x = colPositions[colIndex];
+                    const width = colWidths[colIndex];
+                    
+                    // Use same positioning as header: x + 2 for left align, x + width - 2 for right align
                     const align = colIndex > 1 ? 'right' : 'left';
-                    const x = align === 'right'
-                        ? colPositions[colIndex] + colWidths[colIndex] - 2
-                        : colPositions[colIndex] + 2;
-                    doc.text(data, x, rowY + 5, { align });
+                    const textX = align === 'right' ? x + width - 2 : x + 2;
+                    
+                    doc.setFontSize(8);
+                    doc.text(data, textX, rowY + 5, { align });
+                    doc.setFontSize(9);
                 });
 
-                // Add horizontal line after this visual row
+                // Add borders around this row
                 doc.setDrawColor(0, 0, 0);
-                doc.setLineWidth(0.3);
+                doc.setLineWidth(0.5);
+                
+                // Left border
+                doc.line(20, rowY, 20, rowY + rowHeight);
+                
+                // Right border
+                doc.line(195, rowY, 195, rowY + rowHeight);
+                
+                // Column separators (vertical lines between columns)
+                colPositions.slice(1).forEach(x => {
+                    doc.line(x, rowY, x, rowY + rowHeight);
+                });
+                
+                // Bottom border
                 doc.line(20, rowY + rowHeight, 195, rowY + rowHeight);
 
                 currentY += rowHeight;
@@ -832,7 +876,7 @@ async function generateSKMPDF(doc, invoice, includeZeroProducts = true) {
         // Return to last page for totals
         doc.setPage(pageCount);
         
-        currentY += 10; // Reduced space after table
+        // No space - totals connect directly to table
         
         // Recalculate totals based on displayed products
         let displayedTotalHT = 0;
@@ -849,48 +893,49 @@ async function generateSKMPDF(doc, invoice, includeZeroProducts = true) {
             console.log(`💰 Recalculated totals - HT: ${displayedTotalHT}, TTC: ${displayedTotalTTC}`);
         }
         
-        // Totals section with elegant design (matching SAAISS style)
-        const totalsX = pageWidth - 95;
-        const totalsWidth = 90;
-        const totalsHeight = 35;
+        // Totals section - matching image design exactly
         const totalsStartY = currentY;
         
-        // New elegant totals design with pink/red header (SKM brand color)
-        doc.setFillColor(255, 182, 193); // Light pink header (SKM brand)
-        doc.rect(totalsX - 10, totalsStartY - 5, totalsWidth, 8, 'F');
+        // Draw totals table with simple borders
+        doc.setDrawColor(0, 0, 0);
+        doc.setLineWidth(0.5);
         
-        // Header text
-        doc.setFontSize(10);
-        doc.setFont(undefined, 'bold');
-        doc.setTextColor(0, 0, 0); // Black text
-        doc.text('RÉSUMÉ', totalsX - 5, totalsStartY + 1);
-        
-        // White background for totals
-        doc.setFillColor(255, 255, 255);
-        doc.rect(totalsX - 10, totalsStartY + 3, totalsWidth, totalsHeight - 8, 'F');
-        
-        // Border
-        doc.setDrawColor(255, 182, 193); // Pink border (SKM brand)
-        doc.setLineWidth(1);
-        doc.rect(totalsX - 10, totalsStartY - 5, totalsWidth, totalsHeight);
-        
-        // Totals content
-        doc.setFontSize(10);
+        // PRIX H.T row
+        doc.setFontSize(9);
         doc.setFont(undefined, 'normal');
-        doc.setTextColor(...textColor);
+        doc.setTextColor(0, 0, 0);
         
-        doc.text('Total HT:', totalsX - 5, totalsStartY + 10);
-        doc.text(formatNumberForPDF(invoice.total_ht) + ' DH', totalsX + 75, totalsStartY + 10, { align: 'right' });
+        // Debug: Log column positions and widths
+        console.log('📊 TABLE DIMENSIONS:');
+        console.log('  colPositions:', colPositions);
+        console.log('  colWidths:', colWidths);
+        console.log('  Column 3 (P.): start=' + colPositions[2] + ', width=' + colWidths[2] + ', end=' + (colPositions[2] + colWidths[2]));
+        console.log('  Column 4 (TOTAL): start=' + colPositions[3] + ', width=' + colWidths[3] + ', end=' + (colPositions[3] + colWidths[3]));
         
-        doc.text(`TVA (${invoice.tva_rate}%):`, totalsX - 5, totalsStartY + 17);
-        doc.text(formatNumberForPDF(invoice.montant_tva) + ' DH', totalsX + 75, totalsStartY + 17, { align: 'right' });
+        // Row 1: PRIX H.T
+        doc.line(20, totalsStartY, 195, totalsStartY); // Top border
+        doc.line(20, totalsStartY, 20, totalsStartY + 8); // Left border
+        doc.line(195, totalsStartY, 195, totalsStartY + 8); // Right border - vertical line on far right
+        doc.text('PRIX H.T', 145, totalsStartY + 6);
+        doc.text(formatNumberForPDF(invoice.total_ht), 192, totalsStartY + 6, { align: 'right' });
+        doc.line(20, totalsStartY + 8, 195, totalsStartY + 8); // Bottom border
         
-        // Total TTC - highlighted
-        doc.setFontSize(12);
+        // Row 2: TVA
+        const tvaY = totalsStartY + 8;
+        doc.line(20, tvaY, 20, tvaY + 8); // Left border
+        doc.line(195, tvaY, 195, tvaY + 8); // Right border - vertical line on far right
+        doc.text(`TVA ${invoice.tva_rate}%`, 145, tvaY + 6);
+        doc.text(formatNumberForPDF(invoice.montant_tva), 192, tvaY + 6, { align: 'right' });
+        doc.line(20, tvaY + 8, 195, tvaY + 8); // Bottom border
+        
+        // Row 3: PRIX T.T.C
+        const ttcY = tvaY + 8;
         doc.setFont(undefined, 'bold');
-        doc.setTextColor(0, 0, 0); // Black color
-        doc.text('Total TTC:', totalsX - 5, totalsStartY + 26);
-        doc.text(formatNumberForPDF(invoice.total_ttc) + ' DH', totalsX + 75, totalsStartY + 26, { align: 'right' });
+        doc.line(20, ttcY, 20, ttcY + 8); // Left border
+        doc.line(195, ttcY, 195, ttcY + 8); // Right border - vertical line on far right
+        doc.text('PRIX T.T.C', 145, ttcY + 6);
+        doc.text(formatNumberForPDF(invoice.total_ttc), 192, ttcY + 6, { align: 'right' });
+        doc.line(20, ttcY + 8, 195, ttcY + 8); // Bottom border
         
         // Calculate total pages
         const totalPages = pageCount;

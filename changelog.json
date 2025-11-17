@@ -1,4 +1,12 @@
 {
+  "1.1.28": {
+  "ar": [
+    "🎨 تحسين تصميم PDF لشركتي SKM و SAAISS"
+  ],
+  "fr": [
+    "🎨 Amélioration de la conception des PDF pour les sociétés SKM et SAAISS"
+  ]
+} ,
   "1.1.27": {
     "ar": [
       "✨ إضافة دعم النسبة المئوية لأسعار المنتجات في PDF SAAISS لشركتي MRY و MULTI",
