@@ -132,6 +132,12 @@ class Router {
                 console.error('❌ Router: initInvoicesListMultiPage function not found!');
             }
             
+            // Generic invoices list (works for MRY and MULTI)
+            if ((path === '/invoices-list-mry' || path === '/invoices-list-multi') && typeof window.initInvoicesListGenericPage === 'function') {
+                console.log('✅ Router: Calling initInvoicesListGenericPage for', path);
+                window.initInvoicesListGenericPage();
+            }
+            
             if (path === '/edit-invoice-multi' && typeof window.initEditInvoiceMultiPage === 'function') {
                 console.log('✅ Router: Calling initEditInvoiceMultiPage');
                 window.initEditInvoiceMultiPage();

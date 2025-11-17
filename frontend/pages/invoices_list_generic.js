@@ -1,11 +1,36 @@
-// MRY Invoices List Page
-function InvoicesListMRYPage() {
+// Generic Invoices List Page (MRY & MULTI)
+let currentCompany = 'MRY'; // Will be set by router
+
+function InvoicesListGenericPage() {
+    // Determine company from URL or default to MRY
+    const urlParams = new URLSearchParams(window.location.search);
+    currentCompany = urlParams.get('company') || sessionStorage.getItem('current_company') || 'MRY';
+    sessionStorage.setItem('current_company', currentCompany);
+    
+    // Company configuration
+    const companyConfig = {
+        'MRY': {
+            logo: 'assets/logos/mry.png',
+            name: 'MRY TRAV SARL (AU)',
+            yearKey: 'mry_current_year',
+            dbName: 'MRY'
+        },
+        'MULTI': {
+            logo: 'assets/logos/multi.png',
+            name: 'MULTI',
+            yearKey: 'multi_current_year',
+            dbName: 'MULTI'
+        }
+    };
+    
+    const config = companyConfig[currentCompany] || companyConfig['MRY'];
+    
     return `
         <div class="desktop-app">
             <div class="window-header">
                 <div class="window-title">
-                    <img src="assets/logos/mry.png" class="header-logo" alt="MRY Company" data-asset="assets/logos/mry.png">
-                    <span>Liste des Factures - MRY TRAV SARL (AU)</span>
+                    <img src="${config.logo}" class="header-logo" alt="${currentCompany} Company" data-asset="${config.logo}">
+                    <span>Liste des Factures - ${config.name}</span>
                 </div>
                 <div class="window-controls">
                     <button class="control-btn reload" title="Recharger la page">
@@ -38,22 +63,22 @@ function InvoicesListMRYPage() {
                     <div class="list-header">
                         <h1>📋 Liste des Factures et Devis</h1>
                         <div class="header-actions">
-                            <button id="changeYearBtnMRY" onclick="router.navigate('/year-selector-mry')" style="background: #2d2d30; color: white; padding: 0.75rem 1.5rem; border: 2px solid #667eea; border-radius: 6px; cursor: pointer; font-weight: 600; display: flex; align-items: center; gap: 0.5rem; transition: all 0.3s; margin-right: 1rem;" onmouseover="this.style.background='#3e3e42'" onmouseout="this.style.background='#2d2d30'">
+                            <button id="changeYearBtn" onclick="navigateYearSelector()" style="background: #2d2d30; color: white; padding: 0.75rem 1.5rem; border: 2px solid #667eea; border-radius: 6px; cursor: pointer; font-weight: 600; display: flex; align-items: center; gap: 0.5rem; transition: all 0.3s; margin-right: 1rem;" onmouseover="this.style.background='#3e3e42'" onmouseout="this.style.background='#2d2d30'">
                                 <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
                                     <path d="M3.5 0a.5.5 0 0 1 .5.5V1h8V.5a.5.5 0 0 1 1 0V1h1a2 2 0 0 1 2 2v11a2 2 0 0 1-2 2H2a2 2 0 0 1-2-2V3a2 2 0 0 1 2-2h1V.5a.5.5 0 0 1 .5-.5zM1 4v10a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V4H1z"/>
                                 </svg>
-                                <span id="currentYearDisplayMRY">Toutes</span>
+                                <span id="currentYearDisplay">Toutes</span>
                             </button>
-                            <button class="btn-situation" onclick="showSituationMensuelleModalMRY()" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 0.75rem 1.5rem; border: none; border-radius: 6px; cursor: pointer; font-weight: 600; display: flex; align-items: center; gap: 0.5rem; transition: all 0.3s;" onmouseover="this.style.transform='translateY(-2px)'; this.style.boxShadow='0 4px 12px rgba(102, 126, 234, 0.5)'" onmouseout="this.style.transform='translateY(0)'; this.style.boxShadow='none'">
+                            <button class="btn-situation" onclick="showSituationMensuelleModal()" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 0.75rem 1.5rem; border: none; border-radius: 6px; cursor: pointer; font-weight: 600; display: flex; align-items: center; gap: 0.5rem; transition: all 0.3s;" onmouseover="this.style.transform='translateY(-2px)'; this.style.boxShadow='0 4px 12px rgba(102, 126, 234, 0.5)'" onmouseout="this.style.transform='translateY(0)'; this.style.boxShadow='none'">
                                 📊 Situation Mensuelle
                             </button>
-                            <button class="btn-primary" onclick="router.navigate('/create-invoice-mry')">
+                            <button class="btn-primary" onclick="navigateCreateInvoice()">
                                 <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor" style="margin-right: 0.5rem;">
                                     <path d="M8 4a.5.5 0 0 1 .5.5v3h3a.5.5 0 0 1 0 1h-3v3a.5.5 0 0 1-1 0v-3h-3a.5.5 0 0 1 0-1h3v-3A.5.5 0 0 1 8 4z"/>
                                 </svg>
                                 <span>Nouvelle Facture</span>
                             </button>
-                            <button class="btn-secondary" onclick="router.navigate('/dashboard-mry')">
+                            <button class="btn-secondary" onclick="navigateDashboard()">
                                 <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor" style="margin-right: 0.5rem;">
                                     <path fill-rule="evenodd" d="M15 8a.5.5 0 0 0-.5-.5H2.707l3.147-3.146a.5.5 0 1 0-.708-.708l-4 4a.5.5 0 0 0 0 .708l4 4a.5.5 0 0 0 .708-.708L2.707 8.5H14.5A.5.5 0 0 0 15 8z"/>
                                 </svg>
@@ -161,7 +186,7 @@ function InvoicesListMRYPage() {
                                 onmouseover="this.style.background='#1976d2'" onmouseout="this.style.background='#2196f3'">
                             📥 Télécharger (<span id="selectedCount">0</span>)
                         </button>
-                        <button id="bulkDeleteBtnMRY" onclick="handleBulkDeleteMRY()" 
+                        <button id="bulkDeleteBtn" onclick="handleBulkDelete()" 
                                 style="display: none; padding: 0.75rem 1.5rem; background: #f44336; color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: 600; font-size: 0.95rem; transition: all 0.3s; align-items: center; gap: 0.5rem;"
                                 onmouseover="this.style.background='#d32f2f'" onmouseout="this.style.background='#f44336'">
                             <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
@@ -184,20 +209,20 @@ function InvoicesListMRYPage() {
                                     </th>
                                     <th>ID</th>
                                     <th>Type</th>
-                                    <th onclick="sortTableMry('numero')" style="cursor: pointer; user-select: none;" title="Cliquez pour trier">
-                                        N° Document <span id="sortIconNumeroMry">⇅</span>
+                                    <th onclick="sortTable('numero')" style="cursor: pointer; user-select: none;" title="Cliquez pour trier">
+                                        N° Document <span id="sortIconNumero">⇅</span>
                                     </th>
                                     <th>Client</th>
                                     <th>ICE</th>
-                                    <th onclick="sortTableMry('date')" style="cursor: pointer; user-select: none;" title="Cliquez pour trier">
-                                        Date <span id="sortIconDateMry">⇅</span>
+                                    <th onclick="sortTable('date')" style="cursor: pointer; user-select: none;" title="Cliquez pour trier">
+                                        Date <span id="sortIconDate">⇅</span>
                                     </th>
-                                    <th onclick="sortTableMry('total_ht')" style="cursor: pointer; user-select: none;" title="Cliquez pour trier">
-                                        Total HT <span id="sortIconTotalHTMry">⇅</span>
+                                    <th onclick="sortTable('total_ht')" style="cursor: pointer; user-select: none;" title="Cliquez pour trier">
+                                        Total HT <span id="sortIconTotalHT">⇅</span>
                                     </th>
                                     <th>TVA</th>
-                                    <th onclick="sortTableMry('total_ttc')" style="cursor: pointer; user-select: none;" title="Cliquez pour trier">
-                                        Total TTC <span id="sortIconTotalTTCMry">⇅</span>
+                                    <th onclick="sortTable('total_ttc')" style="cursor: pointer; user-select: none;" title="Cliquez pour trier">
+                                        Total TTC <span id="sortIconTotalTTC">⇅</span>
                                     </th>
                                     <th>Actions</th>
                                 </tr>
@@ -228,7 +253,7 @@ function InvoicesListMRYPage() {
                         <div class="empty-icon">📄</div>
                         <h3>Aucune facture trouvée</h3>
                         <p>Commencez par créer votre première facture</p>
-                        <button class="btn-primary" onclick="router.navigate('/create-invoice-mry')">
+                        <button class="btn-primary" onclick="navigateCreateInvoice()">
                             <span>➕ Créer une facture</span>
                         </button>
                     </div>
@@ -238,11 +263,11 @@ function InvoicesListMRYPage() {
     `;
 }
 
-// Store all invoices
-let allInvoices = [];
-let filteredInvoices = [];
-let currentPage = 1;
-let itemsPerPage = 10;
+// Store all invoices (generic for MRY and MULTI)
+let allInvoicesGeneric = [];
+let filteredInvoicesGeneric = [];
+let currentPageGeneric = 1;
+let itemsPerPageGeneric = 10;
 
 // Format number for display with proper formatting
 function formatNumber(number) {
@@ -255,7 +280,7 @@ function formatNumber(number) {
 
 // Load invoices from database
 window.loadInvoices = async function() {
-    console.log('🔄 [LOAD] Starting to load invoices from database...');
+    console.log('🔄 [LOAD] Starting to load invoices from database for:', currentCompany);
     const loadingSpinner = document.getElementById('loadingSpinner');
     const tableBody = document.getElementById('invoicesTableBody');
     const emptyState = document.getElementById('emptyState');
@@ -271,16 +296,23 @@ window.loadInvoices = async function() {
         tableBody.innerHTML = '';
         emptyState.style.display = 'none';
         
-        // Get invoices from database
-        const result = await window.electron.db.getAllInvoices('MRY');
+        // Get invoices from database based on current company
+        const result = await window.electron.db.getAllInvoices(currentCompany);
         
         console.log('📥 [LOAD] Received from database:', result.success ? `${result.data.length} invoices` : 'Failed');
         
         if (result.success) {
             let invoices = result.data;
             
+            // Company configuration for year key
+            const yearKeys = {
+                'MRY': 'mry_current_year',
+                'MULTI': 'multi_current_year'
+            };
+            const yearKey = yearKeys[currentCompany] || 'mry_current_year';
+            
             // Check if a year was selected from year selector
-            const selectedYear = sessionStorage.getItem('mry_current_year');
+            const selectedYear = sessionStorage.getItem(yearKey);
             if (selectedYear && selectedYear !== '') {
                 // Filter invoices by selected year
                 invoices = invoices.filter(inv => {
@@ -290,18 +322,18 @@ window.loadInvoices = async function() {
                 console.log(`📊 [LOAD] Filtered to year ${selectedYear}:`, invoices.length, 'invoices');
                 
                 // Update the year display button
-                const yearDisplay = document.getElementById('currentYearDisplayMRY');
+                const yearDisplay = document.getElementById('currentYearDisplay');
                 if (yearDisplay) {
                     yearDisplay.textContent = selectedYear;
                 }
             }
             
-            allInvoices = invoices;
-            console.log('✅ [LOAD] All invoices stored in memory:', allInvoices.length);
+            allInvoicesGeneric = invoices;
+            console.log('✅ [LOAD] All invoices stored in memory:', allInvoicesGeneric.length);
             
             // Log first 3 invoices for debugging
-            if (allInvoices.length > 0) {
-                console.log('📋 [LOAD] Sample invoices:', allInvoices.slice(0, 3).map(inv => ({
+            if (allInvoicesGeneric.length > 0) {
+                console.log('📋 [LOAD] Sample invoices:', allInvoicesGeneric.slice(0, 3).map(inv => ({
                     id: inv.id,
                     type: inv.document_type,
                     numero: inv.document_numero,
@@ -315,11 +347,11 @@ window.loadInvoices = async function() {
             // Hide loading
             loadingSpinner.style.display = 'none';
             
-            if (allInvoices.length === 0) {
+            if (allInvoicesGeneric.length === 0) {
                 emptyState.style.display = 'flex';
             } else {
-                filteredInvoices = allInvoices;
-                displayInvoices(allInvoices);
+                filteredInvoicesGeneric = allInvoicesGeneric;
+                displayInvoices(allInvoicesGeneric);
             }
         } else {
             throw new Error(result.error);
@@ -761,25 +793,25 @@ window.filterInvoices = async function() {
 }
 
 // Sort table by column
-let currentSortColumnMry = null;
-let currentSortDirectionMry = 'asc';
+let currentSortColumn = null;
+let currentSortDirection = 'asc';
 
-window.sortTableMry = function(column) {
+window.sortTable = function(column) {
     // Toggle sort direction if clicking same column
-    if (currentSortColumnMry === column) {
-        currentSortDirectionMry = currentSortDirectionMry === 'asc' ? 'desc' : 'asc';
+    if (currentSortColumn === column) {
+        currentSortDirection = currentSortDirection === 'asc' ? 'desc' : 'asc';
     } else {
-        currentSortColumnMry = column;
-        currentSortDirectionMry = 'asc';
+        currentSortColumn = column;
+        currentSortDirection = 'asc';
     }
     
     // Update sort icons
     ['numero', 'date', 'total_ht', 'total_ttc'].forEach(col => {
-        const iconId = `sortIcon${col.charAt(0).toUpperCase() + col.slice(1).replace('_', '')}Mry`;
+        const iconId = `sortIcon${col.charAt(0).toUpperCase() + col.slice(1).replace('_', '')}`;
         const icon = document.getElementById(iconId);
         if (icon) {
             if (col === column) {
-                icon.textContent = currentSortDirectionMry === 'asc' ? '↑' : '↓';
+                icon.textContent = currentSortDirection === 'asc' ? '↑' : '↓';
                 icon.style.color = '#4caf50';
             } else {
                 icon.textContent = '⇅';
@@ -823,7 +855,7 @@ window.sortTableMry = function(column) {
                 return 0;
         }
         
-        if (currentSortDirectionMry === 'asc') {
+        if (currentSortDirection === 'asc') {
             return valueA - valueB;
         } else {
             return valueB - valueA;
@@ -835,7 +867,7 @@ window.sortTableMry = function(column) {
     currentPage = 1; // Reset to first page
     displayInvoices(sorted);
     
-    console.log(`📊 [MRY] Sorted by ${column} (${currentSortDirectionMry})`);
+    console.log(`📊 [${currentCompany}] Sorted by ${column} (${currentSortDirection})`);
 };
 
 // View invoice details
@@ -4065,14 +4097,75 @@ window.deleteClientEdit = async function(clientId, clientName) {
     }
 }
 
-// Initialize page
-window.initInvoicesListMRYPage = function() {
-    console.log('🔄 Initializing invoices list page...');
+// ============================================
+// DYNAMIC NAVIGATION FUNCTIONS
+// ============================================
+
+// Navigate to year selector based on current company
+window.navigateYearSelector = function() {
+    const routes = {
+        'MRY': '/year-selector-mry',
+        'MULTI': '/year-selector-multi'
+    };
+    const route = routes[currentCompany] || '/year-selector-mry';
+    router.navigate(route);
+};
+
+// Navigate to create invoice based on current company
+window.navigateCreateInvoice = function() {
+    const routes = {
+        'MRY': '/create-invoice-mry',
+        'MULTI': '/create-invoice-multi'
+    };
+    const route = routes[currentCompany] || '/create-invoice-mry';
+    router.navigate(route);
+};
+
+// Navigate to dashboard based on current company
+window.navigateDashboard = function() {
+    const routes = {
+        'MRY': '/dashboard-mry',
+        'MULTI': '/dashboard-multi'
+    };
+    const route = routes[currentCompany] || '/dashboard-mry';
+    router.navigate(route);
+};
+
+// Show situation mensuelle modal
+window.showSituationMensuelleModal = function() {
+    const funcName = `showSituationMensuelleModal${currentCompany}`;
+    if (typeof window[funcName] === 'function') {
+        window[funcName]();
+    } else {
+        console.warn(`Function ${funcName} not found`);
+    }
+};
+
+// Handle bulk delete
+window.handleBulkDelete = function() {
+    const funcName = `handleBulkDelete${currentCompany}`;
+    if (typeof window[funcName] === 'function') {
+        window[funcName]();
+    } else {
+        console.warn(`Function ${funcName} not found`);
+    }
+};
+
+// Initialize page (generic for MRY and MULTI)
+window.initInvoicesListGenericPage = function() {
+    console.log('🔄 Initializing generic invoices list page for:', currentCompany);
+    
+    // Company configuration for year key
+    const yearKeys = {
+        'MRY': 'mry_current_year',
+        'MULTI': 'multi_current_year'
+    };
+    const yearKey = yearKeys[currentCompany] || 'mry_current_year';
     
     // Get selected year from session or localStorage
-    const sessionYear = sessionStorage.getItem('mry_current_year');
-    const savedYear = localStorage.getItem('mry_selected_year');
-    const rememberYear = localStorage.getItem('mry_remember_year');
+    const sessionYear = sessionStorage.getItem(yearKey);
+    const savedYear = localStorage.getItem(`${currentCompany.toLowerCase()}_selected_year`);
+    const rememberYear = localStorage.getItem(`${currentCompany.toLowerCase()}_remember_year`);
     
     // Use session year first, then saved year if remember is enabled
     let selectedYear = '';
@@ -4084,7 +4177,7 @@ window.initInvoicesListMRYPage = function() {
     
     // Update year display button
     setTimeout(() => {
-        const yearDisplay = document.getElementById('currentYearDisplayMRY');
+        const yearDisplay = document.getElementById('currentYearDisplay');
         if (yearDisplay) {
             yearDisplay.textContent = selectedYear ? `Année ${selectedYear}` : 'Toutes';
         }
@@ -4093,4 +4186,10 @@ window.initInvoicesListMRYPage = function() {
     setTimeout(() => {
         loadInvoices();
     }, 100);
+};
+
+// Keep old function name for backward compatibility
+window.initInvoicesListMRYPage = function() {
+    currentCompany = 'MRY';
+    window.initInvoicesListGenericPage();
 };

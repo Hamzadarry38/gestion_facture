@@ -2066,7 +2066,9 @@ async function handleEditSubmitChaimae(e, invoiceId, documentType) {
             },
             document: {
                 date: document.getElementById('editDateChaimae').value,
-                numero: fullNumero, // Combined prefix + numero
+                numero: documentType === 'devis' ? null : fullNumero, // For devis, use numero_devis instead
+                numero_devis: documentType === 'devis' ? fullNumero : null, // For devis, store in numero_devis
+                numero_BL: documentType === 'bon_livraison' ? fullNumero : null, // For bon_livraison
                 numero_Order: document.getElementById('editNumeroOrderChaimae')?.value || null,
                 bon_de_livraison: document.getElementById('editBonLivraisonChaimae')?.value || null,
                 numero_commande: (() => {
@@ -2103,9 +2105,13 @@ async function handleEditSubmitChaimae(e, invoiceId, documentType) {
         // Check for duplicate document numero in regular invoices
         const allInvoicesResult = await window.electron.dbChaimae.getAllInvoices('CHAIMAE');
         if (allInvoicesResult.success) {
-            // Check main document number
+            // Check main document number - skip current invoice
             const duplicateNumero = allInvoicesResult.data.find(inv => {
-                if (inv.id === invoiceId) return false; // Skip current invoice
+                // Always skip the current invoice being edited
+                if (inv.id === invoiceId) {
+                    console.log('✅ [EDIT] Skipping current invoice:', invoiceId);
+                    return false;
+                }
                 
                 if (documentType === 'facture') {
                     return inv.document_type === 'facture' && inv.document_numero === fullNumero;
@@ -2124,9 +2130,10 @@ async function handleEditSubmitChaimae(e, invoiceId, documentType) {
                 const docTypeLabel = documentType === 'facture' ? 'Facture' : 
                                    documentType === 'devis' ? 'Devis' : 
                                    'Bon de livraison';
+                console.error('❌ [EDIT] Duplicate found:', duplicateNumero.id, 'Number:', fullNumero);
                 window.notify.error(
                     'Numéro déjà utilisé',
-                    `Le N° ${docTypeLabel} "${fullNumero}" existe déjà. Veuillez utiliser un autre numéro.`,
+                    `Le N° ${docTypeLabel} "${fullNumero}" existe déjà dans un autre document. Veuillez utiliser un autre numéro.`,
                     5000
                 );
                 return;
@@ -2630,10 +2637,8 @@ function showConvertInputModalChaimae(newType, newTypeLabel, prefillNumero = '',
                     val1 = val1 + '/' + currentYear;
                 }
                 // val2 is N° Order - keep as is, no formatting needed
-                // Only format val3 (Bon de livraison) for facture
-                if (val3 && !val3.includes('/')) {
-                    val3 = val3 + '/' + currentYear;
-                }
+                // val3 is Bon de livraison - keep as is, no year suffix needed
+                // (It should be entered as-is by the user, e.g., "123" or "MG123/2025")
             }
             
             if (!val1 || val1.startsWith('/')) {

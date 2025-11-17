@@ -63,6 +63,24 @@ function DashboardMultiPage() {
                         </div>
                         <div class="option-arrow">→</div>
                     </div>
+
+                    <div class="option-card" data-action="view-pdf-skm">
+                        <div class="option-icon">📁</div>
+                        <div class="option-info">
+                            <h2>Fichiers PDF - SKM</h2>
+                            <p>Afficher tous les fichiers PDF sauvegardés pour SKM</p>
+                        </div>
+                        <div class="option-arrow">→</div>
+                    </div>
+
+                    <div class="option-card" data-action="view-pdf-saaiss">
+                        <div class="option-icon">📁</div>
+                        <div class="option-info">
+                            <h2>Fichiers PDF - SAAISS</h2>
+                            <p>Afficher tous les fichiers PDF sauvegardés pour SAAISS</p>
+                        </div>
+                        <div class="option-arrow">→</div>
+                    </div>
                 </div>
 
                 <div class="dashboard-footer">
@@ -107,6 +125,12 @@ document.addEventListener('click', function(e) {
             // No saved preference, go to year selector first
             router.navigate('/year-selector-multi');
         }
+    } else if (action === 'view-pdf-skm') {
+        console.log('📁 Opening PDF Manager for SKM');
+        window.showPdfManager('skm');
+    } else if (action === 'view-pdf-saaiss') {
+        console.log('📁 Opening PDF Manager for SAAISS');
+        window.showPdfManager('saaiss');
     } else if (action === 'back-to-select') {
         localStorage.removeItem('selectedCompany');
         router.navigate('/company-select');

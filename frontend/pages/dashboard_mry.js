@@ -63,6 +63,24 @@ function DashboardMRYPage() {
                         </div>
                         <div class="option-arrow">→</div>
                     </div>
+
+                    <div class="option-card" data-action="view-pdf-skm">
+                        <div class="option-icon">📁</div>
+                        <div class="option-info">
+                            <h2>Fichiers PDF - SKM</h2>
+                            <p>Afficher tous les fichiers PDF sauvegardés pour SKM</p>
+                        </div>
+                        <div class="option-arrow">→</div>
+                    </div>
+
+                    <div class="option-card" data-action="view-pdf-saaiss">
+                        <div class="option-icon">📁</div>
+                        <div class="option-info">
+                            <h2>Fichiers PDF - SAAISS</h2>
+                            <p>Afficher tous les fichiers PDF sauvegardés pour SAAISS</p>
+                        </div>
+                        <div class="option-arrow">→</div>
+                    </div>
                 </div>
 
                 <div class="dashboard-footer">
@@ -92,6 +110,10 @@ document.addEventListener('click', function(e) {
     
     const action = card.dataset.action;
     
+    // Check if we're on MRY dashboard
+    const selectedCompany = JSON.parse(localStorage.getItem('selectedCompany') || '{}');
+    if (selectedCompany.code !== 'MRY') return;
+    
     if (action === 'create-invoice') {
         console.log('✅ Creating invoice...');
         router.navigate('/create-invoice-mry');
@@ -110,6 +132,12 @@ document.addEventListener('click', function(e) {
             router.navigate('/year-selector-mry');
         }
         console.log('✅ Navigation completed');
+    } else if (action === 'view-pdf-skm') {
+        console.log('📁 Opening PDF Manager for SKM');
+        window.showPdfManager('skm');
+    } else if (action === 'view-pdf-saaiss') {
+        console.log('📁 Opening PDF Manager for SAAISS');
+        window.showPdfManager('saaiss');
     } else if (action === 'back-to-select') {
         localStorage.removeItem('selectedCompany');
         router.navigate('/company-select');

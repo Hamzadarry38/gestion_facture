@@ -1,10 +1,12 @@
-const { app, BrowserWindow, ipcMain, dialog } = require('electron');
+const { app, BrowserWindow, ipcMain, dialog, shell } = require('electron');
 const path = require('path');
 const fs = require('fs');
 const { registerDatabaseHandlers } = require('./database/ipc-handlers');
 const { registerChaimaeHandlers } = require('./database/ipc-handlers-chaimae');
 const { registerUsersHandlers } = require('./database/ipc-handlers-users');
 const { registerMultiHandlers } = require('./database/ipc-handlers-multi');
+const { registerSKMHandlers } = require('./database/ipc-handlers-skm');
+const { registerSAAISSHandlers } = require('./database/ipc-handlers-saaiss');
 const { initAutoUpdater, checkForUpdates, setLanguage } = require('./updater');
 
 let mainWindow;
@@ -129,6 +131,99 @@ function setupIpcHandlers() {
       console.error('❌ Error loading asset:', error);
       console.error('Error details:', error.message, error.stack);
       return null;
+    }
+  });
+}
+
+// PDF Files handlers
+function setupPdfHandlers() {
+  // Save PDF file
+  ipcMain.handle('pdf:savePdf', async (event, pdfData, company, devisNumber, createdBy) => {
+    try {
+      // Create PDF directory structure
+      const pdfDir = path.join(app.getPath('userData'), 'pdfs', company);
+      
+      if (!fs.existsSync(pdfDir)) {
+        fs.mkdirSync(pdfDir, { recursive: true });
+      }
+      
+      // Create filename with devis number and timestamp
+      // Replace / with - in devis number to avoid path issues
+      const sanitizedDevisNumber = devisNumber.replace(/\//g, '-');
+      const timestamp = new Date().toISOString().replace(/[:.]/g, '-').split('T')[0];
+      // Include the creator company in the filename (e.g., MRY or MULTI)
+      const creatorPrefix = createdBy ? `[${createdBy}]` : '';
+      const filename = `${creatorPrefix}_${sanitizedDevisNumber}_${timestamp}.pdf`;
+      const filePath = path.join(pdfDir, filename);
+      
+      // Save PDF file
+      fs.writeFileSync(filePath, pdfData);
+      
+      return { success: true, filePath };
+    } catch (error) {
+      return { success: false, error: error.message };
+    }
+  });
+  
+  // Get all PDF files for a company, filtered by creator
+  ipcMain.handle('pdf:getPdfFiles', async (event, company, createdBy) => {
+    try {
+      const pdfDir = path.join(app.getPath('userData'), 'pdfs', company);
+      
+      if (!fs.existsSync(pdfDir)) {
+        return { success: true, files: [] };
+      }
+      
+      const files = fs.readdirSync(pdfDir);
+      let pdfFiles = files.filter(f => f.endsWith('.pdf')).map(f => {
+        // Extract creator from filename (e.g., "[MRY]_..." -> "MRY")
+        const creatorMatch = f.match(/^\[([^\]]+)\]/);
+        const creator = creatorMatch ? creatorMatch[1] : 'Unknown';
+        
+        return {
+          name: f,
+          path: path.join(pdfDir, f),
+          size: fs.statSync(path.join(pdfDir, f)).size,
+          created: fs.statSync(path.join(pdfDir, f)).birthtime,
+          creator: creator
+        };
+      });
+      
+      // Filter by creator if specified
+      if (createdBy) {
+        pdfFiles = pdfFiles.filter(f => f.creator === createdBy);
+      }
+      
+      return { success: true, files: pdfFiles };
+    } catch (error) {
+      return { success: false, error: error.message };
+    }
+  });
+  
+  console.log('✅ PDF handlers registered successfully');
+  
+  // Open PDF file
+  ipcMain.handle('pdf:openPdf', async (event, filePath) => {
+    try {
+      await shell.openPath(filePath);
+      return { success: true };
+    } catch (error) {
+      console.error('❌ Error opening PDF:', error);
+      return { success: false, error: error.message };
+    }
+  });
+  
+  // Delete PDF file
+  ipcMain.handle('pdf:deletePdf', async (event, filePath) => {
+    try {
+      if (fs.existsSync(filePath)) {
+        fs.unlinkSync(filePath);
+        console.log('✅ PDF deleted:', filePath);
+      }
+      return { success: true };
+    } catch (error) {
+      console.error('❌ Error deleting PDF:', error);
+      return { success: false, error: error.message };
     }
   });
 }
@@ -352,12 +447,15 @@ app.whenReady().then(async () => {
   await registerChaimaeHandlers(); // CHAIMAE database
   await registerMultiHandlers(); // MULTI database
   await registerUsersHandlers(); // Users database
+  await registerSKMHandlers(); // SKM database
+  await registerSAAISSHandlers(); // SAAISS database
   
   // Setup IPC handlers after window is ready
   createWindow();
   
   // Setup handlers after window is created
   setupIpcHandlers();
+  setupPdfHandlers();
   setupBackupHandlers();
   
   // Initialize auto-updater (only in production)

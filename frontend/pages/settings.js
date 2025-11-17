@@ -57,8 +57,6 @@ function SettingsPage() {
                             <div class="form-group">
                                 <label>Language</label>
                                 <select>
-                                    <option>English</option>
-                                    <option>العربية</option>
                                     <option>Français</option>
                                 </select>
                             </div>

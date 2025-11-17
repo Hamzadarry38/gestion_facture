@@ -1,4 +1,16 @@
 {
+  "1.1.26": {
+    "ar": [
+      "🐛 حل مشكلة إضافة السنة /2025 إلى حقل N° Order عند التحويل من Devis إلى Facture",
+      "🔧 إصلاح معالجة Bon de livraison في شركة CHAIMAE عند التحويل إلى Facture",
+      "🎯 إضافة ميزات جديدة لتحسين سهولة الاستخدام وتجربة المستخدم"
+    ],
+    "fr": [
+      "🐛 Correction du problème d'ajout automatique de l'année /2025 au champ N° Order lors de la conversion Devis vers Facture",
+      "🔧 Correction du traitement du Bon de livraison dans la société CHAIMAE lors de la conversion vers Facture",
+      "🎯 Ajout de nouvelles fonctionnalités pour améliorer la facilité d'utilisation et l'expérience utilisateur"
+    ]
+  },
   "1.1.25": {
     "ar": [
       "تحسين التطبيق"

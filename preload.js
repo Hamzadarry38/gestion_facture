@@ -173,6 +173,50 @@ contextBridge.exposeInMainWorld('electron', {
     deleteAllData: () => ipcRenderer.invoke('dbMulti:deleteAllData')
   },
   
+  // Database API for SKM
+  dbSkm: {
+    // Devis Numbers
+    checkDevisExists: (devisNumber, year) => ipcRenderer.invoke('db:skm:devis:exists', devisNumber, year),
+    addDevisNumber: (devisNumber, year) => ipcRenderer.invoke('db:skm:devis:add', devisNumber, year),
+    getDevisByYear: (year) => ipcRenderer.invoke('db:skm:devis:getByYear', year),
+    getAllDevis: () => ipcRenderer.invoke('db:skm:devis:getAll'),
+    getLastDevisNumber: (year) => ipcRenderer.invoke('db:skm:devis:getLast', year),
+    getMaxDevisNumber: (year) => ipcRenderer.invoke('db:skm:devis:getMax', year),
+    deleteDevisNumber: (devisNumber, year) => ipcRenderer.invoke('db:skm:devis:delete', devisNumber, year),
+    clearAllDevis: () => ipcRenderer.invoke('db:skm:devis:clearAll'),
+    
+    // PDF Files
+    savePdfPath: (devisNumber, year, filePath, createdBy) => ipcRenderer.invoke('db:skm:pdf:savePath', devisNumber, year, filePath, createdBy),
+    getPdfPath: (devisNumber, year) => ipcRenderer.invoke('db:skm:pdf:getPath', devisNumber, year),
+    deletePdfPath: (devisNumber, year) => ipcRenderer.invoke('db:skm:pdf:deletePath', devisNumber, year)
+  },
+  
+  // Database API for SAAISS
+  dbSaaiss: {
+    // Devis Numbers
+    checkDevisExists: (devisNumber, year) => ipcRenderer.invoke('db:saaiss:devis:exists', devisNumber, year),
+    addDevisNumber: (devisNumber, year) => ipcRenderer.invoke('db:saaiss:devis:add', devisNumber, year),
+    getDevisByYear: (year) => ipcRenderer.invoke('db:saaiss:devis:getByYear', year),
+    getAllDevis: () => ipcRenderer.invoke('db:saaiss:devis:getAll'),
+    getLastDevisNumber: (year) => ipcRenderer.invoke('db:saaiss:devis:getLast', year),
+    getMaxDevisNumber: (year) => ipcRenderer.invoke('db:saaiss:devis:getMax', year),
+    deleteDevisNumber: (devisNumber, year) => ipcRenderer.invoke('db:saaiss:devis:delete', devisNumber, year),
+    clearAllDevis: () => ipcRenderer.invoke('db:saaiss:devis:clearAll'),
+    
+    // PDF Files
+    savePdfPath: (devisNumber, year, filePath, createdBy) => ipcRenderer.invoke('db:saaiss:pdf:savePath', devisNumber, year, filePath, createdBy),
+    getPdfPath: (devisNumber, year) => ipcRenderer.invoke('db:saaiss:pdf:getPath', devisNumber, year),
+    deletePdfPath: (devisNumber, year) => ipcRenderer.invoke('db:saaiss:pdf:deletePath', devisNumber, year)
+  },
+  
+  // PDF Files API
+  pdf: {
+    savePdf: (pdfData, company, devisNumber, createdBy) => ipcRenderer.invoke('pdf:savePdf', pdfData, company, devisNumber, createdBy),
+    getPdfFiles: (company, createdBy) => ipcRenderer.invoke('pdf:getPdfFiles', company, createdBy),
+    openPdf: (filePath) => ipcRenderer.invoke('pdf:openPdf', filePath),
+    deletePdf: (filePath) => ipcRenderer.invoke('pdf:deletePdf', filePath)
+  },
+  
   // Asset loading
   getAssetPath: (assetPath) => ipcRenderer.invoke('get-asset-path', assetPath),
   
