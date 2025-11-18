@@ -1315,13 +1315,18 @@ function getMissingInvoiceNumbers(year) {
 
 // Get missing devis numbers for a specific year
 function getMissingDevisNumbers(year) {
+    console.log('🔍 [DB] getMissingDevisNumbers called with year:', year);
+    console.log('🔍 [DB] Database initialized:', !!db);
+    
     return new Promise((resolve, reject) => {
         if (!db) {
+            console.error('❌ [DB] Database not initialized');
             return reject(new Error('Database not initialized'));
         }
 
         try {
             // First, let's see ALL devis in the database
+            console.log('🔍 [DB] Querying ALL devis from database...');
             const allDevis = db.exec(`
                 SELECT document_numero, document_type 
                 FROM invoices 
@@ -1338,18 +1343,19 @@ function getMissingDevisNumbers(year) {
             }
             
             // Get all devis numbers from invoices table
+            // NOTE: Devis numbers are stored in document_numero_devis, not document_numero
             let query;
             if (year) {
                 query = `
-                    SELECT document_numero 
+                    SELECT document_numero_devis 
                     FROM invoices 
                     WHERE document_type = 'devis' 
-                    AND document_numero LIKE '%/${year}'
+                    AND document_numero_devis LIKE '%/${year}'
                 `;
             } else {
                 // Get all devis regardless of year
                 query = `
-                    SELECT document_numero 
+                    SELECT document_numero_devis 
                     FROM invoices 
                     WHERE document_type = 'devis'
                 `;
@@ -1382,7 +1388,10 @@ function getMissingDevisNumbers(year) {
                 .filter(num => num !== null)
                 .sort((a, b) => a - b);
 
+            console.log(`🔍 [DEVIS] Used Numbers (sorted):`, usedNumbers);
+
             if (usedNumbers.length === 0) {
+                console.log(`❌ [DEVIS] No used numbers found`);
                 return resolve({ success: true, data: [] });
             }
 
@@ -1391,11 +1400,16 @@ function getMissingDevisNumbers(year) {
             const maxNumber = Math.max(...usedNumbers);
             const missingNumbers = [];
 
+            console.log(`🔍 [DEVIS] Min Number: ${minNumber}, Max Number: ${maxNumber}`);
+
             for (let i = minNumber + 1; i < maxNumber; i++) {
                 if (!usedNumbers.includes(i)) {
                     missingNumbers.push(i);
+                    console.log(`  🔍 [DEVIS] Missing number found: ${i}`);
                 }
             }
+            
+            console.log(`🔍 [DEVIS] All Missing Numbers (in order):`, missingNumbers);
 
             resolve({ 
                 success: true, 

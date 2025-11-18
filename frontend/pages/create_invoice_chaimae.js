@@ -2138,16 +2138,32 @@ window.showMissingNumbersChaimae = async function(selectedYear = null) {
 
 // Select missing number and fill input (Global)
 window.selectMissingNumberChaimae = function(number) {
+    console.log('🔍 [CHAIMAE] selectMissingNumberChaimae called with number:', number);
+    console.log('🔍 [CHAIMAE] Type of number:', typeof number);
+    
     const input = document.getElementById('documentNumeroChaimae');
+    console.log('🔍 [CHAIMAE] Input element found:', !!input);
+    
     if (input) {
+        console.log('🔍 [CHAIMAE] Setting input value to:', number);
         input.value = number;
+        console.log('🔍 [CHAIMAE] Input value after setting:', input.value);
+        
         input.focus();
+        console.log('🔍 [CHAIMAE] Input focused');
         
         // Close modal
         const modal = document.querySelector('[style*="position: fixed"]');
-        if (modal) modal.remove();
+        console.log('🔍 [CHAIMAE] Modal found:', !!modal);
+        if (modal) {
+            modal.remove();
+            console.log('🔍 [CHAIMAE] Modal removed');
+        }
         
+        console.log('🔍 [CHAIMAE] Showing success notification for number:', number);
         window.notify.success('Succès', `Numéro ${number} sélectionné`, 2000);
+    } else {
+        console.error('❌ [CHAIMAE] Input element NOT found!');
     }
 };
 
@@ -2160,6 +2176,9 @@ window.showMissingDevisNumbersChaimae = async function(selectedYear = null) {
         console.log('🔍 [FRONTEND] Calling getMissingDevisNumbers...');
         const result = await window.electron.dbChaimae.getMissingDevisNumbers(currentYear);
         console.log('🔍 [FRONTEND] Result:', result);
+        console.log('🔍 [FRONTEND] Result.data:', result.data);
+        console.log('🔍 [FRONTEND] Result.data type:', Array.isArray(result.data) ? 'Array' : typeof result.data);
+        console.log('🔍 [FRONTEND] Result.data length:', result.data ? result.data.length : 'N/A');
         
         if (!result.success) {
             window.notify.error('Erreur', result.error || 'Impossible de charger les numéros manquants', 3000);
@@ -2168,6 +2187,9 @@ window.showMissingDevisNumbersChaimae = async function(selectedYear = null) {
         
         const missingNumbers = result.data || [];
         const stats = result.stats || {};
+        
+        console.log('🔍 [FRONTEND] Missing Numbers to display:', missingNumbers);
+        console.log('🔍 [FRONTEND] Stats:', stats);
         
         // Get all available years from invoices
         const invoicesResult = await window.electron.dbChaimae.getAllInvoices('CHAIMAE');

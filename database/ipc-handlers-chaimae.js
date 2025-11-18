@@ -342,8 +342,11 @@ async function registerChaimaeHandlers() {
 
     // Get missing devis numbers
     ipcMain.handle('db:chaimae:getMissingDevisNumbers', async (event, year) => {
+        console.log('🔍 [IPC] getMissingDevisNumbers handler called with year:', year);
         try {
+            console.log('🔍 [IPC] Calling getMissingDevisNumbers function...');
             const result = await getMissingDevisNumbers(year);
+            console.log('🔍 [IPC] Result from getMissingDevisNumbers:', result);
             return result;
         } catch (error) {
             console.error('❌ Error getting missing devis numbers:', error);

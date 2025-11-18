@@ -1,4 +1,12 @@
 {
+  "1.1.32": {
+    "ar": [
+      "🔧 إصلاح شامل لنظام الأرقام المفقودة (Missing Numbers) في CHAIMAE - تصحيح استعلام قاعدة البيانات للبحث في document_numero_devis بدلاً من document_numero"
+    ],
+    "fr": [
+      "🔧 Correction complète du système des numéros manquants (Missing Numbers) dans CHAIMAE - Correction de la requête de base de données pour rechercher dans document_numero_devis au lieu de document_numero"
+    ]
+  },
   "1.1.31": {
     "ar": [
       "🎨 تحسين شامل لجداول PDF في SAAISS و SKM - تصحيح الأبعاد والمحاذاة وإضافة دعم textarea لتعديل المنتجات"
