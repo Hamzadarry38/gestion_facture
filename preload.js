@@ -214,7 +214,9 @@ contextBridge.exposeInMainWorld('electron', {
     savePdf: (pdfData, company, devisNumber, createdBy) => ipcRenderer.invoke('pdf:savePdf', pdfData, company, devisNumber, createdBy),
     getPdfFiles: (company, createdBy) => ipcRenderer.invoke('pdf:getPdfFiles', company, createdBy),
     openPdf: (filePath) => ipcRenderer.invoke('pdf:openPdf', filePath),
-    deletePdf: (filePath) => ipcRenderer.invoke('pdf:deletePdf', filePath)
+    deletePdf: (filePath) => ipcRenderer.invoke('pdf:deletePdf', filePath),
+    exportAll: (company) => ipcRenderer.invoke('pdf:exportAll', company),
+    importAll: (company) => ipcRenderer.invoke('pdf:importAll', company)
   },
   
   // Asset loading

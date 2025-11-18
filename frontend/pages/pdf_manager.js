@@ -129,9 +129,47 @@ window.showPdfManager = async function(company) {
                 gap: 1rem;
                 padding: 1.5rem;
                 border-top: 2px solid #3e3e42;
-                justify-content: flex-end;
+                justify-content: space-between;
                 background: #1e1e1e;
             ">
+                <div style="display: flex; gap: 1rem;">
+                    <button onclick="exportAllPdfs('${company}')" style="
+                        padding: 0.8rem 2rem;
+                        background: #2196F3;
+                        color: #fff;
+                        border: none;
+                        border-radius: 6px;
+                        cursor: pointer;
+                        font-size: 1rem;
+                        font-weight: 600;
+                        transition: all 0.2s;
+                        display: flex;
+                        align-items: center;
+                        gap: 0.5rem;
+                    "
+                    onmouseover="this.style.background='#1976D2'"
+                    onmouseout="this.style.background='#2196F3'">
+                        📤 Exporter
+                    </button>
+                    <button onclick="importAllPdfs('${company}')" style="
+                        padding: 0.8rem 2rem;
+                        background: #4CAF50;
+                        color: #fff;
+                        border: none;
+                        border-radius: 6px;
+                        cursor: pointer;
+                        font-size: 1rem;
+                        font-weight: 600;
+                        transition: all 0.2s;
+                        display: flex;
+                        align-items: center;
+                        gap: 0.5rem;
+                    "
+                    onmouseover="this.style.background='#45a049'"
+                    onmouseout="this.style.background='#4CAF50'">
+                        📥 Importer
+                    </button>
+                </div>
                 <button id="${closeButtonId}" style="
                     padding: 0.8rem 2rem;
                     background: #0078d4;
@@ -558,3 +596,118 @@ function showDeleteLoadingBar() {
         }
     }, 1500);
 }
+
+// Export all PDFs for a company
+window.exportAllPdfs = async function(company) {
+    try {
+        console.log(`📤 Exporting all PDFs for ${company}...`);
+        
+        // Show loading indicator
+        const loadingBar = document.createElement('div');
+        loadingBar.id = 'exportLoadingBar';
+        loadingBar.style.cssText = `
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 0%;
+            height: 4px;
+            background: linear-gradient(90deg, #2196F3, #1976D2);
+            z-index: 999999;
+            transition: width 0.3s ease;
+        `;
+        document.body.appendChild(loadingBar);
+        
+        // Simulate progress
+        let progress = 0;
+        const progressInterval = setInterval(() => {
+            progress += Math.random() * 30;
+            if (progress > 90) progress = 90;
+            loadingBar.style.width = progress + '%';
+        }, 200);
+        
+        // Call export handler
+        const result = await window.electron.pdf.exportAll(company);
+        
+        clearInterval(progressInterval);
+        loadingBar.style.width = '100%';
+        
+        if (result.success) {
+            setTimeout(() => loadingBar.remove(), 500);
+            showPdfSuccessModal('تصدير ناجح', `تم تصدير جميع ملفات PDF بنجاح!\n\nالملف: ${result.path}\nالحجم: ${(result.size / 1024 / 1024).toFixed(2)} MB`);
+            console.log('✅ Export successful:', result.path);
+        } else {
+            loadingBar.remove();
+            showPdfErrorModal('خطأ في التصدير', result.error || 'حدث خطأ غير معروف');
+            console.error('❌ Export failed:', result.error);
+        }
+    } catch (error) {
+        console.error('❌ Export error:', error);
+        showPdfErrorModal('خطأ', 'حدث خطأ: ' + error.message);
+    }
+};
+
+// Import PDFs for a company
+window.importAllPdfs = async function(company) {
+    try {
+        console.log(`📥 Importing PDFs for ${company}...`);
+        
+        // Show confirmation
+        const confirmed = await showDeleteConfirmModal(
+            'استيراد ملفات PDF',
+            'هل تريد استيراد ملفات PDF من ملف مضغوط؟\n\nسيتم إنشاء نسخة احتياطية من الملفات الحالية.'
+        );
+        
+        if (!confirmed) {
+            return;
+        }
+        
+        // Show loading indicator
+        const loadingBar = document.createElement('div');
+        loadingBar.id = 'importLoadingBar';
+        loadingBar.style.cssText = `
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 0%;
+            height: 4px;
+            background: linear-gradient(90deg, #4CAF50, #45a049);
+            z-index: 999999;
+            transition: width 0.3s ease;
+        `;
+        document.body.appendChild(loadingBar);
+        
+        // Simulate progress
+        let progress = 0;
+        const progressInterval = setInterval(() => {
+            progress += Math.random() * 30;
+            if (progress > 90) progress = 90;
+            loadingBar.style.width = progress + '%';
+        }, 200);
+        
+        // Call import handler
+        const result = await window.electron.pdf.importAll(company);
+        
+        clearInterval(progressInterval);
+        loadingBar.style.width = '100%';
+        
+        if (result.success) {
+            setTimeout(() => loadingBar.remove(), 500);
+            showPdfSuccessModal('استيراد ناجح', `تم استيراد ملفات PDF بنجاح!\n\nالنسخة الاحتياطية: ${result.backupPath}`);
+            
+            // Refresh PDF manager after 2 seconds
+            setTimeout(() => {
+                document.querySelectorAll('.custom-modal-overlay').forEach(el => el.remove());
+                window.showPdfManager(company);
+            }, 2000);
+            
+            console.log('✅ Import successful:', result.message);
+        } else {
+            loadingBar.remove();
+            showPdfErrorModal('خطأ في الاستيراد', result.error || 'حدث خطأ غير معروف');
+            console.error('❌ Import failed:', result.error);
+        }
+    } catch (error) {
+        console.error('❌ Import error:', error);
+        showPdfErrorModal('خطأ', 'حدث خطأ: ' + error.message);
+    }
+};

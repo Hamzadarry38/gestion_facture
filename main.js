@@ -270,6 +270,112 @@ function setupPdfHandlers() {
   });
 }
 
+// PDF Export/Import handlers
+function setupPdfExportImportHandlers() {
+  // Export all PDFs for a company as ZIP
+  ipcMain.handle('pdf:exportAll', async (event, company) => {
+    try {
+      const result = await dialog.showSaveDialog(mainWindow, {
+        title: `Exporter tous les PDFs ${company}`,
+        defaultPath: `${company}_PDFs_${new Date().toISOString().split('T')[0]}.zip`,
+        filters: [
+          { name: 'ZIP Files', extensions: ['zip'] },
+          { name: 'All Files', extensions: ['*'] }
+        ]
+      });
+      
+      if (result.canceled || !result.filePath) {
+        return { success: false, canceled: true };
+      }
+      
+      const pdfDir = path.join(app.getPath('userData'), 'pdfs', company);
+      
+      if (!fs.existsSync(pdfDir)) {
+        return { success: false, error: 'Aucun dossier PDF trouvé pour cette entreprise' };
+      }
+      
+      // Use archiver to create ZIP
+      const archiver = require('archiver');
+      const output = fs.createWriteStream(result.filePath);
+      const archive = archiver('zip', { zlib: { level: 9 } });
+      
+      return new Promise((resolve, reject) => {
+        output.on('close', () => {
+          console.log(`✅ PDFs exported to: ${result.filePath}`);
+          resolve({ success: true, path: result.filePath, size: archive.pointer() });
+        });
+        
+        archive.on('error', (err) => {
+          console.error('❌ Archive error:', err);
+          reject(err);
+        });
+        
+        archive.pipe(output);
+        archive.directory(pdfDir, company);
+        archive.finalize();
+      }).catch(error => {
+        return { success: false, error: error.message };
+      });
+    } catch (error) {
+      console.error('Export error:', error);
+      return { success: false, error: error.message };
+    }
+  });
+  
+  // Import PDFs from ZIP
+  ipcMain.handle('pdf:importAll', async (event, company) => {
+    try {
+      const result = await dialog.showOpenDialog(mainWindow, {
+        title: `Importer les PDFs ${company}`,
+        filters: [
+          { name: 'ZIP Files', extensions: ['zip'] },
+          { name: 'All Files', extensions: ['*'] }
+        ],
+        properties: ['openFile']
+      });
+      
+      if (result.canceled || result.filePaths.length === 0) {
+        return { success: false, canceled: true };
+      }
+      
+      const zipPath = result.filePaths[0];
+      const pdfDir = path.join(app.getPath('userData'), 'pdfs', company);
+      
+      // Create backup of existing PDFs
+      const backupDir = path.join(app.getPath('userData'), 'pdfs', `${company}_backup_${Date.now()}`);
+      if (fs.existsSync(pdfDir)) {
+        fs.mkdirSync(backupDir, { recursive: true });
+        const files = fs.readdirSync(pdfDir);
+        files.forEach(file => {
+          fs.copyFileSync(path.join(pdfDir, file), path.join(backupDir, file));
+        });
+      }
+      
+      // Extract ZIP
+      const extract = require('extract-zip');
+      
+      return new Promise((resolve, reject) => {
+        extract(zipPath, { dir: path.join(app.getPath('userData'), 'pdfs') })
+          .then(() => {
+            console.log(`✅ PDFs imported from: ${zipPath}`);
+            resolve({ success: true, message: 'PDFs importés avec succès', backupPath: backupDir });
+          })
+          .catch(err => {
+            console.error('❌ Extract error:', err);
+            reject(err);
+          });
+      }).catch(error => {
+        return { success: false, error: error.message };
+      });
+    } catch (error) {
+      console.error('Import error:', error);
+      return { success: false, error: error.message };
+    }
+  });
+  
+  console.log('✅ PDF Export/Import handlers registered');
+}
+
 // Backup & Restore handlers for MRY
 function setupBackupHandlers() {
   ipcMain.handle('db:backup:export', async () => {
@@ -501,6 +607,7 @@ app.whenReady().then(async () => {
   // Setup handlers after window is created
   setupIpcHandlers();
   setupPdfHandlers();
+  setupPdfExportImportHandlers();
   setupBackupHandlers();
   
   // Initialize auto-updater (only in production)
