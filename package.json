@@ -1,6 +1,6 @@
 {
   "name": "gestion-factures",
-  "version": "1.1.28",
+  "version": "1.1.29",
   "description": "Application de gestion des factures",
   "main": "main.js",
   "scripts": {
@@ -65,6 +65,13 @@
       "icon": "assets/icon.png",
       "publisherName": "Hamza",
       "verifyUpdateCodeSignature": false
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "Gestion des Factures"
     },
     "mac": {
       "target": [

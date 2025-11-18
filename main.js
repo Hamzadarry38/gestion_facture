@@ -11,6 +11,48 @@ const { initAutoUpdater, checkForUpdates, setLanguage } = require('./updater');
 
 let mainWindow;
 
+// Create desktop shortcut on first run
+function createDesktopShortcut() {
+  try {
+    const desktopPath = path.join(app.getPath('home'), 'Desktop');
+    const shortcutPath = path.join(desktopPath, 'Gestion des Factures.lnk');
+    
+    // Check if shortcut already exists
+    if (fs.existsSync(shortcutPath)) {
+      console.log('✅ Desktop shortcut already exists');
+      return;
+    }
+    
+    // Get the executable path
+    const exePath = process.execPath;
+    
+    // Create shortcut using Windows API
+    const { execSync } = require('child_process');
+    const iconPath = path.join(__dirname, 'assets/icon.png');
+    
+    // PowerShell script to create shortcut
+    const psScript = `
+      $WshShell = New-Object -ComObject WScript.Shell
+      $Shortcut = $WshShell.CreateShortcut("${shortcutPath}")
+      $Shortcut.TargetPath = "${exePath}"
+      $Shortcut.WorkingDirectory = "${path.dirname(exePath)}"
+      $Shortcut.Description = "Gestion des Factures - Application de gestion des factures"
+      $Shortcut.Save()
+    `;
+    
+    // Execute PowerShell script
+    execSync(`powershell -Command "${psScript.replace(/"/g, '\\"')}"`, { 
+      stdio: 'pipe',
+      shell: true 
+    });
+    
+    console.log('✅ Desktop shortcut created successfully');
+  } catch (error) {
+    console.error('⚠️ Error creating desktop shortcut:', error.message);
+    // Don't fail the app if shortcut creation fails
+  }
+}
+
 function createWindow() {
   const packageJson = require('./package.json');
   const appVersion = packageJson.version;
@@ -442,6 +484,9 @@ function setupBackupHandlers() {
 
 // This method will be called when Electron has finished initialization
 app.whenReady().then(async () => {
+  // Create desktop shortcut on first run
+  createDesktopShortcut();
+  
   // Register database handlers for all companies (async)
   await registerDatabaseHandlers(); // MRY database
   await registerChaimaeHandlers(); // CHAIMAE database
