@@ -1,12 +1,20 @@
 {
+  "1.1.31": {
+    "ar": [
+      "🎨 تحسين شامل لجداول PDF في SAAISS و SKM - تصحيح الأبعاد والمحاذاة وإضافة دعم textarea لتعديل المنتجات"
+    ],
+    "fr": [
+      "🎨 Amélioration complète des tableaux PDF dans SAAISS et SKM - Correction des dimensions, alignement et ajout du support textarea pour la modification des produits"
+    ]
+  },
   "1.1.30": {
     "ar": [
       "📤 تصدير ملفات PDF - حفظ جميع PDFs من أي شركة في ملف ZIP مع تحديد اسم الشركة المصدرة",
-      "� استيراد ملفات PDF - استقبال ملفات PDF من ملف ZIP مع نسخة احتياطية تلقائية",
+      "� استيراد ملفات PDF - استقبال ملفات PDF من ملف ZIP مع نسخة احتياطية تلقائية"
     ],
     "fr": [
       "📤 Export PDF - Sauvegarder tous les PDFs de n'importe quelle entreprise dans un fichier ZIP avec identification de l'entreprise source",
-      "� Import PDF - Recevoir les fichiers PDF à partir d'un fichier ZIP avec sauvegarde automatique",
+      "� Import PDF - Recevoir les fichiers PDF à partir d'un fichier ZIP avec sauvegarde automatique"
     ]
   },
   "1.1.29": {

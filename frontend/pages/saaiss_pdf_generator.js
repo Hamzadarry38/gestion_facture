@@ -290,10 +290,13 @@ async function showSimpleSAAISSModal(invoice) {
                     </label>
                     <div id="productsContainer" style="background: #1e1e1e; border: 1px solid #3e3e42; border-radius: 6px; padding: 1rem; max-height: 250px; overflow-y: auto;">
                         ${invoice.products.map((product, index) => `
-                            <div style="margin-bottom: 0.75rem; display: flex; gap: 0.5rem; align-items: center;">
-                                <input type="text" class="product-name-input" data-index="${index}" value="${product.designation}" 
-                                       style="flex: 1; padding: 0.5rem; background: #2d2d30; border: 1px solid #3e3e42; border-radius: 4px; color: #fff; font-size: 0.9rem;">
-                                <span style="color: #999; font-size: 0.85rem; min-width: 60px;">Qté: ${product.quantite}</span>
+                            <div style="margin-bottom: 0.75rem;">
+                                <div style="display: flex; gap: 0.5rem; align-items: center; margin-bottom: 0.5rem;">
+                                    <label style="color: #999; font-size: 0.85rem;">Produit ${index + 1}:</label>
+                                    <span style="color: #999; font-size: 0.85rem;">Qté: ${product.quantite}</span>
+                                </div>
+                                <textarea class="product-name-input" data-index="${index}" 
+                                       style="width: 100%; padding: 0.5rem; background: #2d2d30; border: 1px solid #3e3e42; border-radius: 4px; color: #fff; font-size: 0.9rem; font-family: inherit; resize: vertical; min-height: 60px;">${product.designation}</textarea>
                             </div>
                         `).join('')}
                     </div>
@@ -618,9 +621,15 @@ async function generateSAAISSPDF(doc, invoice, includeZeroProducts = true) {
         
         // Table setup with new design - matching image exactly
         const tableHeaders = ['QTE', 'DESCRIPTION', 'PRIX HT', 'TOTAL HT'];
-        const colWidths = [25, 95, 25, 30];
-        const colPositions = [20, 45, 140, 165];
-        const tableEndX = 195;
+        const colWidths = [25, 85, 30, 30];
+        const colPositions = [20, 45, 130, 160];
+        const tableEndX = 190;
+        
+        console.log('📊 TABLE CONFIGURATION:');
+        console.log('  Headers:', tableHeaders);
+        console.log('  Column Widths:', colWidths);
+        console.log('  Column Positions:', colPositions);
+        console.log('  Total Width:', colWidths.reduce((a,b) => a+b, 0));
         
         const addCompleteTableSection = () => {
             const tableStartY = currentY;
@@ -628,7 +637,7 @@ async function generateSAAISSPDF(doc, invoice, includeZeroProducts = true) {
             // Simple black borders header - matching SKM design
             doc.setDrawColor(0, 0, 0);
             doc.setLineWidth(0.3);
-            doc.rect(20, currentY, 175, 8);
+            doc.rect(20, currentY, 170, 8);
             
             // Header text - black on white
             doc.setTextColor(0, 0, 0); // Black text
@@ -636,19 +645,17 @@ async function generateSAAISSPDF(doc, invoice, includeZeroProducts = true) {
             doc.setFontSize(9);
             
             tableHeaders.forEach((header, index) => {
-                const align = index > 0 ? 'right' : 'left';
+                const align = index > 1 ? 'right' : 'left';
                 const x = align === 'right' ? colPositions[index] + colWidths[index] - 2 : colPositions[index] + 2;
                 doc.text(header, x, currentY + 6, { align });
             });
             
             // Draw vertical lines for columns
             let xPos = 20;
-            colWidths.forEach((width, index) => {
-                if (index < colWidths.length - 1) {
-                    xPos += width;
-                    doc.line(xPos, currentY, xPos, currentY + 8);
-                }
-            });
+            for (let i = 0; i < colWidths.length - 1; i++) {
+                xPos += colWidths[i];
+                doc.line(xPos, currentY, xPos, currentY + 8);
+            }
             
             currentY += 8;
             return tableStartY;
@@ -666,9 +673,15 @@ async function generateSAAISSPDF(doc, invoice, includeZeroProducts = true) {
         const productsToShow = invoice.products;
         
         productsToShow.forEach((product, index) => {
-            const maxWidth = colWidths[0] - 4;
+            const maxWidth = colWidths[1] - 4;
             const descriptionLines = doc.splitTextToSize(product.designation, maxWidth);
             const isZeroProduct = parseFloat(product.quantite) === 0 || parseFloat(product.prix_unitaire_ht) === 0;
+            
+            console.log(`\n📦 PRODUCT ${index + 1}:`);
+            console.log(`  Designation: "${product.designation}"`);
+            console.log(`  Max Width for Description: ${maxWidth}`);
+            console.log(`  Description Lines:`, descriptionLines);
+            console.log(`  Lines Count: ${descriptionLines.length}`);
             const quantityText = includeZeroProducts || !isZeroProduct ? product.quantite : '';
             const unitPriceText = includeZeroProducts || !isZeroProduct
                 ? formatNumberForPDF(product.prix_unitaire_ht) + ' DH'
@@ -718,10 +731,20 @@ async function generateSAAISSPDF(doc, invoice, includeZeroProducts = true) {
                 // Draw quantity in first column
                 doc.text(quantityText, colPositions[0] + 2, rowY + 6, { align: 'left' });
                 
+                console.log(`  Row Y: ${rowY}, Row Height: ${rowHeight}`);
+                console.log(`  QTE Position: X=${colPositions[0] + 2}, Y=${rowY + 6}`);
+                
                 // Draw description chunk in second column (only the lines that fit on this page)
                 const descriptionChunk = descriptionLines.slice(lineIndex, lineIndex + linesForThisRow);
+                console.log(`  Description Chunk (lines ${lineIndex}-${lineIndex + linesForThisRow}):`, descriptionChunk);
+                console.log(`  Description Position: X=${colPositions[1] + 2}, Max Width=${colWidths[1] - 4}`);
+                
                 descriptionChunk.forEach((line, chunkIndex) => {
-                    doc.text(line, colPositions[1] + 2, rowY + 6 + (chunkIndex * 4));
+                    console.log(`    Line ${chunkIndex}: "${line}" at Y=${rowY + 6 + (chunkIndex * 4)}`);
+                    doc.text(line, colPositions[1] + 2, rowY + 6 + (chunkIndex * 4), { 
+                        maxWidth: colWidths[1] - 4,
+                        align: 'left'
+                    });
                 });
 
                 // Draw unit price and total for this visual row
@@ -730,22 +753,23 @@ async function generateSAAISSPDF(doc, invoice, includeZeroProducts = true) {
                     const colIndex = offset + 2; // columns 2,3
                     const align = 'right';
                     const x = colPositions[colIndex] + colWidths[colIndex] - 2;
+                    console.log(`  Column ${colIndex} (${tableHeaders[colIndex]}): "${data}" at X=${x}, Y=${rowY + 6}`);
                     doc.text(data, x, rowY + 6, { align });
                 });
 
                 // Bottom border for this visual row
                 doc.setDrawColor(0, 0, 0); // Black border
                 doc.setLineWidth(0.3);
-                doc.line(20, rowY + rowHeight, 195, rowY + rowHeight);
+                doc.line(20, rowY + rowHeight, 190, rowY + rowHeight);
                 
                 // Draw vertical lines for columns
                 let xPos = 20;
-                colWidths.forEach((width, index) => {
-                    if (index < colWidths.length - 1) {
-                        xPos += width;
-                        doc.line(xPos, rowY, xPos, rowY + rowHeight);
-                    }
-                });
+                console.log(`  Drawing vertical lines at Y: ${rowY} to ${rowY + rowHeight}`);
+                for (let i = 0; i < colWidths.length - 1; i++) {
+                    xPos += colWidths[i];
+                    console.log(`    Vertical line ${i + 1} at X=${xPos}`);
+                    doc.line(xPos, rowY, xPos, rowY + rowHeight);
+                }
 
                 currentY += rowHeight;
                 lineIndex += linesForThisRow;
@@ -776,8 +800,8 @@ async function generateSAAISSPDF(doc, invoice, includeZeroProducts = true) {
         }
         
         const totalsStartY = currentY;
-        const totalsX = 140; // Start position for totals (right side)
-        const totalsWidth = 55; // Width of totals box
+        const totalsX = 130; // Start position for totals (right side)
+        const totalsWidth = 60; // Width of totals box
         
         // Row 1: TOTALE H.T
         doc.setDrawColor(0, 0, 0);
@@ -785,7 +809,7 @@ async function generateSAAISSPDF(doc, invoice, includeZeroProducts = true) {
         doc.line(totalsX, totalsStartY, totalsX + totalsWidth, totalsStartY); // Top border
         doc.line(totalsX, totalsStartY, totalsX, totalsStartY + 8); // Left border
         doc.line(totalsX + totalsWidth, totalsStartY, totalsX + totalsWidth, totalsStartY + 8); // Right border
-        doc.line(totalsX + 25, totalsStartY, totalsX + 25, totalsStartY + 8); // Middle vertical separator
+        doc.line(totalsX + 30, totalsStartY, totalsX + 30, totalsStartY + 8); // Middle vertical separator
         doc.setTextColor(0, 0, 0);
         doc.setFont(undefined, 'bold');
         doc.setFontSize(8);
@@ -798,7 +822,7 @@ async function generateSAAISSPDF(doc, invoice, includeZeroProducts = true) {
         doc.line(totalsX, tvaY, totalsX + totalsWidth, tvaY); // Top border
         doc.line(totalsX, tvaY, totalsX, tvaY + 8); // Left border
         doc.line(totalsX + totalsWidth, tvaY, totalsX + totalsWidth, tvaY + 8); // Right border
-        doc.line(totalsX + 25, tvaY, totalsX + 25, tvaY + 8); // Middle vertical separator
+        doc.line(totalsX + 30, tvaY, totalsX + 30, tvaY + 8); // Middle vertical separator
         doc.setTextColor(0, 0, 0);
         doc.setFont(undefined, 'normal');
         doc.setFontSize(8);
@@ -811,7 +835,7 @@ async function generateSAAISSPDF(doc, invoice, includeZeroProducts = true) {
         doc.line(totalsX, ttcY, totalsX + totalsWidth, ttcY); // Top border
         doc.line(totalsX, ttcY, totalsX, ttcY + 8); // Left border
         doc.line(totalsX + totalsWidth, ttcY, totalsX + totalsWidth, ttcY + 8); // Right border
-        doc.line(totalsX + 25, ttcY, totalsX + 25, ttcY + 8); // Middle vertical separator
+        doc.line(totalsX + 30, ttcY, totalsX + 30, ttcY + 8); // Middle vertical separator
         doc.setTextColor(0, 0, 0);
         doc.setFont(undefined, 'bold');
         doc.setFontSize(8);
@@ -821,15 +845,13 @@ async function generateSAAISSPDF(doc, invoice, includeZeroProducts = true) {
         
         tableSegments.forEach(segment => {
             doc.setPage(segment.page);
-            doc.rect(20, segment.startY, 175, segment.endY - segment.startY);
+            doc.rect(20, segment.startY, 170, segment.endY - segment.startY);
             
             let xPos = 20;
-            colWidths.forEach((width, index) => {
-                if (index < colWidths.length - 1) {
-                    xPos += width;
-                    doc.line(xPos, segment.startY, xPos, segment.endY);
-                }
-            });
+            for (let i = 0; i < colWidths.length - 1; i++) {
+                xPos += colWidths[i];
+                doc.line(xPos, segment.startY, xPos, segment.endY);
+            }
         });
         
         const totalPages = pageCount;

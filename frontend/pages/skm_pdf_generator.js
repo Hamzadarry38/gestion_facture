@@ -283,8 +283,8 @@ async function showSimpleSKMModal(invoice) {
                                 <label style="display: block; margin-bottom: 0.25rem; color: #999; font-size: 0.9rem;">
                                     Produit ${index + 1}:
                                 </label>
-                                <input type="text" id="product-name-${index}" value="${product.designation}" 
-                                       style="width: 100%; padding: 0.5rem; background: #2d2d30; border: 1px solid #3e3e42; border-radius: 4px; color: #fff;">
+                                <textarea id="product-name-${index}" 
+                                       style="width: 100%; padding: 0.5rem; background: #2d2d30; border: 1px solid #3e3e42; border-radius: 4px; color: #fff; font-family: inherit; resize: vertical; min-height: 60px;">${product.designation}</textarea>
                             </div>
                         `).join('')}
                     </div>
