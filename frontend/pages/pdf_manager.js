@@ -222,7 +222,7 @@ window.showPdfManager = async function(company) {
         
     } catch (error) {
         console.error('❌ Error opening PDF manager:', error);
-        showPdfErrorModal('خطأ', 'حدث خطأ: ' + error.message);
+        showPdfErrorModal('Erreur', 'Une erreur s\'est produite: ' + error.message);
     }
 };
 
@@ -232,10 +232,10 @@ window.openPdfFile = async function(filePath) {
         const result = await window.electron.pdf.openPdf(filePath);
         
         if (!result.success) {
-            showPdfErrorModal('خطأ', 'فشل في فتح الملف: ' + result.error);
+            showPdfErrorModal('Erreur', 'Impossible d\'ouvrir le fichier: ' + result.error);
         }
     } catch (error) {
-        showPdfErrorModal('خطأ', 'حدث خطأ: ' + error.message);
+        showPdfErrorModal('Erreur', 'Une erreur s\'est produite: ' + error.message);
     }
 };
 
@@ -243,7 +243,7 @@ window.openPdfFile = async function(filePath) {
 window.deletePdfFile = async function(filePath, index) {
     try {
         // Show custom confirmation modal instead of browser confirm
-        const confirmed = await showDeleteConfirmModal('حذف الملف', 'هل أنت متأكد من حذف هذا الملف؟\n\nهذا الإجراء لا يمكن التراجع عنه.');
+        const confirmed = await showDeleteConfirmModal('Supprimer le fichier', 'Êtes-vous sûr de vouloir supprimer ce fichier?\n\nCette action ne peut pas être annulée.');
         
         if (!confirmed) {
             return;
@@ -254,7 +254,7 @@ window.deletePdfFile = async function(filePath, index) {
         if (result.success) {
             // Show loading bar during refresh
             showDeleteLoadingBar();
-            showPdfSuccessModal('تم', 'تم حذف الملف بنجاح');
+            showPdfSuccessModal('Succès', 'Le fichier a été supprimé avec succès');
             // Close the modal and refresh the PDF manager after 1.5 seconds
             setTimeout(() => {
                 // Close all modals
@@ -265,10 +265,10 @@ window.deletePdfFile = async function(filePath, index) {
                 window.showPdfManager(currentCompany);
             }, 1500);
         } else {
-            showPdfErrorModal('خطأ', 'فشل في حذف الملف: ' + result.error);
+            showPdfErrorModal('Erreur', 'Impossible de supprimer le fichier: ' + result.error);
         }
     } catch (error) {
-        showPdfErrorModal('خطأ', 'حدث خطأ: ' + error.message);
+        showPdfErrorModal('Erreur', 'Une erreur s\'est produite: ' + error.message);
     }
 };
 
@@ -331,7 +331,7 @@ function showPdfSuccessModal(title, message) {
             "
             onmouseover="this.style.background='#45a049'"
             onmouseout="this.style.background='#4CAF50'">
-                حسناً
+                OK
             </button>
         </div>
     `;
@@ -411,7 +411,7 @@ function showPdfErrorModal(title, message) {
             "
             onmouseover="this.style.background='#da190b'"
             onmouseout="this.style.background='#f44336'">
-                حسناً
+                OK
             </button>
         </div>
     `;
@@ -433,7 +433,7 @@ function showPdfErrorModal(title, message) {
 }
 
 // Delete Confirmation Modal
-function showDeleteConfirmModal(title, message) {
+function showDeleteConfirmModal(title, message, buttonText = 'Supprimer', buttonColor = '#f44336', buttonHoverColor = '#da190b') {
     return new Promise((resolve) => {
         const overlay = document.createElement('div');
         overlay.className = 'custom-modal-overlay';
@@ -463,7 +463,7 @@ function showDeleteConfirmModal(title, message) {
         `;
         
         modal.innerHTML = `
-            <div class="custom-modal-header" style="background: linear-gradient(135deg, #f44336, #da190b);">
+            <div class="custom-modal-header" style="background: linear-gradient(135deg, ${buttonColor}, ${buttonHoverColor});">
                 <span class="custom-modal-icon" style="color: #fff; font-size: 1.5rem;">⚠️</span>
                 <h3 class="custom-modal-title" style="color: #fff;">${title}</h3>
             </div>
@@ -481,7 +481,7 @@ function showDeleteConfirmModal(title, message) {
             ">
                 <button id="confirmDeleteBtn" style="
                     padding: 0.75rem 2rem;
-                    background: #f44336;
+                    background: ${buttonColor};
                     color: #fff;
                     border: none;
                     border-radius: 6px;
@@ -490,9 +490,9 @@ function showDeleteConfirmModal(title, message) {
                     font-weight: 600;
                     transition: all 0.2s;
                 "
-                onmouseover="this.style.background='#da190b'"
-                onmouseout="this.style.background='#f44336'">
-                    ✓ حذف
+                onmouseover="this.style.background='${buttonHoverColor}'"
+                onmouseout="this.style.background='${buttonColor}'">
+                    ✓ ${buttonText}
                 </button>
                 <button id="cancelDeleteBtn" style="
                     padding: 0.75rem 2rem;
@@ -507,7 +507,7 @@ function showDeleteConfirmModal(title, message) {
                 "
                 onmouseover="this.style.background='#666'"
                 onmouseout="this.style.background='#555'">
-                    ✕ إلغاء
+                    ✕ Annuler
                 </button>
             </div>
         `;
@@ -602,6 +602,10 @@ window.exportAllPdfs = async function(company) {
     try {
         console.log(`📤 Exporting all PDFs for ${company}...`);
         
+        // Get the current user's company
+        const selectedCompany = JSON.parse(localStorage.getItem('selectedCompany') || '{}');
+        const userCompany = selectedCompany.name || 'UNKNOWN';
+        
         // Show loading indicator
         const loadingBar = document.createElement('div');
         loadingBar.id = 'exportLoadingBar';
@@ -625,24 +629,24 @@ window.exportAllPdfs = async function(company) {
             loadingBar.style.width = progress + '%';
         }, 200);
         
-        // Call export handler
-        const result = await window.electron.pdf.exportAll(company);
+        // Call export handler with both companies
+        const result = await window.electron.pdf.exportAll(company, userCompany);
         
         clearInterval(progressInterval);
         loadingBar.style.width = '100%';
         
         if (result.success) {
             setTimeout(() => loadingBar.remove(), 500);
-            showPdfSuccessModal('تصدير ناجح', `تم تصدير جميع ملفات PDF بنجاح!\n\nالملف: ${result.path}\nالحجم: ${(result.size / 1024 / 1024).toFixed(2)} MB`);
+            showPdfSuccessModal('Export réussi', `Tous les fichiers PDF ont été exportés avec succès!\n\nFichier: ${result.path}\nTaille: ${(result.size / 1024 / 1024).toFixed(2)} MB`);
             console.log('✅ Export successful:', result.path);
         } else {
             loadingBar.remove();
-            showPdfErrorModal('خطأ في التصدير', result.error || 'حدث خطأ غير معروف');
+            showPdfErrorModal('Erreur d\'export', result.error || 'Une erreur inconnue s\'est produite');
             console.error('❌ Export failed:', result.error);
         }
     } catch (error) {
         console.error('❌ Export error:', error);
-        showPdfErrorModal('خطأ', 'حدث خطأ: ' + error.message);
+        showPdfErrorModal('Erreur', 'Une erreur s\'est produite: ' + error.message);
     }
 };
 
@@ -653,8 +657,11 @@ window.importAllPdfs = async function(company) {
         
         // Show confirmation
         const confirmed = await showDeleteConfirmModal(
-            'استيراد ملفات PDF',
-            'هل تريد استيراد ملفات PDF من ملف مضغوط؟\n\nسيتم إنشاء نسخة احتياطية من الملفات الحالية.'
+            'Importer les fichiers PDF',
+            'Voulez-vous importer les fichiers PDF à partir d\'un fichier compressé?\n\nUne sauvegarde des fichiers actuels sera créée.',
+            'Importer',
+            '#2196F3',
+            '#1976D2'
         );
         
         if (!confirmed) {
@@ -692,7 +699,7 @@ window.importAllPdfs = async function(company) {
         
         if (result.success) {
             setTimeout(() => loadingBar.remove(), 500);
-            showPdfSuccessModal('استيراد ناجح', `تم استيراد ملفات PDF بنجاح!\n\nالنسخة الاحتياطية: ${result.backupPath}`);
+            showPdfSuccessModal('Import réussi', `Les fichiers PDF ont été importés avec succès!\n\nSauvegarde: ${result.backupPath}`);
             
             // Refresh PDF manager after 2 seconds
             setTimeout(() => {
@@ -703,11 +710,11 @@ window.importAllPdfs = async function(company) {
             console.log('✅ Import successful:', result.message);
         } else {
             loadingBar.remove();
-            showPdfErrorModal('خطأ في الاستيراد', result.error || 'حدث خطأ غير معروف');
+            showPdfErrorModal('Erreur d\'import', result.error || 'Une erreur inconnue s\'est produite');
             console.error('❌ Import failed:', result.error);
         }
     } catch (error) {
         console.error('❌ Import error:', error);
-        showPdfErrorModal('خطأ', 'حدث خطأ: ' + error.message);
+        showPdfErrorModal('Erreur', 'Une erreur s\'est produite: ' + error.message);
     }
 };

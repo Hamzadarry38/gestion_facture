@@ -215,7 +215,7 @@ contextBridge.exposeInMainWorld('electron', {
     getPdfFiles: (company, createdBy) => ipcRenderer.invoke('pdf:getPdfFiles', company, createdBy),
     openPdf: (filePath) => ipcRenderer.invoke('pdf:openPdf', filePath),
     deletePdf: (filePath) => ipcRenderer.invoke('pdf:deletePdf', filePath),
-    exportAll: (company) => ipcRenderer.invoke('pdf:exportAll', company),
+    exportAll: (company, userCompany) => ipcRenderer.invoke('pdf:exportAll', company, userCompany),
     importAll: (company) => ipcRenderer.invoke('pdf:importAll', company)
   },
   

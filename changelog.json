@@ -1,18 +1,22 @@
 {
-  "1.1.29": {
+  "1.1.30": {
     "ar": [
-      "✨ إضافة ميزة تصدير واستيراد ملفات PDF لشركات SKM و SAAISS",
-      "📤 تصدير جميع ملفات PDF إلى ملف مضغوط (ZIP)",
-      "📥 استيراد ملفات PDF من ملف مضغوط مع نسخة احتياطية تلقائية",
-      "🎯 إضافة اختصار سطح المكتب عند تثبيت التطبيق"
+      "📤 تصدير ملفات PDF - حفظ جميع PDFs من أي شركة في ملف ZIP مع تحديد اسم الشركة المصدرة",
+      "� استيراد ملفات PDF - استقبال ملفات PDF من ملف ZIP مع نسخة احتياطية تلقائية",
     ],
     "fr": [
-      "✨ Ajout de la fonctionnalité d'export/import des fichiers PDF pour les sociétés SKM et SAAISS",
-      "📤 Exporter tous les fichiers PDF vers un fichier compressé (ZIP)",
-      "📥 Importer les fichiers PDF à partir d'un fichier compressé avec sauvegarde automatique",
-      "🎯 Ajout d'un raccourci sur le bureau lors de l'installation de l'application"
+      "📤 Export PDF - Sauvegarder tous les PDFs de n'importe quelle entreprise dans un fichier ZIP avec identification de l'entreprise source",
+      "� Import PDF - Recevoir les fichiers PDF à partir d'un fichier ZIP avec sauvegarde automatique",
     ]
   },
+  "1.1.29": {
+  "ar": [
+    "تحسين"
+  ],
+  "fr": [
+    "تحسين"
+  ]
+} ,
   "1.1.28": {
   "ar": [
     "🎨 تحسين تصميم PDF لشركتي SKM و SAAISS"

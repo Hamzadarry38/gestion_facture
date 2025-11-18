@@ -273,11 +273,21 @@ function setupPdfHandlers() {
 // PDF Export/Import handlers
 function setupPdfExportImportHandlers() {
   // Export all PDFs for a company as ZIP
-  ipcMain.handle('pdf:exportAll', async (event, company) => {
+  ipcMain.handle('pdf:exportAll', async (event, company, userCompany) => {
     try {
+      const companyName = company.toLowerCase();
+      const userCompanyName = userCompany ? userCompany.toUpperCase() : '';
+      const dateStr = new Date().toISOString().split('T')[0];
+      
+      // Build filename: if userCompany is different, include it
+      let filename = `${companyName}_PDFs_${dateStr}.zip`;
+      if (userCompanyName && userCompanyName !== company.toUpperCase()) {
+        filename = `${userCompanyName}_${companyName.toUpperCase()}_PDFs_${dateStr}.zip`;
+      }
+      
       const result = await dialog.showSaveDialog(mainWindow, {
         title: `Exporter tous les PDFs ${company}`,
-        defaultPath: `${company}_PDFs_${new Date().toISOString().split('T')[0]}.zip`,
+        defaultPath: filename,
         filters: [
           { name: 'ZIP Files', extensions: ['zip'] },
           { name: 'All Files', extensions: ['*'] }
