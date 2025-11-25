@@ -3207,7 +3207,7 @@ window.downloadInvoicePDFChaimae = async function(invoiceId) {
             doc.setFontSize(18);
             doc.setTextColor(...blueColor);
             doc.setFont(undefined, 'bold');
-            doc.text('CHAIMAE ERRBAHI DIQ sarl (AU)', 105, 20, { align: 'center' });
+            doc.text('CHAIMAE ERRBAHI MDIQ sarl (AU)', 105, 20, { align: 'center' });
             
             doc.setFontSize(10);
             doc.setFont(undefined, 'normal');
@@ -3688,7 +3688,7 @@ window.downloadBonDeTravauxPDFChaimae = async function(invoiceId) {
             doc.setFontSize(18);
             doc.setTextColor(...blueColor);
             doc.setFont(undefined, 'bold');
-            doc.text('CHAIMAE ERRBAHI DIQ sarl (AU)', 105, 20, { align: 'center' });
+            doc.text('CHAIMAE ERRBAHI MDIQ sarl (AU)', 105, 20, { align: 'center' });
             
             doc.setFontSize(10);
             doc.setFont(undefined, 'normal');
@@ -4043,7 +4043,7 @@ async function generateSinglePDFBlobChaimae(invoice, organizationType, folderNam
         doc.setFontSize(18);
         doc.setTextColor(...blueColor);
         doc.setFont(undefined, 'bold');
-        doc.text('CHAIMAE ERRBAHI DIQ sarl (AU)', 105, 20, { align: 'center' });
+        doc.text('CHAIMAE ERRBAHI MDIQ sarl (AU)', 105, 20, { align: 'center' });
         
         doc.setFontSize(10);
         doc.setFont(undefined, 'normal');
@@ -5594,7 +5594,7 @@ window.initInvoicesListChaimaePage = function() {
                     doc.setFontSize(16);
                     doc.setTextColor(...blueColor);
                     doc.setFont(undefined, 'bold');
-                    doc.text('CHAIMAE ERRBAHI M\'DIQ sarl (AU)', 105, 18, { align: 'center' });
+                    doc.text('CHAIMAE ERRBAHI MDIQ sarl (AU)', 105, 18, { align: 'center' });
                     
                     doc.setFontSize(8);
                     doc.setFont(undefined, 'normal');

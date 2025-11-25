@@ -903,7 +903,7 @@ window.downloadGlobalInvoicePDF = async function(invoiceId, sortOrder = null) {
             doc.setFontSize(16);
             doc.setTextColor(...blueColor);
             doc.setFont(undefined, 'bold');
-            doc.text('CHAIMAE ERRBAHI M\'DIQ sarl (AU)', 105, 18, { align: 'center' });
+            doc.text('CHAIMAE ERRBAHI MDIQ sarl (AU)', 105, 18, { align: 'center' });
             
             doc.setFontSize(8);
             doc.setFont(undefined, 'normal');

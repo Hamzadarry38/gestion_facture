@@ -1006,7 +1006,7 @@ window.downloadBonDeTravaux = async function(invoiceId) {
             doc.rect(15, 38, 80, 6, 'F');
             doc.setTextColor(255, 255, 255);
             doc.setFontSize(8);
-            doc.text('Email: multitravauxtetouan@gmail.com', 17, 42);
+            doc.text('Email: errbahiabderrahim@gmail.com', 17, 42);
             
             doc.setFillColor(...lightGrayBg);
             doc.rect(15, 44, 80, 6, 'F');
@@ -1295,7 +1295,7 @@ window.downloadInvoicePDFMulti = async function(invoiceId) {
             doc.rect(15, 38, 80, 6, 'F');
             doc.setTextColor(255, 255, 255);
             doc.setFontSize(8);
-            doc.text('Email: multitravauxtetouan@gmail.com', 17, 42);
+            doc.text('Email: errbahiabderrahim@gmail.com', 17, 42);
             
             doc.setFillColor(...lightGrayBg);
             doc.rect(15, 44, 80, 6, 'F');
