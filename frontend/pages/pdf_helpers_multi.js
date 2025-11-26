@@ -308,11 +308,29 @@ window.downloadInvoicePDFMulti = async function(invoiceId) {
         
         // Function to add header to any page
         const addHeader = (isFirstPage = true) => {
-            // Company Name - Left aligned, large
+            // Add company logo - Left side (synchronous approach)
+            try {
+                const logoImg = document.querySelector('img[src*="multi.png"]') || 
+                               document.querySelector('img[alt="Multi Company"]');
+                if (logoImg && logoImg.src && logoImg.complete) {
+                    // Image is already loaded
+                    const canvas = document.createElement('canvas');
+                    canvas.width = logoImg.naturalWidth || 200;
+                    canvas.height = logoImg.naturalHeight || 200;
+                    const ctx = canvas.getContext('2d');
+                    ctx.drawImage(logoImg, 0, 0);
+                    const imgData = canvas.toDataURL('image/png');
+                    doc.addImage(imgData, 'PNG', 15, 8, 20, 20);
+                }
+            } catch (error) {
+                console.log('Logo not available:', error.message);
+            }
+            
+            // Company Name - Left aligned, large (moved right to make space for logo)
             doc.setFontSize(18);
             doc.setTextColor(96, 125, 139);
             doc.setFont(undefined, 'bold');
-            doc.text('MULTI TRAVAUX TETOUAN', 15, 18);
+            doc.text('MULTI TRAVAUX TETOUAN', 40, 18);
             
             // Document Type - Right aligned, underlined
             doc.setFontSize(18);
@@ -378,14 +396,20 @@ window.downloadInvoicePDFMulti = async function(invoiceId) {
             doc.setTextColor(0, 0, 0);
             doc.setFontSize(9);
             doc.setFont(undefined, 'normal');
-            doc.text('NIF 68717422 | TP 51001343 | RC 38633 | CNSS 6446237', 105, 280, { align: 'center' });
-            doc.text('ICE : 00380950500031', 105, 286, { align: 'center' });
+            doc.text('NIF 68717422 | TP 51001343 | RC 38633 | CNSS 6446237', 105, 270, { align: 'center' });
+            doc.text('ICE : 00380950500031', 105, 276, { align: 'center' });
             
-            // Add page numbering at bottom in gray
-            doc.setTextColor(150, 150, 150); // Gray color
+            // Add phone number
+            doc.setTextColor(0, 0, 0);
+            doc.setFontSize(8);
+            doc.setFont(undefined, 'normal');
+            doc.text('Tel: +212 661 307 323', 105, 282, { align: 'center' });
+            
+            // Add page numbering at bottom in dark color
+            doc.setTextColor(0, 0, 0);
             doc.setFontSize(9);
             doc.setFont(undefined, 'normal');
-            doc.text(`Page ${pageNum} / ${totalPages}`, 105, 292, { align: 'center' });
+            doc.text(`Page ${pageNum} / ${totalPages}`, 105, 288, { align: 'center' });
         };
         
         // Add header to first page
