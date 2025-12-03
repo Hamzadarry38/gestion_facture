@@ -45,6 +45,11 @@ contextBridge.exposeInMainWorld('electron', {
     getNote: (invoiceId) => ipcRenderer.invoke('db:getNote', invoiceId),
     deleteNote: (invoiceId) => ipcRenderer.invoke('db:deleteNote', invoiceId),
     
+    // Audit Log
+    getAuditLog: (invoiceId) => ipcRenderer.invoke('db:getAuditLog', invoiceId),
+    addAuditLog: (invoiceId, action, userId, userName, userEmail, changes) => 
+      ipcRenderer.invoke('db:auditLog:add', invoiceId, action, userId, userName, userEmail, changes),
+    
     // Backup & Restore
     exportDatabase: () => ipcRenderer.invoke('db:backup:export'),
     importDatabase: () => ipcRenderer.invoke('db:backup:import'),
@@ -120,6 +125,11 @@ contextBridge.exposeInMainWorld('electron', {
     getNote: (invoiceId) => ipcRenderer.invoke('db:chaimae:getNote', invoiceId),
     deleteNote: (invoiceId) => ipcRenderer.invoke('db:chaimae:deleteNote', invoiceId),
     
+    // Audit Log
+    getAuditLog: (invoiceId) => ipcRenderer.invoke('db:chaimae:getAuditLog', invoiceId),
+    addAuditLog: (invoiceId, action, userId, userName, userEmail, changes) => 
+      ipcRenderer.invoke('db:chaimae:auditLog:add', invoiceId, action, userId, userName, userEmail, changes),
+    
     // Backup & Restore
     exportDatabase: () => ipcRenderer.invoke('db:chaimae:backup:export'),
     importDatabase: () => ipcRenderer.invoke('db:chaimae:backup:import'),
@@ -164,6 +174,11 @@ contextBridge.exposeInMainWorld('electron', {
     saveNote: (invoiceId, noteText) => ipcRenderer.invoke('dbMulti:saveNote', invoiceId, noteText),
     getNote: (invoiceId) => ipcRenderer.invoke('dbMulti:getNote', invoiceId),
     deleteNote: (invoiceId) => ipcRenderer.invoke('dbMulti:deleteNote', invoiceId),
+    
+    // Audit Log
+    getAuditLog: (invoiceId) => ipcRenderer.invoke('dbMulti:getAuditLog', invoiceId),
+    addAuditLog: (invoiceId, action, userId, userName, userEmail, changes) => 
+      ipcRenderer.invoke('dbMulti:auditLog:add', invoiceId, action, userId, userName, userEmail, changes),
     
     // Backup & Restore
     exportDatabase: () => ipcRenderer.invoke('db:multi:backup:export'),

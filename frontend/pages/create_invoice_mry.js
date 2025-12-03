@@ -380,7 +380,19 @@ window.autoFormatDocumentNumberOnBlur = function(input) {
     
     // إذا كان هناك أرقام، أضف السنة
     if (numbers) {
-        const year = new Date().getFullYear();
+        // استخراج السنة من حقل التاريخ بدلاً من السنة الحالية
+        const dateInput = document.getElementById('documentDate');
+        let year = new Date().getFullYear(); // القيمة الافتراضية
+        
+        if (dateInput && dateInput.value) {
+            // استخراج السنة من التاريخ المختار (YYYY-MM-DD)
+            const selectedDate = new Date(dateInput.value);
+            year = selectedDate.getFullYear();
+            console.log('📅 [AUTO FORMAT MRY] Using year from date field:', year);
+        } else {
+            console.log('📅 [AUTO FORMAT MRY] Using current year:', year);
+        }
+        
         input.value = `${numbers}/${year}`;
     }
 }
@@ -1115,6 +1127,9 @@ async function handleInvoiceSubmit(e) {
     submitBtn.disabled = true;
     
     try {
+        // Get current user info
+        const currentUser = JSON.parse(localStorage.getItem('user'));
+        
         // Collect form data
         const formData = {
             company_code: 'MRY',
@@ -1125,7 +1140,11 @@ async function handleInvoiceSubmit(e) {
             document: {
                 type: document.getElementById('documentType').value,
                 date: document.getElementById('documentDate').value,
-                numero: document.getElementById('documentNumero')?.value || ''
+                numero: document.getElementById('documentNumero')?.value || '',
+                // 👤 Add user tracking
+                created_by_user_id: currentUser?.id || null,
+                created_by_user_name: currentUser?.name || 'Unknown',
+                created_by_user_email: currentUser?.email || null
             },
             products: [],
             totals: {
@@ -1219,6 +1238,7 @@ async function handleInvoiceSubmit(e) {
         if (result.success) {
             const invoiceId = result.data.id;
             console.log('✅ Invoice saved with ID:', invoiceId);
+            console.log('👤 Created by:', currentUser?.name || 'Unknown');
             
             // Upload attachments if any
             if (selectedFiles.length > 0) {

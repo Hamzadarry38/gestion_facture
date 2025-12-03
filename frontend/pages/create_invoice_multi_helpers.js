@@ -163,9 +163,21 @@ window.formatInvoiceNumberMulti = function(input) {
     value = value.replace(/\D/g, '');
     
     if (value) {
-        const currentYear = new Date().getFullYear();
+        // استخراج السنة من حقل التاريخ بدلاً من السنة الحالية
+        const dateInput = document.getElementById('documentDateMulti');
+        let year = new Date().getFullYear(); // القيمة الافتراضية
+        
+        if (dateInput && dateInput.value) {
+            // استخراج السنة من التاريخ المختار (YYYY-MM-DD)
+            const selectedDate = new Date(dateInput.value);
+            year = selectedDate.getFullYear();
+            console.log('📅 [AUTO FORMAT MULTI] Using year from date field:', year);
+        } else {
+            console.log('📅 [AUTO FORMAT MULTI] Using current year:', year);
+        }
+        
         // Format: MTT + numbers + year
-        input.value = `MTT${value}${currentYear}`;
+        input.value = `MTT${value}${year}`;
         input.style.color = '#4caf50';
         input.style.fontWeight = '600';
     }
@@ -206,7 +218,19 @@ window.autoFormatDocumentNumberOnBlurMulti = function(input) {
     if (value.includes('/')) return;
     let numbers = value.replace(/[^0-9]/g, '');
     if (numbers) {
-        const year = new Date().getFullYear();
+        // استخراج السنة من حقل التاريخ بدلاً من السنة الحالية
+        const dateInput = document.getElementById('documentDateMulti');
+        let year = new Date().getFullYear(); // القيمة الافتراضية
+        
+        if (dateInput && dateInput.value) {
+            // استخراج السنة من التاريخ المختار (YYYY-MM-DD)
+            const selectedDate = new Date(dateInput.value);
+            year = selectedDate.getFullYear();
+            console.log('📅 [AUTO FORMAT MULTI BLUR] Using year from date field:', year);
+        } else {
+            console.log('📅 [AUTO FORMAT MULTI BLUR] Using current year:', year);
+        }
+        
         input.value = `${numbers}/${year}`;
     }
 }
@@ -821,6 +845,9 @@ async function handleInvoiceSubmitMulti(e) {
     submitBtn.disabled = true;
     
     try {
+        // Get current user info
+        const currentUser = JSON.parse(localStorage.getItem('user'));
+        
         const formData = {
             company_code: 'MULTI',
             client: {
@@ -830,7 +857,11 @@ async function handleInvoiceSubmitMulti(e) {
             document: {
                 type: document.getElementById('documentTypeMulti').value,
                 date: document.getElementById('documentDateMulti').value,
-                numero: document.getElementById('documentNumeroMulti')?.value || ''
+                numero: document.getElementById('documentNumeroMulti')?.value || '',
+                // 👤 Add user tracking
+                created_by_user_id: currentUser?.id || null,
+                created_by_user_name: currentUser?.name || 'Unknown',
+                created_by_user_email: currentUser?.email || null
             },
             products: [],
             totals: {
@@ -899,6 +930,8 @@ async function handleInvoiceSubmitMulti(e) {
         
         if (result.success) {
             const invoiceId = result.data.id;
+            console.log('✅ Invoice saved with ID:', invoiceId);
+            console.log('👤 Created by:', currentUser?.name || 'Unknown');
             
             // Save attachments if any
             if (selectedFilesMulti.length > 0) {

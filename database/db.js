@@ -109,6 +109,12 @@ async function initDatabase() {
                 total_ttc REAL DEFAULT 0,
                 created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
                 updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                created_by_user_id INTEGER,
+                created_by_user_name TEXT,
+                created_by_user_email TEXT,
+                updated_by_user_id INTEGER,
+                updated_by_user_name TEXT,
+                updated_by_user_email TEXT,
                 FOREIGN KEY (client_id) REFERENCES clients(id)
             )
         `);
@@ -120,6 +126,48 @@ async function initDatabase() {
             console.log('✅ [MRY] Added year and sequential_id columns');
         } catch (e) {
             // Columns already exist
+        }
+        
+        // Add user tracking columns if they don't exist (migration)
+        try {
+            const tableInfo = db.exec("PRAGMA table_info(invoices)");
+            const columns = tableInfo.length > 0 ? tableInfo[0].values.map(row => row[1]) : [];
+            console.log('📋 [MRY] Current invoices columns:', columns);
+            
+            let columnsAdded = [];
+            if (!columns.includes('created_by_user_id')) {
+                db.run(`ALTER TABLE invoices ADD COLUMN created_by_user_id INTEGER`);
+                columnsAdded.push('created_by_user_id');
+            }
+            if (!columns.includes('created_by_user_name')) {
+                db.run(`ALTER TABLE invoices ADD COLUMN created_by_user_name TEXT`);
+                columnsAdded.push('created_by_user_name');
+            }
+            if (!columns.includes('created_by_user_email')) {
+                db.run(`ALTER TABLE invoices ADD COLUMN created_by_user_email TEXT`);
+                columnsAdded.push('created_by_user_email');
+            }
+            if (!columns.includes('updated_by_user_id')) {
+                db.run(`ALTER TABLE invoices ADD COLUMN updated_by_user_id INTEGER`);
+                columnsAdded.push('updated_by_user_id');
+            }
+            if (!columns.includes('updated_by_user_name')) {
+                db.run(`ALTER TABLE invoices ADD COLUMN updated_by_user_name TEXT`);
+                columnsAdded.push('updated_by_user_name');
+            }
+            if (!columns.includes('updated_by_user_email')) {
+                db.run(`ALTER TABLE invoices ADD COLUMN updated_by_user_email TEXT`);
+                columnsAdded.push('updated_by_user_email');
+            }
+            
+            if (columnsAdded.length > 0) {
+                console.log('✅ [MRY] Added user tracking columns:', columnsAdded);
+                saveDatabase();
+            } else {
+                console.log('✅ [MRY] All user tracking columns already exist');
+            }
+        } catch (e) {
+            console.error('⚠️ [MRY] Error adding user tracking columns:', e.message);
         }
         
         // Create index for faster year-based queries
@@ -176,6 +224,24 @@ async function initDatabase() {
         } catch (error) {
             console.log('ℹ️ [MRY DB] Note: Could not check/add note_text column:', error.message);
         }
+        
+        // Create audit_log table for tracking invoice changes
+        db.run(`
+            CREATE TABLE IF NOT EXISTS audit_log (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                invoice_id INTEGER NOT NULL,
+                action TEXT NOT NULL,
+                user_id INTEGER,
+                user_name TEXT,
+                user_email TEXT,
+                changes TEXT,
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (invoice_id) REFERENCES invoices(id) ON DELETE CASCADE
+            )
+        `);
+        
+        // Create index for faster audit log queries
+        db.run(`CREATE INDEX IF NOT EXISTS idx_audit_log_invoice ON audit_log(invoice_id, created_at DESC)`);
         
         // Migration: Rename column if it exists with old name
         try {
@@ -384,8 +450,9 @@ const invoiceOps = {
                 document_numero, document_numero_Order, document_numero_bl,
                 document_numero_devis, document_order_devis, document_bon_de_livraison,
                 document_numero_commande, year, sequential_id,
-                total_ht, tva_rate, montant_tva, total_ttc
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                total_ht, tva_rate, montant_tva, total_ttc,
+                created_by_user_id, created_by_user_name, created_by_user_email
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         `, [
             invoiceData.company_code,
             client.id,
@@ -403,7 +470,10 @@ const invoiceOps = {
             invoiceData.totals.total_ht,
             invoiceData.totals.tva_rate,
             invoiceData.totals.montant_tva,
-            invoiceData.totals.total_ttc
+            invoiceData.totals.total_ttc,
+            invoiceData.document.created_by_user_id || null,
+            invoiceData.document.created_by_user_name || null,
+            invoiceData.document.created_by_user_email || null
         ]);
         
         // Get invoice ID
@@ -462,8 +532,14 @@ const invoiceOps = {
             total_ttc: row[17],
             created_at: row[18],
             updated_at: row[19],
-            client_nom: row[20],
-            client_ice: row[21]
+            created_by_user_id: row[20],
+            created_by_user_name: row[21],
+            created_by_user_email: row[22],
+            updated_by_user_id: row[23],
+            updated_by_user_name: row[24],
+            updated_by_user_email: row[25],
+            client_nom: row[26],
+            client_ice: row[27]
         };
         
         // Get products
@@ -533,8 +609,14 @@ const invoiceOps = {
             total_ttc: row[17],
             created_at: row[18],
             updated_at: row[19],
-            client_nom: row[20],
-            client_ice: row[21]
+            created_by_user_id: row[20],
+            created_by_user_name: row[21],
+            created_by_user_email: row[22],
+            updated_by_user_id: row[23],
+            updated_by_user_name: row[24],
+            updated_by_user_email: row[25],
+            client_nom: row[26],
+            client_ice: row[27]
         }));
     },
     
@@ -573,11 +655,16 @@ const invoiceOps = {
             }
         }
         
+        // Extract year from document_date
+        const documentDate = new Date(invoiceData.document.date);
+        const year = documentDate.getFullYear();
+        
         // Update invoice with new client_id and other fields
         db.run(`
             UPDATE invoices SET
                 client_id = ?,
                 document_date = ?,
+                year = ?,
                 document_numero = ?,
                 document_numero_Order = ?,
                 document_numero_devis = ?,
@@ -590,6 +677,7 @@ const invoiceOps = {
         `, [
             newClientId,
             invoiceData.document.date,
+            year,
             invoiceData.document.numero,
             invoiceData.document.numero_Order,
             invoiceData.document.numero_devis || null,
@@ -1060,6 +1148,59 @@ const noteOps = {
     }
 };
 
+// Audit Log operations
+const auditLogOps = {
+    // Add audit log entry
+    addLog: (invoiceId, action, userId, userName, userEmail, changes) => {
+        return new Promise((resolve, reject) => {
+            try {
+                db.run(
+                    `INSERT INTO audit_log (invoice_id, action, user_id, user_name, user_email, changes) 
+                     VALUES (?, ?, ?, ?, ?, ?)`,
+                    [invoiceId, action, userId, userName, userEmail, JSON.stringify(changes)]
+                );
+                saveDatabase();
+                resolve({ success: true });
+            } catch (error) {
+                console.error('Error adding audit log:', error);
+                reject(error);
+            }
+        });
+    },
+
+    // Get audit logs for an invoice
+    getLogsForInvoice: (invoiceId) => {
+        return new Promise((resolve, reject) => {
+            try {
+                const result = db.exec(
+                    `SELECT id, action, user_name, user_email, changes, created_at 
+                     FROM audit_log 
+                     WHERE invoice_id = ? 
+                     ORDER BY created_at DESC`,
+                    [invoiceId]
+                );
+
+                if (result.length > 0) {
+                    const logs = result[0].values.map(row => ({
+                        id: row[0],
+                        action: row[1],
+                        user_name: row[2],
+                        user_email: row[3],
+                        changes: row[4] ? JSON.parse(row[4]) : null,
+                        created_at: row[5]
+                    }));
+                    resolve({ success: true, data: logs });
+                } else {
+                    resolve({ success: true, data: [] });
+                }
+            } catch (error) {
+                console.error('Error getting audit logs:', error);
+                reject(error);
+            }
+        });
+    }
+};
+
 module.exports = {
     initDatabase,
     getDatabase,
@@ -1069,6 +1210,7 @@ module.exports = {
     attachmentOps,
     mryOrderPrefixOps,
     noteOps,
+    auditLogOps,
     getMissingMRYInvoiceNumbers,
     getMissingMRYDevisNumbers,
     deleteAllData

@@ -1,5 +1,5 @@
 const { ipcMain } = require('electron');
-const { initDatabase, clientOps, invoiceOps, attachmentOps, mryOrderPrefixOps, getMissingMRYInvoiceNumbers, getMissingMRYDevisNumbers } = require('./db');
+const { initDatabase, clientOps, invoiceOps, attachmentOps, mryOrderPrefixOps, auditLogOps, getMissingMRYInvoiceNumbers, getMissingMRYDevisNumbers } = require('./db');
 
 // Register all IPC handlers
 async function registerDatabaseHandlers() {
@@ -244,6 +244,38 @@ async function registerDatabaseHandlers() {
             return result;
         } catch (error) {
             console.error('[MRY] Error deleting note:', error);
+            return { success: false, error: error.message };
+        }
+    });
+
+    // Audit Log handlers
+    ipcMain.handle('db:auditLog:add', async (event, invoiceId, action, userId, userName, userEmail, changes) => {
+        try {
+            const result = await auditLogOps.addLog(invoiceId, action, userId, userName, userEmail, changes);
+            return result;
+        } catch (error) {
+            console.error('[MRY] Error adding audit log:', error);
+            return { success: false, error: error.message };
+        }
+    });
+
+    ipcMain.handle('db:auditLog:getForInvoice', async (event, invoiceId) => {
+        try {
+            const result = await auditLogOps.getLogsForInvoice(invoiceId);
+            return result;
+        } catch (error) {
+            console.error('[MRY] Error getting audit logs:', error);
+            return { success: false, error: error.message };
+        }
+    });
+
+    // Alias for getForInvoice
+    ipcMain.handle('db:getAuditLog', async (event, invoiceId) => {
+        try {
+            const result = await auditLogOps.getLogsForInvoice(invoiceId);
+            return result;
+        } catch (error) {
+            console.error('[MRY] Error getting audit logs:', error);
             return { success: false, error: error.message };
         }
     });

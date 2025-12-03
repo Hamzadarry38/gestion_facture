@@ -530,7 +530,19 @@ window.autoFormatDocumentNumberOnBlurChaimae = function(input) {
     
     // إذا كان هناك أرقام، أضف السنة
     if (numbers) {
-        const year = new Date().getFullYear();
+        // استخراج السنة من حقل التاريخ بدلاً من السنة الحالية
+        const dateInput = document.getElementById('documentDate');
+        let year = new Date().getFullYear(); // القيمة الافتراضية
+        
+        if (dateInput && dateInput.value) {
+            // استخراج السنة من التاريخ المختار (YYYY-MM-DD)
+            const selectedDate = new Date(dateInput.value);
+            year = selectedDate.getFullYear();
+            console.log('📅 [AUTO FORMAT] Using year from date field:', year);
+        } else {
+            console.log('📅 [AUTO FORMAT] Using current year:', year);
+        }
+        
         input.value = `${numbers}/${year}`;
     }
 }
@@ -1086,19 +1098,32 @@ async function loadSimpleOrderPrefixesFromDB() {
 window.formatBonLivraisonWithPrefixChaimae = function(input) {
     let value = input.value.trim();
     
+    // 🔍 DEBUG: Log input value
+    console.log('🔴 [FORMAT BON LIVRAISON] Input value:', value);
+    
     // إذا كان الحقل فارغاً، لا تفعل شيئاً
-    if (!value) return;
+    if (!value) {
+        console.log('⚠️ [FORMAT BON LIVRAISON] Empty value, returning');
+        return;
+    }
     
     // إذا كان يحتوي بالفعل على سلاش، لا تفعل شيئاً
-    if (value.includes('/')) return;
+    if (value.includes('/')) {
+        console.log('⚠️ [FORMAT BON LIVRAISON] Already has slash, returning:', value);
+        return;
+    }
     
     // استخراج الأرقام فقط
     let numbers = value.replace(/[^0-9]/g, '');
     
+    console.log('🔴 [FORMAT BON LIVRAISON] Extracted numbers:', numbers);
+    
     // إذا كان هناك أرقام، أضف السنة
     if (numbers) {
         const year = new Date().getFullYear();
-        input.value = `${numbers}/${year}`;
+        const formatted = `${numbers}/${year}`;
+        input.value = formatted;
+        console.log('✅ [FORMAT BON LIVRAISON] Formatted value:', formatted);
     }
 }
 
@@ -1727,6 +1752,9 @@ async function handleFormSubmitChaimae(e) {
     e.preventDefault();
     
     try {
+        // Get current user info
+        const currentUser = JSON.parse(localStorage.getItem('user'));
+        
         // Collect form data
         const formData = {
             client: {
@@ -1740,7 +1768,11 @@ async function handleFormSubmitChaimae(e) {
                 numero_devis: null,
                 numero_Order: null,
                 bon_livraison: null,
-                bon_commande: null
+                bon_commande: null,
+                // 👤 Add user tracking
+                created_by_user_id: currentUser?.id || null,
+                created_by_user_name: currentUser?.name || 'Unknown',
+                created_by_user_email: currentUser?.email || null
             },
             products: [],
             totals: {
@@ -1774,7 +1806,23 @@ async function handleFormSubmitChaimae(e) {
         } else if (docType === 'bon_livraison') {
             // Get selected prefix and combine with numero
             const selectedPrefix = window.selectedPrefix || 'MG';
-            const fullNumero = selectedPrefix + mainNumero;
+            
+            // 🔍 DEBUG: Log what we're getting
+            console.log('🔴 [CREATE DEBUG] SELECTED PREFIX:', selectedPrefix);
+            console.log('🔴 [CREATE DEBUG] MAIN NUMERO:', mainNumero);
+            console.log('🔴 [CREATE DEBUG] MAIN NUMERO contains prefix?', mainNumero?.startsWith(selectedPrefix));
+            
+            // ✅ FIX: Check if mainNumero already contains the prefix
+            let fullNumero;
+            if (mainNumero?.startsWith(selectedPrefix)) {
+                fullNumero = mainNumero; // Already has prefix, don't add it again
+                console.log('⚠️ [CREATE DEBUG] NUMERO already has prefix, using as-is:', fullNumero);
+            } else {
+                fullNumero = selectedPrefix + mainNumero;
+                console.log('✅ [CREATE DEBUG] Adding prefix to numero:', fullNumero);
+            }
+            
+            console.log('📝 [CREATE DEBUG] Final Full numero:', fullNumero);
             
             formData.document.numero = fullNumero;
             formData.document.numero_BL = fullNumero; // Save to document_numero_bl field
@@ -1862,7 +1910,28 @@ async function handleFormSubmitChaimae(e) {
                         // For bon_livraison, check if it's the same type AND has the same numero
                         // The numero is saved with prefix (e.g., "HA01/2025")
                         const selectedPrefix = window.selectedPrefix || 'MG';
-                        const fullNumero = selectedPrefix + mainNumero;
+                        
+                        // 🔍 DEBUG: Check for duplicates
+                        console.log('🔴 [DUPLICATE CHECK] Selected Prefix:', selectedPrefix);
+                        console.log('🔴 [DUPLICATE CHECK] Main Numero:', mainNumero);
+                        console.log('🔴 [DUPLICATE CHECK] Main Numero contains prefix?', mainNumero?.startsWith(selectedPrefix));
+                        
+                        // ✅ FIX: Check if mainNumero already contains the prefix
+                        let fullNumero;
+                        if (mainNumero?.startsWith(selectedPrefix)) {
+                            fullNumero = mainNumero;
+                            console.log('⚠️ [DUPLICATE CHECK] Using numero as-is:', fullNumero);
+                        } else {
+                            fullNumero = selectedPrefix + mainNumero;
+                            console.log('✅ [DUPLICATE CHECK] Adding prefix:', fullNumero);
+                        }
+                        
+                        console.log('📝 [DUPLICATE CHECK] Checking against invoice:', {
+                            inv_type: inv.document_type,
+                            inv_numero: inv.document_numero,
+                            inv_numero_bl: inv.document_numero_bl,
+                            fullNumero: fullNumero
+                        });
                         
                         return (inv.document_type === 'bon_livraison' || inv.document_type === 'bon de livraison') && 
                                (inv.document_numero === fullNumero || 
@@ -1949,6 +2018,7 @@ async function handleFormSubmitChaimae(e) {
         if (result.success) {
             const invoiceId = result.data.id;
             console.log('✅ Invoice saved with ID:', invoiceId);
+            console.log('👤 Created by:', currentUser?.name || 'Unknown');
             
             // Upload attachments if any
             const fileInput = document.getElementById('fileInputChaimae');

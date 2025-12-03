@@ -192,6 +192,7 @@ function InvoicesListMRYPage() {
                                     <th onclick="sortTableMry('date')" style="cursor: pointer; user-select: none;" title="Cliquez pour trier">
                                         Date <span id="sortIconDateMry">⇅</span>
                                     </th>
+                                    <th>Créé par</th>
                                     <th onclick="sortTableMry('total_ht')" style="cursor: pointer; user-select: none;" title="Cliquez pour trier">
                                         Total HT <span id="sortIconTotalHTMry">⇅</span>
                                     </th>
@@ -296,7 +297,13 @@ window.loadInvoices = async function() {
                 }
             }
             
-            allInvoices = invoices;
+            // Add default display if not present
+            const enrichedInvoices = invoices.map(inv => ({
+                ...inv,
+                created_by_user_name: inv.created_by_user_name || '-'
+            }));
+            
+            allInvoices = enrichedInvoices;
             console.log('✅ [LOAD] All invoices stored in memory:', allInvoices.length);
             
             // Log first 3 invoices for debugging
@@ -398,6 +405,11 @@ function displayInvoices(invoices) {
             totalTTC
         });
         
+        console.log('👤 User info for invoice', invoice.id, ':', {
+            created_by_user_name: invoice.created_by_user_name,
+            created_by_user_id: invoice.created_by_user_id
+        });
+        
         return `
             <tr>
                 <td>
@@ -410,6 +422,7 @@ function displayInvoices(invoices) {
                 <td>${invoice.client_nom}</td>
                 <td>${invoice.client_ice}</td>
                 <td>${date}</td>
+                <td><small style="color: #2196f3;">${invoice.created_by_user_name || '-'}</small></td>
                 <td>${formatNumber(invoice.total_ht)} DH</td>
                 <td>${invoice.tva_rate}%</td>
                 <td><strong>${formatNumber(invoice.total_ttc)} DH</strong></td>
@@ -1006,7 +1019,7 @@ window.viewInvoice = async function(id) {
                 </div>
                 
                 <!-- Attachments Section -->
-                <div>
+                <div style="margin-bottom:2rem;">
                     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem;">
                         <h3 style="color:#fff;font-size:1.1rem;margin:0;font-weight:600;">Pièces jointes (${invoice.attachments ? invoice.attachments.length : 0})</h3>
                         <button onclick="addNewAttachment(${id})" style="padding:0.5rem 1rem;background:#4CAF50;color:#fff;border:none;border-radius:6px;cursor:pointer;font-size:0.85rem;font-weight:600;display:flex;align-items:center;gap:0.5rem;transition:all 0.2s;" onmouseover="this.style.background='#45a049'" onmouseout="this.style.background='#4CAF50'">
@@ -1040,6 +1053,14 @@ window.viewInvoice = async function(id) {
                             `).join('')}
                         </div>
                     ` : '<p style="color:#999;text-align:center;padding:2rem;background:#1e1e1e;border-radius:8px;">Aucune pièce jointe</p>'}
+                </div>
+                
+                <!-- Audit Log Section -->
+                <div id="auditLogSectionMRY${id}">
+                    <h3 style="color:#fff;font-size:1.1rem;margin:0 0 1rem 0;font-weight:600;">📋 Historique des modifications</h3>
+                    <div style="background:#1e1e1e;border-radius:8px;padding:1rem;">
+                        <div style="color:#999;font-size:0.9rem;font-style:italic;">Chargement de l'historique...</div>
+                    </div>
                 </div>
             </div>
         `;
@@ -1085,6 +1106,87 @@ window.viewInvoice = async function(id) {
             } else {
                 console.log('ℹ️ [NOTES VIEW MRY] No note found');
                 notesContent.textContent = 'Aucune note';
+            }
+        }
+        
+        // Load audit log asynchronously
+        console.log('📋 [AUDIT LOG MRY] Loading audit log for invoice:', id);
+        const auditLogSection = document.getElementById(`auditLogSectionMRY${id}`);
+        if (auditLogSection) {
+            const auditLogContent = auditLogSection.querySelector('div > div');
+            try {
+                // Check if function exists
+                if (!window.electron.db.getAuditLog) {
+                    console.error('❌ [AUDIT LOG MRY] getAuditLog function not found');
+                    throw new Error('getAuditLog function not available');
+                }
+                
+                const auditResult = await window.electron.db.getAuditLog(id);
+                console.log('📥 [AUDIT LOG MRY] Audit log result:', auditResult);
+                
+                if (auditResult.success && auditResult.data && auditResult.data.length > 0) {
+                    const logs = auditResult.data;
+                    console.log('✅ [AUDIT LOG MRY] Displaying audit logs:', logs);
+                    
+                    let auditHTML = '<div style="max-height: 400px; overflow-y: auto;">';
+                    
+                    // Add creation info first
+                    if (invoice.created_by_user_name) {
+                        const createdDate = new Date(invoice.created_at).toLocaleDateString('fr-FR');
+                        auditHTML += `
+                            <div style="padding:0.75rem;background:#252526;border-radius:6px;margin-bottom:0.5rem;border-left:4px solid #4CAF50;">
+                                <div style="display:flex;justify-content:space-between;align-items:start;">
+                                    <div>
+                                        <div style="color:#4CAF50;font-weight:600;font-size:0.9rem;">➕ Création</div>
+                                        <div style="color:#fff;margin-top:0.25rem;">Par: <strong>${invoice.created_by_user_name}</strong></div>
+                                        ${invoice.created_by_user_email ? `<div style="color:#999;font-size:0.85rem;">${invoice.created_by_user_email}</div>` : ''}
+                                    </div>
+                                    <div style="color:#999;font-size:0.85rem;white-space:nowrap;">${createdDate}</div>
+                                </div>
+                            </div>
+                        `;
+                    }
+                    
+                    // Add modification logs
+                    logs.forEach(log => {
+                        const logDate = new Date(log.created_at).toLocaleDateString('fr-FR');
+                        auditHTML += `
+                            <div style="padding:0.75rem;background:#252526;border-radius:6px;margin-bottom:0.5rem;border-left:4px solid #2196F3;">
+                                <div style="display:flex;justify-content:space-between;align-items:start;">
+                                    <div>
+                                        <div style="color:#2196F3;font-weight:600;font-size:0.9rem;">✏️ Mis à jour</div>
+                                        <div style="color:#fff;margin-top:0.25rem;">Par: <strong>${log.user_name}</strong></div>
+                                        ${log.user_email ? `<div style="color:#999;font-size:0.85rem;">${log.user_email}</div>` : ''}
+                                    </div>
+                                    <div style="color:#999;font-size:0.85rem;white-space:nowrap;">${logDate}</div>
+                                </div>
+                            </div>
+                        `;
+                    });
+                    
+                    auditHTML += '</div>';
+                    auditLogContent.innerHTML = auditHTML;
+                    auditLogContent.style.color = '#fff';
+                    auditLogContent.style.fontStyle = 'normal';
+                } else {
+                    console.log('ℹ️ [AUDIT LOG MRY] No audit logs found');
+                    const createdDate = new Date(invoice.created_at).toLocaleDateString('fr-FR');
+                    auditLogContent.innerHTML = `
+                        <div style="padding:0.75rem;background:#252526;border-radius:6px;border-left:4px solid #4CAF50;">
+                            <div style="display:flex;justify-content:space-between;align-items:start;">
+                                <div>
+                                    <div style="color:#4CAF50;font-weight:600;font-size:0.9rem;">➕ Création</div>
+                                    <div style="color:#fff;margin-top:0.25rem;">Par: <strong>${invoice.created_by_user_name || 'Utilisateur inconnu'}</strong></div>
+                                    ${invoice.created_by_user_email ? `<div style="color:#999;font-size:0.85rem;">${invoice.created_by_user_email}</div>` : ''}
+                                </div>
+                                <div style="color:#999;font-size:0.85rem;white-space:nowrap;">${createdDate}</div>
+                            </div>
+                        </div>
+                    `;
+                }
+            } catch (error) {
+                console.error('❌ [AUDIT LOG MRY] Error loading audit log:', error);
+                auditLogContent.innerHTML = '<div style="color:#f44336;">Erreur lors du chargement de l\'historique</div>';
             }
         }
         
@@ -1601,6 +1703,29 @@ async function handleEditSubmit(e, invoiceId) {
                 // Delete note if textarea is empty
                 const deleteResult = await window.electron.db.deleteNote(invoiceId);
                 console.log('🗑️ [NOTES MRY] Delete result:', deleteResult);
+            }
+            
+            // Add audit log entry for the update
+            const user = JSON.parse(localStorage.getItem('user'));
+            if (user && window.electron.db.addAuditLog) {
+                try {
+                    const changes = {
+                        client: updateData.client,
+                        document: updateData.document,
+                        totals: updateData.totals
+                    };
+                    await window.electron.db.addAuditLog(
+                        invoiceId,
+                        'UPDATE',
+                        user.id,
+                        user.name,
+                        user.email,
+                        JSON.stringify(changes)
+                    );
+                    console.log('✅ [AUDIT LOG MRY] Audit log entry added');
+                } catch (auditError) {
+                    console.error('❌ [AUDIT LOG MRY] Error adding audit log:', auditError);
+                }
             }
             
             window.notify.success('Succès', 'Facture mise à jour avec succès!', 3000);

@@ -1,6 +1,6 @@
 const { ipcMain } = require('electron');
 const dbMulti = require('./db_multi');
-const { getMissingMultiInvoiceNumbers, getMissingMultiDevisNumbers } = require('./db_multi');
+const { getMissingMultiInvoiceNumbers, getMissingMultiDevisNumbers, auditLogOps } = require('./db_multi');
 
 async function registerMultiHandlers() {
     console.log('🔄 [MULTI] Registering Multi Company database handlers...');
@@ -240,6 +240,38 @@ async function registerMultiHandlers() {
             return result;
         } catch (error) {
             console.error('[MULTI] Error deleting note:', error);
+            return { success: false, error: error.message };
+        }
+    });
+
+    // Audit Log handlers
+    ipcMain.handle('dbMulti:auditLog:add', async (event, invoiceId, action, userId, userName, userEmail, changes) => {
+        try {
+            const result = await auditLogOps.addLog(invoiceId, action, userId, userName, userEmail, changes);
+            return result;
+        } catch (error) {
+            console.error('[MULTI] Error adding audit log:', error);
+            return { success: false, error: error.message };
+        }
+    });
+
+    ipcMain.handle('dbMulti:auditLog:getForInvoice', async (event, invoiceId) => {
+        try {
+            const result = await auditLogOps.getLogsForInvoice(invoiceId);
+            return result;
+        } catch (error) {
+            console.error('[MULTI] Error getting audit logs:', error);
+            return { success: false, error: error.message };
+        }
+    });
+
+    // Alias for getForInvoice
+    ipcMain.handle('dbMulti:getAuditLog', async (event, invoiceId) => {
+        try {
+            const result = await auditLogOps.getLogsForInvoice(invoiceId);
+            return result;
+        } catch (error) {
+            console.error('[MULTI] Error getting audit logs:', error);
             return { success: false, error: error.message };
         }
     });

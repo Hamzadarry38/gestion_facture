@@ -691,19 +691,32 @@ window.deletePrefixEdit = async function(prefix) {
 window.formatBonNumeroWithPrefixEdit = function(input) {
     let value = input.value.trim();
     
+    // 🔍 DEBUG: Log input value
+    console.log('🔴 [EDIT FORMAT BON NUMERO] Input value:', value);
+    
     // إذا كان الحقل فارغاً، لا تفعل شيئاً
-    if (!value) return;
+    if (!value) {
+        console.log('⚠️ [EDIT FORMAT BON NUMERO] Empty value, returning');
+        return;
+    }
     
     // إذا كان يحتوي بالفعل على سلاش، لا تفعل شيئاً
-    if (value.includes('/')) return;
+    if (value.includes('/')) {
+        console.log('⚠️ [EDIT FORMAT BON NUMERO] Already has slash, returning:', value);
+        return;
+    }
     
     // استخراج الأرقام فقط
     let numbers = value.replace(/[^0-9]/g, '');
     
+    console.log('🔴 [EDIT FORMAT BON NUMERO] Extracted numbers:', numbers);
+    
     // إذا كان هناك أرقام، أضف السنة
     if (numbers) {
         const year = new Date().getFullYear();
-        input.value = `${numbers}/${year}`;
+        const formatted = `${numbers}/${year}`;
+        input.value = formatted;
+        console.log('✅ [EDIT FORMAT BON NUMERO] Formatted value:', formatted);
     }
 }
 

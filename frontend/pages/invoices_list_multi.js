@@ -192,6 +192,7 @@ function InvoicesListMultiPage() {
                                     <th onclick="sortTableMulti('date')" style="cursor: pointer; user-select: none;" title="Cliquer pour trier">
                                         Date <span id="sortIconDate">⇅</span>
                                     </th>
+                                    <th>Créé par</th>
                                     <th onclick="sortTableMulti('total_ht')" style="cursor: pointer; user-select: none;" title="Cliquer pour trier">
                                         Total HT <span id="sortIconHT">⇅</span>
                                     </th>
@@ -278,7 +279,13 @@ async function loadInvoicesMulti() {
                 }
             }
             
-            allInvoicesMulti = invoices;
+            // Add default display if not present
+            const enrichedInvoices = invoices.map(inv => ({
+                ...inv,
+                created_by_user_name: inv.created_by_user_name || '-'
+            }));
+            
+            allInvoicesMulti = enrichedInvoices;
             filteredInvoicesMulti = [...allInvoicesMulti];
             
             populateFiltersMulti();
@@ -436,6 +443,11 @@ function displayInvoicesMulti() {
         const typeLabel = invoice.document_type === 'facture' ? '📄 Facture' : '📋 Devis';
         const date = new Date(invoice.document_date).toLocaleDateString('fr-FR');
         
+        console.log('👤 User info for invoice', invoice.id, ':', {
+            created_by_user_name: invoice.created_by_user_name,
+            created_by_user_id: invoice.created_by_user_id
+        });
+        
         row.innerHTML = `
             <td>
                 <input type="checkbox" class="invoice-checkbox-multi" data-invoice-id="${invoice.id}" 
@@ -451,6 +463,7 @@ function displayInvoicesMulti() {
             <td>${invoice.client_nom}</td>
             <td>${invoice.client_ice}</td>
             <td>${date}</td>
+            <td><small style="color: #2196f3;">${invoice.created_by_user_name || '-'}</small></td>
             <td>${invoice.total_ht.toFixed(2)} DH</td>
             <td>${invoice.tva_rate}%</td>
             <td><strong>${invoice.total_ttc.toFixed(2)} DH</strong></td>
@@ -672,7 +685,7 @@ window.viewInvoiceMulti = async function(id) {
                 </div>
                 
                 <!-- Attachments Section -->
-                <div>
+                <div style="margin-bottom:2rem;">
                     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1rem;">
                         <h3 style="color:#fff;font-size:1.1rem;margin:0;font-weight:600;">Pièces jointes</h3>
                         <button onclick="addNewAttachmentMulti(${id})" style="padding:0.5rem 1rem;background:#4CAF50;color:#fff;border:none;border-radius:6px;cursor:pointer;font-size:0.85rem;font-weight:600;display:flex;align-items:center;gap:0.5rem;transition:all 0.2s;" onmouseover="this.style.background='#45a049'" onmouseout="this.style.background='#4CAF50'">
@@ -715,6 +728,14 @@ window.viewInvoiceMulti = async function(id) {
                         </div>
                     ` : '<p style="color:#999;text-align:center;padding:2rem;background:#1e1e1e;border-radius:8px;">Aucune pièce jointe</p>'}
                 </div>
+                
+                <!-- Audit Log Section -->
+                <div id="auditLogSectionMulti${id}">
+                    <h3 style="color:#fff;font-size:1.1rem;margin:0 0 1rem 0;font-weight:600;">📋 Historique des modifications</h3>
+                    <div style="background:#1e1e1e;border-radius:8px;padding:1rem;">
+                        <div style="color:#999;font-size:0.9rem;font-style:italic;">Chargement de l'historique...</div>
+                    </div>
+                </div>
             </div>
         `;
         
@@ -742,6 +763,87 @@ window.viewInvoiceMulti = async function(id) {
             } else {
                 console.log('ℹ️ [NOTES VIEW MULTI] No note found');
                 notesContent.textContent = 'Aucune note';
+            }
+        }
+        
+        // Load audit log asynchronously
+        console.log('📋 [AUDIT LOG MULTI] Loading audit log for invoice:', id);
+        const auditLogSection = document.getElementById(`auditLogSectionMulti${id}`);
+        if (auditLogSection) {
+            const auditLogContent = auditLogSection.querySelector('div > div');
+            try {
+                // Check if function exists
+                if (!window.electron.dbMulti.getAuditLog) {
+                    console.error('❌ [AUDIT LOG MULTI] getAuditLog function not found');
+                    throw new Error('getAuditLog function not available');
+                }
+                
+                const auditResult = await window.electron.dbMulti.getAuditLog(id);
+                console.log('📥 [AUDIT LOG MULTI] Audit log result:', auditResult);
+                
+                if (auditResult.success && auditResult.data && auditResult.data.length > 0) {
+                    const logs = auditResult.data;
+                    console.log('✅ [AUDIT LOG MULTI] Displaying audit logs:', logs);
+                    
+                    let auditHTML = '<div style="max-height: 400px; overflow-y: auto;">';
+                    
+                    // Add creation info first
+                    if (invoice.created_by_user_name) {
+                        const createdDate = new Date(invoice.created_at).toLocaleDateString('fr-FR');
+                        auditHTML += `
+                            <div style="padding:0.75rem;background:#252526;border-radius:6px;margin-bottom:0.5rem;border-left:4px solid #4CAF50;">
+                                <div style="display:flex;justify-content:space-between;align-items:start;">
+                                    <div>
+                                        <div style="color:#4CAF50;font-weight:600;font-size:0.9rem;">➕ Création</div>
+                                        <div style="color:#fff;margin-top:0.25rem;">Par: <strong>${invoice.created_by_user_name}</strong></div>
+                                        ${invoice.created_by_user_email ? `<div style="color:#999;font-size:0.85rem;">${invoice.created_by_user_email}</div>` : ''}
+                                    </div>
+                                    <div style="color:#999;font-size:0.85rem;white-space:nowrap;">${createdDate}</div>
+                                </div>
+                            </div>
+                        `;
+                    }
+                    
+                    // Add modification logs
+                    logs.forEach(log => {
+                        const logDate = new Date(log.created_at).toLocaleDateString('fr-FR');
+                        auditHTML += `
+                            <div style="padding:0.75rem;background:#252526;border-radius:6px;margin-bottom:0.5rem;border-left:4px solid #2196F3;">
+                                <div style="display:flex;justify-content:space-between;align-items:start;">
+                                    <div>
+                                        <div style="color:#2196F3;font-weight:600;font-size:0.9rem;">✏️ Mis à jour</div>
+                                        <div style="color:#fff;margin-top:0.25rem;">Par: <strong>${log.user_name}</strong></div>
+                                        ${log.user_email ? `<div style="color:#999;font-size:0.85rem;">${log.user_email}</div>` : ''}
+                                    </div>
+                                    <div style="color:#999;font-size:0.85rem;white-space:nowrap;">${logDate}</div>
+                                </div>
+                            </div>
+                        `;
+                    });
+                    
+                    auditHTML += '</div>';
+                    auditLogContent.innerHTML = auditHTML;
+                    auditLogContent.style.color = '#fff';
+                    auditLogContent.style.fontStyle = 'normal';
+                } else {
+                    console.log('ℹ️ [AUDIT LOG MULTI] No audit logs found');
+                    const createdDate = new Date(invoice.created_at).toLocaleDateString('fr-FR');
+                    auditLogContent.innerHTML = `
+                        <div style="padding:0.75rem;background:#252526;border-radius:6px;border-left:4px solid #4CAF50;">
+                            <div style="display:flex;justify-content:space-between;align-items:start;">
+                                <div>
+                                    <div style="color:#4CAF50;font-weight:600;font-size:0.9rem;">➕ Création</div>
+                                    <div style="color:#fff;margin-top:0.25rem;">Par: <strong>${invoice.created_by_user_name || 'Utilisateur inconnu'}</strong></div>
+                                    ${invoice.created_by_user_email ? `<div style="color:#999;font-size:0.85rem;">${invoice.created_by_user_email}</div>` : ''}
+                                </div>
+                                <div style="color:#999;font-size:0.85rem;white-space:nowrap;">${createdDate}</div>
+                            </div>
+                        </div>
+                    `;
+                }
+            } catch (error) {
+                console.error('❌ [AUDIT LOG MULTI] Error loading audit log:', error);
+                auditLogContent.innerHTML = '<div style="color:#f44336;">Erreur lors du chargement de l\'historique</div>';
             }
         }
         

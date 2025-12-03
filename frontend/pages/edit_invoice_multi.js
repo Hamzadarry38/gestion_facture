@@ -680,6 +680,29 @@ async function handleEditInvoiceSubmitMulti(e) {
                 await window.electron.dbMulti.saveNote(currentInvoiceIdMulti, noteText);
             }
             
+            // Add audit log entry for the update
+            const user = JSON.parse(localStorage.getItem('user'));
+            if (user && window.electron.dbMulti.addAuditLog) {
+                try {
+                    const changes = {
+                        client: formData.client,
+                        document: formData.document,
+                        totals: formData.totals
+                    };
+                    await window.electron.dbMulti.addAuditLog(
+                        currentInvoiceIdMulti,
+                        'UPDATE',
+                        user.id,
+                        user.name,
+                        user.email,
+                        JSON.stringify(changes)
+                    );
+                    console.log('✅ [AUDIT LOG MULTI] Audit log entry added');
+                } catch (auditError) {
+                    console.error('❌ [AUDIT LOG MULTI] Error adding audit log:', auditError);
+                }
+            }
+            
             window.notify.remove(loadingNotif);
             window.notify.success('Succès', 'Facture mise à jour avec succès!', 3000);
             
@@ -993,9 +1016,21 @@ window.formatEditInvoiceNumberMulti = function(input) {
     value = value.replace(/^MTT/i, '').replace(/\d{4}$/, '').trim();
     
     if (value) {
-        const currentYear = new Date().getFullYear();
+        // استخراج السنة من حقل التاريخ بدلاً من السنة الحالية
+        const dateInput = document.getElementById('editDate');
+        let year = new Date().getFullYear(); // القيمة الافتراضية
+        
+        if (dateInput && dateInput.value) {
+            // استخراج السنة من التاريخ المختار (YYYY-MM-DD)
+            const selectedDate = new Date(dateInput.value);
+            year = selectedDate.getFullYear();
+            console.log('📅 [EDIT FORMAT MULTI] Using year from date field:', year);
+        } else {
+            console.log('📅 [EDIT FORMAT MULTI] Using current year:', year);
+        }
+        
         // Format: MTT + numbers + year
-        input.value = `MTT${value}${currentYear}`;
+        input.value = `MTT${value}${year}`;
         input.style.color = '#4caf50';
         input.style.fontWeight = '600';
     }

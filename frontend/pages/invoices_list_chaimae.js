@@ -220,6 +220,7 @@ function InvoicesListChaimaePage() {
                                     <th onclick="sortTableChaimae('date')" style="cursor: pointer; user-select: none;" title="Cliquez pour trier">
                                         Date <span id="sortIconDateChaimae">⇅</span>
                                     </th>
+                                    <th>Créé par</th>
                                     <th onclick="sortTableChaimae('total_ht')" style="cursor: pointer; user-select: none;" title="Cliquez pour trier">
                                         Total HT <span id="sortIconTotalHTChaimae">⇅</span>
                                     </th>
@@ -321,12 +322,27 @@ window.loadInvoicesChaimae = async function() {
         // Get global invoices from database
         const globalResult = await window.electron.dbChaimae.getAllGlobalInvoices();
         
+        console.log('🔍 [CHAIMAE] Raw database result:', result);
+        if (result.success && result.data.length > 0) {
+            console.log('🔍 [CHAIMAE] First invoice from DB:', result.data[0]);
+            console.log('🔍 [CHAIMAE] First invoice keys:', Object.keys(result.data[0]));
+        }
+        
         if (result.success) {
             const regularInvoices = result.data;
             const globalInvoices = globalResult.success ? globalResult.data : [];
             
+            // Add default display if not present
+            const enrichedInvoices = regularInvoices.map(inv => ({
+                ...inv,
+                created_by_user_name: inv.created_by_user_name || '-',
+                updated_by_user_name: inv.updated_by_user_name || inv.created_by_user_name || '-'
+            }));
+            
+            console.log('🔍 [CHAIMAE] Enriched first invoice:', enrichedInvoices.length > 0 ? enrichedInvoices[0] : 'No invoices');
+            
             // Store only regular invoices in main array
-            allInvoicesChaimae = regularInvoices;
+            allInvoicesChaimae = enrichedInvoices;
             
             // Display global invoices separately
             displayGlobalInvoicesChaimae(globalInvoices);
@@ -662,6 +678,13 @@ function displayInvoicesChaimae(invoices) {
             totalTTC
         });
         
+        console.log('👤 User info for invoice', invoice.id, ':', {
+            created_by_user_name: invoice.created_by_user_name,
+            created_by_user_id: invoice.created_by_user_id,
+            created_by_user_email: invoice.created_by_user_email,
+            all_keys: Object.keys(invoice)
+        });
+        
         // Additional info
         let additionalInfo = '';
         if (invoice.document_type === 'facture') {
@@ -694,6 +717,7 @@ function displayInvoicesChaimae(invoices) {
                 <td style="padding: 1rem 0.75rem; border-right: 1px solid #3e3e42; color: #cccccc;">${invoice.client_nom}</td>
                 <td style="padding: 1rem 0.75rem; border-right: 1px solid #3e3e42;"><small style="color: #999;">${invoice.client_ice || '-'}</small></td>
                 <td style="padding: 1rem 0.75rem; border-right: 1px solid #3e3e42; color: #cccccc;">${date}</td>
+                <td style="padding: 1rem 0.75rem; border-right: 1px solid #3e3e42;"><small style="color: #2196f3;">${invoice.created_by_user_name || '-'}</small></td>
                 <td style="text-align: left; padding: 1rem 0.75rem; border-right: 1px solid #3e3e42;"><strong style="color: #cccccc;">${totalHT} DH</strong></td>
                 <td style="text-align: left; padding: 1rem 0.75rem; border-right: 1px solid #3e3e42; color: #cccccc;">${tva}%</td>
                 <td style="text-align: left; padding: 1rem 0.75rem; border-right: 1px solid #3e3e42;"><strong style="color: #4caf50;">${totalTTC} DH</strong></td>
@@ -1265,7 +1289,7 @@ window.viewInvoiceChaimae = async function(id, documentType) {
                 </div>
                 
                 <!-- Attachments Section -->
-                <div>
+                <div style="margin-bottom:2rem;">
                     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem;">
                         <h3 style="color:#fff;font-size:1.1rem;margin:0;font-weight:600;"> Pièces jointes(${invoice.attachments ? invoice.attachments.length : 0})</h3>
                         <button onclick="addNewAttachmentChaimae(${id})" style="padding:0.5rem 1rem;background:#4CAF50;color:#fff;border:none;border-radius:6px;cursor:pointer;font-size:0.85rem;font-weight:600;display:flex;align-items:center;gap:0.5rem;transition:all 0.2s;" onmouseover="this.style.background='#45a049'" onmouseout="this.style.background='#4CAF50'">
@@ -1300,6 +1324,14 @@ window.viewInvoiceChaimae = async function(id, documentType) {
                         </div>
                     ` : '<p style="color:#999;text-align:center;padding:2rem;background:#1e1e1e;border-radius:8px;">Aucune pièce jointe</p>'}
                 </div>
+                
+                <!-- Audit Log Section -->
+                <div id="auditLogSection${id}">
+                    <h3 style="color:#fff;font-size:1.1rem;margin:0 0 1rem 0;font-weight:600;">📋 Historique des modifications</h3>
+                    <div style="background:#1e1e1e;border-radius:8px;padding:1rem;">
+                        <div style="color:#999;font-size:0.9rem;font-style:italic;">Chargement de l'historique...</div>
+                    </div>
+                </div>
             </div>
         `;
         
@@ -1327,6 +1359,88 @@ window.viewInvoiceChaimae = async function(id, documentType) {
             } else {
                 console.log('ℹ️ [NOTES VIEW] No note found');
                 notesContent.textContent = 'Aucune note';
+            }
+        }
+        
+        // Load audit log asynchronously
+        console.log('📋 [AUDIT LOG] Loading audit log for invoice:', id);
+        const auditLogSection = document.getElementById(`auditLogSection${id}`);
+        if (auditLogSection) {
+            const auditLogContent = auditLogSection.querySelector('div > div');
+            try {
+                // Check if function exists
+                if (!window.electron.dbChaimae.getAuditLog) {
+                    console.error('❌ [AUDIT LOG] getAuditLog function not found in window.electron.dbChaimae');
+                    console.log('📋 [AUDIT LOG] Available functions:', Object.keys(window.electron.dbChaimae));
+                    throw new Error('getAuditLog function not available');
+                }
+                
+                const auditResult = await window.electron.dbChaimae.getAuditLog(id);
+                console.log('📥 [AUDIT LOG] Audit log result:', auditResult);
+                
+                if (auditResult.success && auditResult.data && auditResult.data.length > 0) {
+                    const logs = auditResult.data;
+                    console.log('✅ [AUDIT LOG] Displaying audit logs:', logs);
+                    
+                    let auditHTML = '<div style="max-height: 400px; overflow-y: auto;">';
+                    
+                    // Add creation info first
+                    if (invoice.created_by_user_name) {
+                        const createdDate = new Date(invoice.created_at).toLocaleDateString('fr-FR');
+                        auditHTML += `
+                            <div style="padding:0.75rem;background:#252526;border-radius:6px;margin-bottom:0.5rem;border-left:4px solid #4CAF50;">
+                                <div style="display:flex;justify-content:space-between;align-items:start;">
+                                    <div>
+                                        <div style="color:#4CAF50;font-weight:600;font-size:0.9rem;">➕ Création</div>
+                                        <div style="color:#fff;margin-top:0.25rem;">Par: <strong>${invoice.created_by_user_name}</strong></div>
+                                        ${invoice.created_by_user_email ? `<div style="color:#999;font-size:0.85rem;">${invoice.created_by_user_email}</div>` : ''}
+                                    </div>
+                                    <div style="color:#999;font-size:0.85rem;white-space:nowrap;">${createdDate}</div>
+                                </div>
+                            </div>
+                        `;
+                    }
+                    
+                    // Add modification logs
+                    logs.forEach(log => {
+                        const logDate = new Date(log.created_at).toLocaleDateString('fr-FR');
+                        auditHTML += `
+                            <div style="padding:0.75rem;background:#252526;border-radius:6px;margin-bottom:0.5rem;border-left:4px solid #2196F3;">
+                                <div style="display:flex;justify-content:space-between;align-items:start;">
+                                    <div>
+                                        <div style="color:#2196F3;font-weight:600;font-size:0.9rem;">✏️ Mis à jour</div>
+                                        <div style="color:#fff;margin-top:0.25rem;">Par: <strong>${log.user_name}</strong></div>
+                                        ${log.user_email ? `<div style="color:#999;font-size:0.85rem;">${log.user_email}</div>` : ''}
+                                    </div>
+                                    <div style="color:#999;font-size:0.85rem;white-space:nowrap;">${logDate}</div>
+                                </div>
+                            </div>
+                        `;
+                    });
+                    
+                    auditHTML += '</div>';
+                    auditLogContent.innerHTML = auditHTML;
+                    auditLogContent.style.color = '#fff';
+                    auditLogContent.style.fontStyle = 'normal';
+                } else {
+                    console.log('ℹ️ [AUDIT LOG] No audit logs found');
+                    const createdDate = new Date(invoice.created_at).toLocaleDateString('fr-FR');
+                    auditLogContent.innerHTML = `
+                        <div style="padding:0.75rem;background:#252526;border-radius:6px;border-left:4px solid #4CAF50;">
+                            <div style="display:flex;justify-content:space-between;align-items:start;">
+                                <div>
+                                    <div style="color:#4CAF50;font-weight:600;font-size:0.9rem;">➕ Création</div>
+                                    <div style="color:#fff;margin-top:0.25rem;">Par: <strong>${invoice.created_by_user_name || 'Utilisateur inconnu'}</strong></div>
+                                    ${invoice.created_by_user_email ? `<div style="color:#999;font-size:0.85rem;">${invoice.created_by_user_email}</div>` : ''}
+                                </div>
+                                <div style="color:#999;font-size:0.85rem;white-space:nowrap;">${createdDate}</div>
+                            </div>
+                        </div>
+                    `;
+                }
+            } catch (error) {
+                console.error('❌ [AUDIT LOG] Error loading audit log:', error);
+                auditLogContent.innerHTML = '<div style="color:#f44336;">Erreur lors du chargement de l\'historique</div>';
             }
         }
         
@@ -1370,6 +1484,13 @@ window.editInvoiceChaimae = async function(id) {
             docTypeLabel = 'Bon de livraison';
             docNumeroLabel = 'N° Bon de livraison';
             docNumeroValue = invoice.document_numero_bl || invoice.document_numero || '';
+            
+            // 🔍 DEBUG: Log prefix extraction
+            const extractedPrefix = docNumeroValue.match(/^[A-Z]+/)?.[0] || 'MG';
+            const extractedNumero = docNumeroValue.replace(/^[A-Z]+/, '');
+            console.log('🔴 [EDIT MODAL] docNumeroValue:', docNumeroValue);
+            console.log('🔴 [EDIT MODAL] Extracted prefix:', extractedPrefix);
+            console.log('🔴 [EDIT MODAL] Extracted numero:', extractedNumero);
         }
         
         // Create edit modal
@@ -1416,7 +1537,7 @@ window.editInvoiceChaimae = async function(id) {
                                     ${isBonLivraison ? `
                                     <div style="display: flex; gap: 0.5rem; align-items: center;">
                                         <div style="position: relative; flex: 0 0 auto;">
-                                            <input type="text" id="editPrefixInputChaimae" value="${docNumeroValue.split(/[0-9]/)[0] || 'MG'}" placeholder="MG" 
+                                            <input type="text" id="editPrefixInputChaimae" value="${docNumeroValue.match(/^[A-Z]+/)?.[0] || 'MG'}" placeholder="MG" 
                                                    style="width: 80px; padding: 0.75rem; background: #2d2d30; border: 2px solid #3e3e42; border-radius: 8px; color: #fff; font-size: 1rem; outline: none; cursor: pointer; font-weight: 600;"
                                                    readonly onclick="toggleEditPrefixDropdownChaimae()">
                                             <div id="editPrefixDropdownChaimae" style="display: none; position: absolute; top: 100%; left: 0; background: linear-gradient(135deg, #1e1e1e 0%, #2d2d30 100%); border: 2px solid #667eea; border-radius: 12px; margin-top: 0.5rem; box-shadow: 0 8px 24px rgba(102, 126, 234, 0.3); z-index: 1000; min-width: 200px; max-height: 350px; overflow: hidden;">
@@ -1761,8 +1882,10 @@ window.selectEditPrefixChaimae = function(prefix) {
     
     const prefixInput = document.getElementById('editPrefixInputChaimae');
     if (prefixInput) {
+        console.log('🔴 [EDIT PREFIX SELECT] Current value before update:', prefixInput.value);
         prefixInput.value = prefix;
         console.log('✅ [EDIT PREFIX SELECT] Updated editPrefixInputChaimae to:', prefix);
+        console.log('✅ [EDIT PREFIX SELECT] New value after update:', prefixInput.value);
     } else {
         console.log('❌ [EDIT PREFIX SELECT] editPrefixInputChaimae not found');
     }
@@ -2027,13 +2150,27 @@ async function handleEditSubmitChaimae(e, invoiceId, documentType) {
             // Prefix input is visible (Bon de livraison)
             const prefix = prefixInput.value || '';
             const numero = numeroInput?.value || '';
-            fullNumero = prefix + numero;
+            
+            // 🔍 DEBUG: Log what we're getting
+            console.log('🔴 [DEBUG] PREFIX VALUE:', prefix);
+            console.log('🔴 [DEBUG] NUMERO VALUE:', numero);
+            console.log('🔴 [DEBUG] PREFIX length:', prefix.length, 'NUMERO starts with PREFIX?', numero.startsWith(prefix));
+            
+            // ✅ FIX: Check if numero already contains the prefix
+            // Only add prefix if numero doesn't start with it
+            if (numero && prefix && numero.startsWith(prefix)) {
+                fullNumero = numero; // Already has prefix, don't add it again
+                console.log('⚠️ [DEBUG] NUMERO already has prefix, using as-is:', fullNumero);
+            } else {
+                fullNumero = prefix + numero;
+                console.log('✅ [DEBUG] Adding prefix to numero:', fullNumero);
+            }
         } else {
             // Prefix input is hidden (Facture/Devis)
             fullNumero = numeroInput?.value || '';
         }
         
-        console.log('📝 [CHAIMAE EDIT] Full numero:', fullNumero);
+        console.log('📝 [CHAIMAE EDIT] Final Full numero:', fullNumero);
         
         // Collect products data
         const products = [];
@@ -2228,6 +2365,26 @@ async function handleEditSubmitChaimae(e, invoiceId, documentType) {
         console.log('📥 Update result:', result);
         
         if (result.success) {
+            // 📝 Log user action (UPDATE)
+            try {
+                const user = JSON.parse(localStorage.getItem('user'));
+                if (user && window.electron.dbChaimae.addAuditLog) {
+                    await window.electron.dbChaimae.addAuditLog(
+                        invoiceId,
+                        'UPDATE',
+                        user.id,
+                        user.name,
+                        user.email,
+                        JSON.stringify({ action: 'Updated invoice', fields: Object.keys(updateData.document) })
+                    );
+                    console.log('✅ Audit log recorded for invoice update');
+                } else {
+                    console.warn('⚠️ addAuditLog function not available or no user logged in');
+                }
+            } catch (auditError) {
+                console.error('⚠️ Error recording audit log:', auditError);
+            }
+            
             // Check if this bon is part of any global invoice and update it
             const allGlobalInvoices = await window.electron.dbChaimae.getAllGlobalInvoices();
             if (allGlobalInvoices.success && allGlobalInvoices.data) {

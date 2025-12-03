@@ -108,6 +108,12 @@ async function initDatabase() {
                 total_ttc REAL DEFAULT 0,
                 created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
                 updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                created_by_user_id INTEGER,
+                created_by_user_name TEXT,
+                created_by_user_email TEXT,
+                updated_by_user_id INTEGER,
+                updated_by_user_name TEXT,
+                updated_by_user_email TEXT,
                 FOREIGN KEY (client_id) REFERENCES clients(id)
             )
         `);
@@ -119,6 +125,48 @@ async function initDatabase() {
             console.log('✅ [CHAIMAE] Added year and sequential_id columns');
         } catch (e) {
             // Columns already exist
+        }
+        
+        // Add user tracking columns if they don't exist (migration)
+        try {
+            const tableInfo = db.exec("PRAGMA table_info(invoices)");
+            const columns = tableInfo.length > 0 ? tableInfo[0].values.map(row => row[1]) : [];
+            console.log('📋 [CHAIMAE] Current invoices columns:', columns);
+            
+            let columnsAdded = [];
+            if (!columns.includes('created_by_user_id')) {
+                db.run(`ALTER TABLE invoices ADD COLUMN created_by_user_id INTEGER`);
+                columnsAdded.push('created_by_user_id');
+            }
+            if (!columns.includes('created_by_user_name')) {
+                db.run(`ALTER TABLE invoices ADD COLUMN created_by_user_name TEXT`);
+                columnsAdded.push('created_by_user_name');
+            }
+            if (!columns.includes('created_by_user_email')) {
+                db.run(`ALTER TABLE invoices ADD COLUMN created_by_user_email TEXT`);
+                columnsAdded.push('created_by_user_email');
+            }
+            if (!columns.includes('updated_by_user_id')) {
+                db.run(`ALTER TABLE invoices ADD COLUMN updated_by_user_id INTEGER`);
+                columnsAdded.push('updated_by_user_id');
+            }
+            if (!columns.includes('updated_by_user_name')) {
+                db.run(`ALTER TABLE invoices ADD COLUMN updated_by_user_name TEXT`);
+                columnsAdded.push('updated_by_user_name');
+            }
+            if (!columns.includes('updated_by_user_email')) {
+                db.run(`ALTER TABLE invoices ADD COLUMN updated_by_user_email TEXT`);
+                columnsAdded.push('updated_by_user_email');
+            }
+            
+            if (columnsAdded.length > 0) {
+                console.log('✅ [CHAIMAE] Added user tracking columns:', columnsAdded);
+                saveDatabase();
+            } else {
+                console.log('✅ [CHAIMAE] All user tracking columns already exist');
+            }
+        } catch (e) {
+            console.error('⚠️ [CHAIMAE] Error adding user tracking columns:', e.message);
         }
         
         // Create index for faster year-based queries
@@ -224,6 +272,24 @@ async function initDatabase() {
             saveDatabase();
         }
         
+        // Create audit_log table for tracking invoice changes
+        db.run(`
+            CREATE TABLE IF NOT EXISTS audit_log (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                invoice_id INTEGER NOT NULL,
+                action TEXT NOT NULL,
+                user_id INTEGER,
+                user_name TEXT,
+                user_email TEXT,
+                changes TEXT,
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (invoice_id) REFERENCES invoices(id) ON DELETE CASCADE
+            )
+        `);
+        
+        // Create index for faster audit log queries
+        db.run(`CREATE INDEX IF NOT EXISTS idx_audit_log_invoice ON audit_log(invoice_id, created_at DESC)`);
+        
         // Create global invoices table (Factures Globales)
         db.run(`
             CREATE TABLE IF NOT EXISTS global_invoices (
@@ -237,9 +303,31 @@ async function initDatabase() {
                 total_ttc REAL DEFAULT 0,
                 created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
                 updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                created_by_user_id INTEGER,
+                created_by_user_name TEXT,
+                created_by_user_email TEXT,
+                updated_by_user_id INTEGER,
+                updated_by_user_name TEXT,
+                updated_by_user_email TEXT,
                 FOREIGN KEY (client_id) REFERENCES clients(id)
             )
         `);
+        
+        // Add user tracking email columns to global_invoices if they don't exist (migration)
+        try {
+            const globalTableInfo = db.exec("PRAGMA table_info(global_invoices)");
+            const globalColumns = globalTableInfo.length > 0 ? globalTableInfo[0].values.map(row => row[1]) : [];
+            
+            if (!globalColumns.includes('created_by_user_email')) {
+                db.run(`ALTER TABLE global_invoices ADD COLUMN created_by_user_email TEXT`);
+            }
+            if (!globalColumns.includes('updated_by_user_email')) {
+                db.run(`ALTER TABLE global_invoices ADD COLUMN updated_by_user_email TEXT`);
+            }
+            console.log('✅ [CHAIMAE] Added user email columns to global_invoices');
+        } catch (e) {
+            console.error('⚠️ [CHAIMAE] Error adding user email columns to global_invoices:', e.message);
+        }
         
         // Create table to link global invoices with bon de livraison
         db.run(`
@@ -398,8 +486,9 @@ const invoiceOps = {
                 document_numero, document_numero_Order, document_numero_bl,
                 document_numero_devis, document_order_devis, document_bon_de_livraison,
                 document_numero_commande, year, sequential_id,
-                total_ht, tva_rate, montant_tva, total_ttc
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                total_ht, tva_rate, montant_tva, total_ttc,
+                created_by_user_id, created_by_user_name, created_by_user_email
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         `, [
             client.id,
             invoiceData.document.type,
@@ -416,7 +505,10 @@ const invoiceOps = {
             invoiceData.totals.total_ht,
             invoiceData.totals.tva_rate,
             invoiceData.totals.montant_tva,
-            invoiceData.totals.total_ttc
+            invoiceData.totals.total_ttc,
+            invoiceData.document.created_by_user_id || null,
+            invoiceData.document.created_by_user_name || null,
+            invoiceData.document.created_by_user_email || null
         ]);
         
         // Get invoice ID
@@ -474,8 +566,14 @@ const invoiceOps = {
             total_ttc: row[16],
             created_at: row[17],
             updated_at: row[18],
-            client_nom: row[19],
-            client_ice: row[20]
+            created_by_user_id: row[19],
+            created_by_user_name: row[20],
+            created_by_user_email: row[21],
+            updated_by_user_id: row[22],
+            updated_by_user_name: row[23],
+            updated_by_user_email: row[24],
+            client_nom: row[25],
+            client_ice: row[26]
         };
         
         // Get products
@@ -538,8 +636,14 @@ const invoiceOps = {
                 total_ttc: row[16],
                 created_at: row[17],
                 updated_at: row[18],
-                client_nom: row[19],
-                client_ice: row[20]
+                created_by_user_id: row[19],
+                created_by_user_name: row[20],
+                created_by_user_email: row[21],
+                updated_by_user_id: row[22],
+                updated_by_user_name: row[23],
+                updated_by_user_email: row[24],
+                client_nom: row[25],
+                client_ice: row[26]
             };
             
             // Get products for this invoice
@@ -552,6 +656,13 @@ const invoiceOps = {
                 prix_unitaire_ht: pRow[4],
                 total_ht: pRow[5]
             })) : [];
+            
+            console.log('🔍 [DB CHAIMAE] Invoice from getAll:', {
+                id: invoice.id,
+                created_by_user_name: invoice.created_by_user_name,
+                created_by_user_email: invoice.created_by_user_email,
+                row_count: row.length
+            });
             
             return invoice;
         });
@@ -594,11 +705,16 @@ const invoiceOps = {
             }
         }
         
+        // Extract year from document_date
+        const documentDate = new Date(invoiceData.document.date);
+        const year = documentDate.getFullYear();
+        
         // Update invoice with new client_id and other fields
         db.run(`
             UPDATE invoices SET
                 client_id = ?,
                 document_date = ?,
+                year = ?,
                 document_numero = ?,
                 document_numero_devis = ?,
                 document_numero_bl = ?,
@@ -614,6 +730,7 @@ const invoiceOps = {
         `, [
             newClientId,
             invoiceData.document.date,
+            year,
             invoiceData.document.numero,
             invoiceData.document.numero_devis || null,
             invoiceData.document.numero_BL || null,
@@ -1646,6 +1763,59 @@ const noteOps = {
     }
 };
 
+// Audit Log operations
+const auditLogOps = {
+    // Add audit log entry
+    addLog: (invoiceId, action, userId, userName, userEmail, changes) => {
+        return new Promise((resolve, reject) => {
+            try {
+                db.run(
+                    `INSERT INTO audit_log (invoice_id, action, user_id, user_name, user_email, changes) 
+                     VALUES (?, ?, ?, ?, ?, ?)`,
+                    [invoiceId, action, userId, userName, userEmail, JSON.stringify(changes)]
+                );
+                saveDatabase();
+                resolve({ success: true });
+            } catch (error) {
+                console.error('Error adding audit log:', error);
+                reject(error);
+            }
+        });
+    },
+
+    // Get audit logs for an invoice
+    getLogsForInvoice: (invoiceId) => {
+        return new Promise((resolve, reject) => {
+            try {
+                const result = db.exec(
+                    `SELECT id, action, user_name, user_email, changes, created_at 
+                     FROM audit_log 
+                     WHERE invoice_id = ? 
+                     ORDER BY created_at DESC`,
+                    [invoiceId]
+                );
+
+                if (result.length > 0) {
+                    const logs = result[0].values.map(row => ({
+                        id: row[0],
+                        action: row[1],
+                        user_name: row[2],
+                        user_email: row[3],
+                        changes: row[4] ? JSON.parse(row[4]) : null,
+                        created_at: row[5]
+                    }));
+                    resolve({ success: true, data: logs });
+                } else {
+                    resolve({ success: true, data: [] });
+                }
+            } catch (error) {
+                console.error('Error getting audit logs:', error);
+                reject(error);
+            }
+        });
+    }
+};
+
 module.exports = {
     initDatabase,
     getDatabase,
@@ -1658,6 +1828,7 @@ module.exports = {
     orderPrefixOps,
     simpleOrderPrefixOps,
     noteOps,
+    auditLogOps,
     getMissingInvoiceNumbers,
     getMissingDevisNumbers,
     getMissingOrderNumbers,

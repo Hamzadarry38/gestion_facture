@@ -1,5 +1,5 @@
 const { ipcMain } = require('electron');
-const { initDatabase, clientOps, invoiceOps, attachmentOps, globalInvoiceOps, prefixOps, orderPrefixOps, simpleOrderPrefixOps, getMissingInvoiceNumbers, getMissingDevisNumbers, getMissingOrderNumbers, getMissingBonLivraisonNumbers } = require('./db_chaimae');
+const { initDatabase, clientOps, invoiceOps, attachmentOps, globalInvoiceOps, prefixOps, orderPrefixOps, simpleOrderPrefixOps, auditLogOps, getMissingInvoiceNumbers, getMissingDevisNumbers, getMissingOrderNumbers, getMissingBonLivraisonNumbers } = require('./db_chaimae');
 
 // Register all IPC handlers for CHAIMAE
 async function registerChaimaeHandlers() {
@@ -61,6 +61,11 @@ async function registerChaimaeHandlers() {
     ipcMain.handle('db:chaimae:invoices:getAll', async () => {
         try {
             const invoices = invoiceOps.getAll();
+            console.log('🔍 [IPC CHAIMAE] Retrieved invoices count:', invoices.length);
+            if (invoices.length > 0) {
+                console.log('🔍 [IPC CHAIMAE] First invoice keys:', Object.keys(invoices[0]));
+                console.log('🔍 [IPC CHAIMAE] First invoice:', invoices[0]);
+            }
             return { success: true, data: invoices };
         } catch (error) {
             console.error('❌ Error getting CHAIMAE invoices:', error);
@@ -418,6 +423,40 @@ async function registerChaimaeHandlers() {
             return result;
         } catch (error) {
             console.error('[CHAIMAE] Error deleting note:', error);
+            return { success: false, error: error.message };
+        }
+    });
+
+    // Audit Log handlers
+    ipcMain.handle('db:chaimae:auditLog:add', async (event, invoiceId, action, userId, userName, userEmail, changes) => {
+        try {
+            const result = await auditLogOps.addLog(invoiceId, action, userId, userName, userEmail, changes);
+            return result;
+        } catch (error) {
+            console.error('[CHAIMAE] Error adding audit log:', error);
+            return { success: false, error: error.message };
+        }
+    });
+
+    ipcMain.handle('db:chaimae:auditLog:getForInvoice', async (event, invoiceId) => {
+        try {
+            const result = await auditLogOps.getLogsForInvoice(invoiceId);
+            return result;
+        } catch (error) {
+            console.error('[CHAIMAE] Error getting audit logs:', error);
+            return { success: false, error: error.message };
+        }
+    });
+
+    // Alias for getForInvoice
+    ipcMain.handle('db:chaimae:getAuditLog', async (event, invoiceId) => {
+        try {
+            console.log('📋 [IPC CHAIMAE] Getting audit log for invoice:', invoiceId);
+            const result = await auditLogOps.getLogsForInvoice(invoiceId);
+            console.log('📋 [IPC CHAIMAE] Audit log result:', result);
+            return result;
+        } catch (error) {
+            console.error('[CHAIMAE] Error getting audit logs:', error);
             return { success: false, error: error.message };
         }
     });
