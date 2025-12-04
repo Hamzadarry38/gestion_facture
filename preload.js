@@ -63,7 +63,8 @@ contextBridge.exposeInMainWorld('electron', {
     register: (name, email, password) => ipcRenderer.invoke('users:register', { name, email, password }),
     login: (email, password) => ipcRenderer.invoke('users:login', { email, password }),
     hasUsers: () => ipcRenderer.invoke('users:hasUsers'),
-    getAll: () => ipcRenderer.invoke('users:getAll')
+    getAll: () => ipcRenderer.invoke('users:getAll'),
+    updatePassword: (email, oldPassword, newPassword) => ipcRenderer.invoke('users:updatePassword', { email, oldPassword, newPassword })
   },
   
   // Database API for CHAIMAE

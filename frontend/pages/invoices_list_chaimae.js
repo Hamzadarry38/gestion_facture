@@ -35,26 +35,35 @@ function InvoicesListChaimaePage() {
             <div class="window-content">
                 <div class="invoices-list-container">
                     <!-- Header -->
-                    <div class="list-header">
-                        <h1>📋 Liste des Factures, Devis et Bons de Livraison</h1>
-                        <div class="header-actions">
-                            <button id="changeYearBtn" onclick="router.navigate('/year-selector-chaimae')" style="background: #2d2d30; color: white; padding: 0.75rem 1.5rem; border: 2px solid #667eea; border-radius: 6px; cursor: pointer; font-weight: 600; display: flex; align-items: center; gap: 0.5rem; transition: all 0.3s; margin-right: 1rem;" onmouseover="this.style.background='#3e3e42'" onmouseout="this.style.background='#2d2d30'">
-                                <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+                    <div class="list-header-new">
+                        <div class="header-title-section">
+                            <h1 class="header-title">📋 Liste des Factures, Devis et Bons de Livraison</h1>
+                        </div>
+                        
+                        <div class="header-actions-new">
+                            <button id="changeYearBtn" onclick="router.navigate('/year-selector-chaimae')" class="action-btn action-btn-year">
+                                <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor">
                                     <path d="M3.5 0a.5.5 0 0 1 .5.5V1h8V.5a.5.5 0 0 1 1 0V1h1a2 2 0 0 1 2 2v11a2 2 0 0 1-2 2H2a2 2 0 0 1-2-2V3a2 2 0 0 1 2-2h1V.5a.5.5 0 0 1 .5-.5zM1 4v10a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V4H1z"/>
                                 </svg>
-                                <span id="currentYearDisplay">Toutes</span>
+                                <span id="currentYearDisplay">2025</span>
                             </button>
-                            <button class="btn-situation" onclick="showSituationMensuelleModal()" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 0.75rem 1.5rem; border: none; border-radius: 6px; cursor: pointer; font-weight: 600; display: flex; align-items: center; gap: 0.5rem; transition: all 0.3s;" onmouseover="this.style.transform='translateY(-2px)'; this.style.boxShadow='0 4px 12px rgba(102, 126, 234, 0.5)'" onmouseout="this.style.transform='translateY(0)'; this.style.boxShadow='none'">
-                                📊 Situation Mensuelle
+                            
+                            <button class="action-btn action-btn-situation" onclick="showSituationMensuelleModal()">
+                                <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor">
+                                    <path d="M1 11a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1v3a1 1 0 0 1-1 1H2a1 1 0 0 1-1-1v-3zm5-4a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1v7a1 1 0 0 1-1 1H7a1 1 0 0 1-1-1v-7zm5-5a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1v12a1 1 0 0 1-1 1h-2a1 1 0 0 1-1-1V2z"/>
+                                </svg>
+                                <span>Situation</span>
                             </button>
-                            <button class="btn-primary" onclick="router.navigate('/create-invoice-chaimae')">
-                                <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor" style="margin-right: 0.5rem;">
+                            
+                            <button class="action-btn action-btn-primary" onclick="router.navigate('/create-invoice-chaimae')">
+                                <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor">
                                     <path d="M8 4a.5.5 0 0 1 .5.5v3h3a.5.5 0 0 1 0 1h-3v3a.5.5 0 0 1-1 0v-3h-3a.5.5 0 0 1 0-1h3v-3A.5.5 0 0 1 8 4z"/>
                                 </svg>
-                                <span>Nouvelle Facture</span>
+                                <span>Nouvelle</span>
                             </button>
-                            <button class="btn-secondary" onclick="router.navigate('/dashboard-chaimae')">
-                                <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor" style="margin-right: 0.5rem;">
+                            
+                            <button class="action-btn action-btn-secondary" onclick="router.navigate('/dashboard-chaimae')">
+                                <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor">
                                     <path fill-rule="evenodd" d="M15 8a.5.5 0 0 0-.5-.5H2.707l3.147-3.146a.5.5 0 1 0-.708-.708l-4 4a.5.5 0 0 0 0 .708l4 4a.5.5 0 0 0 .708-.708L2.707 8.5H14.5A.5.5 0 0 0 15 8z"/>
                                 </svg>
                                 <span>Retour</span>
@@ -210,7 +219,6 @@ function InvoicesListChaimaePage() {
                                                style="width: 18px; height: 18px; cursor: pointer;"
                                                title="Sélectionner tout">
                                     </th>
-                                    <th>ID</th>
                                     <th>Type</th>
                                     <th onclick="sortTableChaimae('numero')" style="cursor: pointer; user-select: none;" title="Cliquez pour trier">
                                         N° Document <span id="sortIconNumeroChaimae">⇅</span>
@@ -224,7 +232,6 @@ function InvoicesListChaimaePage() {
                                     <th onclick="sortTableChaimae('total_ht')" style="cursor: pointer; user-select: none;" title="Cliquez pour trier">
                                         Total HT <span id="sortIconTotalHTChaimae">⇅</span>
                                     </th>
-                                    <th>TVA</th>
                                     <th onclick="sortTableChaimae('total_ttc')" style="cursor: pointer; user-select: none;" title="Cliquez pour trier">
                                         Total TTC <span id="sortIconTotalTTCChaimae">⇅</span>
                                     </th>
@@ -667,6 +674,16 @@ function displayInvoicesChaimae(invoices) {
                          invoice.document_type === 'facture_globale' ? 'badge-global' :
                          'badge-bon';
         const numero = invoice.document_numero || invoice.document_numero_devis || invoice.document_numero_bl || '-';
+        
+        // Debug BL field
+        if (invoice.document_type === 'bon_livraison') {
+            console.log(`📦 [BL DEBUG] Invoice ${invoice.id}:`, {
+                document_numero: invoice.document_numero,
+                document_numero_BL: invoice.document_numero_BL,
+                document_numero_bl: invoice.document_numero_bl,
+                final_numero: numero
+            });
+        }
         const date = new Date(invoice.document_date).toLocaleDateString('fr-FR');
         
         const totalHT = formatNumberChaimae(invoice.total_ht || 0);
@@ -708,7 +725,6 @@ function displayInvoicesChaimae(invoices) {
                     <input type="checkbox" class="invoice-checkbox-chaimae" data-invoice-id="${invoice.id}" 
                            style="width: 18px; height: 18px; cursor: pointer;">
                 </td>
-                <td style="text-align: center; padding: 1rem 0.75rem; border-right: 1px solid #3e3e42;"><strong style="color: #cccccc;">#${displayId}</strong></td>
                 <td style="padding: 1rem 0.75rem; border-right: 1px solid #3e3e42;"><span class="badge ${typeBadge}">${typeLabel}</span></td>
                 <td style="padding: 1rem 0.75rem; border-right: 1px solid #3e3e42;">
                     <strong style="color: #2196f3;">${numero}</strong>
@@ -719,7 +735,6 @@ function displayInvoicesChaimae(invoices) {
                 <td style="padding: 1rem 0.75rem; border-right: 1px solid #3e3e42; color: #cccccc;">${date}</td>
                 <td style="padding: 1rem 0.75rem; border-right: 1px solid #3e3e42;"><small style="color: #2196f3;">${invoice.created_by_user_name || '-'}</small></td>
                 <td style="text-align: left; padding: 1rem 0.75rem; border-right: 1px solid #3e3e42;"><strong style="color: #cccccc;">${totalHT} DH</strong></td>
-                <td style="text-align: left; padding: 1rem 0.75rem; border-right: 1px solid #3e3e42; color: #cccccc;">${tva}%</td>
                 <td style="text-align: left; padding: 1rem 0.75rem; border-right: 1px solid #3e3e42;"><strong style="color: #4caf50;">${totalTTC} DH</strong></td>
                 <td style="padding: 1rem 0.75rem;">
                     <div style="display: flex; gap: 0.5rem; justify-content: center;">
@@ -1451,263 +1466,10 @@ window.viewInvoiceChaimae = async function(id, documentType) {
 }
 
 // Edit invoice
-window.editInvoiceChaimae = async function(id) {
-    try {
-        console.log('✏️ Editing invoice:', id);
-        
-        // Load clients if not already loaded
-        if (!allClientsChaimae || allClientsChaimae.length === 0) {
-            console.log('🔄 Loading clients for edit modal...');
-            await loadAllClientsChaimae();
-        }
-        
-        const result = await window.electron.dbChaimae.getInvoiceById(id);
-        
-        if (!result.success || !result.data) {
-            throw new Error('Document introuvable');
-        }
-        
-        const invoice = result.data;
-        
-        // Determine document type labels
-        const isDevis = invoice.document_type === 'devis';
-        const isBonLivraison = invoice.document_type === 'bon_livraison';
-        let docTypeLabel = 'Facture';
-        let docNumeroLabel = 'N° Facture';
-        let docNumeroValue = invoice.document_numero || '';
-        
-        if (isDevis) {
-            docTypeLabel = 'Devis';
-            docNumeroLabel = 'N° Devis';
-            docNumeroValue = invoice.document_numero_devis || invoice.document_numero || '';
-        } else if (isBonLivraison) {
-            docTypeLabel = 'Bon de livraison';
-            docNumeroLabel = 'N° Bon de livraison';
-            docNumeroValue = invoice.document_numero_bl || invoice.document_numero || '';
-            
-            // 🔍 DEBUG: Log prefix extraction
-            const extractedPrefix = docNumeroValue.match(/^[A-Z]+/)?.[0] || 'MG';
-            const extractedNumero = docNumeroValue.replace(/^[A-Z]+/, '');
-            console.log('🔴 [EDIT MODAL] docNumeroValue:', docNumeroValue);
-            console.log('🔴 [EDIT MODAL] Extracted prefix:', extractedPrefix);
-            console.log('🔴 [EDIT MODAL] Extracted numero:', extractedNumero);
-        }
-        
-        // Create edit modal
-        const modal = document.createElement('div');
-        modal.className = 'modal-overlay';
-        modal.innerHTML = `
-            <div class="modal-content invoice-edit-modal" style="max-width: 900px;">
-                <div class="modal-header">
-                    <h2>✏️ Modifier ${docTypeLabel} #${invoice.id}</h2>
-                    <button class="modal-close" onclick="this.closest('.modal-overlay').remove()">✕</button>
-                </div>
-                <div class="modal-body">
-                    <form id="editInvoiceFormChaimae">
-                        <!-- Client Info -->
-                        <div class="edit-section">
-                            <h3>Client</h3>
-                            <div class="form-row">
-                                <div class="form-field" style="position: relative;">
-                                    <label>Nom du client</label>
-                                    <input type="text" id="editClientNomChaimae" value="${invoice.client_nom}" required
-                                           autocomplete="off" oninput="searchClientsEditChaimae(this.value)" 
-                                           onfocus="showClientsListEditChaimae()" onblur="hideClientsListEditChaimae()">
-                                    <div id="clientsDropdownEditChaimae" class="clients-dropdown" style="display: none;"></div>
-                                </div>
-                                <div class="form-field">
-                                    <label>N° ICE</label>
-                                    <input type="text" id="editClientICEChaimae" value="${invoice.client_ice}">
-                                </div>
-                            </div>
-                        </div>
-                        
-                        <!-- Document Info -->
-                        <div class="edit-section">
-                            <h3>Document</h3>
-                            <div class="form-row">
-                                <div class="form-field">
-                                    <label>Date</label>
-                                    <input type="date" id="editDateChaimae" value="${invoice.document_date}" required>
-                                </div>
-                            </div>
-                            <div class="form-row">
-                                <div class="form-field">
-                                    <label id="editNumeroLabelChaimae">${docNumeroLabel}</label>
-                                    ${isBonLivraison ? `
-                                    <div style="display: flex; gap: 0.5rem; align-items: center;">
-                                        <div style="position: relative; flex: 0 0 auto;">
-                                            <input type="text" id="editPrefixInputChaimae" value="${docNumeroValue.match(/^[A-Z]+/)?.[0] || 'MG'}" placeholder="MG" 
-                                                   style="width: 80px; padding: 0.75rem; background: #2d2d30; border: 2px solid #3e3e42; border-radius: 8px; color: #fff; font-size: 1rem; outline: none; cursor: pointer; font-weight: 600;"
-                                                   readonly onclick="toggleEditPrefixDropdownChaimae()">
-                                            <div id="editPrefixDropdownChaimae" style="display: none; position: absolute; top: 100%; left: 0; background: linear-gradient(135deg, #1e1e1e 0%, #2d2d30 100%); border: 2px solid #667eea; border-radius: 12px; margin-top: 0.5rem; box-shadow: 0 8px 24px rgba(102, 126, 234, 0.3); z-index: 1000; min-width: 200px; max-height: 350px; overflow: hidden;">
-                                                <div style="padding: 0.75rem 1rem; background: linear-gradient(90deg, #667eea 0%, #764ba2 100%); border-bottom: 2px solid rgba(102, 126, 234, 0.3);">
-                                                    <h4 style="margin: 0; color: #fff; font-size: 0.95rem; font-weight: 600;">📋 Choisir un Prefix</h4>
-                                                </div>
-                                                <div id="editPrefixListChaimae" style="max-height: 200px; overflow-y: auto; padding: 0.5rem;"></div>
-                                                <div style="padding: 0.75rem; border-top: 2px solid rgba(102, 126, 234, 0.2); background: rgba(0,0,0,0.2);">
-                                                    <input type="text" id="editNewPrefixInputChaimae" placeholder="Nouveau prefix (ex: AB)" 
-                                                           style="width: 100%; padding: 0.65rem; background: #1e1e1e; border: 2px solid #3e3e42; border-radius: 6px; color: #fff; font-size: 0.9rem; outline: none;"
-                                                           onkeypress="if(event.key==='Enter'){addEditPrefixChaimae(); event.preventDefault();}">
-                                                    <button type="button" onclick="addEditPrefixChaimae()" 
-                                                            style="width: 100%; margin-top: 0.5rem; padding: 0.65rem; background: linear-gradient(90deg, #667eea 0%, #764ba2 100%); color: #fff; border: none; border-radius: 6px; cursor: pointer; font-size: 0.9rem; font-weight: 600;">
-                                                        ➕ Ajouter le Prefix
-                                                    </button>
-                                                </div>
-                                            </div>
-                                        </div>
-                                        <input type="text" id="editNumeroChaimae" value="${docNumeroValue.replace(/^[A-Z]+/, '')}" placeholder="123/2025" required
-                                               style="flex: 1; padding: 0.75rem; background: #2d2d30; border: 2px solid #3e3e42; border-radius: 8px; color: #fff; font-size: 1rem; outline: none; font-weight: 600;"
-                                               onblur="autoFormatDocumentNumberOnBlurChaimae(this)">
-                                    </div>
-                                    ` : `
-                                    <input type="text" id="editNumeroChaimae" value="${docNumeroValue}" placeholder="123/2025" required
-                                           style="width: 100%; padding: 0.75rem; background: #2d2d30; border: 2px solid #3e3e42; border-radius: 8px; color: #fff; font-size: 1rem; outline: none; font-weight: 600;"
-                                           onblur="autoFormatDocumentNumberOnBlurChaimae(this)">
-                                    `}
-                                </div>
-                            </div>
-                            ${invoice.document_type === 'facture' ? `
-                            <div class="form-row">
-                                <div class="form-field">
-                                    <label>N° Order (optionnel)</label>
-                                    <input type="text" id="editNumeroOrderChaimae" value="${invoice.document_numero_Order || ''}" placeholder="Ex: 123">
-                                </div>
-                                <div class="form-field">
-                                    <label>Bon de livraison (optionnel)</label>
-                                    <input type="text" id="editBonLivraisonChaimae" value="${invoice.document_bon_de_livraison || ''}" placeholder="Ex: 123">
-                                </div>
-                            </div>
-                            ` : ''}
-                            ${invoice.document_type === 'bon_livraison' ? `
-                            <div class="form-row">
-                                <div class="form-field" style="position: relative;">
-                                    <label>N° Order (optionnel)</label>
-                                    <div style="display: flex; gap: 0.5rem; align-items: flex-start;">
-                                        <div style="position: relative; flex: 0 0 auto;">
-                                            <input type="text" id="editOrderPrefixInputChaimae" value="${window.selectedOrderPrefix || 'BC'}" placeholder="BC" 
-                                                   style="width: 80px; padding: 0.75rem; background: #2d2d30; border: 2px solid #3e3e42; border-radius: 8px; color: #fff; font-size: 1rem; outline: none; cursor: pointer; font-weight: 600;"
-                                                   readonly onclick="toggleEditOrderPrefixDropdownChaimae()">
-                                            <div id="editOrderPrefixDropdownChaimae" style="display: none; position: absolute; top: 100%; left: 0; background: linear-gradient(135deg, #1e1e1e 0%, #2d2d30 100%); border: 2px solid #2196f3; border-radius: 12px; margin-top: 0.5rem; box-shadow: 0 8px 24px rgba(33, 150, 243, 0.3), 0 0 0 1px rgba(33, 150, 243, 0.1); z-index: 1000; min-width: 200px; max-height: 350px; overflow: hidden;">
-                                                <div style="padding: 0.75rem 1rem; background: linear-gradient(90deg, #2196f3 0%, #1976d2 100%); border-bottom: 2px solid rgba(33, 150, 243, 0.3);">
-                                                    <h4 style="margin: 0; color: #fff; font-size: 0.95rem; font-weight: 600; letter-spacing: 0.5px;">📋 Choisir un Prefix</h4>
-                                                </div>
-                                                <div id="editOrderPrefixListChaimae" style="max-height: 200px; overflow-y: auto; padding: 0.5rem;"></div>
-                                                <div style="padding: 0.75rem; border-top: 2px solid rgba(33, 150, 243, 0.2); background: rgba(0,0,0,0.2);">
-                                                    <input type="text" id="editNewOrderPrefixInputChaimae" placeholder="Nouveau prefix (ex: BC)" 
-                                                           style="width: 100%; padding: 0.65rem; background: #1e1e1e; border: 2px solid #3e3e42; border-radius: 6px; color: #fff; font-size: 0.9rem; outline: none; transition: all 0.3s;"
-                                                           onfocus="this.style.borderColor='#2196f3'; this.style.boxShadow='0 0 0 3px rgba(33, 150, 243, 0.1)';"
-                                                           onblur="this.style.borderColor='#3e3e42'; this.style.boxShadow='none';"
-                                                           onkeypress="if(event.key==='Enter'){addEditNewOrderPrefixChaimae(); event.preventDefault();}">
-                                                    <button type="button" onclick="addEditNewOrderPrefixChaimae()" 
-                                                            style="width: 100%; margin-top: 0.5rem; padding: 0.65rem; background: linear-gradient(90deg, #2196f3 0%, #1976d2 100%); color: #fff; border: none; border-radius: 6px; cursor: pointer; font-size: 0.9rem; font-weight: 600; transition: all 0.3s; box-shadow: 0 2px 8px rgba(33, 150, 243, 0.3);"
-                                                            onmouseover="this.style.transform='translateY(-2px)'; this.style.boxShadow='0 4px 12px rgba(33, 150, 243, 0.4)';"
-                                                            onmouseout="this.style.transform='translateY(0)'; this.style.boxShadow='0 2px 8px rgba(33, 150, 243, 0.3)';">
-                                                        ➕ Ajouter le Prefix
-                                                    </button>
-                                                </div>
-                                            </div>
-                                        </div>
-                                        <input type="text" id="editBonCommandeChaimae" value="${invoice.document_numero_commande || ''}" placeholder="456" 
-                                               style="flex: 1; padding: 0.75rem; background: #2d2d30; border: 2px solid #3e3e42; border-radius: 8px; color: #fff; font-size: 1rem; outline: none;">
-                                    </div>
-                                    <small style="color: #999; font-size: 0.85rem; display: block; margin-top: 0.5rem;">Ex: 456 → <span id="editOrderPrefixExampleChaimae">BC</span>456</small>
-                                </div>
-                            </div>
-                            ` : ''}
-                        </div>
-                        
-                        <!-- Products -->
-                        <div class="edit-section">
-                            <h3>Produits</h3>
-                            <div id="editProductsListChaimae">
-                                ${invoice.products && invoice.products.length > 0 ? invoice.products.map((p, index) => `
-                                    <div class="edit-product-row" data-index="${index}">
-                                        <textarea placeholder="Désignation" rows="2" onkeydown="handleArrowNavigationEditChaimae(event, 0)">${p.designation || ''}</textarea>
-                                        <input type="text" placeholder="Quantité" value="${p.quantite || ''}" onchange="recalculateEditTotalsChaimae()" onkeydown="handleArrowNavigationEditChaimae(event, 1)">
-                                        <input type="number" step="0.01" placeholder="Prix HT" value="${p.prix_unitaire_ht || 0}" onchange="recalculateEditTotalsChaimae()" onkeydown="handleArrowNavigationEditChaimae(event, 2)">
-                                        <button type="button" onclick="this.closest('.edit-product-row').remove(); recalculateEditTotalsChaimae()">
-                                            <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
-                                                <path d="M5.5 5.5A.5.5 0 0 1 6 6v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5zm2.5 0a.5.5 0 0 1 .5.5v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5zm3 .5a.5.5 0 0 0-1 0v6a.5.5 0 0 0 1 0V6z"/>
-                                                <path fill-rule="evenodd" d="M14.5 3a1 1 0 0 1-1 1H13v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V4h-.5a1 1 0 0 1-1-1V2a1 1 0 0 1 1-1H6a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1h3.5a1 1 0 0 1 1 1v1zM4.118 4 4 4.059V13a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1V4.059L11.882 4H4.118zM2.5 3V2h11v1h-11z"/>
-                                            </svg>
-                                        </button>
-                                    </div>
-                                `).join('') : '<p style="color: #888; text-align: center; padding: 1rem;">Aucun produit</p>'}
-                            </div>
-                            <button type="button" class="btn-add-product" onclick="addEditProductRowChaimae()">+ Ajouter un produit</button>
-                        </div>
-                        
-                        <!-- Totals -->
-                        <div class="edit-section">
-                            <h3>Totaux</h3>
-                            <div class="form-row">
-                                <div class="form-field">
-                                    <label>Taux TVA (%)</label>
-                                    <input type="number" id="editTvaRateChaimae" value="${invoice.tva_rate}" min="0" max="100" onchange="recalculateEditTotalsChaimae()">
-                                </div>
-                            </div>
-                            <div class="totals-display">
-                                <p><strong>Total HT:</strong> <span id="editTotalHTChaimae">${formatNumberChaimae(invoice.total_ht)} DH</span></p>
-                                <p><strong>TVA:</strong> <span id="editMontantTVAChaimae">${formatNumberChaimae(invoice.montant_tva)} DH</span></p>
-                                <p><strong>Total TTC:</strong> <span id="editTotalTTCChaimae">${formatNumberChaimae(invoice.total_ttc)} DH</span></p>
-                            </div>
-                        </div>
-                        
-                        <!-- Notes Section -->
-                        <div class="edit-section">
-                            <h3>📝 Notes</h3>
-                            <div class="form-field">
-                                <label>Notes supplémentaires (optionnel)</label>
-                                <textarea id="editNotesChaimae" rows="4" 
-                                          placeholder="Ajoutez des notes ou remarques concernant cette facture..."
-                                          style="width: 100%; padding: 0.75rem; background: #2d2d30; border: 2px solid #3e3e42; border-radius: 8px; color: #fff; font-size: 0.95rem; resize: vertical; font-family: inherit;"></textarea>
-                                <small style="color: #999; font-size: 0.85rem; display: block; margin-top: 0.5rem;">
-                                    Ces notes seront affichées dans le PDF sous le texte de clôture de la facture.
-                                </small>
-                            </div>
-                        </div>
-                        
-                        <div class="form-actions" style="margin-top: 2rem; display: flex; justify-content: space-between; align-items: center;">
-                            <button type="button" class="btn-convert" onclick="convertInvoiceTypeChaimae(${invoice.id}, '${invoice.document_type}')" style="background: #9c27b0; color: white; padding: 0.75rem 1.5rem; border: none; border-radius: 6px; cursor: pointer; font-weight: 500; display: flex; align-items: center; gap: 0.5rem;">
-                                🔄 Convertir
-                            </button>
-                            <div style="display: flex; gap: 1rem;">
-                                <button type="button" class="btn-secondary" onclick="this.closest('.modal-overlay').remove()">Annuler</button>
-                                <button type="submit" class="btn-primary">💾 Enregistrer</button>
-                            </div>
-                        </div>
-                    </form>
-                </div>
-            </div>
-        `;
-        
-        document.body.appendChild(modal);
-        
-        // Attach form submit handler - pass invoice data including document_type
-        document.getElementById('editInvoiceFormChaimae').addEventListener('submit', (e) => handleEditSubmitChaimae(e, id, invoice.document_type));
-        
-        // Initial calculation
-        recalculateEditTotalsChaimae();
-        
-        // Load notes asynchronously
-        console.log('📝 [NOTES EDIT] Loading notes for invoice:', id);
-        const noteResult = await window.electron.dbChaimae.getNote(id);
-        console.log('📥 [NOTES EDIT] Note result:', noteResult);
-        if (noteResult.success && noteResult.data) {
-            const notesTextarea = document.getElementById('editNotesChaimae');
-            if (notesTextarea) {
-                notesTextarea.value = noteResult.data;
-                console.log('✅ [NOTES EDIT] Loaded note into textarea:', noteResult.data);
-            }
-        } else {
-            console.log('ℹ️ [NOTES EDIT] No note found for this invoice');
-        }
-        
-    } catch (error) {
-        console.error('Error editing invoice:', error);
-        window.notify.error('Erreur', 'Impossible de charger le document', 3000);
-    }
+window.editInvoiceChaimae = function(id) {
+    console.log('✏️ [EDIT] Opening edit page for invoice ID:', id);
+    localStorage.setItem('editInvoiceIdChaimae', id);
+    router.navigate('/edit-invoice-chaimae');
 }
 
 // Handle arrow key navigation in edit modal products (Global)
@@ -2654,6 +2416,7 @@ function showConvertInputModalChaimae(newType, newTypeLabel, prefillNumero = '',
                            style="width:100%;padding:1rem;background:#2d2d30;border:2px solid #3e3e42;border-radius:8px;color:#fff;font-size:1.1rem;box-sizing:border-box;outline:none;transition:all 0.3s;"
                            onfocus="this.style.borderColor='#9c27b0';this.style.background='#1e1e1e';"
                            onblur="this.style.borderColor='#3e3e42';this.style.background='#2d2d30';autoFormatDocumentNumberOnBlurChaimae(this);">
+                    <small style="color: #999; font-size: 0.85rem; display: block; margin-top: 0.5rem;">Ex: 123 → 123/2025</small>
                     ${highestNumber !== 'Aucun' ? `<div style="margin-top:0.5rem;color:${newType === 'facture' ? '#4caf50' : '#9c27b0'};font-size:0.85rem;font-weight:500;">📌 Plus grand numéro actuel: ${highestNumber}</div>` : ''}
                 `}
             </div>
@@ -3030,6 +2793,9 @@ window.convertInvoiceTypeChaimae = async function(invoiceId, currentType) {
             }
             
             // Prepare new document data
+            // Get current user info
+            const user = JSON.parse(localStorage.getItem('user'));
+            
             const newDocData = {
                 client: {
                     nom: invoice.client_nom,
@@ -3042,7 +2808,10 @@ window.convertInvoiceTypeChaimae = async function(invoiceId, currentType) {
                     numero_devis: newType === 'devis' ? newNumero : null,
                     numero_Order: newType === 'facture' ? newNumeroOrder : null,
                     bon_de_livraison: newType === 'facture' ? newBonLivraison : null,
-                    numero_commande: newType === 'bon_livraison' ? newBonCommande : null
+                    numero_commande: newType === 'bon_livraison' ? newBonCommande : null,
+                    created_by_user_id: user?.id || null,
+                    created_by_user_name: user?.name || null,
+                    created_by_user_email: user?.email || null
                 },
                 products: invoice.products || [],
                 totals: {
@@ -3718,7 +3487,9 @@ window.downloadInvoicePDFChaimae = async function(invoiceId) {
         }
         
         // Save PDF
-        const filename = `${docType}_${docNumero}_${invoice.client_nom}.pdf`;
+        const selectedCompany = JSON.parse(localStorage.getItem('selectedCompany') || '{}');
+        const companyName = selectedCompany.name ? selectedCompany.name.replace(' Company', '') : 'Unknown';
+        const filename = `${docType}_${docNumero}_${invoice.client_nom}_${companyName}.pdf`;
         doc.save(filename);
         
         window.notify.success('Succès', 'PDF téléchargé avec succès', 3000);
@@ -4066,7 +3837,9 @@ window.downloadBonDeTravauxPDFChaimae = async function(invoiceId) {
         
         // Save PDF
         const docNumero = invoice.document_numero || invoice.document_numero_devis || invoice.document_numero_bl || 'N';
-        const filename = `Bon_de_travaux_${docNumero}_${invoice.client_nom}.pdf`;
+        const selectedCompany = JSON.parse(localStorage.getItem('selectedCompany') || '{}');
+        const companyName = selectedCompany.name ? selectedCompany.name.replace(' Company', '') : 'Unknown';
+        const filename = `Bon_de_travaux_${docNumero}_${invoice.client_nom}_${companyName}.pdf`;
         doc.save(filename);
         
         window.notify.success('Succès', 'Bon de travaux téléchargé avec succès', 3000);
@@ -5995,7 +5768,9 @@ window.initInvoicesListChaimaePage = function() {
                     addFooter(i + 1, totalPages);
                 }
                 
-                const filename = `Facture_Globale_${invoice.document_numero}_${invoice.client_nom}.pdf`;
+                const selectedCompany = JSON.parse(localStorage.getItem('selectedCompany') || '{}');
+                const companyName = selectedCompany.name ? selectedCompany.name.replace(' Company', '') : 'Unknown';
+                const filename = `Facture_Globale_${invoice.document_numero}_${invoice.client_nom}_${companyName}.pdf`;
                 doc.save(filename);
                 
                 window.notify.success('Succès', 'PDF téléchargé avec succès', 3000);
@@ -6318,6 +6093,7 @@ async function loadConvertOrderPrefixes() {
 // ==================== END CONVERT ORDER PREFIX FUNCTIONS ====================
 
 // Search clients in edit mode for Chaimae
+let allClientsEditChaimae = [];
 let filteredClientsEditChaimae = [];
 window.searchClientsEditChaimae = function(query) {
     const dropdown = document.getElementById('clientsDropdownEditChaimae');
@@ -6336,7 +6112,7 @@ window.searchClientsEditChaimae = function(query) {
     displayClientsListEditChaimae();
 }
 
-function displayClientsListEditChaimae() {
+window.displayClientsListEditChaimae = function() {
     const dropdown = document.getElementById('clientsDropdownEditChaimae');
     if (!dropdown) return;
     

@@ -70,6 +70,11 @@ class Router {
                 console.error('❌ Router: initCreateGlobalInvoiceChaimaePage function not found!');
             }
             
+            if (path === '/login' && typeof initializeLoginPage === 'function') {
+                console.log('✅ Router: Calling initializeLoginPage');
+                initializeLoginPage();
+            }
+            
             if (path === '/company-select' && typeof initCompanySelectPage === 'function') {
                 console.log('✅ Router: Calling initCompanySelectPage');
                 initCompanySelectPage();
@@ -143,6 +148,20 @@ class Router {
                 window.initEditInvoiceMultiPage();
             } else if (path === '/edit-invoice-multi') {
                 console.error('❌ Router: initEditInvoiceMultiPage function not found!');
+            }
+            
+            if (path === '/edit-invoice-mry' && typeof window.initEditInvoiceMRYPage === 'function') {
+                console.log('✅ Router: Calling initEditInvoiceMRYPage');
+                window.initEditInvoiceMRYPage();
+            } else if (path === '/edit-invoice-mry') {
+                console.error('❌ Router: initEditInvoiceMRYPage function not found!');
+            }
+            
+            if (path === '/edit-invoice-chaimae' && typeof window.initEditInvoiceChaimaePage === 'function') {
+                console.log('✅ Router: Calling initEditInvoiceChaimaePage');
+                window.initEditInvoiceChaimaePage();
+            } else if (path === '/edit-invoice-chaimae') {
+                console.error('❌ Router: initEditInvoiceChaimaePage function not found!');
             }
         } else {
             console.error(`❌ Route ${path} not found`);

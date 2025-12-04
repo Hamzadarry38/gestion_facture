@@ -35,26 +35,35 @@ function InvoicesListMultiPage() {
             <div class="window-content">
                 <div class="invoices-list-container">
                     <!-- Header -->
-                    <div class="list-header">
-                        <h1>📋 Liste des Factures et Devis</h1>
-                        <div class="header-actions">
-                            <button onclick="changeYearMulti()" style="background: #2d2d30; color: white; padding: 0.75rem 1.5rem; border: 2px solid #667eea; border-radius: 6px; cursor: pointer; font-weight: 600; display: flex; align-items: center; gap: 0.5rem; transition: all 0.3s; margin-right: 1rem;" onmouseover="this.style.background='#3e3e42'" onmouseout="this.style.background='#2d2d30'">
-                                <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+                    <div class="list-header-new">
+                        <div class="header-title-section">
+                            <h1 class="header-title">📋 Liste des Factures et Devis</h1>
+                        </div>
+                        
+                        <div class="header-actions-new">
+                            <button onclick="changeYearMulti()" class="action-btn action-btn-year">
+                                <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor">
                                     <path d="M3.5 0a.5.5 0 0 1 .5.5V1h8V.5a.5.5 0 0 1 1 0V1h1a2 2 0 0 1 2 2v11a2 2 0 0 1-2 2H2a2 2 0 0 1-2-2V3a2 2 0 0 1 2-2h1V.5a.5.5 0 0 1 .5-.5zM1 4v10a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V4H1z"/>
                                 </svg>
-                                <span id="currentYearDisplayMulti">Toutes</span>
+                                <span id="currentYearDisplayMulti">2025</span>
                             </button>
-                            <button class="btn-situation" onclick="showSituationMensuelleModalMulti()" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 0.75rem 1.5rem; border: none; border-radius: 6px; cursor: pointer; font-weight: 600; display: flex; align-items: center; gap: 0.5rem; transition: all 0.3s;" onmouseover="this.style.transform='translateY(-2px)'; this.style.boxShadow='0 4px 12px rgba(102, 126, 234, 0.5)'" onmouseout="this.style.transform='translateY(0)'; this.style.boxShadow='none'">
-                                📊 Situation Mensuelle
+                            
+                            <button class="action-btn action-btn-situation" onclick="showSituationMensuelleModalMulti()">
+                                <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor">
+                                    <path d="M1 11a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1v3a1 1 0 0 1-1 1H2a1 1 0 0 1-1-1v-3zm5-4a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1v7a1 1 0 0 1-1 1H7a1 1 0 0 1-1-1v-7zm5-5a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1v12a1 1 0 0 1-1 1h-2a1 1 0 0 1-1-1V2z"/>
+                                </svg>
+                                <span>Situation</span>
                             </button>
-                            <button class="btn-primary" onclick="router.navigate('/create-invoice-multi')">
-                                <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor" style="margin-right: 0.5rem;">
+                            
+                            <button class="action-btn action-btn-primary" onclick="router.navigate('/create-invoice-multi')">
+                                <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor">
                                     <path d="M8 4a.5.5 0 0 1 .5.5v3h3a.5.5 0 0 1 0 1h-3v3a.5.5 0 0 1-1 0v-3h-3a.5.5 0 0 1 0-1h3v-3A.5.5 0 0 1 8 4z"/>
                                 </svg>
-                                <span>Nouvelle Facture</span>
+                                <span>Nouvelle</span>
                             </button>
-                            <button class="btn-secondary" onclick="router.navigate('/dashboard-multi')">
-                                <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor" style="margin-right: 0.5rem;">
+                            
+                            <button class="action-btn action-btn-secondary" onclick="router.navigate('/dashboard-multi')">
+                                <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor">
                                     <path fill-rule="evenodd" d="M15 8a.5.5 0 0 0-.5-.5H2.707l3.147-3.146a.5.5 0 1 0-.708-.708l-4 4a.5.5 0 0 0 0 .708l4 4a.5.5 0 0 0 .708-.708L2.707 8.5H14.5A.5.5 0 0 0 15 8z"/>
                                 </svg>
                                 <span>Retour</span>
@@ -182,7 +191,6 @@ function InvoicesListMultiPage() {
                                                style="width: 18px; height: 18px; cursor: pointer;"
                                                title="Sélectionner tout">
                                     </th>
-                                    <th>ID</th>
                                     <th>Type</th>
                                     <th onclick="sortTableMulti('numero')" style="cursor: pointer; user-select: none;" title="Cliquer pour trier">
                                         N° Document <span id="sortIconNumero">⇅</span>
@@ -196,7 +204,6 @@ function InvoicesListMultiPage() {
                                     <th onclick="sortTableMulti('total_ht')" style="cursor: pointer; user-select: none;" title="Cliquer pour trier">
                                         Total HT <span id="sortIconHT">⇅</span>
                                     </th>
-                                    <th>TVA</th>
                                     <th onclick="sortTableMulti('total_ttc')" style="cursor: pointer; user-select: none;" title="Cliquer pour trier">
                                         Total TTC <span id="sortIconTTC">⇅</span>
                                     </th>
@@ -454,7 +461,6 @@ function displayInvoicesMulti() {
                        style="width: 18px; height: 18px; cursor: pointer;"
                        onchange="updateSelectedCountMulti()">
             </td>
-            <td>${invoice.id}</td>
             <td><span class="badge badge-${invoice.document_type}">${typeLabel}</span></td>
             <td>
                 <strong>${docNumber || 'N/A'}</strong>
@@ -465,7 +471,6 @@ function displayInvoicesMulti() {
             <td>${date}</td>
             <td><small style="color: #2196f3;">${invoice.created_by_user_name || '-'}</small></td>
             <td>${invoice.total_ht.toFixed(2)} DH</td>
-            <td>${invoice.tva_rate}%</td>
             <td><strong>${invoice.total_ttc.toFixed(2)} DH</strong></td>
             <td>
                 <div class="action-buttons">
@@ -1300,7 +1305,9 @@ window.downloadBonDeTravaux = async function(invoiceId) {
         
         // Save PDF
         const docNumero = invoice.document_numero || invoice.document_numero_devis || 'N';
-        const filename = `Bon_de_travaux_${docNumero}_${invoice.client_nom}.pdf`;
+        const selectedCompany = JSON.parse(localStorage.getItem('selectedCompany') || '{}');
+        const companyName = selectedCompany.name ? selectedCompany.name.replace(' Company', '') : 'Unknown';
+        const filename = `Bon_de_travaux_${docNumero}_${invoice.client_nom}_${companyName}.pdf`;
         doc.save(filename);
         
         window.notify.success('Succès', 'Bon de travaux téléchargé avec succès', 3000);
@@ -1604,7 +1611,9 @@ window.downloadInvoicePDFMulti = async function(invoiceId) {
         
         // Save PDF
         const docNumero = invoice.document_numero || invoice.document_numero_devis || 'N';
-        const filename = `${invoice.document_type === 'devis' ? 'Devis' : 'Facture'}_${docNumero}_${invoice.client_nom}.pdf`;
+        const selectedCompany = JSON.parse(localStorage.getItem('selectedCompany') || '{}');
+        const companyName = selectedCompany.name ? selectedCompany.name.replace(' Company', '') : 'Unknown';
+        const filename = `${invoice.document_type === 'devis' ? 'Devis' : 'Facture'}_${docNumero}_${invoice.client_nom}_${companyName}.pdf`;
         doc.save(filename);
         
         window.notify.success('Succès', 'PDF téléchargé avec succès', 3000);

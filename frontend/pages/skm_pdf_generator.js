@@ -160,17 +160,18 @@ window.downloadSKMDevisPDF = async function(invoiceId) {
         console.log('🛠️ Calling generateSKMPDF with includeZeroProducts =', includeZeroProducts);
         await generateSKMPDF(doc, customizedInvoice, includeZeroProducts);
         
+        // Get the company that created this PDF
+        const selectedCompany = JSON.parse(localStorage.getItem('selectedCompany') || '{}');
+        const createdBy = selectedCompany.code || selectedCompany.name || 'Unknown';
+        const companyName = selectedCompany.name ? selectedCompany.name.replace(' Company', '') : 'Unknown';
+        
         // Save the PDF
-        const fileName = `SKM_Devis_${customizedInvoice.document_numero_devis}_${new Date().toISOString().slice(0, 10)}.pdf`;
+        const fileName = `SKM_Devis_${customizedInvoice.document_numero_devis}_${new Date().toISOString().slice(0, 10)}_${companyName}.pdf`;
         
         // Get PDF as blob and save to disk
         const pdfBlob = doc.output('blob');
         const pdfArrayBuffer = await pdfBlob.arrayBuffer();
         const pdfUint8Array = new Uint8Array(pdfArrayBuffer);
-        
-        // Get the company that created this PDF
-        const selectedCompany = JSON.parse(localStorage.getItem('selectedCompany') || '{}');
-        const createdBy = selectedCompany.code || selectedCompany.name || 'Unknown';
         
         // Save PDF to disk using electron API (include creator company)
         const saveResult = await window.electron.pdf.savePdf(pdfUint8Array, 'skm', customizedInvoice.document_numero_devis, createdBy);

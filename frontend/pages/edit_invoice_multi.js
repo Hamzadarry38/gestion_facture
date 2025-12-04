@@ -163,16 +163,16 @@ function EditInvoiceMultiPage() {
                     </div>
 
                     <!-- Form Actions -->
-                    <div class="form-actions" style="display: flex; justify-content: space-between; align-items: center;">
-                        <button type="button" class="btn-convert-bottom" onclick="showConvertDocumentTypeModal()" style="background: #9c27b0; color: white; padding: 0.75rem 1.5rem; border: none; border-radius: 6px; cursor: pointer; font-weight: 500; display: flex; align-items: center; gap: 0.5rem; transition: all 0.3s;" onmouseover="this.style.background='#7b1fa2'" onmouseout="this.style.background='#9c27b0'">
-                            🔄 <span id="convertButtonTextMulti">Convertir en Devis</span>
+                    <div class="form-actions" style="display: flex; justify-content: space-between; align-items: center; gap: 1rem; padding-top: 1.5rem; border-top: 1px solid #3e3e42;">
+                        <button type="button" class="btn-convert-bottom" onclick="showConvertDocumentTypeModal()" style="background: #9c27b0; color: white; padding: 0.5rem 1rem; border: none; border-radius: 6px; cursor: pointer; font-weight: 500; font-size: 0.85rem; display: flex; align-items: center; gap: 0.3rem; transition: all 0.3s;" onmouseover="this.style.background='#7b1fa2'; this.style.transform='translateY(-2px)'" onmouseout="this.style.background='#9c27b0'; this.style.transform='translateY(0)'">
+                            🔄 <span id="convertButtonTextMulti">Convertir</span>
                         </button>
-                        <div style="display: flex; gap: 1rem;">
-                            <button type="button" class="btn-secondary" onclick="router.navigate('/invoices-list-multi')">
+                        <div style="display: flex; gap: 0.5rem; margin-left: auto;">
+                            <button type="button" class="btn-secondary" onclick="router.navigate('/invoices-list-multi')" style="padding: 0.5rem 1rem; font-size: 0.85rem; display: flex; align-items: center; gap: 0.3rem;">
                                 <span>← Annuler</span>
                             </button>
-                            <button type="submit" class="btn-primary">
-                                <span>💾 Enregistrer les modifications</span>
+                            <button type="submit" class="btn-primary" style="padding: 0.5rem 1rem; font-size: 0.85rem; display: flex; align-items: center; gap: 0.3rem;">
+                                <span>💾 Enregistrer</span>
                             </button>
                         </div>
                     </div>
@@ -909,7 +909,7 @@ window.showConvertDocumentTypeModal = async function() {
             currentNumero = invoice.document_numero_devis || '';
         }
         
-        // Show input modal for new document numbers
+        // Use current number as prefill (user can modify if needed)
         const inputData = await showConvertInputModalMulti(newType, newTypeText, currentNumero);
         
         if (!inputData) {
@@ -950,6 +950,9 @@ window.showConvertDocumentTypeModal = async function() {
         }
         
         // Prepare data for new document
+        // Get current user info
+        const user = JSON.parse(localStorage.getItem('user'));
+        
         const newInvoiceData = {
             company_code: 'MULTI',
             client: {
@@ -961,7 +964,10 @@ window.showConvertDocumentTypeModal = async function() {
                 date: invoice.document_date || new Date().toISOString().split('T')[0],
                 numero: newType === 'facture' ? newNumero : null,
                 numero_devis: newType === 'devis' ? newNumero : null,
-                numero_Order: newType === 'facture' ? newNumeroOrder : null
+                numero_Order: newType === 'facture' ? newNumeroOrder : null,
+                created_by_user_id: user?.id || null,
+                created_by_user_name: user?.name || null,
+                created_by_user_email: user?.email || null
             },
             products: (invoice.products || []).map(p => ({
                 designation: p.designation || '',

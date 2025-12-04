@@ -207,7 +207,6 @@ function InvoicesListGenericPage() {
                                                style="width: 18px; height: 18px; cursor: pointer;"
                                                title="Sélectionner tout">
                                     </th>
-                                    <th>ID</th>
                                     <th>Type</th>
                                     <th onclick="sortTable('numero')" style="cursor: pointer; user-select: none;" title="Cliquez pour trier">
                                         N° Document <span id="sortIconNumero">⇅</span>
@@ -220,7 +219,6 @@ function InvoicesListGenericPage() {
                                     <th onclick="sortTable('total_ht')" style="cursor: pointer; user-select: none;" title="Cliquez pour trier">
                                         Total HT <span id="sortIconTotalHT">⇅</span>
                                     </th>
-                                    <th>TVA</th>
                                     <th onclick="sortTable('total_ttc')" style="cursor: pointer; user-select: none;" title="Cliquez pour trier">
                                         Total TTC <span id="sortIconTotalTTC">⇅</span>
                                     </th>
@@ -2022,6 +2020,9 @@ window.convertInvoiceType = async function(invoiceId, currentType) {
         console.log('📦 [CONVERT] client_ice:', invoice.client_ice);
         console.log('📦 [CONVERT] products:', invoice.products);
         
+        // Get current user info
+        const user = JSON.parse(localStorage.getItem('user'));
+        
         const newInvoiceData = {
             company_code: 'MRY',
             client: {
@@ -2033,7 +2034,10 @@ window.convertInvoiceType = async function(invoiceId, currentType) {
                 date: invoice.document_date || new Date().toISOString().split('T')[0],
                 numero: newType === 'facture' ? newNumero : null,
                 numero_devis: newType === 'devis' ? newNumero : null,
-                numero_Order: newType === 'facture' ? newNumeroOrder : null
+                numero_Order: newType === 'facture' ? newNumeroOrder : null,
+                created_by_user_id: user?.id || null,
+                created_by_user_name: user?.name || null,
+                created_by_user_email: user?.email || null
             },
             products: (invoice.products || []).map(p => ({
                 designation: p.designation || '',

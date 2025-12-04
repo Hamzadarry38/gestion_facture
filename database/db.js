@@ -1198,6 +1198,11 @@ const auditLogOps = {
                 reject(error);
             }
         });
+    },
+
+    // Alias for getLogsForInvoice (for compatibility)
+    getAuditLog: (invoiceId) => {
+        return auditLogOps.getLogsForInvoice(invoiceId);
     }
 };
 

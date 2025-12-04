@@ -166,10 +166,50 @@ function getAllUsers() {
     });
 }
 
+// Update user password
+function updatePassword(email, oldPassword, newPassword) {
+    return new Promise((resolve, reject) => {
+        try {
+            console.log('🔐 [DB] Attempting to update password for:', email);
+            
+            // First verify the old password
+            const oldHashedPassword = hashPassword(oldPassword);
+            console.log('🔐 [DB] Old password hash:', oldHashedPassword.substring(0, 10) + '...');
+            
+            const verifyStmt = db.prepare('SELECT id FROM users WHERE email = ? AND password = ?');
+            verifyStmt.bind([email, oldHashedPassword]);
+            
+            if (!verifyStmt.step()) {
+                verifyStmt.free();
+                console.log('❌ [DB] Old password verification failed for:', email);
+                reject(new Error('Old password is incorrect'));
+                return;
+            }
+            verifyStmt.free();
+            
+            console.log('✅ [DB] Old password verified successfully');
+            
+            // Update with new password
+            const newHashedPassword = hashPassword(newPassword);
+            console.log('🔐 [DB] New password hash:', newHashedPassword.substring(0, 10) + '...');
+            
+            db.run('UPDATE users SET password = ? WHERE email = ?', [newHashedPassword, email]);
+            
+            saveDatabase();
+            console.log('✅ [DB] Password updated and saved to database');
+            resolve({ success: true, message: 'Password updated successfully' });
+        } catch (error) {
+            console.error('❌ [DB] Error updating password:', error);
+            reject(error);
+        }
+    });
+}
+
 module.exports = {
     initializeDatabase,
     createUser,
     verifyUser,
     hasUsers,
-    getAllUsers
+    getAllUsers,
+    updatePassword
 };

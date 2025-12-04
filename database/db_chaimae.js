@@ -495,7 +495,7 @@ const invoiceOps = {
             invoiceData.document.date,
             invoiceData.document.numero || null,
             invoiceData.document.numero_Order || null,
-            invoiceData.document.numero_BL || null,
+            invoiceData.document.numero_bl || invoiceData.document.numero_BL || null,
             invoiceData.document.numero_devis || null,
             invoiceData.document.order_devis || null,
             invoiceData.document.bon_de_livraison || null,

@@ -1824,8 +1824,8 @@ async function handleFormSubmitChaimae(e) {
             
             console.log('📝 [CREATE DEBUG] Final Full numero:', fullNumero);
             
-            formData.document.numero = fullNumero;
-            formData.document.numero_BL = fullNumero; // Save to document_numero_bl field
+            formData.document.numero = null; // Don't set numero for bon_livraison
+            formData.document.numero_bl = fullNumero; // Save to document_numero_bl field
             
             // Format N° Order with prefix if provided
             const orderValue = document.getElementById('documentBonCommandeChaimae')?.value?.trim();
@@ -2013,6 +2013,13 @@ async function handleFormSubmitChaimae(e) {
         }
         
         // Save to database
+        console.log('📋 [CREATE BL] formData.document object:', formData.document);
+        console.log('📋 [CREATE BL] Checking BL field:', {
+            'numero_BL': formData.document.numero_BL,
+            'numero_bl': formData.document.numero_bl,
+            'document_type': formData.document.type
+        });
+        
         const result = await window.electron.dbChaimae.createInvoice(formData);
         
         if (result.success) {
