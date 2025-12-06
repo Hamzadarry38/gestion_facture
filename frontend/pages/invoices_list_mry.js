@@ -35,26 +35,35 @@ function InvoicesListMRYPage() {
             <div class="window-content">
                 <div class="invoices-list-container">
                     <!-- Header -->
-                    <div class="list-header">
-                        <h1>📋 Liste des Factures et Devis</h1>
-                        <div class="header-actions">
-                            <button id="changeYearBtnMRY" onclick="router.navigate('/year-selector-mry')" style="background: #2d2d30; color: white; padding: 0.75rem 1.5rem; border: 2px solid #667eea; border-radius: 6px; cursor: pointer; font-weight: 600; display: flex; align-items: center; gap: 0.5rem; transition: all 0.3s; margin-right: 1rem;" onmouseover="this.style.background='#3e3e42'" onmouseout="this.style.background='#2d2d30'">
-                                <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+                    <div class="list-header-new">
+                        <div class="header-title-section">
+                            <h1 class="header-title">📋 Liste des Factures et Devis</h1>
+                        </div>
+                        
+                        <div class="header-actions-new">
+                            <button id="changeYearBtnMRY" onclick="router.navigate('/year-selector-mry')" class="action-btn action-btn-year">
+                                <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor">
                                     <path d="M3.5 0a.5.5 0 0 1 .5.5V1h8V.5a.5.5 0 0 1 1 0V1h1a2 2 0 0 1 2 2v11a2 2 0 0 1-2 2H2a2 2 0 0 1-2-2V3a2 2 0 0 1 2-2h1V.5a.5.5 0 0 1 .5-.5zM1 4v10a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V4H1z"/>
                                 </svg>
-                                <span id="currentYearDisplayMRY">Toutes</span>
+                                <span id="currentYearDisplayMRY">2025</span>
                             </button>
-                            <button class="btn-situation" onclick="showSituationMensuelleModalMRY()" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 0.75rem 1.5rem; border: none; border-radius: 6px; cursor: pointer; font-weight: 600; display: flex; align-items: center; gap: 0.5rem; transition: all 0.3s;" onmouseover="this.style.transform='translateY(-2px)'; this.style.boxShadow='0 4px 12px rgba(102, 126, 234, 0.5)'" onmouseout="this.style.transform='translateY(0)'; this.style.boxShadow='none'">
-                                📊 Situation Mensuelle
+                            
+                            <button class="action-btn action-btn-situation" onclick="showSituationMensuelleModalMRY()">
+                                <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor">
+                                    <path d="M1 11a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1v3a1 1 0 0 1-1 1H2a1 1 0 0 1-1-1v-3zm5-4a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1v7a1 1 0 0 1-1 1H7a1 1 0 0 1-1-1v-7zm5-5a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1v12a1 1 0 0 1-1 1h-2a1 1 0 0 1-1-1V2z"/>
+                                </svg>
+                                <span>Situation</span>
                             </button>
-                            <button class="btn-primary" onclick="router.navigate('/create-invoice-mry')">
-                                <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor" style="margin-right: 0.5rem;">
+                            
+                            <button class="action-btn action-btn-primary" onclick="router.navigate('/create-invoice-mry')">
+                                <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor">
                                     <path d="M8 4a.5.5 0 0 1 .5.5v3h3a.5.5 0 0 1 0 1h-3v3a.5.5 0 0 1-1 0v-3h-3a.5.5 0 0 1 0-1h3v-3A.5.5 0 0 1 8 4z"/>
                                 </svg>
-                                <span>Nouvelle Facture</span>
+                                <span>Nouvelle</span>
                             </button>
-                            <button class="btn-secondary" onclick="router.navigate('/dashboard-mry')">
-                                <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor" style="margin-right: 0.5rem;">
+                            
+                            <button class="action-btn action-btn-secondary" onclick="router.navigate('/dashboard-mry')">
+                                <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor">
                                     <path fill-rule="evenodd" d="M15 8a.5.5 0 0 0-.5-.5H2.707l3.147-3.146a.5.5 0 1 0-.708-.708l-4 4a.5.5 0 0 0 0 .708l4 4a.5.5 0 0 0 .708-.708L2.707 8.5H14.5A.5.5 0 0 0 15 8z"/>
                                 </svg>
                                 <span>Retour</span>
@@ -182,7 +191,6 @@ function InvoicesListMRYPage() {
                                                style="width: 18px; height: 18px; cursor: pointer;"
                                                title="Sélectionner tout">
                                     </th>
-                                    <th>ID</th>
                                     <th>Type</th>
                                     <th onclick="sortTableMry('numero')" style="cursor: pointer; user-select: none;" title="Cliquez pour trier">
                                         N° Document <span id="sortIconNumeroMry">⇅</span>
@@ -192,10 +200,10 @@ function InvoicesListMRYPage() {
                                     <th onclick="sortTableMry('date')" style="cursor: pointer; user-select: none;" title="Cliquez pour trier">
                                         Date <span id="sortIconDateMry">⇅</span>
                                     </th>
+                                    <th>Créé par</th>
                                     <th onclick="sortTableMry('total_ht')" style="cursor: pointer; user-select: none;" title="Cliquez pour trier">
                                         Total HT <span id="sortIconTotalHTMry">⇅</span>
                                     </th>
-                                    <th>TVA</th>
                                     <th onclick="sortTableMry('total_ttc')" style="cursor: pointer; user-select: none;" title="Cliquez pour trier">
                                         Total TTC <span id="sortIconTotalTTCMry">⇅</span>
                                     </th>
@@ -296,7 +304,13 @@ window.loadInvoices = async function() {
                 }
             }
             
-            allInvoices = invoices;
+            // Add default display if not present
+            const enrichedInvoices = invoices.map(inv => ({
+                ...inv,
+                created_by_user_name: inv.created_by_user_name || '-'
+            }));
+            
+            allInvoices = enrichedInvoices;
             console.log('✅ [LOAD] All invoices stored in memory:', allInvoices.length);
             
             // Log first 3 invoices for debugging
@@ -398,20 +412,24 @@ function displayInvoices(invoices) {
             totalTTC
         });
         
+        console.log('👤 User info for invoice', invoice.id, ':', {
+            created_by_user_name: invoice.created_by_user_name,
+            created_by_user_id: invoice.created_by_user_id
+        });
+        
         return `
             <tr>
                 <td>
                     <input type="checkbox" class="invoice-checkbox" data-invoice-id="${invoice.id}" 
                            style="width: 18px; height: 18px; cursor: pointer;">
                 </td>
-                <td><strong>#${invoice.id}</strong></td>
                 <td><span class="badge ${typeBadge}">${typeLabel}</span></td>
                 <td>${documentDisplay}</td>
                 <td>${invoice.client_nom}</td>
                 <td>${invoice.client_ice}</td>
                 <td>${date}</td>
+                <td><small style="color: #2196f3;">${invoice.created_by_user_name || '-'}</small></td>
                 <td>${formatNumber(invoice.total_ht)} DH</td>
-                <td>${invoice.tva_rate}%</td>
                 <td><strong>${formatNumber(invoice.total_ttc)} DH</strong></td>
                 <td>
                     <div class="action-buttons">
@@ -1006,7 +1024,7 @@ window.viewInvoice = async function(id) {
                 </div>
                 
                 <!-- Attachments Section -->
-                <div>
+                <div style="margin-bottom:2rem;">
                     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem;">
                         <h3 style="color:#fff;font-size:1.1rem;margin:0;font-weight:600;">Pièces jointes (${invoice.attachments ? invoice.attachments.length : 0})</h3>
                         <button onclick="addNewAttachment(${id})" style="padding:0.5rem 1rem;background:#4CAF50;color:#fff;border:none;border-radius:6px;cursor:pointer;font-size:0.85rem;font-weight:600;display:flex;align-items:center;gap:0.5rem;transition:all 0.2s;" onmouseover="this.style.background='#45a049'" onmouseout="this.style.background='#4CAF50'">
@@ -1040,6 +1058,14 @@ window.viewInvoice = async function(id) {
                             `).join('')}
                         </div>
                     ` : '<p style="color:#999;text-align:center;padding:2rem;background:#1e1e1e;border-radius:8px;">Aucune pièce jointe</p>'}
+                </div>
+                
+                <!-- Audit Log Section -->
+                <div id="auditLogSectionMRY${id}">
+                    <h3 style="color:#fff;font-size:1.1rem;margin:0 0 1rem 0;font-weight:600;">📋 Historique des modifications</h3>
+                    <div style="background:#1e1e1e;border-radius:8px;padding:1rem;">
+                        <div style="color:#999;font-size:0.9rem;font-style:italic;">Chargement de l'historique...</div>
+                    </div>
                 </div>
             </div>
         `;
@@ -1088,197 +1114,98 @@ window.viewInvoice = async function(id) {
             }
         }
         
+        // Load audit log asynchronously
+        console.log('📋 [AUDIT LOG MRY] Loading audit log for invoice:', id);
+        const auditLogSection = document.getElementById(`auditLogSectionMRY${id}`);
+        if (auditLogSection) {
+            const auditLogContent = auditLogSection.querySelector('div > div');
+            try {
+                // Check if function exists
+                if (!window.electron.db.getAuditLog) {
+                    console.error('❌ [AUDIT LOG MRY] getAuditLog function not found');
+                    throw new Error('getAuditLog function not available');
+                }
+                
+                const auditResult = await window.electron.db.getAuditLog(id);
+                console.log('📥 [AUDIT LOG MRY] Audit log result:', auditResult);
+                
+                if (auditResult.success && auditResult.data && auditResult.data.length > 0) {
+                    const logs = auditResult.data;
+                    console.log('✅ [AUDIT LOG MRY] Displaying audit logs:', logs);
+                    
+                    let auditHTML = '<div style="max-height: 400px; overflow-y: auto;">';
+                    
+                    // Add creation info first
+                    if (invoice.created_by_user_name) {
+                        const createdDate = new Date(invoice.created_at).toLocaleDateString('fr-FR');
+                        auditHTML += `
+                            <div style="padding:0.75rem;background:#252526;border-radius:6px;margin-bottom:0.5rem;border-left:4px solid #4CAF50;">
+                                <div style="display:flex;justify-content:space-between;align-items:start;">
+                                    <div>
+                                        <div style="color:#4CAF50;font-weight:600;font-size:0.9rem;">➕ Création</div>
+                                        <div style="color:#fff;margin-top:0.25rem;">Par: <strong>${invoice.created_by_user_name}</strong></div>
+                                        ${invoice.created_by_user_email ? `<div style="color:#999;font-size:0.85rem;">${invoice.created_by_user_email}</div>` : ''}
+                                    </div>
+                                    <div style="color:#999;font-size:0.85rem;white-space:nowrap;">${createdDate}</div>
+                                </div>
+                            </div>
+                        `;
+                    }
+                    
+                    // Add modification logs
+                    logs.forEach(log => {
+                        const logDate = new Date(log.created_at).toLocaleDateString('fr-FR');
+                        auditHTML += `
+                            <div style="padding:0.75rem;background:#252526;border-radius:6px;margin-bottom:0.5rem;border-left:4px solid #2196F3;">
+                                <div style="display:flex;justify-content:space-between;align-items:start;">
+                                    <div>
+                                        <div style="color:#2196F3;font-weight:600;font-size:0.9rem;">✏️ Mis à jour</div>
+                                        <div style="color:#fff;margin-top:0.25rem;">Par: <strong>${log.user_name}</strong></div>
+                                        ${log.user_email ? `<div style="color:#999;font-size:0.85rem;">${log.user_email}</div>` : ''}
+                                    </div>
+                                    <div style="color:#999;font-size:0.85rem;white-space:nowrap;">${logDate}</div>
+                                </div>
+                            </div>
+                        `;
+                    });
+                    
+                    auditHTML += '</div>';
+                    auditLogContent.innerHTML = auditHTML;
+                    auditLogContent.style.color = '#fff';
+                    auditLogContent.style.fontStyle = 'normal';
+                } else {
+                    console.log('ℹ️ [AUDIT LOG MRY] No audit logs found');
+                    const createdDate = new Date(invoice.created_at).toLocaleDateString('fr-FR');
+                    auditLogContent.innerHTML = `
+                        <div style="padding:0.75rem;background:#252526;border-radius:6px;border-left:4px solid #4CAF50;">
+                            <div style="display:flex;justify-content:space-between;align-items:start;">
+                                <div>
+                                    <div style="color:#4CAF50;font-weight:600;font-size:0.9rem;">➕ Création</div>
+                                    <div style="color:#fff;margin-top:0.25rem;">Par: <strong>${invoice.created_by_user_name || 'Utilisateur inconnu'}</strong></div>
+                                    ${invoice.created_by_user_email ? `<div style="color:#999;font-size:0.85rem;">${invoice.created_by_user_email}</div>` : ''}
+                                </div>
+                                <div style="color:#999;font-size:0.85rem;white-space:nowrap;">${createdDate}</div>
+                            </div>
+                        </div>
+                    `;
+                }
+            } catch (error) {
+                console.error('❌ [AUDIT LOG MRY] Error loading audit log:', error);
+                auditLogContent.innerHTML = '<div style="color:#f44336;">Erreur lors du chargement de l\'historique</div>';
+            }
+        }
+        
     } catch (error) {
         console.error('Error viewing invoice:', error);
         window.notify.error('Erreur', 'Impossible de charger les détails', 3000);
     }
 }
 
-// Edit invoice
-window.editInvoice = async function(id) {
-    try {
-        console.log('✏️ [EDIT] Opening edit modal for invoice ID:', id);
-        
-        // Load clients if not already loaded
-        if (!allClients || allClients.length === 0) {
-            console.log('🔄 Loading clients for edit modal...');
-            await loadAllClients();
-        }
-        
-        const result = await window.electron.db.getInvoiceById(id);
-        
-        console.log('📥 [EDIT] Data received from database:', result);
-        
-        if (!result.success || !result.data) {
-            throw new Error('Facture introuvable');
-        }
-        
-        const invoice = result.data;
-        console.log('📄 [EDIT] Invoice data:', {
-            id: invoice.id,
-            document_type: invoice.document_type,
-            document_numero: invoice.document_numero,
-            document_numero_devis: invoice.document_numero_devis,
-            document_date: invoice.document_date
-        });
-        
-        // Determine document type labels
-        const isDevis = invoice.document_type === 'devis';
-        const docTypeLabel = isDevis ? 'Devis' : 'Facture';
-        const docNumeroLabel = isDevis ? 'N° Devis' : 'N° Facture';
-        const docNumeroValue = isDevis ? (invoice.document_numero_devis || '') : (invoice.document_numero || '');
-        
-        console.log('🏷️ [EDIT] Document info:', {
-            isDevis,
-            docTypeLabel,
-            docNumeroLabel,
-            docNumeroValue
-        });
-        
-        // Create edit modal
-        const modal = document.createElement('div');
-        modal.className = 'modal-overlay';
-        modal.innerHTML = `
-            <div class="modal-content invoice-edit-modal" style="max-width: 900px;">
-                <div class="modal-header">
-                    <h2>✏️ Modifier ${docTypeLabel} #${invoice.id}</h2>
-                    <button class="modal-close" onclick="this.closest('.modal-overlay').remove()">✕</button>
-                </div>
-                <div class="modal-body">
-                    <form id="editInvoiceForm">
-                        <!-- Client Info -->
-                        <div class="edit-section">
-                            <h3>Client</h3>
-                            <div class="form-row">
-                                <div class="form-field" style="position: relative;">
-                                    <label>Nom du client</label>
-                                    <input type="text" id="editClientNom" value="${invoice.client_nom}" required
-                                           autocomplete="off" oninput="searchClientsEdit(this.value)" 
-                                           onfocus="showClientsListEdit()" onblur="hideClientsListEdit()">
-                                    <div id="clientsDropdownEdit" class="clients-dropdown" style="display: none;"></div>
-                                </div>
-                                <div class="form-field">
-                                    <label>N° ICE</label>
-                                    <input type="text" id="editClientICE" value="${invoice.client_ice}">
-                                </div>
-                            </div>
-                        </div>
-                        
-                        <!-- Document Info -->
-                        <div class="edit-section">
-                            <h3>Document</h3>
-                            <div class="form-row">
-                                <div class="form-field">
-                                    <label>Date</label>
-                                    <input type="date" id="editDate" value="${invoice.document_date}" required>
-                                </div>
-                                <div class="form-field">
-                                    <label>${docNumeroLabel}</label>
-                                    <input type="text" id="editNumero" value="${docNumeroValue}" required
-                                           onblur="autoFormatDocumentNumberOnBlur(this)">
-                                </div>
-                            </div>
-                            ${!isDevis ? `
-                            <div class="form-row">
-                                <div class="form-field">
-                                    <label>N° Order (optionnel)</label>
-                                    <input type="text" id="editNumeroOrder" value="${invoice.document_numero_Order || ''}" placeholder="Ex: 123">
-                                </div>
-                            </div>
-                            ` : ''}
-                        </div>
-                        
-                        <!-- Products -->
-                        <div class="edit-section">
-                            <h3>Produits</h3>
-                            <div id="editProductsList">
-                                ${invoice.products.map((p, index) => `
-                                    <div class="edit-product-row" data-index="${index}">
-                                        <textarea placeholder="Désignation" rows="2" onkeydown="handleArrowNavigationEdit(event, 0)">${p.designation || ''}</textarea>
-                                        <input type="text" placeholder="Quantité" value="${p.quantite || ''}" onchange="recalculateEditTotals()" onkeydown="handleArrowNavigationEdit(event, 1)">
-                                        <input type="number" step="0.01" placeholder="Prix HT" value="${p.prix_unitaire_ht || 0}" onchange="recalculateEditTotals()" onkeydown="handleArrowNavigationEdit(event, 2)">
-                                        <button type="button" onclick="this.closest('.edit-product-row').remove(); recalculateEditTotals()">
-                                            <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
-                                                <path d="M5.5 5.5A.5.5 0 0 1 6 6v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5zm2.5 0a.5.5 0 0 1 .5.5v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5zm3 .5a.5.5 0 0 0-1 0v6a.5.5 0 0 0 1 0V6z"/>
-                                                <path fill-rule="evenodd" d="M14.5 3a1 1 0 0 1-1 1H13v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V4h-.5a1 1 0 0 1-1-1V2a1 1 0 0 1 1-1H6a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1h3.5a1 1 0 0 1 1 1v1zM4.118 4 4 4.059V13a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1V4.059L11.882 4H4.118zM2.5 3V2h11v1h-11z"/>
-                                            </svg>
-                                        </button>
-                                    </div>
-                                `).join('')}
-                            </div>
-                            <button type="button" class="btn-add-product" onclick="addEditProductRow()">+ Ajouter un produit</button>
-                        </div>
-                        
-                        <!-- Totals -->
-                        <div class="edit-section">
-                            <h3>Totaux</h3>
-                            <div class="form-row">
-                                <div class="form-field">
-                                    <label>Taux TVA (%)</label>
-                                    <input type="number" id="editTvaRate" value="${invoice.tva_rate}" min="0" max="100" onchange="recalculateEditTotals()">
-                                </div>
-                            </div>
-                            <div class="totals-display">
-                                <p><strong>Total HT:</strong> <span id="editTotalHT">${formatNumber(invoice.total_ht)} DH</span></p>
-                                <p><strong>TVA:</strong> <span id="editMontantTVA">${formatNumber(invoice.montant_tva)} DH</span></p>
-                                <p><strong>Total TTC:</strong> <span id="editTotalTTC">${formatNumber(invoice.total_ttc)} DH</span></p>
-                            </div>
-                        </div>
-                        
-                        <!-- Notes Section -->
-                        <div class="edit-section">
-                            <h3>📝 Notes</h3>
-                            <div class="form-field">
-                                <label>Notes supplémentaires (optionnel)</label>
-                                <textarea id="editNotesMRY" rows="4" 
-                                          placeholder="Ajoutez des notes ou remarques concernant cette facture..."
-                                          style="width: 100%; padding: 0.75rem; background: #2d2d30; border: 2px solid #3e3e42; border-radius: 8px; color: #fff; font-size: 0.95rem; resize: vertical; font-family: inherit;"></textarea>
-                                <small style="color: #999; font-size: 0.85rem; display: block; margin-top: 0.5rem;">
-                                    Ces notes seront affichées dans le PDF sous le texte de clôture de la facture.
-                                </small>
-                            </div>
-                        </div>
-                        
-                        <div class="form-actions" style="margin-top: 2rem; display: flex; justify-content: space-between; align-items: center;">
-                            <button type="button" class="btn-convert" onclick="convertInvoiceType(${invoice.id}, '${invoice.document_type}')" style="background: #9c27b0; color: white; padding: 0.75rem 1.5rem; border: none; border-radius: 6px; cursor: pointer; font-weight: 500; display: flex; align-items: center; gap: 0.5rem;">
-                                🔄 Convertir en ${isDevis ? 'Facture' : 'Devis'}
-                            </button>
-                            <div style="display: flex; gap: 1rem;">
-                                <button type="button" class="btn-secondary" onclick="this.closest('.modal-overlay').remove()">Annuler</button>
-                                <button type="submit" class="btn-primary">💾 Enregistrer</button>
-                            </div>
-                        </div>
-                    </form>
-                </div>
-            </div>
-        `;
-        
-        document.body.appendChild(modal);
-        
-        // Attach form submit handler
-        document.getElementById('editInvoiceForm').addEventListener('submit', (e) => handleEditSubmit(e, id));
-        
-        // Initial calculation
-        recalculateEditTotals();
-        
-        // Load notes asynchronously
-        console.log('📝 [NOTES EDIT MRY] Loading notes for invoice:', id);
-        const noteResult = await window.electron.db.getNote(id);
-        console.log('📥 [NOTES EDIT MRY] Note result:', noteResult);
-        if (noteResult.success && noteResult.data) {
-            const notesTextarea = document.getElementById('editNotesMRY');
-            if (notesTextarea) {
-                notesTextarea.value = noteResult.data;
-                console.log('✅ [NOTES EDIT MRY] Loaded note into textarea:', noteResult.data);
-            }
-        } else {
-            console.log('ℹ️ [NOTES EDIT MRY] No note found for this invoice');
-        }
-        
-    } catch (error) {
-        console.error('Error editing invoice:', error);
-        window.notify.error('Erreur', 'Impossible de charger la facture', 3000);
-    }
+// Edit invoice - Navigate to separate page
+window.editInvoice = function(id) {
+    console.log('✏️ [EDIT] Opening edit page for invoice ID:', id);
+    localStorage.setItem('editInvoiceIdMRY', id);
+    router.navigate('/edit-invoice-mry');
 }
 
 // Handle arrow key navigation in edit modal products (Global)
@@ -1603,6 +1530,29 @@ async function handleEditSubmit(e, invoiceId) {
                 console.log('🗑️ [NOTES MRY] Delete result:', deleteResult);
             }
             
+            // Add audit log entry for the update
+            const user = JSON.parse(localStorage.getItem('user'));
+            if (user && window.electron.db.addAuditLog) {
+                try {
+                    const changes = {
+                        client: updateData.client,
+                        document: updateData.document,
+                        totals: updateData.totals
+                    };
+                    await window.electron.db.addAuditLog(
+                        invoiceId,
+                        'UPDATE',
+                        user.id,
+                        user.name,
+                        user.email,
+                        JSON.stringify(changes)
+                    );
+                    console.log('✅ [AUDIT LOG MRY] Audit log entry added');
+                } catch (auditError) {
+                    console.error('❌ [AUDIT LOG MRY] Error adding audit log:', auditError);
+                }
+            }
+            
             window.notify.success('Succès', 'Facture mise à jour avec succès!', 3000);
             
             // Close modal
@@ -1689,7 +1639,8 @@ function showConvertInputModal(newType, newTypeLabel, prefillNumero = '') {
                 <input type="text" id="convertInput1" placeholder="Exemple: 548" value="${prefillNumero}"
                        style="width:100%;padding:1rem;background:#2d2d30;border:2px solid #3e3e42;border-radius:8px;color:#fff;font-size:1.1rem;box-sizing:border-box;outline:none;transition:all 0.3s;"
                        onfocus="this.style.borderColor='#2196F3';this.style.background='#1e1e1e';"
-                       onblur="this.style.borderColor='#3e3e42';this.style.background='#2d2d30';autoFormatDocumentNumberOnBlur(this);">
+                       onblur="this.style.borderColor='#3e3e42';this.style.background='#2d2d30'">
+                <small style="color: #999; font-size: 0.85rem; display: block; margin-top: 0.5rem;">Ex: 123 → 123/2025</small>
                 ${highestNumber !== 'Aucun' ? `<small style="color: #2196F3; font-size: 0.8rem; display: block; margin-top: 0.25rem;">📌 Plus grand numéro: ${highestNumber}</small>` : ''}
             </div>
             
@@ -1990,6 +1941,9 @@ window.convertInvoiceType = async function(invoiceId, currentType) {
         console.log('📦 [CONVERT] client_ice:', invoice.client_ice);
         console.log('📦 [CONVERT] products:', invoice.products);
         
+        // Get current user info
+        const user = JSON.parse(localStorage.getItem('user'));
+        
         const newInvoiceData = {
             company_code: 'MRY',
             client: {
@@ -2001,7 +1955,10 @@ window.convertInvoiceType = async function(invoiceId, currentType) {
                 date: invoice.document_date || new Date().toISOString().split('T')[0],
                 numero: newType === 'facture' ? newNumero : null,
                 numero_devis: newType === 'devis' ? newNumero : null,
-                numero_Order: newType === 'facture' ? newNumeroOrder : null
+                numero_Order: newType === 'facture' ? (newNumeroOrder || null) : null,
+                created_by_user_id: user?.id || null,
+                created_by_user_name: user?.name || null,
+                created_by_user_email: user?.email || null
             },
             products: (invoice.products || []).map(p => ({
                 designation: p.designation || '',
@@ -2010,16 +1967,16 @@ window.convertInvoiceType = async function(invoiceId, currentType) {
                 total_ht: p.total_ht || 0
             })),
             totals: {
-                total_ht: invoice.total_ht,
-                tva_rate: invoice.tva_rate,
-                montant_tva: invoice.montant_tva,
-                total_ttc: invoice.total_ttc
+                total_ht: invoice.total_ht || 0,
+                tva_rate: invoice.tva_rate || 20,
+                montant_tva: invoice.montant_tva || 0,
+                total_ttc: invoice.total_ttc || 0
             }
         };
         
         // Create new invoice
         console.log('📤 [CONVERT] Sending data to backend:', JSON.stringify(newInvoiceData, null, 2));
-        const createResult = await window.electron.db.createInvoice(newInvoiceData);
+        const createResult = await window.electron.db.createInvoice(newInvoiceData, 'MRY');
         console.log('📥 [CONVERT] Backend response:', createResult);
         
         if (createResult.success) {
@@ -2033,7 +1990,7 @@ window.convertInvoiceType = async function(invoiceId, currentType) {
             document.querySelector('.modal-overlay')?.remove();
             await loadInvoices();
         } else {
-            throw new Error(createResult.error);
+            throw new Error(createResult.error || 'Erreur lors de la création du document');
         }
         
     } catch (error) {
@@ -2252,7 +2209,7 @@ function formatNumberForPDF(number) {
 // Download invoice as PDF
 window.downloadInvoicePDF = async function(invoiceId) {
     try {
-        console.log('📥 [PDF START] Generating PDF for invoice:', invoiceId);
+        console.log('📥 Generating PDF for invoice:', invoiceId);
         
         // Get invoice data
         const result = await window.electron.db.getInvoiceById(invoiceId);
@@ -2263,10 +2220,8 @@ window.downloadInvoicePDF = async function(invoiceId) {
         
         const invoice = result.data;
         
-        console.log('📄 [PDF DATA] Invoice type:', invoice.document_type);
-        console.log('📄 [PDF DATA] Current Order number:', invoice.document_numero_Order);
-        console.log('📄 [PDF DATA] Invoice client:', invoice.client_nom);
-        console.log('📄 [PDF DATA] Invoice total HT:', invoice.total_ht);
+        console.log('🔍 Invoice type:', invoice.document_type);
+        console.log('🔍 Current Order number:', invoice.document_numero_Order);
         
         // Show dialog with checkbox for FACTURE type (only if Order exists)
         if (invoice.document_type === 'facture' && invoice.document_numero_Order && invoice.document_numero_Order.trim() !== '') {
@@ -2417,56 +2372,14 @@ window.downloadInvoicePDF = async function(invoiceId) {
         const addHeader = (isFirstPage = true) => {
             // Add Logo
             try {
-                console.log('🎨 [LOGO] Starting logo search...');
                 const logoImg = document.querySelector('img[src*="mry.png"]') || 
                                document.querySelector('img[data-asset="mry"]') ||
-                               document.querySelector('img.header-logo');
-                
-                console.log('🎨 [LOGO] Logo element found:', !!logoImg);
-                
-                if (logoImg) {
-                    console.log('🎨 [LOGO] Logo src:', logoImg.src);
-                    console.log('🎨 [LOGO] Logo src length:', logoImg.src ? logoImg.src.length : 0);
-                }
-                
-                if (logoImg && logoImg.src) {
-                    if (logoImg.src.startsWith('data:')) {
-                        // Already a data URL
-                        console.log('🎨 [LOGO] Logo is data URL, adding directly...');
-                        doc.addImage(logoImg.src, 'PNG', 15, 10, 35, 35);
-                        console.log('✅ [LOGO] Data URL logo added successfully');
-                    } else {
-                        // It's a file path - convert to data URL
-                        console.log('🎨 [LOGO] Logo is file path, converting to data URL...');
-                        const img = new Image();
-                        img.crossOrigin = 'anonymous';
-                        img.onload = function() {
-                            try {
-                                console.log('🎨 [LOGO] Image loaded, converting to canvas...');
-                                const canvas = document.createElement('canvas');
-                                canvas.width = img.width;
-                                canvas.height = img.height;
-                                const ctx = canvas.getContext('2d');
-                                ctx.drawImage(img, 0, 0);
-                                const dataUrl = canvas.toDataURL('image/png');
-                                console.log('🎨 [LOGO] Canvas conversion successful, data URL length:', dataUrl.length);
-                                doc.addImage(dataUrl, 'PNG', 15, 10, 35, 35);
-                                console.log('✅ [LOGO] File path logo added successfully');
-                            } catch (e) {
-                                console.error('❌ [LOGO] Could not convert logo to data URL:', e);
-                            }
-                        };
-                        img.onerror = function() {
-                            console.error('❌ [LOGO] Could not load logo image from path:', logoImg.src);
-                        };
-                        console.log('🎨 [LOGO] Setting image src to:', logoImg.src);
-                        img.src = logoImg.src;
-                    }
-                } else {
-                    console.warn('⚠️ [LOGO] Logo image element not found in DOM');
+                               document.querySelector('img[src^="data:image"]');
+                if (logoImg && logoImg.src && logoImg.src.startsWith('data:')) {
+                    doc.addImage(logoImg.src, 'PNG', 15, 10, 35, 35);
                 }
             } catch (error) {
-                console.error('❌ [LOGO] Error in logo handling:', error);
+                console.log('Logo not added:', error);
             }
             
             // Company Header
@@ -2487,7 +2400,7 @@ window.downloadInvoicePDF = async function(invoiceId) {
             doc.setFont(undefined, 'bold');
             doc.text('CLIENT :', 15, 50);
             doc.setTextColor(...greenColor);
-            doc.text(invoice.client_nom || '-', 40, 50);
+            doc.text(invoice.client_nom, 40, 50);
             
             // Only show ICE if it exists and is not "0"
             if (invoice.client_ice && invoice.client_ice !== '0') {
@@ -2520,7 +2433,7 @@ window.downloadInvoicePDF = async function(invoiceId) {
                 doc.text('N° Order :', 15, 77);
                 doc.setTextColor(33, 150, 243);
                 doc.setFont(undefined, 'bold');
-                doc.text(invoice.document_numero_Order || '-', 42, 77);
+                doc.text(invoice.document_numero_Order, 42, 77);
             }
         };
         
@@ -2543,9 +2456,7 @@ window.downloadInvoicePDF = async function(invoiceId) {
         };
         
         // Add header to first page
-        console.log('📋 [PDF] Calling addHeader for first page...');
         addHeader(true);
-        console.log('📋 [PDF] Header added, continuing with products table...');
         
         // Products Table
         const startY = invoice.document_numero_Order ? 85 : 80;
@@ -2776,29 +2687,26 @@ window.downloadInvoicePDF = async function(invoiceId) {
         pages.push(pageCount);
         const totalPages = pages.length;
         
-        console.log('📄 [PDF] Adding footer to', totalPages, 'pages...');
         for (let i = 0; i < totalPages; i++) {
             doc.setPage(i + 1);
             addFooter(i + 1, totalPages);
         }
-        console.log('✅ [PDF] Footer added to all pages');
         
         // Save PDF with appropriate filename
+        const selectedCompany = JSON.parse(localStorage.getItem('selectedCompany') || '{}');
+        const companyName = selectedCompany.name ? selectedCompany.name.replace(' Company', '') : 'Unknown';
         let filename;
         if (invoice.document_type === 'devis') {
-            filename = `Devis_${invoice.document_numero_devis || invoice.id}_${invoice.client_nom}.pdf`;
+            filename = `Devis_${invoice.document_numero_devis || invoice.id}_${invoice.client_nom}_${companyName}.pdf`;
         } else {
-            filename = `Facture_${invoice.document_numero || invoice.id}_${invoice.client_nom}.pdf`;
+            filename = `Facture_${invoice.document_numero || invoice.id}_${invoice.client_nom}_${companyName}.pdf`;
         }
-        
-        console.log('💾 [PDF] Saving PDF with filename:', filename);
         doc.save(filename);
-        console.log('✅ [PDF] PDF saved successfully');
         
         window.notify.success('Succès', 'PDF téléchargé avec succès', 3000);
         
     } catch (error) {
-        console.error('❌ [PDF ERROR] Error generating PDF:', error);
+        console.error('❌ Error generating PDF:', error);
         window.notify.error('Erreur', 'Impossible de générer le PDF: ' + error.message, 4000);
     }
 }
@@ -2806,7 +2714,7 @@ window.downloadInvoicePDF = async function(invoiceId) {
 // Download Bon de travaux as PDF (without prices)
 window.downloadBonDeTravauxPDF = async function(invoiceId) {
     try {
-        console.log('📥 [BON START] Generating Bon de travaux PDF for invoice:', invoiceId);
+        console.log('📥 Generating Bon de travaux PDF for invoice:', invoiceId);
         
         // Get invoice data
         const result = await window.electron.db.getInvoiceById(invoiceId);
@@ -2816,8 +2724,6 @@ window.downloadBonDeTravauxPDF = async function(invoiceId) {
         }
         
         const invoice = result.data;
-        console.log('📄 [BON DATA] Invoice client:', invoice.client_nom);
-        console.log('📄 [BON DATA] Invoice total HT:', invoice.total_ht);
         
         // Check if there are products with zero quantity or price
         const hasZeroProducts = invoice.products && invoice.products.some(p => 
@@ -2907,56 +2813,14 @@ window.downloadBonDeTravauxPDF = async function(invoiceId) {
         const addHeader = (isFirstPage = true) => {
             // Add Logo
             try {
-                console.log('🎨 [LOGO BON] Starting logo search for Bon de travaux...');
                 const logoImg = document.querySelector('img[src*="mry.png"]') || 
                                document.querySelector('img[data-asset="mry"]') ||
-                               document.querySelector('img.header-logo');
-                
-                console.log('🎨 [LOGO BON] Logo element found:', !!logoImg);
-                
-                if (logoImg) {
-                    console.log('🎨 [LOGO BON] Logo src:', logoImg.src);
-                    console.log('🎨 [LOGO BON] Logo src length:', logoImg.src ? logoImg.src.length : 0);
-                }
-                
-                if (logoImg && logoImg.src) {
-                    if (logoImg.src.startsWith('data:')) {
-                        // Already a data URL
-                        console.log('🎨 [LOGO BON] Logo is data URL, adding directly...');
-                        doc.addImage(logoImg.src, 'PNG', 15, 10, 35, 35);
-                        console.log('✅ [LOGO BON] Data URL logo added successfully');
-                    } else {
-                        // It's a file path - convert to data URL
-                        console.log('🎨 [LOGO BON] Logo is file path, converting to data URL...');
-                        const img = new Image();
-                        img.crossOrigin = 'anonymous';
-                        img.onload = function() {
-                            try {
-                                console.log('🎨 [LOGO BON] Image loaded, converting to canvas...');
-                                const canvas = document.createElement('canvas');
-                                canvas.width = img.width;
-                                canvas.height = img.height;
-                                const ctx = canvas.getContext('2d');
-                                ctx.drawImage(img, 0, 0);
-                                const dataUrl = canvas.toDataURL('image/png');
-                                console.log('🎨 [LOGO BON] Canvas conversion successful, data URL length:', dataUrl.length);
-                                doc.addImage(dataUrl, 'PNG', 15, 10, 35, 35);
-                                console.log('✅ [LOGO BON] File path logo added successfully');
-                            } catch (e) {
-                                console.error('❌ [LOGO BON] Could not convert logo to data URL:', e);
-                            }
-                        };
-                        img.onerror = function() {
-                            console.error('❌ [LOGO BON] Could not load logo image from path:', logoImg.src);
-                        };
-                        console.log('🎨 [LOGO BON] Setting image src to:', logoImg.src);
-                        img.src = logoImg.src;
-                    }
-                } else {
-                    console.warn('⚠️ [LOGO BON] Logo image element not found in DOM');
+                               document.querySelector('img[src^="data:image"]');
+                if (logoImg && logoImg.src && logoImg.src.startsWith('data:')) {
+                    doc.addImage(logoImg.src, 'PNG', 15, 10, 35, 35);
                 }
             } catch (error) {
-                console.error('❌ [LOGO BON] Error in logo handling:', error);
+                console.log('Logo not added:', error);
             }
             
             // Company Header
@@ -2978,7 +2842,7 @@ window.downloadBonDeTravauxPDF = async function(invoiceId) {
             doc.setTextColor(0, 0, 0);
             doc.text('CLIENT :', 15, 50);
             doc.setTextColor(...greenColor);
-            doc.text(invoice.client_nom || '-', 40, 50);
+            doc.text(invoice.client_nom, 40, 50);
             
             // Only show ICE if it exists and is not "0"
             if (invoice.client_ice && invoice.client_ice !== '0') {
@@ -3018,9 +2882,7 @@ window.downloadBonDeTravauxPDF = async function(invoiceId) {
         };
         
         // Add header to first page
-        console.log('📋 [BON] Calling addHeader for first page...');
         addHeader(true);
-        console.log('📋 [BON] Header added, continuing with products table...');
         
         const startY = 85;
         
@@ -3147,25 +3009,22 @@ window.downloadBonDeTravauxPDF = async function(invoiceId) {
         pages.push(pageCount);
         const totalPages = pages.length;
         
-        console.log('📄 [BON] Adding footer to', totalPages, 'pages...');
         for (let i = 0; i < totalPages; i++) {
             doc.setPage(i + 1);
             addFooter(i + 1, totalPages);
         }
-        console.log('✅ [BON] Footer added to all pages');
         
         // Save PDF
         const docNumero = invoice.document_numero || invoice.document_numero_devis || 'N';
-        const filename = `Bon_de_travaux_${docNumero}_${invoice.client_nom}.pdf`;
-        
-        console.log('💾 [BON] Saving PDF with filename:', filename);
+        const selectedCompany = JSON.parse(localStorage.getItem('selectedCompany') || '{}');
+        const companyName = selectedCompany.name ? selectedCompany.name.replace(' Company', '') : 'Unknown';
+        const filename = `Bon_de_travaux_${docNumero}_${invoice.client_nom}_${companyName}.pdf`;
         doc.save(filename);
-        console.log('✅ [BON] PDF saved successfully');
         
         window.notify.success('Succès', 'Bon de travaux téléchargé avec succès', 3000);
         
     } catch (error) {
-        console.error('❌ [BON ERROR] Error generating Bon de travaux PDF:', error);
+        console.error('❌ Error generating Bon de travaux PDF:', error);
         window.notify.error('Erreur', 'Impossible de générer le PDF: ' + error.message, 4000);
     }
 }

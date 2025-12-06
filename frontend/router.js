@@ -157,6 +157,13 @@ class Router {
                 console.error('❌ Router: initEditInvoiceMRYPage function not found!');
             }
             
+            if (path === '/edit-invoice-simple-mry' && typeof window.initEditInvoiceSimpleMRYPage === 'function') {
+                console.log('✅ Router: Calling initEditInvoiceSimpleMRYPage');
+                window.initEditInvoiceSimpleMRYPage();
+            } else if (path === '/edit-invoice-simple-mry') {
+                console.error('❌ Router: initEditInvoiceSimpleMRYPage function not found!');
+            }
+            
             if (path === '/edit-invoice-chaimae' && typeof window.initEditInvoiceChaimaePage === 'function') {
                 console.log('✅ Router: Calling initEditInvoiceChaimaePage');
                 window.initEditInvoiceChaimaePage();
