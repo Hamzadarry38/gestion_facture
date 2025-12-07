@@ -1113,11 +1113,21 @@ window.showConvertInputModalChaimae = function (newType, newTypeLabel, prefillNu
         setTimeout(() => input1?.focus(), 100);
 
         btnConfirm.onclick = () => {
-            const newNumero = input1.value.trim();
+            let newNumero = input1.value.trim();
 
             if (!newNumero) {
                 window.notify.error('Erreur', 'Veuillez saisir un numéro de document', 3000);
                 return;
+            }
+
+            // For bon_livraison, add the selected prefix to the number
+            if (newType === 'bon_livraison') {
+                const prefixInput = document.getElementById('convertPrefixInputChaimae');
+                const prefix = prefixInput ? prefixInput.value.trim() : (window.selectedPrefix || 'MG');
+                // Only add prefix if the number doesn't already start with it
+                if (prefix && !newNumero.toUpperCase().startsWith(prefix.toUpperCase())) {
+                    newNumero = prefix + newNumero;
+                }
             }
 
             const numeroOrder = input2 ? input2.value.trim() : '';
