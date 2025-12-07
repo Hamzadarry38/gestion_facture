@@ -768,8 +768,20 @@ window.showConvertDocumentTypeModalChaimae = async function () {
         console.log('🔄 [CONVERT] Current numero:', currentNumero);
         console.log('🔄 [CONVERT] New type:', selectedNewType);
 
+        // Get existing order number from facture (to prefill when converting to bon_livraison)
+        const existingOrderNumber = invoice.document_numero_Order || '';
+
+        // Get existing BL number (to prefill when converting from BL to facture)
+        // If converting FROM bon_livraison, use the BL number for the "Bon de livraison" field in facture
+        let existingBLNumber = '';
+        if (currentType === 'bon_livraison') {
+            existingBLNumber = invoice.document_numero_bl || '';
+        } else {
+            existingBLNumber = invoice.document_bon_de_livraison || '';
+        }
+
         // Use current number as prefill (user can modify if needed)
-        const inputData = await showConvertInputModalChaimae(selectedNewType, newTypeText, currentNumero);
+        const inputData = await showConvertInputModalChaimae(selectedNewType, newTypeText, currentNumero, existingOrderNumber, existingBLNumber);
 
         if (!inputData) {
             window.notify.warning('Annulé', 'Conversion annulée', 3000);
@@ -957,7 +969,7 @@ window.showConfirmDialogChaimae = function (message) {
 }
 
 // Convert input modal - Step 2: Enter document details
-window.showConvertInputModalChaimae = function (newType, newTypeLabel, prefillNumero = '') {
+window.showConvertInputModalChaimae = function (newType, newTypeLabel, prefillNumero = '', prefillOrder = '', prefillBL = '') {
     return new Promise(async (resolve) => {
         let highestNumber = 'Aucun';
         try {
@@ -1048,9 +1060,16 @@ window.showConvertInputModalChaimae = function (newType, newTypeLabel, prefillNu
             ${newType === 'facture' ? `
             <div style="margin-bottom:2rem;">
                 <label style="display:block;color:#9e9e9e;margin-bottom:0.75rem;font-weight:500;font-size:1rem;">N° Order (optionnel)</label>
-                <input type="text" id="convertInputChaimae2" placeholder="Exemple: 555"
+                <input type="text" id="convertInputChaimae2" placeholder="Exemple: 555" value="${prefillOrder}"
                        style="width:100%;padding:1rem;background:#2d2d30;border:2px solid #3e3e42;border-radius:8px;color:#fff;font-size:1.1rem;box-sizing:border-box;outline:none;transition:all 0.3s;"
                        onfocus="this.style.borderColor='#4caf50';this.style.background='#1e1e1e';"
+                       onblur="this.style.borderColor='#3e3e42';this.style.background='#2d2d30';">
+            </div>
+            <div style="margin-bottom:2rem;">
+                <label style="display:block;color:#ff9800;margin-bottom:0.75rem;font-weight:500;font-size:1rem;">Bon de livraison (optionnel)</label>
+                <input type="text" id="convertInputChaimae3" placeholder="Exemple: MG123/2025" value="${prefillBL}"
+                       style="width:100%;padding:1rem;background:#2d2d30;border:2px solid #3e3e42;border-radius:8px;color:#fff;font-size:1.1rem;box-sizing:border-box;outline:none;transition:all 0.3s;"
+                       onfocus="this.style.borderColor='#ff9800';this.style.background='#1e1e1e';"
                        onblur="this.style.borderColor='#3e3e42';this.style.background='#2d2d30';">
             </div>
             ` : ''}
@@ -1093,7 +1112,7 @@ window.showConvertInputModalChaimae = function (newType, newTypeLabel, prefillNu
             </div>
             <div style="margin-bottom:2rem;">
                 <label style="display:block;color:#9e9e9e;margin-bottom:0.75rem;font-weight:500;font-size:1rem;">N° Order (optionnel)</label>
-                <input type="text" id="convertInputChaimae2" placeholder="Exemple: 555"
+                <input type="text" id="convertInputChaimae2" placeholder="Exemple: 555" value="${prefillOrder}"
                        style="width:100%;padding:1rem;background:#2d2d30;border:2px solid #3e3e42;border-radius:8px;color:#fff;font-size:1.1rem;box-sizing:border-box;outline:none;transition:all 0.3s;"
                        onfocus="this.style.borderColor='#ff9800';this.style.background='#1e1e1e';"
                        onblur="this.style.borderColor='#3e3e42';this.style.background='#2d2d30';">

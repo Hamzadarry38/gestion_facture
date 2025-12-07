@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -12,31 +13,32 @@
     <link rel="stylesheet" href="frontend/styles/custom-alert.css">
     <link rel="stylesheet" href="frontend/styles/update-notification.css">
 </head>
+
 <body>
     <!-- App Container -->
     <div id="app"></div>
-    
+
     <!-- Version Badge (Bottom Left) -->
     <div class="app-version" id="appVersion"></div>
 
     <!-- Window Controls -->
     <script src="frontend/scripts/window-controls.js"></script>
-    
+
     <!-- Asset Loader -->
     <script src="frontend/scripts/asset-loader.js"></script>
-    
+
     <!-- Custom Alert System -->
     <script src="frontend/scripts/custom-alert.js"></script>
-    
+
     <!-- Notifications -->
     <script src="frontend/scripts/notifications.js"></script>
-    
+
     <!-- Update Notification -->
     <script src="frontend/pages/update-notification.js"></script>
-    
+
     <!-- Router -->
     <script src="frontend/router.js"></script>
-    
+
     <!-- Initialize App Version -->
     <script>
         // Display app version dynamically
@@ -44,17 +46,17 @@
         if (versionBadge && window.electron) {
             window.electron.getAppVersion().then(version => {
                 versionBadge.textContent = `v${version}`;
-                
+
                 // Add click event to show changelog
                 versionBadge.addEventListener('click', async () => {
                     try {
                         const response = await fetch('./changelog.json');
                         const changelog = await response.json();
                         const currentLanguage = localStorage.getItem('language') || 'ar';
-                        
+
                         if (changelog[version]) {
                             const changes = changelog[version][currentLanguage] || changelog[version]['en'];
-                            
+
                             // Show changelog modal
                             showChangelogModal(version, changes, currentLanguage);
                         }
@@ -64,7 +66,7 @@
                 });
             });
         }
-        
+
         function showChangelogModal(version, changes, language) {
             const translations = {
                 ar: {
@@ -78,10 +80,10 @@
                     switchLang: 'عربي'
                 }
             };
-            
+
             const t = translations[language] || translations['fr'];
             const isRTL = language === 'ar';
-            
+
             const overlay = document.createElement('div');
             overlay.className = 'update-overlay';
             overlay.innerHTML = `
@@ -115,9 +117,9 @@
                     </div>
                 </div>
             `;
-            
+
             document.body.appendChild(overlay);
-            
+
             // Close on overlay click
             overlay.addEventListener('click', (e) => {
                 if (e.target === overlay) {
@@ -125,17 +127,17 @@
                 }
             });
         }
-        
+
         async function switchChangelogLanguage(version, newLang) {
             // Remove current modal
             const currentOverlay = document.querySelector('.update-overlay');
             if (currentOverlay) currentOverlay.remove();
-            
+
             // Load changelog and show in new language
             try {
                 const response = await fetch('./changelog.json');
                 const changelog = await response.json();
-                
+
                 if (changelog[version]) {
                     const changes = changelog[version][newLang] || changelog[version]['fr'];
                     showChangelogModal(version, changes, newLang);
@@ -144,10 +146,10 @@
                 console.log('Could not load changelog:', error);
             }
         }
-        
+
         window.switchChangelogLanguage = switchChangelogLanguage;
     </script>
-    
+
     <!-- Pages -->
     <script src="frontend/pages/login.js"></script>
     <script src="frontend/pages/register.js"></script>
@@ -219,20 +221,20 @@
 
         // Start router
         router.init();
-        
+
         // Global logout handler
-        document.addEventListener('click', function(e) {
+        document.addEventListener('click', function (e) {
             if (e.target.closest('#logoutBtn') || e.target.closest('[data-action="logout"]')) {
                 e.preventDefault();
-                
+
                 // Clear all authentication data
                 localStorage.removeItem('isAuthenticated');
                 localStorage.removeItem('user');
                 localStorage.removeItem('selectedCompany');
-                
+
                 // Navigate to login page
                 router.navigate('/login');
-                
+
                 // Show notification
                 if (typeof showNotification === 'function') {
                     showNotification('success', 'Déconnexion réussie', 'Vous avez été déconnecté avec succès');
@@ -241,4 +243,5 @@
         });
     </script>
 </body>
+
 </html>
