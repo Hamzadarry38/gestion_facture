@@ -1619,14 +1619,14 @@ function getMissingBonLivraisonNumbers(year) {
         }
 
         try {
-            // Get all Bon de livraison numbers from invoices (document_numero for bon_livraison type)
+            // Get all Bon de livraison numbers from invoices (document_numero_bl for bon_livraison type)
             const result = db.exec(`
-                SELECT document_numero 
+                SELECT document_numero_bl 
                 FROM invoices 
                 WHERE document_type = 'bon_livraison'
-                AND document_numero IS NOT NULL 
-                AND document_numero != ''
-                AND document_numero LIKE '%/${year}'
+                AND document_numero_bl IS NOT NULL 
+                AND document_numero_bl != ''
+                AND document_numero_bl LIKE '%/${year}'
             `);
 
             if (result.length === 0 || result[0].values.length === 0) {

@@ -238,7 +238,7 @@ window.loadInvoiceDataChaimae = async function (invoiceId) {
         } else if (currentDocumentTypeChaimae === 'devis') {
             currentNumero = invoice.document_numero_devis || '';
         } else if (currentDocumentTypeChaimae === 'bon_livraison') {
-            currentNumero = invoice.document_numero_bl || invoice.document_numero || '';
+            currentNumero = invoice.document_numero_bl || '';
         }
 
         // Ensure currentNumero is not null or undefined
@@ -985,9 +985,25 @@ window.showConvertInputModalChaimae = function (newType, newTypeLabel, prefillNu
                     }
                 } else if (newType === 'bon_livraison') {
                     const bonsList = invoices.filter(inv => inv.document_type === 'bon_livraison' && inv.document_numero_bl);
-                    if (bonsList.length > 0) {
-                        bonsList.sort((a, b) => extractNumber(b.document_numero_bl) - extractNumber(a.document_numero_bl));
-                        highestNumber = bonsList[0].document_numero_bl;
+
+                    // Group by prefix and find highest for each
+                    window.highestByPrefix = {};
+                    bonsList.forEach(inv => {
+                        const blNum = inv.document_numero_bl;
+                        const match = blNum.match(/^([A-Z]+)(\d+)/);
+                        if (match) {
+                            const prefix = match[1];
+                            const num = parseInt(match[2], 10);
+                            if (!window.highestByPrefix[prefix] || num > window.highestByPrefix[prefix].num) {
+                                window.highestByPrefix[prefix] = { num, full: blNum };
+                            }
+                        }
+                    });
+
+                    // Set initial highestNumber based on selected prefix
+                    const currentPrefix = window.selectedPrefix || 'MG';
+                    if (window.highestByPrefix[currentPrefix]) {
+                        highestNumber = window.highestByPrefix[currentPrefix].full;
                     }
                 }
             }
@@ -1073,6 +1089,7 @@ window.showConvertInputModalChaimae = function (newType, newTypeLabel, prefillNu
                            onblur="this.style.borderColor='#3e3e42';this.style.background='#2d2d30';">
                 </div>
                 <small style="color:#999;font-size:0.85rem;display:block;margin-top:0.5rem;">Ex: 123 → <span id="convertPrefixExampleChaimae">${window.selectedPrefix || 'MG'}</span>123/2025</small>
+                <div id="convertHighestNumberContainerChaimae" style="margin-top:0.5rem;color:#ff9800;font-size:0.85rem;font-weight:500;${highestNumber === 'Aucun' ? 'display:none;' : ''}">📌 Plus grand numéro actuel: <span id="convertHighestNumberChaimae">${highestNumber}</span></div>
             </div>
             <div style="margin-bottom:2rem;">
                 <label style="display:block;color:#9e9e9e;margin-bottom:0.75rem;font-weight:500;font-size:1rem;">N° Order (optionnel)</label>
@@ -1224,6 +1241,18 @@ window.selectConvertPrefixChaimae = function (prefix) {
 
     if (prefixInput) prefixInput.value = prefix;
     if (prefixExample) prefixExample.textContent = prefix;
+
+    // Update highest number display based on selected prefix
+    const highestDisplay = document.getElementById('convertHighestNumberChaimae');
+    const highestContainer = document.getElementById('convertHighestNumberContainerChaimae');
+    if (highestDisplay && highestContainer && window.highestByPrefix) {
+        if (window.highestByPrefix[prefix]) {
+            highestDisplay.textContent = window.highestByPrefix[prefix].full;
+            highestContainer.style.display = 'block';
+        } else {
+            highestContainer.style.display = 'none';
+        }
+    }
 
     const dropdown = document.getElementById('convertPrefixDropdownChaimae');
     if (dropdown) dropdown.style.display = 'none';

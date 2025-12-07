@@ -184,10 +184,10 @@ function CreateInvoiceChaimaePage() {
 }
 
 // Handle document type change for Chaimae (Global)
-window.handleDocumentTypeChangeChaimae = async function() {
+window.handleDocumentTypeChangeChaimae = async function () {
     const type = document.getElementById('documentType').value;
     const container = document.getElementById('dynamicFieldsChaimae');
-    
+
     if (!type) {
         container.innerHTML = '';
         return;
@@ -200,12 +200,12 @@ window.handleDocumentTypeChangeChaimae = async function() {
         bonLivraison: 'Aucun',
         bonCommande: 'Aucun'
     };
-    
+
     try {
         const invoicesResult = await window.electron.dbChaimae.getAllInvoices();
         if (invoicesResult.success && invoicesResult.data && invoicesResult.data.length > 0) {
             const invoices = invoicesResult.data;
-            
+
             // Helper function to extract numeric value from document number
             const extractNumber = (docNumber) => {
                 if (!docNumber) return 0;
@@ -224,14 +224,14 @@ window.handleDocumentTypeChangeChaimae = async function() {
                     factures.sort((a, b) => extractNumber(b.document_numero) - extractNumber(a.document_numero));
                     lastNumbers.main = factures[0].document_numero;
                 }
-                
+
                 // Get highest N° Order from factures only
                 const facturesWithOrder = invoices.filter(inv => inv.document_type === 'facture' && inv.document_numero_Order);
                 if (facturesWithOrder.length > 0) {
                     facturesWithOrder.sort((a, b) => extractNumber(b.document_numero_Order) - extractNumber(a.document_numero_Order));
                     lastNumbers.order = facturesWithOrder[0].document_numero_Order;
                 }
-                
+
                 // Get highest Bon de livraison from factures only
                 const facturesWithBL = invoices.filter(inv => inv.document_type === 'facture' && inv.document_bon_de_livraison);
                 if (facturesWithBL.length > 0) {
@@ -248,19 +248,36 @@ window.handleDocumentTypeChangeChaimae = async function() {
                 }
             } else if (type === 'bon_livraison') {
                 // Get only bon_livraison with document numbers
-                const bonsList = invoices.filter(inv => 
-                    (inv.document_type === 'bon_livraison' || inv.document_type === 'bon de livraison') && 
+                const bonsList = invoices.filter(inv =>
+                    (inv.document_type === 'bon_livraison' || inv.document_type === 'bon de livraison') &&
                     (inv.document_numero || inv.document_bon_de_livraison || inv.document_numero_bl)
                 );
-                if (bonsList.length > 0) {
-                    // Sort by ID descending to get the LAST entered number (most recent)
-                    bonsList.sort((a, b) => b.id - a.id);
-                    lastNumbers.main = bonsList[0].document_numero || bonsList[0].document_bon_de_livraison || bonsList[0].document_numero_bl;
+
+                // Group by prefix and find highest for each
+                window.createHighestByPrefix = {};
+                bonsList.forEach(inv => {
+                    const blNum = inv.document_numero_bl || inv.document_numero || inv.document_bon_de_livraison;
+                    if (blNum) {
+                        const match = blNum.match(/^([A-Z]+)(\d+)/);
+                        if (match) {
+                            const prefix = match[1];
+                            const num = parseInt(match[2], 10);
+                            if (!window.createHighestByPrefix[prefix] || num > window.createHighestByPrefix[prefix].num) {
+                                window.createHighestByPrefix[prefix] = { num, full: blNum };
+                            }
+                        }
+                    }
+                });
+
+                // Set initial lastNumbers.main based on selected prefix
+                const currentPrefix = window.selectedPrefix || 'MG';
+                if (window.createHighestByPrefix[currentPrefix]) {
+                    lastNumbers.main = window.createHighestByPrefix[currentPrefix].full;
                 }
-                
+
                 // Get highest N° Order from bon_livraison only
-                const bonsWithCommande = invoices.filter(inv => 
-                    (inv.document_type === 'bon_livraison' || inv.document_type === 'bon de livraison') && 
+                const bonsWithCommande = invoices.filter(inv =>
+                    (inv.document_type === 'bon_livraison' || inv.document_type === 'bon de livraison') &&
                     inv.document_numero_commande
                 );
                 if (bonsWithCommande.length > 0) {
@@ -295,7 +312,7 @@ window.handleDocumentTypeChangeChaimae = async function() {
             </div>
         `;
         html += '</div>';
-        
+
         // Optional fields: N° Order + Bon de livraison
         const selectedSimpleOrderPrefix = window.selectedSimpleOrderPrefix || window.simpleOrderPrefixes?.[0] || '';
         html += `
@@ -381,7 +398,7 @@ window.handleDocumentTypeChangeChaimae = async function() {
         // Get the selected prefix or default to first one
         const selectedPrefix = window.selectedPrefix || window.bonLivraisonPrefixes[0] || 'MG';
         console.log('🔵 [BON LIVRAISON] Using prefix:', selectedPrefix);
-        
+
         // Bon de livraison: Numéro de bon de livraison (required) with prefix selector
         html += `
             <div class="form-field" style="position: relative;">
@@ -423,11 +440,11 @@ window.handleDocumentTypeChangeChaimae = async function() {
                     </button>
                 </div>
                 <small style="color: #999; font-size: 0.85rem; display: block; margin-top: 0.5rem;">Ex: 123 → <span id="prefixExampleChaimae">MG</span>123/2025</small>
-                ${lastNumbers.main !== 'Aucun' ? `<small style="color: #ff9800; font-size: 0.8rem; display: block; margin-top: 0.25rem;">📌 Dernier numéro saisi: ${lastNumbers.main}</small>` : ''}
+                <small id="createHighestNumberContainerChaimae" style="color: #ff9800; font-size: 0.8rem; display: ${lastNumbers.main !== 'Aucun' ? 'block' : 'none'}; margin-top: 0.25rem;">📌 Plus grand numéro actuel: <span id="createHighestNumberChaimae">${lastNumbers.main}</span></small>
             </div>
         `;
         html += '</div>';
-        
+
         // Optional field: N° Order with Prefix
         const selectedOrderPrefix = window.selectedOrderPrefix || window.orderPrefixes?.[0] || 'BC';
         html += `
@@ -480,12 +497,12 @@ window.handleDocumentTypeChangeChaimae = async function() {
 }
 
 // Use suggested number for Chaimae (Global)
-window.useSuggestedNumberChaimae = function(number) {
+window.useSuggestedNumberChaimae = function (number) {
     const input = document.getElementById('documentNumeroChaimae');
     if (input) {
         input.value = number;
         input.focus();
-        
+
         // Visual feedback
         input.style.background = 'rgba(102, 126, 234, 0.1)';
         input.style.borderColor = '#667eea';
@@ -497,14 +514,14 @@ window.useSuggestedNumberChaimae = function(number) {
 }
 
 // Toggle optional field visibility for Chaimae (Global)
-window.toggleOptionalFieldChaimae = function(fieldName) {
+window.toggleOptionalFieldChaimae = function (fieldName) {
     const checkbox = document.getElementById(`toggle${fieldName}Chaimae`);
     const field = document.getElementById(`field${fieldName}Chaimae`);
-    const inputId = fieldName === 'Order' ? 'documentNumeroOrderChaimae' : 
-                    fieldName === 'BonLivraison' ? 'documentBonLivraisonChaimae' : 
-                    'documentBonCommandeChaimae';
+    const inputId = fieldName === 'Order' ? 'documentNumeroOrderChaimae' :
+        fieldName === 'BonLivraison' ? 'documentBonLivraisonChaimae' :
+            'documentBonCommandeChaimae';
     const input = document.getElementById(inputId);
-    
+
     if (checkbox.checked) {
         field.style.display = 'block';
         input.required = false;
@@ -516,24 +533,24 @@ window.toggleOptionalFieldChaimae = function(fieldName) {
 }
 
 // Auto-format document number on blur for Chaimae (Global)
-window.autoFormatDocumentNumberOnBlurChaimae = function(input) {
+window.autoFormatDocumentNumberOnBlurChaimae = function (input) {
     let value = input.value.trim();
-    
+
     // إذا كان الحقل فارغاً، لا تفعل شيئاً
     if (!value) return;
-    
+
     // إذا كان يحتوي بالفعل على سلاش، لا تفعل شيئاً
     if (value.includes('/')) return;
-    
+
     // استخراج الأرقام فقط
     let numbers = value.replace(/[^0-9]/g, '');
-    
+
     // إذا كان هناك أرقام، أضف السنة
     if (numbers) {
         // استخراج السنة من حقل التاريخ بدلاً من السنة الحالية
         const dateInput = document.getElementById('documentDate');
         let year = new Date().getFullYear(); // القيمة الافتراضية
-        
+
         if (dateInput && dateInput.value) {
             // استخراج السنة من التاريخ المختار (YYYY-MM-DD)
             const selectedDate = new Date(dateInput.value);
@@ -542,7 +559,7 @@ window.autoFormatDocumentNumberOnBlurChaimae = function(input) {
         } else {
             console.log('📅 [AUTO FORMAT] Using current year:', year);
         }
-        
+
         input.value = `${numbers}/${year}`;
     }
 }
@@ -571,7 +588,7 @@ if (!window.simpleOrderPrefixes) {
 // Load prefixes from database (async)
 async function loadPrefixesFromDB() {
     if (window.prefixesLoaded) return;
-    
+
     try {
         const result = await window.electron.dbChaimae.getAllPrefixes();
         if (result.success && result.data.length > 0) {
@@ -585,10 +602,10 @@ async function loadPrefixesFromDB() {
 }
 
 // Toggle prefix dropdown (Global)
-window.togglePrefixDropdownChaimae = async function() {
+window.togglePrefixDropdownChaimae = async function () {
     const dropdown = document.getElementById('prefixDropdownChaimae');
     if (!dropdown) return;
-    
+
     if (dropdown.style.display === 'none') {
         // Load prefixes from database first
         await loadPrefixesFromDB();
@@ -600,10 +617,10 @@ window.togglePrefixDropdownChaimae = async function() {
 }
 
 // Render prefix list (Global)
-window.renderPrefixListChaimae = function() {
+window.renderPrefixListChaimae = function () {
     const listContainer = document.getElementById('prefixListChaimae');
     if (!listContainer) return;
-    
+
     listContainer.innerHTML = window.bonLivraisonPrefixes.map((prefix, index) => `
         <div onclick="selectPrefixChaimae('${prefix}')" 
              style="margin: 0.35rem; padding: 0.75rem 1rem; cursor: pointer; border-radius: 8px; transition: all 0.3s; color: #fff; display: flex; justify-content: space-between; align-items: center; background: ${prefix === window.selectedPrefix ? 'linear-gradient(90deg, #667eea 0%, #764ba2 100%)' : 'rgba(255,255,255,0.05)'}; border: 2px solid ${prefix === window.selectedPrefix ? '#667eea' : 'transparent'}; box-shadow: ${prefix === window.selectedPrefix ? '0 2px 8px rgba(102, 126, 234, 0.3)' : 'none'};"
@@ -631,60 +648,72 @@ window.renderPrefixListChaimae = function() {
 }
 
 // Select prefix (Global)
-window.selectPrefixChaimae = function(prefix) {
+window.selectPrefixChaimae = function (prefix) {
     console.log('🔵 [PREFIX SELECT] Selecting prefix:', prefix);
     window.selectedPrefix = prefix;
-    
+
     const prefixInput = document.getElementById('prefixInputChaimae');
     const prefixExample = document.getElementById('prefixExampleChaimae');
-    
+
     if (prefixInput) {
         prefixInput.value = prefix;
         console.log('✅ [PREFIX SELECT] Updated prefixInput to:', prefix);
     } else {
         console.log('❌ [PREFIX SELECT] prefixInput not found');
     }
-    
+
     if (prefixExample) {
         prefixExample.textContent = prefix;
         console.log('✅ [PREFIX SELECT] Updated prefixExample to:', prefix);
     }
-    
+
+    // Update highest number display based on selected prefix
+    const highestDisplay = document.getElementById('createHighestNumberChaimae');
+    const highestContainer = document.getElementById('createHighestNumberContainerChaimae');
+    if (highestDisplay && highestContainer && window.createHighestByPrefix) {
+        if (window.createHighestByPrefix[prefix]) {
+            highestDisplay.textContent = window.createHighestByPrefix[prefix].full;
+            highestContainer.style.display = 'block';
+        } else {
+            highestContainer.style.display = 'none';
+        }
+    }
+
     const dropdown = document.getElementById('prefixDropdownChaimae');
     if (dropdown) {
         dropdown.style.display = 'none';
         console.log('✅ [PREFIX SELECT] Closed dropdown');
     }
-    
+
     renderPrefixListChaimae();
     console.log('✅ [PREFIX SELECT] Rendered prefix list');
 }
 
 // Add new prefix (Global)
-window.addNewPrefixChaimae = async function() {
+window.addNewPrefixChaimae = async function () {
     const newPrefixInput = document.getElementById('newPrefixInputChaimae');
     if (!newPrefixInput) return;
-    
+
     const newPrefix = newPrefixInput.value.trim().toUpperCase();
-    
+
     if (!newPrefix) {
         window.notify.warning('Attention', 'Veuillez saisir un prefix', 2000);
         return;
     }
-    
+
     if (window.bonLivraisonPrefixes.includes(newPrefix)) {
         window.notify.warning('Attention', 'Ce prefix existe déjà', 2000);
         return;
     }
-    
+
     // Add to database
     const result = await window.electron.dbChaimae.addPrefix(newPrefix);
-    
+
     if (result.success) {
         window.bonLivraisonPrefixes.push(newPrefix);
         window.bonLivraisonPrefixes.sort();
         newPrefixInput.value = '';
-        
+
         renderPrefixListChaimae();
         window.notify.success('Succès', `Prefix "${newPrefix}" ajouté`, 2000);
     } else {
@@ -693,20 +722,20 @@ window.addNewPrefixChaimae = async function() {
 }
 
 // Delete prefix (Global)
-window.deletePrefixChaimae = async function(prefix) {
+window.deletePrefixChaimae = async function (prefix) {
     if (window.bonLivraisonPrefixes.length <= 1) {
         window.notify.warning('Attention', 'Vous devez garder au moins un prefix', 2000);
         return;
     }
-    
+
     // Delete from database
     const result = await window.electron.dbChaimae.deletePrefix(prefix);
-    
+
     if (result.success) {
         const index = window.bonLivraisonPrefixes.indexOf(prefix);
         if (index > -1) {
             window.bonLivraisonPrefixes.splice(index, 1);
-            
+
             // If deleted prefix was selected, select the first one
             if (window.selectedPrefix === prefix) {
                 window.selectedPrefix = window.bonLivraisonPrefixes[0];
@@ -715,7 +744,7 @@ window.deletePrefixChaimae = async function(prefix) {
                 if (prefixInput) prefixInput.value = window.selectedPrefix;
                 if (prefixExample) prefixExample.textContent = window.selectedPrefix;
             }
-            
+
             renderPrefixListChaimae();
             window.notify.success('Succès', `Prefix "${prefix}" supprimé`, 2000);
         }
@@ -727,10 +756,10 @@ window.deletePrefixChaimae = async function(prefix) {
 // ==================== ORDER PREFIX FUNCTIONS ====================
 
 // Toggle order prefix dropdown (Global)
-window.toggleOrderPrefixDropdownChaimae = async function() {
+window.toggleOrderPrefixDropdownChaimae = async function () {
     const dropdown = document.getElementById('orderPrefixDropdownChaimae');
     if (!dropdown) return;
-    
+
     if (dropdown.style.display === 'none') {
         // Load order prefixes from database first
         await loadOrderPrefixesFromDB();
@@ -742,10 +771,10 @@ window.toggleOrderPrefixDropdownChaimae = async function() {
 }
 
 // Render order prefix list (Global)
-window.renderOrderPrefixListChaimae = function() {
+window.renderOrderPrefixListChaimae = function () {
     const listContainer = document.getElementById('orderPrefixListChaimae');
     if (!listContainer) return;
-    
+
     listContainer.innerHTML = window.orderPrefixes.map((prefix, index) => `
         <div onclick="selectOrderPrefixChaimae('${prefix}')" 
              style="margin: 0.35rem; padding: 0.75rem 1rem; cursor: pointer; border-radius: 8px; transition: all 0.3s; color: #fff; display: flex; justify-content: space-between; align-items: center; background: ${prefix === window.selectedOrderPrefix ? 'linear-gradient(90deg, #2196f3 0%, #1976d2 100%)' : 'rgba(255,255,255,0.05)'}; border: 2px solid ${prefix === window.selectedOrderPrefix ? '#2196f3' : 'transparent'}; box-shadow: ${prefix === window.selectedOrderPrefix ? '0 2px 8px rgba(33, 150, 243, 0.3)' : 'none'};"
@@ -773,56 +802,56 @@ window.renderOrderPrefixListChaimae = function() {
 }
 
 // Select order prefix (Global)
-window.selectOrderPrefixChaimae = function(prefix) {
+window.selectOrderPrefixChaimae = function (prefix) {
     console.log('🔵 [ORDER PREFIX SELECT] Selecting prefix:', prefix);
     window.selectedOrderPrefix = prefix;
-    
+
     const prefixInput = document.getElementById('orderPrefixInputChaimae');
     const prefixExample = document.getElementById('orderPrefixExampleChaimae');
-    
+
     if (prefixInput) {
         prefixInput.value = prefix;
         console.log('✅ [ORDER PREFIX SELECT] Updated orderPrefixInput to:', prefix);
     }
-    
+
     if (prefixExample) {
         prefixExample.textContent = prefix;
         console.log('✅ [ORDER PREFIX SELECT] Updated orderPrefixExample to:', prefix);
     }
-    
+
     const dropdown = document.getElementById('orderPrefixDropdownChaimae');
     if (dropdown) {
         dropdown.style.display = 'none';
     }
-    
+
     renderOrderPrefixListChaimae();
 }
 
 // Add new order prefix (Global)
-window.addNewOrderPrefixChaimae = async function() {
+window.addNewOrderPrefixChaimae = async function () {
     const newPrefixInput = document.getElementById('newOrderPrefixInputChaimae');
     if (!newPrefixInput) return;
-    
+
     const newPrefix = newPrefixInput.value.trim().toUpperCase();
-    
+
     if (!newPrefix) {
         window.notify.warning('Attention', 'Veuillez saisir un prefix', 2000);
         return;
     }
-    
+
     if (window.orderPrefixes.includes(newPrefix)) {
         window.notify.warning('Attention', 'Ce prefix existe déjà', 2000);
         return;
     }
-    
+
     // Add to database
     const result = await window.electron.dbChaimae.addOrderPrefix(newPrefix);
-    
+
     if (result.success) {
         window.orderPrefixes.push(newPrefix);
         window.orderPrefixes.sort();
         newPrefixInput.value = '';
-        
+
         renderOrderPrefixListChaimae();
         window.notify.success('Succès', `Prefix "${newPrefix}" ajouté`, 2000);
     } else {
@@ -831,20 +860,20 @@ window.addNewOrderPrefixChaimae = async function() {
 }
 
 // Delete order prefix (Global)
-window.deleteOrderPrefixChaimae = async function(prefix) {
+window.deleteOrderPrefixChaimae = async function (prefix) {
     if (window.orderPrefixes.length <= 1) {
         window.notify.warning('Attention', 'Vous devez garder au moins un prefix', 2000);
         return;
     }
-    
+
     // Delete from database
     const result = await window.electron.dbChaimae.deleteOrderPrefix(prefix);
-    
+
     if (result.success) {
         const index = window.orderPrefixes.indexOf(prefix);
         if (index > -1) {
             window.orderPrefixes.splice(index, 1);
-            
+
             // If deleted prefix was selected, select the first one
             if (window.selectedOrderPrefix === prefix) {
                 window.selectedOrderPrefix = window.orderPrefixes[0];
@@ -853,7 +882,7 @@ window.deleteOrderPrefixChaimae = async function(prefix) {
                 if (prefixInput) prefixInput.value = window.selectedOrderPrefix;
                 if (prefixExample) prefixExample.textContent = window.selectedOrderPrefix;
             }
-            
+
             renderOrderPrefixListChaimae();
             window.notify.success('Succès', `Prefix "${prefix}" supprimé`, 2000);
         }
@@ -869,7 +898,7 @@ async function loadOrderPrefixesFromDB() {
         if (result.success && result.data && result.data.length > 0) {
             window.orderPrefixes = result.data;
             console.log('✅ [ORDER PREFIX] Loaded from DB:', window.orderPrefixes);
-            
+
             // Set selected prefix if not set
             if (!window.selectedOrderPrefix) {
                 window.selectedOrderPrefix = window.orderPrefixes[0];
@@ -892,10 +921,10 @@ async function loadOrderPrefixesFromDB() {
 // ==================== SIMPLE ORDER PREFIX FUNCTIONS ====================
 
 // Toggle simple order prefix dropdown (Global)
-window.toggleSimpleOrderPrefixDropdownChaimae = async function() {
+window.toggleSimpleOrderPrefixDropdownChaimae = async function () {
     const dropdown = document.getElementById('simpleOrderPrefixDropdownChaimae');
     if (!dropdown) return;
-    
+
     if (dropdown.style.display === 'none') {
         // Load simple order prefixes from database first
         await loadSimpleOrderPrefixesFromDB();
@@ -907,10 +936,10 @@ window.toggleSimpleOrderPrefixDropdownChaimae = async function() {
 }
 
 // Render simple order prefix list (Global)
-window.renderSimpleOrderPrefixListChaimae = function() {
+window.renderSimpleOrderPrefixListChaimae = function () {
     const listContainer = document.getElementById('simpleOrderPrefixListChaimae');
     if (!listContainer) return;
-    
+
     // Add "No Prefix" option at the beginning
     const noPrefixOption = `
         <div onclick="selectSimpleOrderPrefixChaimae('')" 
@@ -923,7 +952,7 @@ window.renderSimpleOrderPrefixListChaimae = function() {
             </div>
         </div>
     `;
-    
+
     listContainer.innerHTML = noPrefixOption + window.simpleOrderPrefixes.map((prefix, index) => `
         <div onclick="selectSimpleOrderPrefixChaimae('${prefix}')" 
              style="margin: 0.35rem; padding: 0.75rem 1rem; cursor: pointer; border-radius: 8px; transition: all 0.3s; color: #fff; display: flex; justify-content: space-between; align-items: center; background: ${prefix === window.selectedSimpleOrderPrefix ? 'linear-gradient(90deg, #2196f3 0%, #1976d2 100%)' : 'rgba(255,255,255,0.05)'}; border: 2px solid ${prefix === window.selectedSimpleOrderPrefix ? '#2196f3' : 'transparent'}; box-shadow: ${prefix === window.selectedSimpleOrderPrefix ? '0 2px 8px rgba(33, 150, 243, 0.3)' : 'none'};"
@@ -951,10 +980,10 @@ window.renderSimpleOrderPrefixListChaimae = function() {
 }
 
 // Select simple order prefix (Global)
-window.selectSimpleOrderPrefixChaimae = function(prefix) {
+window.selectSimpleOrderPrefixChaimae = function (prefix) {
     console.log('🔵 [SIMPLE ORDER PREFIX SELECT] Selecting prefix:', prefix);
     window.selectedSimpleOrderPrefix = prefix;
-    
+
     // Save to localStorage
     try {
         localStorage.setItem('lastSelectedChaimaeOrderPrefix', prefix);
@@ -962,53 +991,53 @@ window.selectSimpleOrderPrefixChaimae = function(prefix) {
     } catch (error) {
         console.error('❌ [CHAIMAE ORDER PREFIX] Error saving to localStorage:', error);
     }
-    
+
     const prefixInput = document.getElementById('simpleOrderPrefixInputChaimae');
     const prefixExample = document.getElementById('simpleOrderPrefixExampleChaimae');
-    
+
     if (prefixInput) {
         prefixInput.value = prefix;
         console.log('✅ [SIMPLE ORDER PREFIX SELECT] Updated simpleOrderPrefixInput to:', prefix);
     }
-    
+
     if (prefixExample) {
         prefixExample.textContent = prefix;
         console.log('✅ [SIMPLE ORDER PREFIX SELECT] Updated simpleOrderPrefixExample to:', prefix);
     }
-    
+
     const dropdown = document.getElementById('simpleOrderPrefixDropdownChaimae');
     if (dropdown) {
         dropdown.style.display = 'none';
     }
-    
+
     renderSimpleOrderPrefixListChaimae();
 }
 
 // Add new simple order prefix (Global)
-window.addNewSimpleOrderPrefixChaimae = async function() {
+window.addNewSimpleOrderPrefixChaimae = async function () {
     const newPrefixInput = document.getElementById('newSimpleOrderPrefixInputChaimae');
     if (!newPrefixInput) return;
-    
+
     const newPrefix = newPrefixInput.value.trim().toUpperCase();
-    
+
     if (!newPrefix) {
         window.notify.warning('Attention', 'Veuillez saisir un prefix', 2000);
         return;
     }
-    
+
     if (window.simpleOrderPrefixes.includes(newPrefix)) {
         window.notify.warning('Attention', 'Ce prefix existe déjà', 2000);
         return;
     }
-    
+
     // Add to database
     const result = await window.electron.dbChaimae.addSimpleOrderPrefix(newPrefix);
-    
+
     if (result.success) {
         window.simpleOrderPrefixes.push(newPrefix);
         window.simpleOrderPrefixes.sort();
         newPrefixInput.value = '';
-        
+
         renderSimpleOrderPrefixListChaimae();
         window.notify.success('Succès', `Prefix "${newPrefix}" ajouté`, 2000);
     } else {
@@ -1017,20 +1046,20 @@ window.addNewSimpleOrderPrefixChaimae = async function() {
 }
 
 // Delete simple order prefix (Global)
-window.deleteSimpleOrderPrefixChaimae = async function(prefix) {
+window.deleteSimpleOrderPrefixChaimae = async function (prefix) {
     if (window.simpleOrderPrefixes.length <= 1) {
         window.notify.warning('Attention', 'Vous devez garder au moins un prefix', 2000);
         return;
     }
-    
+
     // Delete from database
     const result = await window.electron.dbChaimae.deleteSimpleOrderPrefix(prefix);
-    
+
     if (result.success) {
         const index = window.simpleOrderPrefixes.indexOf(prefix);
         if (index > -1) {
             window.simpleOrderPrefixes.splice(index, 1);
-            
+
             // If deleted prefix was selected, select the first one
             if (window.selectedSimpleOrderPrefix === prefix) {
                 window.selectedSimpleOrderPrefix = window.simpleOrderPrefixes[0];
@@ -1039,7 +1068,7 @@ window.deleteSimpleOrderPrefixChaimae = async function(prefix) {
                 if (prefixInput) prefixInput.value = window.selectedSimpleOrderPrefix;
                 if (prefixExample) prefixExample.textContent = window.selectedSimpleOrderPrefix;
             }
-            
+
             renderSimpleOrderPrefixListChaimae();
             window.notify.success('Succès', `Prefix "${prefix}" supprimé`, 2000);
         }
@@ -1055,12 +1084,12 @@ async function loadSimpleOrderPrefixesFromDB() {
         if (result.success && result.data && result.data.length > 0) {
             window.simpleOrderPrefixes = result.data;
             console.log('✅ [SIMPLE ORDER PREFIX] Loaded from DB:', window.simpleOrderPrefixes);
-            
+
             // Set selected prefix if not set
             if (!window.selectedSimpleOrderPrefix) {
                 window.selectedSimpleOrderPrefix = window.simpleOrderPrefixes[0];
             }
-            
+
             // Try to load last selected prefix from localStorage
             let lastSelected = null;
             try {
@@ -1069,7 +1098,7 @@ async function loadSimpleOrderPrefixesFromDB() {
             } catch (error) {
                 console.error('❌ [CHAIMAE ORDER PREFIX] Error reading from localStorage:', error);
             }
-            
+
             // Use last selected if it exists in the list, otherwise use first
             if (lastSelected && window.simpleOrderPrefixes.includes(lastSelected)) {
                 window.selectedSimpleOrderPrefix = lastSelected;
@@ -1095,29 +1124,29 @@ async function loadSimpleOrderPrefixesFromDB() {
 // Bon de livraison field in Facture - No auto-formatting (user enters value as-is)
 
 // Format Bon de livraison number with selected prefix (Global)
-window.formatBonLivraisonWithPrefixChaimae = function(input) {
+window.formatBonLivraisonWithPrefixChaimae = function (input) {
     let value = input.value.trim();
-    
+
     // 🔍 DEBUG: Log input value
     console.log('🔴 [FORMAT BON LIVRAISON] Input value:', value);
-    
+
     // إذا كان الحقل فارغاً، لا تفعل شيئاً
     if (!value) {
         console.log('⚠️ [FORMAT BON LIVRAISON] Empty value, returning');
         return;
     }
-    
+
     // إذا كان يحتوي بالفعل على سلاش، لا تفعل شيئاً
     if (value.includes('/')) {
         console.log('⚠️ [FORMAT BON LIVRAISON] Already has slash, returning:', value);
         return;
     }
-    
+
     // استخراج الأرقام فقط
     let numbers = value.replace(/[^0-9]/g, '');
-    
+
     console.log('🔴 [FORMAT BON LIVRAISON] Extracted numbers:', numbers);
-    
+
     // إذا كان هناك أرقام، أضف السنة
     if (numbers) {
         const year = new Date().getFullYear();
@@ -1133,47 +1162,47 @@ window.addEventListener('DOMContentLoaded', async () => {
 });
 
 // Close dropdown when clicking outside (Global)
-document.addEventListener('click', function(event) {
+document.addEventListener('click', function (event) {
     const dropdown = document.getElementById('prefixDropdownChaimae');
     const prefixInput = document.getElementById('prefixInputChaimae');
-    
-    if (dropdown && prefixInput && 
-        !dropdown.contains(event.target) && 
+
+    if (dropdown && prefixInput &&
+        !dropdown.contains(event.target) &&
         event.target !== prefixInput) {
         dropdown.style.display = 'none';
     }
 });
 
 // Add year only (without MG prefix) for Chaimae (Global)
-window.addYearOnBlurChaimae = function(input) {
+window.addYearOnBlurChaimae = function (input) {
     let value = input.value.trim();
-    
+
     // إذا كان الحقل فارغاً، لا تفعل شيئاً
     if (!value) return;
-    
+
     // إذا كان الرقم يحتوي بالفعل على /, لا تفعل شيئاً
     if (value.includes('/')) return;
-    
+
     // أضف السنة الحالية فقط
     const year = new Date().getFullYear();
     input.value = `${value}/${year}`;
 }
 
 // Handle arrow key navigation in products table (Global)
-window.handleArrowNavigationChaimae = function(event, currentRowId, currentCellIndex) {
+window.handleArrowNavigationChaimae = function (event, currentRowId, currentCellIndex) {
     // Only handle arrow keys
     if (!['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(event.key)) {
         return;
     }
-    
+
     const currentRow = document.getElementById(currentRowId);
     const tbody = document.getElementById('productsTableBodyChaimae');
     const allRows = Array.from(tbody.querySelectorAll('tr'));
     const currentRowIndex = allRows.indexOf(currentRow);
-    
+
     let targetRow = null;
     let targetCellIndex = currentCellIndex;
-    
+
     // Handle arrow keys
     if (event.key === 'ArrowUp') {
         // Move to row above
@@ -1212,7 +1241,7 @@ window.handleArrowNavigationChaimae = function(event, currentRowId, currentCellI
             event.preventDefault();
         }
     }
-    
+
     // Focus the target cell
     if (targetRow) {
         focusCell(targetRow, targetCellIndex);
@@ -1239,10 +1268,10 @@ function focusCell(row, cellIndex) {
 
 // Add product row for Chaimae (Global)
 let productRowCounterChaimae = 0;
-window.addProductRowChaimae = function() {
+window.addProductRowChaimae = function () {
     const tbody = document.getElementById('productsTableBodyChaimae');
     const rowId = `product-chaimae-${productRowCounterChaimae++}`;
-    
+
     const row = document.createElement('tr');
     row.id = rowId;
     row.innerHTML = `
@@ -1271,60 +1300,60 @@ window.addProductRowChaimae = function() {
             </button>
         </td>
     `;
-    
+
     tbody.appendChild(row);
 }
 
 // Calculate row total for Chaimae (Global)
-window.calculateRowTotalChaimae = function(rowId) {
+window.calculateRowTotalChaimae = function (rowId) {
     const row = document.getElementById(rowId);
     const quantityInput = row.querySelector('.product-quantity');
     const priceInput = row.querySelector('.product-price');
-    
+
     // Get quantity text
     let quantityText = quantityInput.value.trim();
-    
+
     console.log('🔍 CHAIMAE Row Calc - Original quantity:', quantityText);
-    
+
     // Convert 'F' or 'f' to '1' FIRST
     if (quantityText.toUpperCase() === 'F') {
         console.log('✅ CHAIMAE Row Calc - Converting F to 1');
         quantityText = '1';
     }
-    
+
     // Extract numeric value from quantity (remove units like "Kg", etc)
     const quantity = quantityText.replace(/[^0-9.]/g, '');
-    
+
     let price = parseFloat(priceInput.value) || 0;
     let qty = parseFloat(quantity) || 0;
-    
+
     console.log('🔍 CHAIMAE Row Calc - qty:', qty, 'price:', price);
-    
+
     const total = qty * price;
-    
+
     console.log('🔍 CHAIMAE Row Calc - total:', total);
-    
+
     // Use simple format without spaces for calculations
     row.querySelector('.product-total').textContent = total.toFixed(2) + ' DH';
-    
+
     calculateTotalsChaimae();
 }
 
 // Delete product row for Chaimae (Global)
-window.deleteProductRowChaimae = function(rowId) {
+window.deleteProductRowChaimae = function (rowId) {
     document.getElementById(rowId).remove();
     calculateTotalsChaimae();
 }
 
 // Calculate totals for Chaimae (Global)
-window.calculateTotalsChaimae = function() {
+window.calculateTotalsChaimae = function () {
     const rows = document.querySelectorAll('#productsTableBodyChaimae tr');
     let totalHT = 0;
-    
+
     rows.forEach(row => {
         const totalText = row.querySelector('.product-total').textContent;
         console.log('📊 Row total text:', totalText);
-        
+
         // Remove ALL spaces, commas, and 'DH'
         const cleanText = totalText
             .replace(/\s/g, '')  // Remove all spaces
@@ -1332,31 +1361,31 @@ window.calculateTotalsChaimae = function() {
             .replace('DH', '')
             .trim();
         console.log('📊 Clean text:', cleanText);
-        
+
         const total = parseFloat(cleanText) || 0;
         console.log('📊 Parsed total:', total);
-        
+
         totalHT += total;
     });
-    
+
     console.log('📊 TOTAL HT:', totalHT);
-    
+
     const tvaRate = parseFloat(document.getElementById('tvaRateChaimae').value) || 0;
     const montantTVA = totalHT * (tvaRate / 100);
     const totalTTC = totalHT + montantTVA;
-    
+
     console.log('📊 TVA Rate:', tvaRate);
     console.log('📊 Montant TVA:', montantTVA);
     console.log('📊 Total TTC:', totalTTC);
-    
+
     const formattedHT = formatNumberChaimae(totalHT);
     const formattedTVA = formatNumberChaimae(montantTVA);
     const formattedTTC = formatNumberChaimae(totalTTC);
-    
+
     console.log('📊 Formatted HT:', formattedHT);
     console.log('📊 Formatted TVA:', formattedTVA);
     console.log('📊 Formatted TTC:', formattedTTC);
-    
+
     // Use simple format without spaces for display in creation page
     document.getElementById('totalHTChaimae').textContent = totalHT.toFixed(2) + ' DH';
     document.getElementById('montantTVAChaimae').textContent = montantTVA.toFixed(2) + ' DH';
@@ -1395,25 +1424,25 @@ async function loadAllClientsChaimae() {
 }
 
 // Client search functions for Chaimae (Global)
-window.searchClientsChaimae = function(query) {
+window.searchClientsChaimae = function (query) {
     console.log('🔍 Searching clients with query:', query);
     const dropdown = document.getElementById('clientsDropdownChaimae');
-    
+
     if (!dropdown) {
         console.error('❌ Dropdown element not found!');
         return;
     }
-    
+
     if (!query || query.trim().length === 0) {
         filteredClientsChaimae = allClientsChaimae;
     } else {
         const searchTerm = query.toLowerCase().trim();
-        filteredClientsChaimae = allClientsChaimae.filter(client => 
-            client.nom.toLowerCase().includes(searchTerm) || 
+        filteredClientsChaimae = allClientsChaimae.filter(client =>
+            client.nom.toLowerCase().includes(searchTerm) ||
             client.ice.toLowerCase().includes(searchTerm)
         );
     }
-    
+
     console.log('📋 Filtered clients:', filteredClientsChaimae.length);
     displayClientsListChaimae();
 }
@@ -1422,19 +1451,19 @@ window.searchClientsChaimae = function(query) {
 function displayClientsListChaimae() {
     console.log('📋 Displaying clients list for Chaimae...');
     const dropdown = document.getElementById('clientsDropdownChaimae');
-    
+
     if (!dropdown) {
         console.error('❌ Dropdown element not found in displayClientsListChaimae!');
         return;
     }
-    
+
     if (filteredClientsChaimae.length === 0) {
         dropdown.innerHTML = '<div class="dropdown-item no-results">Aucun client trouvé</div>';
         dropdown.style.display = 'block';
         console.log('ℹ️ No clients found');
         return;
     }
-    
+
     dropdown.innerHTML = filteredClientsChaimae.slice(0, 10).map(client => `
         <div class="dropdown-item" style="display: flex; justify-content: space-between; align-items: center;">
             <div style="flex: 1;" onmousedown="selectClientChaimae('${client.nom.replace(/'/g, "\\'")}', '${client.ice}')">
@@ -1452,19 +1481,19 @@ function displayClientsListChaimae() {
             </button>
         </div>
     `).join('');
-    
+
     dropdown.style.display = 'block';
     console.log('✅ Dropdown displayed with', filteredClientsChaimae.slice(0, 10).length, 'clients');
 }
 
-window.showClientsListChaimae = function() {
+window.showClientsListChaimae = function () {
     if (allClientsChaimae.length > 0) {
         filteredClientsChaimae = allClientsChaimae;
         displayClientsListChaimae();
     }
 }
 
-window.hideClientsListChaimae = function() {
+window.hideClientsListChaimae = function () {
     setTimeout(() => {
         const dropdown = document.getElementById('clientsDropdownChaimae');
         if (dropdown) dropdown.style.display = 'none';
@@ -1472,10 +1501,10 @@ window.hideClientsListChaimae = function() {
 }
 
 // Select client from dropdown
-window.selectClientChaimae = function(nom, ice) {
+window.selectClientChaimae = function (nom, ice) {
     document.getElementById('clientNom').value = nom;
     document.getElementById('clientICE').value = ice;
-    
+
     const dropdown = document.getElementById('clientsDropdownChaimae');
     if (dropdown) dropdown.style.display = 'none';
 }
@@ -1497,9 +1526,9 @@ function showDeleteErrorModal(clientName, errorMessage) {
         backdrop-filter: blur(4px);
         animation: fadeIn 0.2s ease-out;
     `;
-    
+
     const isReferenceError = errorMessage.includes('referenced in existing invoices');
-    
+
     const modal = document.createElement('div');
     modal.style.cssText = `
         background: linear-gradient(135deg, #2d2d30 0%, #1e1e1e 100%);
@@ -1512,7 +1541,7 @@ function showDeleteErrorModal(clientName, errorMessage) {
         animation: slideUp 0.3s ease-out;
         overflow: hidden;
     `;
-    
+
     modal.innerHTML = `
         <style>
             @keyframes fadeIn {
@@ -1586,17 +1615,17 @@ function showDeleteErrorModal(clientName, errorMessage) {
             </button>
         </div>
     `;
-    
+
     overlay.appendChild(modal);
     document.body.appendChild(overlay);
-    
+
     // Close on overlay click
     overlay.addEventListener('click', (e) => {
         if (e.target === overlay) {
             overlay.remove();
         }
     });
-    
+
     // Close on Escape key
     const escapeHandler = (e) => {
         if (e.key === 'Escape') {
@@ -1608,7 +1637,7 @@ function showDeleteErrorModal(clientName, errorMessage) {
 }
 
 // Delete a client
-window.deleteClientChaimae = async function(clientId, clientName) {
+window.deleteClientChaimae = async function (clientId, clientName) {
     // Create custom confirmation modal
     const overlay = document.createElement('div');
     overlay.style.cssText = `
@@ -1625,7 +1654,7 @@ window.deleteClientChaimae = async function(clientId, clientName) {
         backdrop-filter: blur(4px);
         animation: fadeIn 0.2s ease-out;
     `;
-    
+
     const modal = document.createElement('div');
     modal.style.cssText = `
         background: linear-gradient(135deg, #2d2d30 0%, #1e1e1e 100%);
@@ -1638,7 +1667,7 @@ window.deleteClientChaimae = async function(clientId, clientName) {
         animation: slideUp 0.3s ease-out;
         overflow: hidden;
     `;
-    
+
     modal.innerHTML = `
         <div style="background: linear-gradient(135deg, #ff9800 0%, #f57c00 100%); padding: 24px; text-align: center;">
             <div style="width: 64px; height: 64px; margin: 0 auto 16px; background: rgba(255, 255, 255, 0.2); border-radius: 50%; display: flex; align-items: center; justify-content: center;">
@@ -1685,28 +1714,28 @@ window.deleteClientChaimae = async function(clientId, clientName) {
             </div>
         </div>
     `;
-    
+
     overlay.appendChild(modal);
     document.body.appendChild(overlay);
-    
+
     // Handle cancel
     modal.querySelector('#cancelDeleteBtn').addEventListener('click', () => {
         overlay.remove();
     });
-    
+
     overlay.addEventListener('click', (e) => {
         if (e.target === overlay) {
             overlay.remove();
         }
     });
-    
+
     // Handle confirm
     modal.querySelector('#confirmDeleteBtn').addEventListener('click', async () => {
         overlay.remove();
-        
+
         try {
             const result = await window.electron.dbChaimae.deleteClient(clientId);
-            
+
             if (result.success) {
                 window.notify.success('تم الحذف', `تم حذف الزبون "${clientName}" بنجاح`);
                 // Reload clients list
@@ -1725,23 +1754,23 @@ window.deleteClientChaimae = async function(clientId, clientName) {
 }
 
 // Initialize page for Chaimae (Global)
-window.initCreateInvoiceChaimaePage = function() {
+window.initCreateInvoiceChaimaePage = function () {
     console.log('🔄 Initializing create invoice page for Chaimae...');
-    
+
     // Set today's date
     const today = new Date().toISOString().split('T')[0];
     document.getElementById('documentDate').value = today;
-    
+
     // Load clients for autocomplete
     loadAllClientsChaimae();
-    
+
     // Add first product row
     addProductRowChaimae();
-    
+
     // Handle form submission
     const form = document.getElementById('invoiceForm');
     form.addEventListener('submit', handleFormSubmitChaimae);
-    
+
     // Handle file input
     const fileInput = document.getElementById('fileInputChaimae');
     fileInput.addEventListener('change', handleFileSelectChaimae);
@@ -1750,11 +1779,11 @@ window.initCreateInvoiceChaimaePage = function() {
 // Handle form submission for Chaimae (Global)
 async function handleFormSubmitChaimae(e) {
     e.preventDefault();
-    
+
     try {
         // Get current user info
         const currentUser = JSON.parse(localStorage.getItem('user'));
-        
+
         // Collect form data
         const formData = {
             client: {
@@ -1782,11 +1811,11 @@ async function handleFormSubmitChaimae(e) {
                 total_ttc: parseFloat(document.getElementById('totalTTCChaimae').textContent.replace('DH', '').trim()) || 0
             }
         };
-        
+
         // Get document numbers based on type
         const docType = formData.document.type;
         const mainNumero = document.getElementById('documentNumeroChaimae')?.value;
-        
+
         if (docType === 'facture') {
             formData.document.numero = mainNumero;
             const numeroOrderChaimae = document.getElementById('documentNumeroOrderChaimae');
@@ -1806,12 +1835,12 @@ async function handleFormSubmitChaimae(e) {
         } else if (docType === 'bon_livraison') {
             // Get selected prefix and combine with numero
             const selectedPrefix = window.selectedPrefix || 'MG';
-            
+
             // 🔍 DEBUG: Log what we're getting
             console.log('🔴 [CREATE DEBUG] SELECTED PREFIX:', selectedPrefix);
             console.log('🔴 [CREATE DEBUG] MAIN NUMERO:', mainNumero);
             console.log('🔴 [CREATE DEBUG] MAIN NUMERO contains prefix?', mainNumero?.startsWith(selectedPrefix));
-            
+
             // ✅ FIX: Check if mainNumero already contains the prefix
             let fullNumero;
             if (mainNumero?.startsWith(selectedPrefix)) {
@@ -1821,17 +1850,17 @@ async function handleFormSubmitChaimae(e) {
                 fullNumero = selectedPrefix + mainNumero;
                 console.log('✅ [CREATE DEBUG] Adding prefix to numero:', fullNumero);
             }
-            
+
             console.log('📝 [CREATE DEBUG] Final Full numero:', fullNumero);
-            
+
             formData.document.numero = null; // Don't set numero for bon_livraison
             formData.document.numero_bl = fullNumero; // Save to document_numero_bl field
-            
+
             // Format N° Order with prefix if provided
             const orderValue = document.getElementById('documentBonCommandeChaimae')?.value?.trim();
             if (orderValue) {
                 const selectedOrderPrefix = window.selectedOrderPrefix || 'BC';
-                
+
                 // Remove any existing prefix from all known prefixes
                 let cleanValue = orderValue;
                 if (window.orderPrefixes && window.orderPrefixes.length > 0) {
@@ -1842,36 +1871,36 @@ async function handleFormSubmitChaimae(e) {
                         }
                     }
                 }
-                
+
                 // Add the selected prefix
                 formData.document.numero_commande = `${selectedOrderPrefix}${cleanValue}`;
             } else {
                 formData.document.numero_commande = null;
             }
         }
-        
+
         // Collect products
         const rows = document.querySelectorAll('#productsTableBodyChaimae tr');
         rows.forEach(row => {
             const designation = row.querySelector('.product-designation').value.trim();
             const quantiteOriginal = row.querySelector('.product-quantity').value.trim();
             const prix_unitaire_ht = parseFloat(row.querySelector('.product-price').value) || 0;
-            
+
             console.log('🔍 CHAIMAE BEFORE conversion - Quantite:', quantiteOriginal, 'Type:', typeof quantiteOriginal);
-            
+
             // For calculation: convert F to 1
             let quantiteForCalc = quantiteOriginal;
             if (quantiteForCalc.toUpperCase() === 'F') {
                 console.log('✅ CHAIMAE Converting F to 1 for calculation');
                 quantiteForCalc = '1';
             }
-            
+
             console.log('🔍 CHAIMAE AFTER conversion - QuantiteForCalc:', quantiteForCalc, 'Original:', quantiteOriginal);
-            
+
             // Calculate total_ht directly from quantity and price
             const qty = parseFloat(quantiteForCalc) || 0;
             const total_ht = qty * prix_unitaire_ht;
-            
+
             console.log('💾 CHAIMAE Saving product:', {
                 designation,
                 quantiteOriginal,
@@ -1879,7 +1908,7 @@ async function handleFormSubmitChaimae(e) {
                 prix_unitaire_ht,
                 calculated_total: total_ht
             });
-            
+
             // Save product if it has at least a designation
             if (designation) {
                 formData.products.push({
@@ -1890,15 +1919,15 @@ async function handleFormSubmitChaimae(e) {
                 });
             }
         });
-        
+
         // Products are optional now - no validation needed
         console.log('📤 Creating invoice for Chaimae:', formData);
-        
+
         // Check for duplicate document numbers in regular invoices
         const allInvoicesResult = await window.electron.dbChaimae.getAllInvoices();
         if (allInvoicesResult.success) {
             const invoices = allInvoicesResult.data;
-            
+
             // Check main document number
             if (mainNumero) {
                 const duplicateMain = invoices.find(inv => {
@@ -1910,12 +1939,12 @@ async function handleFormSubmitChaimae(e) {
                         // For bon_livraison, check if it's the same type AND has the same numero
                         // The numero is saved with prefix (e.g., "HA01/2025")
                         const selectedPrefix = window.selectedPrefix || 'MG';
-                        
+
                         // 🔍 DEBUG: Check for duplicates
                         console.log('🔴 [DUPLICATE CHECK] Selected Prefix:', selectedPrefix);
                         console.log('🔴 [DUPLICATE CHECK] Main Numero:', mainNumero);
                         console.log('🔴 [DUPLICATE CHECK] Main Numero contains prefix?', mainNumero?.startsWith(selectedPrefix));
-                        
+
                         // ✅ FIX: Check if mainNumero already contains the prefix
                         let fullNumero;
                         if (mainNumero?.startsWith(selectedPrefix)) {
@@ -1925,22 +1954,22 @@ async function handleFormSubmitChaimae(e) {
                             fullNumero = selectedPrefix + mainNumero;
                             console.log('✅ [DUPLICATE CHECK] Adding prefix:', fullNumero);
                         }
-                        
+
                         console.log('📝 [DUPLICATE CHECK] Checking against invoice:', {
                             inv_type: inv.document_type,
                             inv_numero: inv.document_numero,
                             inv_numero_bl: inv.document_numero_bl,
                             fullNumero: fullNumero
                         });
-                        
-                        return (inv.document_type === 'bon_livraison' || inv.document_type === 'bon de livraison') && 
-                               (inv.document_numero === fullNumero || 
-                                inv.document_numero_bl === fullNumero || 
+
+                        return (inv.document_type === 'bon_livraison' || inv.document_type === 'bon de livraison') &&
+                            (inv.document_numero === fullNumero ||
+                                inv.document_numero_bl === fullNumero ||
                                 inv.document_bon_de_livraison === fullNumero);
                     }
                     return false;
                 });
-                
+
                 if (duplicateMain) {
                     console.log('❌ [DUPLICATE CHECK] Found duplicate:', {
                         docType,
@@ -1957,28 +1986,28 @@ async function handleFormSubmitChaimae(e) {
                 }
             }
         }
-        
+
         // Check for duplicate in global invoices (for facture only)
         if (docType === 'facture' && mainNumero) {
             const allGlobalInvoicesResult = await window.electron.dbChaimae.getAllGlobalInvoices();
             if (allGlobalInvoicesResult.success) {
-                const duplicateGlobal = allGlobalInvoicesResult.data.find(inv => 
+                const duplicateGlobal = allGlobalInvoicesResult.data.find(inv =>
                     inv.document_numero === mainNumero
                 );
-                
+
                 if (duplicateGlobal) {
                     window.notify.error('Erreur', `Le numéro "${mainNumero}" existe déjà dans une facture globale`, 5000);
                     return;
                 }
             }
         }
-        
+
         if (allInvoicesResult.success) {
             const invoices = allInvoicesResult.data;
-            
+
             // Check N° Order if provided (for facture)
             if (docType === 'facture' && formData.document.numero_Order) {
-                const duplicateOrder = invoices.find(inv => 
+                const duplicateOrder = invoices.find(inv =>
                     inv.document_numero_Order === formData.document.numero_Order
                 );
                 if (duplicateOrder) {
@@ -1986,10 +2015,10 @@ async function handleFormSubmitChaimae(e) {
                     return;
                 }
             }
-            
+
             // Check Bon de livraison if provided (for facture)
             if (docType === 'facture' && formData.document.bon_de_livraison) {
-                const duplicateBL = invoices.find(inv => 
+                const duplicateBL = invoices.find(inv =>
                     inv.document_bon_de_livraison === formData.document.bon_de_livraison
                 );
                 if (duplicateBL) {
@@ -1997,12 +2026,12 @@ async function handleFormSubmitChaimae(e) {
                     return;
                 }
             }
-            
+
             // Check N° Order if provided (for bon_livraison)
             if (docType === 'bon_livraison' && formData.document.numero_commande) {
-                const duplicateBC = invoices.find(inv => 
+                const duplicateBC = invoices.find(inv =>
                     (inv.document_type === 'bon_livraison' || inv.document_type === 'bon de livraison') &&
-                    inv.document_numero_commande && 
+                    inv.document_numero_commande &&
                     inv.document_numero_commande.trim() === formData.document.numero_commande.trim()
                 );
                 if (duplicateBC) {
@@ -2011,7 +2040,7 @@ async function handleFormSubmitChaimae(e) {
                 }
             }
         }
-        
+
         // Save to database
         console.log('📋 [CREATE BL] formData.document object:', formData.document);
         console.log('📋 [CREATE BL] Checking BL field:', {
@@ -2019,30 +2048,30 @@ async function handleFormSubmitChaimae(e) {
             'numero_bl': formData.document.numero_bl,
             'document_type': formData.document.type
         });
-        
+
         const result = await window.electron.dbChaimae.createInvoice(formData);
-        
+
         if (result.success) {
             const invoiceId = result.data.id;
             console.log('✅ Invoice saved with ID:', invoiceId);
             console.log('👤 Created by:', currentUser?.name || 'Unknown');
-            
+
             // Upload attachments if any
             const fileInput = document.getElementById('fileInputChaimae');
             if (fileInput && fileInput.files.length > 0) {
                 console.log(`📎 Uploading ${fileInput.files.length} attachments...`);
-                
+
                 for (const file of fileInput.files) {
                     const arrayBuffer = await file.arrayBuffer();
                     const uint8Array = new Uint8Array(arrayBuffer);
-                    
+
                     const attachResult = await window.electron.dbChaimae.addAttachment(
                         invoiceId,
                         file.name,
                         file.type,
                         uint8Array
                     );
-                    
+
                     if (attachResult.success) {
                         console.log(`✅ Attachment uploaded: ${file.name}`);
                     } else {
@@ -2050,13 +2079,13 @@ async function handleFormSubmitChaimae(e) {
                     }
                 }
             }
-            
+
             // Save notes if any
             const noteText = document.getElementById('invoiceNotesChaimae')?.value?.trim();
             if (noteText) {
                 await window.electron.dbChaimae.saveNote(invoiceId, noteText);
             }
-            
+
             window.notify.success('Succès', 'Document créé avec succès!', 3000);
             setTimeout(() => {
                 router.navigate('/dashboard-chaimae');
@@ -2064,7 +2093,7 @@ async function handleFormSubmitChaimae(e) {
         } else {
             window.notify.error('Erreur', result.error || 'Erreur lors de la création', 4000);
         }
-        
+
     } catch (error) {
         console.error('Error creating invoice for Chaimae:', error);
         window.notify.error('Erreur', 'Une erreur est survenue: ' + error.message, 5000);
@@ -2075,9 +2104,9 @@ async function handleFormSubmitChaimae(e) {
 function handleFileSelectChaimae(e) {
     const files = Array.from(e.target.files);
     const filesList = document.getElementById('filesListChaimae');
-    
+
     filesList.innerHTML = '';
-    
+
     files.forEach((file, index) => {
         const fileItem = document.createElement('div');
         fileItem.className = 'file-item';
@@ -2090,20 +2119,20 @@ function handleFileSelectChaimae(e) {
 }
 
 // Show missing invoice numbers (Global)
-window.showMissingNumbersChaimae = async function(selectedYear = null) {
+window.showMissingNumbersChaimae = async function (selectedYear = null) {
     const currentYear = selectedYear || new Date().getFullYear();
-    
+
     try {
         const result = await window.electron.dbChaimae.getMissingNumbers(currentYear);
-        
+
         if (!result.success) {
             window.notify.error('Erreur', result.error || 'Impossible de charger les numéros manquants', 3000);
             return;
         }
-        
+
         const missingNumbers = result.data || [];
         const stats = result.stats || {};
-        
+
         // Get all available years from invoices
         const invoicesResult = await window.electron.dbChaimae.getAllInvoices('CHAIMAE');
         let availableYears = [new Date().getFullYear()];
@@ -2114,7 +2143,7 @@ window.showMissingNumbersChaimae = async function(selectedYear = null) {
             });
             availableYears = [...new Set([...years, new Date().getFullYear()])].sort((a, b) => b - a);
         }
-        
+
         // Create modal
         const modal = document.createElement('div');
         modal.id = 'missingNumbersModalChaimae';
@@ -2131,7 +2160,7 @@ window.showMissingNumbersChaimae = async function(selectedYear = null) {
             z-index: 10000;
             backdrop-filter: blur(5px);
         `;
-        
+
         const content = document.createElement('div');
         content.style.cssText = `
             background: linear-gradient(135deg, #1e1e1e 0%, #2d2d30 100%);
@@ -2144,7 +2173,7 @@ window.showMissingNumbersChaimae = async function(selectedYear = null) {
             box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
             border: 2px solid #667eea;
         `;
-        
+
         content.innerHTML = `
             <div style="margin-bottom: 1.5rem;">
                 <h2 style="margin: 0 0 0.5rem 0; color: #fff; font-size: 1.5rem; display: flex; align-items: center; gap: 0.5rem;">
@@ -2191,22 +2220,22 @@ window.showMissingNumbersChaimae = async function(selectedYear = null) {
                 Fermer
             </button>
         `;
-        
+
         modal.appendChild(content);
-        
+
         // Remove existing modal if any
         const existingModal = document.getElementById('missingNumbersModalChaimae');
         if (existingModal) existingModal.remove();
-        
+
         document.body.appendChild(modal);
-        
+
         // Close on outside click
         modal.addEventListener('click', (e) => {
             if (e.target === modal) {
                 modal.remove();
             }
         });
-        
+
     } catch (error) {
         console.error('Error showing missing numbers:', error);
         window.notify.error('Erreur', 'Une erreur est survenue', 3000);
@@ -2214,21 +2243,21 @@ window.showMissingNumbersChaimae = async function(selectedYear = null) {
 };
 
 // Select missing number and fill input (Global)
-window.selectMissingNumberChaimae = function(number) {
+window.selectMissingNumberChaimae = function (number) {
     console.log('🔍 [CHAIMAE] selectMissingNumberChaimae called with number:', number);
     console.log('🔍 [CHAIMAE] Type of number:', typeof number);
-    
+
     const input = document.getElementById('documentNumeroChaimae');
     console.log('🔍 [CHAIMAE] Input element found:', !!input);
-    
+
     if (input) {
         console.log('🔍 [CHAIMAE] Setting input value to:', number);
         input.value = number;
         console.log('🔍 [CHAIMAE] Input value after setting:', input.value);
-        
+
         input.focus();
         console.log('🔍 [CHAIMAE] Input focused');
-        
+
         // Close modal
         const modal = document.querySelector('[style*="position: fixed"]');
         console.log('🔍 [CHAIMAE] Modal found:', !!modal);
@@ -2236,7 +2265,7 @@ window.selectMissingNumberChaimae = function(number) {
             modal.remove();
             console.log('🔍 [CHAIMAE] Modal removed');
         }
-        
+
         console.log('🔍 [CHAIMAE] Showing success notification for number:', number);
         window.notify.success('Succès', `Numéro ${number} sélectionné`, 2000);
     } else {
@@ -2245,10 +2274,10 @@ window.selectMissingNumberChaimae = function(number) {
 };
 
 // Show missing devis numbers (Global)
-window.showMissingDevisNumbersChaimae = async function(selectedYear = null) {
+window.showMissingDevisNumbersChaimae = async function (selectedYear = null) {
     const currentYear = selectedYear || new Date().getFullYear();
     console.log('🔍 [FRONTEND] showMissingDevisNumbersChaimae called for year:', currentYear);
-    
+
     try {
         console.log('🔍 [FRONTEND] Calling getMissingDevisNumbers...');
         const result = await window.electron.dbChaimae.getMissingDevisNumbers(currentYear);
@@ -2256,18 +2285,18 @@ window.showMissingDevisNumbersChaimae = async function(selectedYear = null) {
         console.log('🔍 [FRONTEND] Result.data:', result.data);
         console.log('🔍 [FRONTEND] Result.data type:', Array.isArray(result.data) ? 'Array' : typeof result.data);
         console.log('🔍 [FRONTEND] Result.data length:', result.data ? result.data.length : 'N/A');
-        
+
         if (!result.success) {
             window.notify.error('Erreur', result.error || 'Impossible de charger les numéros manquants', 3000);
             return;
         }
-        
+
         const missingNumbers = result.data || [];
         const stats = result.stats || {};
-        
+
         console.log('🔍 [FRONTEND] Missing Numbers to display:', missingNumbers);
         console.log('🔍 [FRONTEND] Stats:', stats);
-        
+
         // Get all available years from invoices
         const invoicesResult = await window.electron.dbChaimae.getAllInvoices('CHAIMAE');
         let availableYears = [new Date().getFullYear()];
@@ -2278,7 +2307,7 @@ window.showMissingDevisNumbersChaimae = async function(selectedYear = null) {
             });
             availableYears = [...new Set([...years, new Date().getFullYear()])].sort((a, b) => b - a);
         }
-        
+
         // Create modal
         const modal = document.createElement('div');
         modal.id = 'missingDevisNumbersModalChaimae';
@@ -2295,7 +2324,7 @@ window.showMissingDevisNumbersChaimae = async function(selectedYear = null) {
             z-index: 10000;
             backdrop-filter: blur(5px);
         `;
-        
+
         const content = document.createElement('div');
         content.style.cssText = `
             background: linear-gradient(135deg, #1e1e1e 0%, #2d2d30 100%);
@@ -2308,7 +2337,7 @@ window.showMissingDevisNumbersChaimae = async function(selectedYear = null) {
             box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
             border: 2px solid #667eea;
         `;
-        
+
         content.innerHTML = `
             <div style="margin-bottom: 1.5rem;">
                 <h2 style="margin: 0 0 0.5rem 0; color: #fff; font-size: 1.5rem; display: flex; align-items: center; gap: 0.5rem;">
@@ -2355,22 +2384,22 @@ window.showMissingDevisNumbersChaimae = async function(selectedYear = null) {
                 Fermer
             </button>
         `;
-        
+
         modal.appendChild(content);
-        
+
         // Remove existing modal if any
         const existingModal = document.getElementById('missingDevisNumbersModalChaimae');
         if (existingModal) existingModal.remove();
-        
+
         document.body.appendChild(modal);
-        
+
         // Close on outside click
         modal.addEventListener('click', (e) => {
             if (e.target === modal) {
                 modal.remove();
             }
         });
-        
+
     } catch (error) {
         console.error('Error showing missing devis numbers:', error);
         window.notify.error('Erreur', 'Une erreur est survenue', 3000);
@@ -2378,23 +2407,23 @@ window.showMissingDevisNumbersChaimae = async function(selectedYear = null) {
 };
 
 // Show missing order numbers (Global)
-window.showMissingOrderNumbersChaimae = async function() {
+window.showMissingOrderNumbersChaimae = async function () {
     try {
         const result = await window.electron.dbChaimae.getMissingOrderNumbers();
-        
+
         if (!result.success) {
             window.notify.error('Erreur', result.error || 'Impossible de charger les numéros manquants', 3000);
             return;
         }
-        
+
         const missingNumbers = result.data || [];
         const stats = result.stats || {};
-        
+
         if (missingNumbers.length === 0) {
             window.notify.info('Info', 'Aucun numéro manquant trouvé', 2500);
             return;
         }
-        
+
         // Create modal
         const modal = document.createElement('div');
         modal.style.cssText = `
@@ -2410,7 +2439,7 @@ window.showMissingOrderNumbersChaimae = async function() {
             z-index: 10000;
             backdrop-filter: blur(5px);
         `;
-        
+
         const content = document.createElement('div');
         content.style.cssText = `
             background: linear-gradient(135deg, #1e1e1e 0%, #2d2d30 100%);
@@ -2423,7 +2452,7 @@ window.showMissingOrderNumbersChaimae = async function() {
             box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
             border: 2px solid #2196f3;
         `;
-        
+
         content.innerHTML = `
             <div style="margin-bottom: 1.5rem;">
                 <h2 style="margin: 0 0 0.5rem 0; color: #fff; font-size: 1.5rem; display: flex; align-items: center; gap: 0.5rem;">
@@ -2453,17 +2482,17 @@ window.showMissingOrderNumbersChaimae = async function() {
                 Fermer
             </button>
         `;
-        
+
         modal.appendChild(content);
         document.body.appendChild(modal);
-        
+
         // Close on outside click
         modal.addEventListener('click', (e) => {
             if (e.target === modal) {
                 modal.remove();
             }
         });
-        
+
     } catch (error) {
         console.error('Error showing missing order numbers:', error);
         window.notify.error('Erreur', 'Une erreur est survenue', 3000);
@@ -2471,45 +2500,45 @@ window.showMissingOrderNumbersChaimae = async function() {
 };
 
 // Select missing order number and fill input (Global)
-window.selectMissingOrderNumberChaimae = function(number) {
+window.selectMissingOrderNumberChaimae = function (number) {
     // Try both possible inputs
     let input = document.getElementById('documentBonCommandeChaimae');
     if (!input) {
         input = document.getElementById('documentNumeroOrderChaimae');
     }
-    
+
     if (input) {
         input.value = number;
         input.focus();
-        
+
         // Close modal
         const modal = document.querySelector('[style*="position: fixed"]');
         if (modal) modal.remove();
-        
+
         window.notify.success('Succès', `N° Order ${number} sélectionné`, 2000);
     }
 };
 
 // Show missing Bon de livraison numbers grouped by prefix (Global)
-window.showMissingBonLivraisonNumbersChaimae = async function() {
+window.showMissingBonLivraisonNumbersChaimae = async function () {
     const currentYear = new Date().getFullYear();
-    
+
     try {
         const result = await window.electron.dbChaimae.getMissingBonLivraisonNumbers(currentYear);
-        
+
         if (!result.success) {
             window.notify.error('Erreur', result.error || 'Impossible de charger les numéros manquants', 3000);
             return;
         }
-        
+
         const missingByPrefix = result.byPrefix || {};
         const stats = result.stats || {};
-        
+
         if (Object.keys(missingByPrefix).length === 0) {
             window.notify.info('Info', 'Aucun numéro manquant trouvé', 2500);
             return;
         }
-        
+
         // Create modal
         const modal = document.createElement('div');
         modal.style.cssText = `
@@ -2525,7 +2554,7 @@ window.showMissingBonLivraisonNumbersChaimae = async function() {
             z-index: 10000;
             backdrop-filter: blur(5px);
         `;
-        
+
         const content = document.createElement('div');
         content.style.cssText = `
             background: linear-gradient(135deg, #1e1e1e 0%, #2d2d30 100%);
@@ -2538,7 +2567,7 @@ window.showMissingBonLivraisonNumbersChaimae = async function() {
             box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
             border: 2px solid #4caf50;
         `;
-        
+
         // Generate HTML for each prefix group
         const prefixSections = Object.keys(missingByPrefix).sort().map(prefix => {
             const numbers = missingByPrefix[prefix];
@@ -2561,7 +2590,7 @@ window.showMissingBonLivraisonNumbersChaimae = async function() {
                 </div>
             `;
         }).join('');
-        
+
         content.innerHTML = `
             <div style="margin-bottom: 1.5rem;">
                 <h2 style="margin: 0 0 0.5rem 0; color: #fff; font-size: 1.5rem; display: flex; align-items: center; gap: 0.5rem;">
@@ -2582,17 +2611,17 @@ window.showMissingBonLivraisonNumbersChaimae = async function() {
                 Fermer
             </button>
         `;
-        
+
         modal.appendChild(content);
         document.body.appendChild(modal);
-        
+
         // Close on outside click
         modal.addEventListener('click', (e) => {
             if (e.target === modal) {
                 modal.remove();
             }
         });
-        
+
     } catch (error) {
         console.error('Error showing missing Bon de livraison numbers:', error);
         window.notify.error('Erreur', 'Une erreur est survenue', 3000);
@@ -2600,7 +2629,7 @@ window.showMissingBonLivraisonNumbersChaimae = async function() {
 };
 
 // Select missing Bon de livraison number and fill input with prefix (Global)
-window.selectMissingBonLivraisonNumberChaimae = function(prefix, number) {
+window.selectMissingBonLivraisonNumberChaimae = function (prefix, number) {
     // Set the prefix
     window.selectedPrefix = prefix;
     const prefixInput = document.getElementById('prefixInputChaimae');
@@ -2611,32 +2640,32 @@ window.selectMissingBonLivraisonNumberChaimae = function(prefix, number) {
     if (prefixExample) {
         prefixExample.textContent = prefix;
     }
-    
+
     // Set the number
     const input = document.getElementById('documentNumeroChaimae');
     if (input) {
         const currentYear = new Date().getFullYear();
         input.value = `${number}/${currentYear}`;
         input.focus();
-        
+
         // Close modal
         const modal = document.querySelector('[style*="position: fixed"]');
         if (modal) modal.remove();
-        
+
         window.notify.success('Succès', `Bon de livraison ${number} sélectionné`, 2000);
     }
 };
 
 // Remove file for Chaimae (Global)
-window.removeFileChaimae = function(index) {
+window.removeFileChaimae = function (index) {
     const fileInput = document.getElementById('fileInputChaimae');
     const dt = new DataTransfer();
     const files = Array.from(fileInput.files);
-    
+
     files.forEach((file, i) => {
         if (i !== index) dt.items.add(file);
     });
-    
+
     fileInput.files = dt.files;
     handleFileSelectChaimae({ target: fileInput });
 }

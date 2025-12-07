@@ -294,71 +294,71 @@ function formatNumberChaimae(number) {
 }
 
 // Load invoices from database
-window.loadInvoicesChaimae = async function() {
+window.loadInvoicesChaimae = async function () {
     const loadingSpinner = document.getElementById('loadingSpinnerChaimae');
     const tableBody = document.getElementById('invoicesTableBodyChaimae');
     const emptyState = document.getElementById('emptyStateChaimae');
-    
+
     try {
         // Get selected year from session or localStorage
         const sessionYear = sessionStorage.getItem('chaimae_current_year');
         const savedYear = localStorage.getItem('chaimae_selected_year');
         const rememberYear = localStorage.getItem('chaimae_remember_year');
-        
+
         // Use session year first (even if empty string for "all years"), then saved year if remember is enabled
         if (sessionYear !== null) {
             selectedYearChaimae = sessionYear;
         } else if (rememberYear === 'true' && savedYear !== null) {
             selectedYearChaimae = savedYear;
         }
-        
+
         // Update year display button
         const yearDisplay = document.getElementById('currentYearDisplay');
         if (yearDisplay) {
             yearDisplay.textContent = selectedYearChaimae ? `Année ${selectedYearChaimae}` : 'Toutes';
         }
-        
+
         // Show loading
         if (loadingSpinner) loadingSpinner.style.display = 'flex';
         if (tableBody) tableBody.innerHTML = '';
         if (emptyState) emptyState.style.display = 'none';
-        
+
         // Get regular invoices from database
         const result = await window.electron.dbChaimae.getAllInvoices();
-        
+
         // Get global invoices from database
         const globalResult = await window.electron.dbChaimae.getAllGlobalInvoices();
-        
+
         console.log('🔍 [CHAIMAE] Raw database result:', result);
         if (result.success && result.data.length > 0) {
             console.log('🔍 [CHAIMAE] First invoice from DB:', result.data[0]);
             console.log('🔍 [CHAIMAE] First invoice keys:', Object.keys(result.data[0]));
         }
-        
+
         if (result.success) {
             const regularInvoices = result.data;
             const globalInvoices = globalResult.success ? globalResult.data : [];
-            
+
             // Add default display if not present
             const enrichedInvoices = regularInvoices.map(inv => ({
                 ...inv,
                 created_by_user_name: inv.created_by_user_name || '-',
                 updated_by_user_name: inv.updated_by_user_name || inv.created_by_user_name || '-'
             }));
-            
+
             console.log('🔍 [CHAIMAE] Enriched first invoice:', enrichedInvoices.length > 0 ? enrichedInvoices[0] : 'No invoices');
-            
+
             // Store only regular invoices in main array
             allInvoicesChaimae = enrichedInvoices;
-            
+
             // Display global invoices separately
             displayGlobalInvoicesChaimae(globalInvoices);
-            
+
             console.log('📊 Loaded invoices for Chaimae:', regularInvoices.length, '+ Global:', globalInvoices.length);
-            
+
             // Populate filters
             await populateFiltersChaimae();
-            
+
             // Apply year filter if selected
             if (selectedYearChaimae) {
                 filterInvoicesChaimae();
@@ -366,10 +366,10 @@ window.loadInvoicesChaimae = async function() {
                 filteredInvoicesChaimae = allInvoicesChaimae;
                 displayInvoicesChaimae(allInvoicesChaimae);
             }
-            
+
             // Hide loading
             if (loadingSpinner) loadingSpinner.style.display = 'none';
-            
+
             if (filteredInvoicesChaimae.length === 0) {
                 if (emptyState) emptyState.style.display = 'flex';
             }
@@ -379,7 +379,7 @@ window.loadInvoicesChaimae = async function() {
     } catch (error) {
         console.error('❌ Error loading invoices for Chaimae:', error);
         if (loadingSpinner) loadingSpinner.style.display = 'none';
-        
+
         window.notify.error(
             'Erreur de chargement',
             'Impossible de charger les documents: ' + error.message,
@@ -396,7 +396,7 @@ async function populateFiltersChaimae() {
     // Get available years from database
     try {
         const result = await window.electron.dbChaimae.getAvailableYears();
-        
+
         let availableYears = [];
         if (result.success && result.data.length > 0) {
             availableYears = result.data;
@@ -405,27 +405,27 @@ async function populateFiltersChaimae() {
             const invoiceYears = [...new Set(allInvoicesChaimae.map(inv => {
                 return inv.year || new Date(inv.document_date).getFullYear();
             }))];
-            
+
             // Add current year and previous 2 years if not present
             const currentYear = new Date().getFullYear();
             const defaultYears = [currentYear, currentYear - 1, currentYear - 2];
-            
+
             // Combine and remove duplicates
             availableYears = [...new Set([...invoiceYears, ...defaultYears])].sort((a, b) => b - a);
         }
-        
+
         // Render year cards
         renderYearCardsChaimae(availableYears);
-        
+
     } catch (error) {
         console.error('Error loading available years:', error);
     }
-    
+
     // Get unique clients
     const clients = [...new Set(allInvoicesChaimae.map(inv => inv.client_nom))].sort();
     const clientSelect = document.getElementById('filterClientChaimae');
     if (clientSelect) {
-        clientSelect.innerHTML = '<option value="">Tous</option>' + 
+        clientSelect.innerHTML = '<option value="">Tous</option>' +
             clients.map(client => `<option value="${client}">${client}</option>`).join('');
     }
 }
@@ -434,14 +434,14 @@ async function populateFiltersChaimae() {
 function renderYearCardsChaimae(years) {
     const container = document.getElementById('yearsCardsContainer');
     if (!container) return;
-    
+
     // Count invoices per year
     const yearCounts = {};
     allInvoicesChaimae.forEach(inv => {
         const year = inv.year || new Date(inv.document_date).getFullYear();
         yearCounts[year] = (yearCounts[year] || 0) + 1;
     });
-    
+
     // Add "All Years" card
     const allCount = allInvoicesChaimae.length;
     let cardsHTML = `
@@ -457,12 +457,12 @@ function renderYearCardsChaimae(years) {
             </div>
         </div>
     `;
-    
+
     // Add year cards
     years.forEach(year => {
         const count = yearCounts[year] || 0;
         const isSelected = selectedYearChaimae == year;
-        
+
         cardsHTML += `
             <div onclick="selectYearCardChaimae('${year}')" 
                  style="flex: 0 0 auto; min-width: 180px; padding: 1.5rem; background: ${isSelected ? 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)' : 'linear-gradient(135deg, #2d2d30 0%, #3e3e42 100%)'}; border: 2px solid ${isSelected ? '#667eea' : '#3e3e42'}; border-radius: 12px; cursor: pointer; transition: all 0.3s; box-shadow: ${isSelected ? '0 4px 12px rgba(102, 126, 234, 0.4)' : '0 2px 8px rgba(0,0,0,0.2)'};"
@@ -477,17 +477,17 @@ function renderYearCardsChaimae(years) {
             </div>
         `;
     });
-    
+
     container.innerHTML = cardsHTML;
 }
 
 // Select year card
-window.selectYearCardChaimae = function(year) {
+window.selectYearCardChaimae = function (year) {
     selectedYearChaimae = year;
-    
+
     // Re-render cards to update selection
     populateFiltersChaimae();
-    
+
     // Filter invoices by year
     filterInvoicesChaimae();
 }
@@ -497,21 +497,21 @@ function displayGlobalInvoicesChaimae(globalInvoices) {
     const section = document.getElementById('globalInvoicesSectionChaimae');
     const tbody = document.getElementById('globalInvoicesBodyChaimae');
     const count = document.getElementById('globalInvoicesCountChaimae');
-    
+
     if (!section || !tbody || !count) return;
-    
+
     if (globalInvoices.length === 0) {
         section.style.display = 'none';
         return;
     }
-    
+
     section.style.display = 'block';
     count.textContent = globalInvoices.length;
-    
+
     tbody.innerHTML = globalInvoices.map(invoice => {
         const date = new Date(invoice.document_date).toLocaleDateString('fr-FR');
         const totalTTC = formatNumberChaimae(invoice.total_ttc || 0);
-        
+
         return `
             <tr style="background: #2d2d30; border-top: 1px solid #3e3e42;">
                 <td style="text-align: center; padding: 0.75rem;"><strong style="color: #cccccc;">#${invoice.id}</strong></td>
@@ -553,10 +553,10 @@ function displayGlobalInvoicesChaimae(globalInvoices) {
 }
 
 // Toggle global invoices visibility
-window.toggleGlobalInvoicesChaimae = function() {
+window.toggleGlobalInvoicesChaimae = function () {
     const table = document.getElementById('globalInvoicesTableChaimae');
     const icon = document.getElementById('toggleGlobalIconChaimae');
-    
+
     if (table && icon) {
         if (table.style.display === 'none') {
             table.style.display = 'block';
@@ -569,30 +569,30 @@ window.toggleGlobalInvoicesChaimae = function() {
 }
 
 // Edit global invoice
-window.editGlobalInvoiceChaimae = function(id) {
+window.editGlobalInvoiceChaimae = function (id) {
     console.log('✏️✏️✏️ [EDIT BUTTON CLICKED!!!] Global Invoice ID:', id);
     console.log('📍📍📍 [LOCATION] editGlobalInvoiceChaimae function called');
     console.log('✅✅✅ [CONFIRMATION] تم الضغط على زر التعديل - الدالة تعمل!');
-    
+
     // Store the invoice ID in sessionStorage for the edit page
     sessionStorage.setItem('editGlobalInvoiceId', id);
-    
+
     console.log('🔄 [NAVIGATION] Navigating to edit page...');
     router.navigate('/edit-global-invoice-chaimae');
-    
+
     console.log('✅ [DONE] Edit button action completed');
 }
 
 // Delete global invoice
-window.deleteGlobalInvoiceChaimae = async function(id) {
+window.deleteGlobalInvoiceChaimae = async function (id) {
     const confirmed = await customConfirm('Confirmation', 'Êtes-vous sûr de vouloir supprimer cette facture globale ?', 'warning');
     if (!confirmed) {
         return;
     }
-    
+
     try {
         const result = await window.electron.dbChaimae.deleteGlobalInvoice(id);
-        
+
         if (result.success) {
             window.notify.success('Succès', 'Facture globale supprimée avec succès', 3000);
             loadInvoicesChaimae();
@@ -612,7 +612,7 @@ function displayInvoicesChaimae(invoices) {
     const resultsCounter = document.getElementById('resultsCounterChaimae');
     const resultCount = document.getElementById('resultCountChaimae');
     const pagination = document.getElementById('paginationChaimae');
-    
+
     if (invoices.length === 0) {
         if (tableBody) tableBody.innerHTML = '';
         if (emptyState) emptyState.style.display = 'flex';
@@ -620,31 +620,31 @@ function displayInvoicesChaimae(invoices) {
         if (pagination) pagination.style.display = 'none';
         return;
     }
-    
+
     if (emptyState) emptyState.style.display = 'none';
     if (resultsCounter) resultsCounter.style.display = 'block';
     if (resultCount) resultCount.textContent = invoices.length;
-    
+
     if (!tableBody) return;
-    
+
     // Use the globally selected year from card
     const selectedYear = selectedYearChaimae;
-    
+
     // Calculate pagination
     const totalItems = invoices.length;
     const itemsPerPage = itemsPerPageChaimae === 'all' ? totalItems : parseInt(itemsPerPageChaimae);
     const totalPages = itemsPerPageChaimae === 'all' ? 1 : Math.ceil(totalItems / itemsPerPage);
-    
+
     // Adjust current page if needed
     if (currentPageChaimae > totalPages) {
         currentPageChaimae = totalPages || 1;
     }
-    
+
     // Get items for current page
     const startIndex = (currentPageChaimae - 1) * itemsPerPage;
     const endIndex = itemsPerPageChaimae === 'all' ? totalItems : startIndex + itemsPerPage;
     const paginatedInvoices = invoices.slice(startIndex, endIndex);
-    
+
     tableBody.innerHTML = paginatedInvoices.map((invoice, index) => {
         // Calculate display ID: if year is selected, use sequential_id, otherwise use database id
         let displayId;
@@ -664,17 +664,17 @@ function displayInvoicesChaimae(invoices) {
             total_ttc: invoice.total_ttc,
             type: typeof invoice.total_ht
         });
-        
-        const typeLabel = invoice.document_type === 'facture' ? '📄 Facture' : 
-                         invoice.document_type === 'devis' ? '📋 Devis' : 
-                         invoice.document_type === 'facture_globale' ? '📦 Facture Globale' :
-                         '📦 Bon de livraison';
-        const typeBadge = invoice.document_type === 'facture' ? 'badge-facture' : 
-                         invoice.document_type === 'devis' ? 'badge-devis' : 
-                         invoice.document_type === 'facture_globale' ? 'badge-global' :
-                         'badge-bon';
+
+        const typeLabel = invoice.document_type === 'facture' ? '📄 Facture' :
+            invoice.document_type === 'devis' ? '📋 Devis' :
+                invoice.document_type === 'facture_globale' ? '📦 Facture Globale' :
+                    '📦 Bon de livraison';
+        const typeBadge = invoice.document_type === 'facture' ? 'badge-facture' :
+            invoice.document_type === 'devis' ? 'badge-devis' :
+                invoice.document_type === 'facture_globale' ? 'badge-global' :
+                    'badge-bon';
         const numero = invoice.document_numero || invoice.document_numero_devis || invoice.document_numero_bl || '-';
-        
+
         // Debug BL field
         if (invoice.document_type === 'bon_livraison') {
             console.log(`📦 [BL DEBUG] Invoice ${invoice.id}:`, {
@@ -685,23 +685,23 @@ function displayInvoicesChaimae(invoices) {
             });
         }
         const date = new Date(invoice.document_date).toLocaleDateString('fr-FR');
-        
+
         const totalHT = formatNumberChaimae(invoice.total_ht || 0);
         const tva = invoice.tva_rate || 20;
         const totalTTC = formatNumberChaimae(invoice.total_ttc || 0);
-        
+
         console.log('📊 Formatted values:', {
             totalHT,
             totalTTC
         });
-        
+
         console.log('👤 User info for invoice', invoice.id, ':', {
             created_by_user_name: invoice.created_by_user_name,
             created_by_user_id: invoice.created_by_user_id,
             created_by_user_email: invoice.created_by_user_email,
             all_keys: Object.keys(invoice)
         });
-        
+
         // Additional info
         let additionalInfo = '';
         if (invoice.document_type === 'facture') {
@@ -718,7 +718,7 @@ function displayInvoicesChaimae(invoices) {
         if (invoice.document_type === 'facture_globale' && invoice.bon_count) {
             additionalInfo += `<div style="font-size: 0.85rem; color: #9c27b0; margin-top: 0.25rem;">📦 ${invoice.bon_count} Bons de livraison</div>`;
         }
-        
+
         return `
             <tr style="background: #2d2d30; border-top: 1px solid #3e3e42; border-bottom: 1px solid #3e3e42;">
                 <td style="text-align: center; padding: 1rem 0.75rem; border-right: 1px solid #3e3e42;">
@@ -766,12 +766,12 @@ function displayInvoicesChaimae(invoices) {
             </tr>
         `;
     }).join('');
-    
+
     // Add event listeners to checkboxes
     document.querySelectorAll('.invoice-checkbox-chaimae').forEach(checkbox => {
         checkbox.addEventListener('change', updateSelectAllChaimae);
     });
-    
+
     // Update pagination controls
     updatePaginationControlsChaimae(totalPages);
 }
@@ -782,45 +782,45 @@ function updatePaginationControlsChaimae(totalPages) {
     const pageNumbers = document.getElementById('pageNumbersChaimae');
     const prevBtn = document.getElementById('prevPageChaimae');
     const nextBtn = document.getElementById('nextPageChaimae');
-    
+
     if (!pagination || !pageNumbers) return;
-    
+
     // Show/hide pagination
     if (totalPages <= 1 && itemsPerPageChaimae !== 'all') {
         pagination.style.display = 'none';
         return;
     }
-    
+
     if (itemsPerPageChaimae === 'all') {
         pagination.style.display = 'none';
         return;
     }
-    
+
     pagination.style.display = 'block';
-    
+
     // Update prev/next buttons
     if (prevBtn) {
         prevBtn.disabled = currentPageChaimae === 1;
         prevBtn.style.opacity = currentPageChaimae === 1 ? '0.5' : '1';
         prevBtn.style.cursor = currentPageChaimae === 1 ? 'not-allowed' : 'pointer';
     }
-    
+
     if (nextBtn) {
         nextBtn.disabled = currentPageChaimae === totalPages;
         nextBtn.style.opacity = currentPageChaimae === totalPages ? '0.5' : '1';
         nextBtn.style.cursor = currentPageChaimae === totalPages ? 'not-allowed' : 'pointer';
     }
-    
+
     // Generate page numbers
     let pagesHTML = '';
     const maxVisiblePages = 5;
     let startPage = Math.max(1, currentPageChaimae - Math.floor(maxVisiblePages / 2));
     let endPage = Math.min(totalPages, startPage + maxVisiblePages - 1);
-    
+
     if (endPage - startPage < maxVisiblePages - 1) {
         startPage = Math.max(1, endPage - maxVisiblePages + 1);
     }
-    
+
     // First page
     if (startPage > 1) {
         pagesHTML += `<button onclick="goToPageChaimae(1)" style="padding: 0.5rem 0.75rem; background: #3e3e42; color: #ffffff; border: none; border-radius: 4px; cursor: pointer;">1</button>`;
@@ -828,13 +828,13 @@ function updatePaginationControlsChaimae(totalPages) {
             pagesHTML += `<span style="color: #cccccc; padding: 0 0.5rem;">...</span>`;
         }
     }
-    
+
     // Page numbers
     for (let i = startPage; i <= endPage; i++) {
         const isActive = i === currentPageChaimae;
         pagesHTML += `<button onclick="goToPageChaimae(${i})" style="padding: 0.5rem 0.75rem; background: ${isActive ? '#2196f3' : '#3e3e42'}; color: #ffffff; border: none; border-radius: 4px; cursor: pointer; font-weight: ${isActive ? '600' : 'normal'};">${i}</button>`;
     }
-    
+
     // Last page
     if (endPage < totalPages) {
         if (endPage < totalPages - 1) {
@@ -842,12 +842,12 @@ function updatePaginationControlsChaimae(totalPages) {
         }
         pagesHTML += `<button onclick="goToPageChaimae(${totalPages})" style="padding: 0.5rem 0.75rem; background: #3e3e42; color: #ffffff; border: none; border-radius: 4px; cursor: pointer;">${totalPages}</button>`;
     }
-    
+
     pageNumbers.innerHTML = pagesHTML;
 }
 
 // Change items per page
-window.changeItemsPerPageChaimae = function() {
+window.changeItemsPerPageChaimae = function () {
     const select = document.getElementById('itemsPerPageChaimae');
     itemsPerPageChaimae = select.value;
     currentPageChaimae = 1;
@@ -855,13 +855,13 @@ window.changeItemsPerPageChaimae = function() {
 }
 
 // Go to specific page
-window.goToPageChaimae = function(page) {
+window.goToPageChaimae = function (page) {
     currentPageChaimae = page;
     displayInvoicesChaimae(filteredInvoicesChaimae);
 }
 
 // Change page (prev/next)
-window.changePaginationPageChaimae = function(direction) {
+window.changePaginationPageChaimae = function (direction) {
     if (direction === 'prev' && currentPageChaimae > 1) {
         currentPageChaimae--;
     } else if (direction === 'next') {
@@ -876,58 +876,60 @@ window.changePaginationPageChaimae = function(direction) {
 }
 
 // Filter invoices
-window.filterInvoicesChaimae = function() {
+window.filterInvoicesChaimae = function () {
     const typeFilter = document.getElementById('filterTypeChaimae')?.value || '';
     const monthFilter = document.getElementById('filterMonthChaimae')?.value || '';
     const clientFilter = document.getElementById('filterClientChaimae')?.value || '';
     const searchType = document.getElementById('searchTypeChaimae')?.value || 'all';
     const searchText = document.getElementById('searchInputChaimae')?.value.toLowerCase() || '';
-    
+
     const filtered = allInvoicesChaimae.filter(invoice => {
         // Type filter
         if (typeFilter && invoice.document_type !== typeFilter) return false;
-        
+
         // Year filter (from card selection)
         if (selectedYearChaimae) {
             const invoiceYear = invoice.year || new Date(invoice.document_date).getFullYear();
             if (invoiceYear.toString() !== selectedYearChaimae) return false;
         }
-        
+
         // Month filter
         if (monthFilter) {
             const invoiceMonth = String(new Date(invoice.document_date).getMonth() + 1).padStart(2, '0');
             if (invoiceMonth !== monthFilter) return false;
         }
-        
+
         // Client filter
         if (clientFilter && invoice.client_nom !== clientFilter) return false;
-        
+
         // Search filter
         if (searchText) {
             const numero = (invoice.document_numero || invoice.document_numero_devis || '').toLowerCase();
+            const numeroBL = (invoice.document_numero_bl || '').toLowerCase();
             const order = (invoice.document_numero_Order || '').toLowerCase();
             const bonLivraison = (invoice.document_bon_de_livraison || '').toLowerCase();
             const bonCommande = (invoice.document_numero_commande || '').toLowerCase();
             const client = invoice.client_nom.toLowerCase();
             const ice = (invoice.client_ice || '').toLowerCase();
             const totalTTC = (invoice.total_ttc || 0).toString();
-            
+
             // Search in products
-            const productsText = invoice.products ? 
+            const productsText = invoice.products ?
                 invoice.products.map(p => (p.designation || '').toLowerCase()).join(' ') : '';
-            const pricesText = invoice.products ? 
+            const pricesText = invoice.products ?
                 invoice.products.map(p => (p.prix_unitaire_ht || 0).toString()).join(' ') : '';
-            
+
             switch (searchType) {
                 case 'numero':
-                    if (!numero.includes(searchText)) return false;
+                    if (!numero.includes(searchText) && !numeroBL.includes(searchText)) return false;
                     break;
                 case 'order':
                     // Search in both Facture (document_numero_Order) and Bon de livraison (document_numero_commande)
                     if (!order.includes(searchText) && !bonCommande.includes(searchText)) return false;
                     break;
                 case 'bon_livraison':
-                    if (!bonLivraison.includes(searchText)) return false;
+                    // Search in both document_bon_de_livraison (for Facture) and document_numero_bl (for Bon de livraison type)
+                    if (!bonLivraison.includes(searchText) && !numeroBL.includes(searchText)) return false;
                     break;
                 case 'bon_commande':
                     if (!bonCommande.includes(searchText)) return false;
@@ -948,7 +950,7 @@ window.filterInvoicesChaimae = function() {
                     // Search from the beginning of the number
                     const searchNumberHT = searchText.trim();
                     const totalHTStr = (invoice.total_ht || 0).toString();
-                    
+
                     // Check if total HT starts with the search number
                     if (!totalHTStr.startsWith(searchNumberHT)) return false;
                     break;
@@ -956,19 +958,20 @@ window.filterInvoicesChaimae = function() {
                     // Search from the beginning of the number
                     const searchNumber = searchText.trim();
                     const totalStr = (invoice.total_ttc || 0).toString();
-                    
+
                     // Check if total starts with the search number
                     if (!totalStr.startsWith(searchNumber)) return false;
                     break;
                 default:
                     // Search in ALL fields when "Tout" is selected
                     const totalHT = (invoice.total_ht || 0).toString();
-                    
-                    if (!numero.includes(searchText) && 
+
+                    if (!numero.includes(searchText) &&
+                        !numeroBL.includes(searchText) &&
                         !order.includes(searchText) &&
                         !bonLivraison.includes(searchText) &&
                         !bonCommande.includes(searchText) &&
-                        !client.includes(searchText) && 
+                        !client.includes(searchText) &&
                         !ice.includes(searchText) &&
                         !productsText.includes(searchText) &&
                         !pricesText.includes(searchText) &&
@@ -978,24 +981,24 @@ window.filterInvoicesChaimae = function() {
                     }
             }
         }
-        
+
         return true;
     });
-    
+
     filteredInvoicesChaimae = filtered;
     currentPageChaimae = 1; // Reset to first page when filtering
     displayInvoicesChaimae(filtered);
 }
 
 // Reset filters
-window.resetFiltersChaimae = function() {
+window.resetFiltersChaimae = function () {
     document.getElementById('filterTypeChaimae').value = '';
     document.getElementById('filterYearChaimae').value = '';
     document.getElementById('filterMonthChaimae').value = '';
     document.getElementById('filterClientChaimae').value = '';
     document.getElementById('searchTypeChaimae').value = 'all';
     document.getElementById('searchInputChaimae').value = '';
-    
+
     filteredInvoicesChaimae = allInvoicesChaimae;
     displayInvoicesChaimae(allInvoicesChaimae);
 }
@@ -1004,7 +1007,7 @@ window.resetFiltersChaimae = function() {
 let currentSortColumnChaimae = null;
 let currentSortDirectionChaimae = 'asc';
 
-window.sortTableChaimae = function(column) {
+window.sortTableChaimae = function (column) {
     // Toggle sort direction if clicking same column
     if (currentSortColumnChaimae === column) {
         currentSortDirectionChaimae = currentSortDirectionChaimae === 'asc' ? 'desc' : 'asc';
@@ -1012,7 +1015,7 @@ window.sortTableChaimae = function(column) {
         currentSortColumnChaimae = column;
         currentSortDirectionChaimae = 'asc';
     }
-    
+
     // Update sort icons
     ['numero', 'date', 'total_ht', 'total_ttc'].forEach(col => {
         const icon = document.getElementById(`sortIcon${col.charAt(0).toUpperCase() + col.slice(1).replace('_', '')}Chaimae`);
@@ -1026,11 +1029,11 @@ window.sortTableChaimae = function(column) {
             }
         }
     });
-    
+
     // Sort the filtered invoices
     const sorted = [...filteredInvoicesChaimae].sort((a, b) => {
         let valueA, valueB;
-        
+
         switch (column) {
             case 'numero':
                 // Extract numeric part from document number
@@ -1042,38 +1045,38 @@ window.sortTableChaimae = function(column) {
                 valueA = getNumero(a);
                 valueB = getNumero(b);
                 break;
-                
+
             case 'date':
                 valueA = new Date(a.document_date || 0).getTime();
                 valueB = new Date(b.document_date || 0).getTime();
                 break;
-                
+
             case 'total_ht':
                 valueA = parseFloat(a.total_ht || 0);
                 valueB = parseFloat(b.total_ht || 0);
                 break;
-                
+
             case 'total_ttc':
                 valueA = parseFloat(a.total_ttc || 0);
                 valueB = parseFloat(b.total_ttc || 0);
                 break;
-                
+
             default:
                 return 0;
         }
-        
+
         if (currentSortDirectionChaimae === 'asc') {
             return valueA - valueB;
         } else {
             return valueB - valueA;
         }
     });
-    
+
     // Update filtered invoices and display
     filteredInvoicesChaimae = sorted;
     currentPageChaimae = 1; // Reset to first page
     displayInvoicesChaimae(sorted);
-    
+
     console.log(`📊 [CHAIMAE] Sorted by ${column} (${currentSortDirectionChaimae})`);
 };
 
@@ -1082,24 +1085,24 @@ function updateSelectAllChaimae() {
     const selectAll = document.getElementById('selectAllChaimae');
     const checkboxes = document.querySelectorAll('.invoice-checkbox-chaimae');
     const checkedBoxes = document.querySelectorAll('.invoice-checkbox-chaimae:checked');
-    
+
     if (selectAll && checkboxes.length > 0) {
         selectAll.checked = checkboxes.length === checkedBoxes.length;
         selectAll.indeterminate = checkedBoxes.length > 0 && checkedBoxes.length < checkboxes.length;
     }
-    
+
     updateSelectedCountChaimae();
 }
 
 // Select all invoices
-window.selectAllInvoicesChaimae = function() {
+window.selectAllInvoicesChaimae = function () {
     const selectAll = document.getElementById('selectAllChaimae');
     const checkboxes = document.querySelectorAll('.invoice-checkbox-chaimae');
-    
+
     checkboxes.forEach(cb => {
         cb.checked = selectAll.checked;
     });
-    
+
     updateSelectedCountChaimae();
 }
 
@@ -1107,30 +1110,30 @@ window.selectAllInvoicesChaimae = function() {
 function updateSelectedCountChaimae() {
     const checkedBoxes = document.querySelectorAll('.invoice-checkbox-chaimae:checked');
     const count = checkedBoxes.length;
-    
+
     // Check if all selected are Bon de livraison from same client
     let allBonsFromSameClient = false;
     let selectedClient = null;
     let bonCount = 0;
-    
+
     if (count > 0) {
         const selectedIds = Array.from(checkedBoxes).map(cb => parseInt(cb.dataset.invoiceId));
         const selectedInvoices = filteredInvoicesChaimae.filter(inv => selectedIds.includes(inv.id));
-        
+
         // Check if all are bon_livraison
         const allAreBons = selectedInvoices.every(inv => inv.document_type === 'bon_livraison');
-        
+
         if (allAreBons && selectedInvoices.length > 0) {
             selectedClient = selectedInvoices[0].client_nom;
             allBonsFromSameClient = selectedInvoices.every(inv => inv.client_nom === selectedClient);
             bonCount = selectedInvoices.length;
         }
     }
-    
+
     // Update button text with count
     const deleteBtn = document.getElementById('bulkDeleteTextChaimae');
     const downloadBtn = document.getElementById('bulkDownloadTextChaimae');
-    
+
     if (deleteBtn) {
         deleteBtn.textContent = count > 0 ? `Supprimer (${count})` : 'Supprimer';
     }
@@ -1140,35 +1143,35 @@ function updateSelectedCountChaimae() {
 }
 
 // View invoice
-window.viewInvoiceChaimae = async function(id, documentType) {
+window.viewInvoiceChaimae = async function (id, documentType) {
     try {
         // Check if this is a global invoice
         if (documentType === 'facture_globale') {
             viewGlobalInvoiceChaimae(id);
             return;
         }
-        
+
         const result = await window.electron.dbChaimae.getInvoiceById(id);
-        
+
         if (!result.success || !result.data) {
             window.notify.error('Erreur', 'Document introuvable', 3000);
             return;
         }
-        
+
         const invoice = result.data;
         const date = new Date(invoice.document_date).toLocaleDateString('fr-FR');
-        const typeLabel = invoice.document_type === 'facture' ? 'Facture' : 
-                         invoice.document_type === 'devis' ? 'Devis' : 
-                         'Bon de livraison';
+        const typeLabel = invoice.document_type === 'facture' ? 'Facture' :
+            invoice.document_type === 'devis' ? 'Devis' :
+                'Bon de livraison';
         const docNumber = invoice.document_numero || invoice.document_numero_devis || invoice.document_numero_bl || '-';
-        
+
         const overlay = document.createElement('div');
         overlay.className = 'invoice-view-overlay';
         overlay.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.85);z-index:9999;display:flex;align-items:center;justify-content:center;padding:2rem;';
-        
+
         const modal = document.createElement('div');
         modal.style.cssText = 'background:#2d2d30;border-radius:16px;max-width:900px;width:100%;max-height:90vh;overflow-y:auto;box-shadow:0 25px 50px rgba(0,0,0,0.5);';
-        
+
         modal.innerHTML = `
             <div style="background:#1e1e1e;padding:1.5rem 2rem;border-radius:16px 16px 0 0;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid #3e3e42;">
                 <div style="display:flex;align-items:center;gap:1rem;">
@@ -1349,15 +1352,15 @@ window.viewInvoiceChaimae = async function(id, documentType) {
                 </div>
             </div>
         `;
-        
+
         overlay.appendChild(modal);
         document.body.appendChild(overlay);
-        
+
         document.getElementById('closeViewModal').onclick = () => overlay.remove();
         overlay.onclick = (e) => {
             if (e.target === overlay) overlay.remove();
         };
-        
+
         // Load notes asynchronously
         console.log('📝 [NOTES VIEW] Loading notes for invoice:', id);
         const noteResult = await window.electron.dbChaimae.getNote(id);
@@ -1376,7 +1379,7 @@ window.viewInvoiceChaimae = async function(id, documentType) {
                 notesContent.textContent = 'Aucune note';
             }
         }
-        
+
         // Load audit log asynchronously
         console.log('📋 [AUDIT LOG] Loading audit log for invoice:', id);
         const auditLogSection = document.getElementById(`auditLogSection${id}`);
@@ -1389,16 +1392,16 @@ window.viewInvoiceChaimae = async function(id, documentType) {
                     console.log('📋 [AUDIT LOG] Available functions:', Object.keys(window.electron.dbChaimae));
                     throw new Error('getAuditLog function not available');
                 }
-                
+
                 const auditResult = await window.electron.dbChaimae.getAuditLog(id);
                 console.log('📥 [AUDIT LOG] Audit log result:', auditResult);
-                
+
                 if (auditResult.success && auditResult.data && auditResult.data.length > 0) {
                     const logs = auditResult.data;
                     console.log('✅ [AUDIT LOG] Displaying audit logs:', logs);
-                    
+
                     let auditHTML = '<div style="max-height: 400px; overflow-y: auto;">';
-                    
+
                     // Add creation info first
                     if (invoice.created_by_user_name) {
                         const createdDate = new Date(invoice.created_at).toLocaleDateString('fr-FR');
@@ -1415,7 +1418,7 @@ window.viewInvoiceChaimae = async function(id, documentType) {
                             </div>
                         `;
                     }
-                    
+
                     // Add modification logs
                     logs.forEach(log => {
                         const logDate = new Date(log.created_at).toLocaleDateString('fr-FR');
@@ -1432,7 +1435,7 @@ window.viewInvoiceChaimae = async function(id, documentType) {
                             </div>
                         `;
                     });
-                    
+
                     auditHTML += '</div>';
                     auditLogContent.innerHTML = auditHTML;
                     auditLogContent.style.color = '#fff';
@@ -1458,7 +1461,7 @@ window.viewInvoiceChaimae = async function(id, documentType) {
                 auditLogContent.innerHTML = '<div style="color:#f44336;">Erreur lors du chargement de l\'historique</div>';
             }
         }
-        
+
     } catch (error) {
         console.error('Error viewing invoice:', error);
         window.notify.error('Erreur', 'Impossible de charger les détails', 3000);
@@ -1466,27 +1469,27 @@ window.viewInvoiceChaimae = async function(id, documentType) {
 }
 
 // Edit invoice
-window.editInvoiceChaimae = function(id) {
+window.editInvoiceChaimae = function (id) {
     console.log('✏️ [EDIT] Opening edit page for invoice ID:', id);
     localStorage.setItem('editInvoiceIdChaimae', id);
     router.navigate('/edit-invoice-chaimae');
 }
 
 // Handle arrow key navigation in edit modal products (Global)
-window.handleArrowNavigationEditChaimae = function(event, currentCellIndex) {
+window.handleArrowNavigationEditChaimae = function (event, currentCellIndex) {
     // Only handle arrow keys
     if (!['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(event.key)) {
         return;
     }
-    
+
     const currentRow = event.target.closest('.edit-product-row');
     const container = document.getElementById('editProductsListChaimae');
     const allRows = Array.from(container.querySelectorAll('.edit-product-row'));
     const currentRowIndex = allRows.indexOf(currentRow);
-    
+
     let targetRow = null;
     let targetCellIndex = currentCellIndex;
-    
+
     // Handle arrow keys
     if (event.key === 'ArrowUp') {
         // Move to row above
@@ -1525,7 +1528,7 @@ window.handleArrowNavigationEditChaimae = function(event, currentCellIndex) {
             event.preventDefault();
         }
     }
-    
+
     // Focus the target cell
     if (targetRow) {
         focusCellEditChaimae(targetRow, targetCellIndex);
@@ -1548,12 +1551,12 @@ function focusCellEditChaimae(row, cellIndex) {
 }
 
 // Add product row in edit modal
-window.addEditProductRowChaimae = function() {
+window.addEditProductRowChaimae = function () {
     const container = document.getElementById('editProductsListChaimae');
     // Remove "no products" message if exists
     const noProductsMsg = container.querySelector('p');
     if (noProductsMsg) noProductsMsg.remove();
-    
+
     const row = document.createElement('div');
     row.className = 'edit-product-row';
     row.innerHTML = `
@@ -1573,20 +1576,20 @@ window.addEditProductRowChaimae = function() {
 // Bon de livraison field - No auto-formatting (user enters value as-is)
 
 // Recalculate totals in edit modal
-window.recalculateEditTotalsChaimae = function() {
+window.recalculateEditTotalsChaimae = function () {
     const rows = document.querySelectorAll('#editProductsListChaimae .edit-product-row');
     let totalHT = 0;
-    
+
     rows.forEach(row => {
         const qty = parseFloat(row.querySelector('input[type="text"]').value) || 1;
         const price = parseFloat(row.querySelector('input[type="number"]').value) || 0;
         totalHT += qty * price;
     });
-    
+
     const tvaRate = parseFloat(document.getElementById('editTvaRateChaimae').value) || 0;
     const montantTVA = totalHT * (tvaRate / 100);
     const totalTTC = totalHT + montantTVA;
-    
+
     // Use simple format without spaces in edit modal
     document.getElementById('editTotalHTChaimae').textContent = totalHT.toFixed(2) + ' DH';
     document.getElementById('editMontantTVAChaimae').textContent = montantTVA.toFixed(2) + ' DH';
@@ -1594,10 +1597,10 @@ window.recalculateEditTotalsChaimae = function() {
 }
 
 // Toggle edit prefix dropdown
-window.toggleEditPrefixDropdownChaimae = async function() {
+window.toggleEditPrefixDropdownChaimae = async function () {
     const dropdown = document.getElementById('editPrefixDropdownChaimae');
     if (!dropdown) return;
-    
+
     if (dropdown.style.display === 'none') {
         // Load prefixes from DB if not loaded
         if (!window.prefixesLoaded) {
@@ -1611,12 +1614,12 @@ window.toggleEditPrefixDropdownChaimae = async function() {
 };
 
 // Render edit prefix list
-window.renderEditPrefixListChaimae = function() {
+window.renderEditPrefixListChaimae = function () {
     const listContainer = document.getElementById('editPrefixListChaimae');
     if (!listContainer) return;
-    
+
     const currentPrefix = document.getElementById('editPrefixInputChaimae').value;
-    
+
     listContainer.innerHTML = window.bonLivraisonPrefixes.map(prefix => `
         <div onclick="selectEditPrefixChaimae('${prefix}')" 
              style="padding: 0.75rem 1rem; margin: 0.25rem 0; background: ${prefix === currentPrefix ? 'rgba(102, 126, 234, 0.3)' : 'rgba(255,255,255,0.05)'}; border: 2px solid ${prefix === currentPrefix ? '#667eea' : 'transparent'}; border-radius: 8px; cursor: pointer; transition: all 0.3s; display: flex; justify-content: space-between; align-items: center;"
@@ -1639,9 +1642,9 @@ window.renderEditPrefixListChaimae = function() {
 };
 
 // Select edit prefix
-window.selectEditPrefixChaimae = function(prefix) {
+window.selectEditPrefixChaimae = function (prefix) {
     console.log('🔵 [EDIT PREFIX SELECT] Selecting prefix:', prefix);
-    
+
     const prefixInput = document.getElementById('editPrefixInputChaimae');
     if (prefixInput) {
         console.log('🔴 [EDIT PREFIX SELECT] Current value before update:', prefixInput.value);
@@ -1651,41 +1654,41 @@ window.selectEditPrefixChaimae = function(prefix) {
     } else {
         console.log('❌ [EDIT PREFIX SELECT] editPrefixInputChaimae not found');
     }
-    
+
     const dropdown = document.getElementById('editPrefixDropdownChaimae');
     if (dropdown) {
         dropdown.style.display = 'none';
         console.log('✅ [EDIT PREFIX SELECT] Closed dropdown');
     }
-    
+
     console.log('✅ [CHAIMAE EDIT] Prefix selected:', prefix);
 };
 
 // Add new prefix in edit
-window.addEditPrefixChaimae = async function() {
+window.addEditPrefixChaimae = async function () {
     const newPrefixInput = document.getElementById('editNewPrefixInputChaimae');
     if (!newPrefixInput) return;
-    
+
     const newPrefix = newPrefixInput.value.trim().toUpperCase();
-    
+
     if (!newPrefix) {
         window.notify.warning('Attention', 'Veuillez saisir un prefix', 2000);
         return;
     }
-    
+
     if (window.bonLivraisonPrefixes.includes(newPrefix)) {
         window.notify.warning('Attention', 'Ce prefix existe déjà', 2000);
         return;
     }
-    
+
     // Add to database
     const result = await window.electron.dbChaimae.addPrefix(newPrefix);
-    
+
     if (result.success) {
         window.bonLivraisonPrefixes.push(newPrefix);
         window.bonLivraisonPrefixes.sort();
         newPrefixInput.value = '';
-        
+
         renderEditPrefixListChaimae();
         window.notify.success('Succès', `Prefix "${newPrefix}" ajouté`, 2000);
     } else {
@@ -1694,24 +1697,24 @@ window.addEditPrefixChaimae = async function() {
 };
 
 // Delete prefix in edit
-window.deleteEditPrefixChaimae = async function(prefix) {
+window.deleteEditPrefixChaimae = async function (prefix) {
     if (window.bonLivraisonPrefixes.length <= 1) {
         window.notify.warning('Attention', 'Vous devez garder au moins un prefix', 2000);
         return;
     }
-    
+
     // Delete from database
     const result = await window.electron.dbChaimae.deletePrefix(prefix);
-    
+
     if (result.success) {
         window.bonLivraisonPrefixes = window.bonLivraisonPrefixes.filter(p => p !== prefix);
-        
+
         // If deleted prefix was selected, select first available
         const currentPrefix = document.getElementById('editPrefixInputChaimae').value;
         if (currentPrefix === prefix) {
             document.getElementById('editPrefixInputChaimae').value = window.bonLivraisonPrefixes[0];
         }
-        
+
         renderEditPrefixListChaimae();
         window.notify.success('Succès', `Prefix "${prefix}" supprimé`, 2000);
     } else {
@@ -1722,7 +1725,7 @@ window.deleteEditPrefixChaimae = async function(prefix) {
 // Load prefixes from database (shared function)
 async function loadPrefixesFromDB() {
     if (window.prefixesLoaded) return;
-    
+
     try {
         const result = await window.electron.dbChaimae.getAllPrefixes();
         if (result.success && result.data.length > 0) {
@@ -1745,10 +1748,10 @@ async function loadPrefixesFromDB() {
 // ==================== EDIT ORDER PREFIX FUNCTIONS ====================
 
 // Toggle edit order prefix dropdown
-window.toggleEditOrderPrefixDropdownChaimae = async function() {
+window.toggleEditOrderPrefixDropdownChaimae = async function () {
     const dropdown = document.getElementById('editOrderPrefixDropdownChaimae');
     if (!dropdown) return;
-    
+
     if (dropdown.style.display === 'none') {
         await loadEditOrderPrefixesFromDB();
         renderEditOrderPrefixListChaimae();
@@ -1762,11 +1765,11 @@ window.toggleEditOrderPrefixDropdownChaimae = async function() {
 function renderEditOrderPrefixListChaimae() {
     const listContainer = document.getElementById('editOrderPrefixListChaimae');
     if (!listContainer) return;
-    
+
     if (!window.orderPrefixes || window.orderPrefixes.length === 0) {
         window.orderPrefixes = ['BC', 'CMD', 'ORD'];
     }
-    
+
     listContainer.innerHTML = window.orderPrefixes.map(prefix => `
         <div onclick="selectEditOrderPrefixChaimae('${prefix}')" 
              style="margin: 0.35rem; padding: 0.75rem 1rem; cursor: pointer; border-radius: 8px; transition: all 0.3s; color: #fff; display: flex; justify-content: space-between; align-items: center; background: ${prefix === window.selectedOrderPrefix ? 'linear-gradient(90deg, #2196f3 0%, #1976d2 100%)' : 'rgba(255,255,255,0.05)'}; border: 2px solid ${prefix === window.selectedOrderPrefix ? '#2196f3' : 'transparent'};"
@@ -1789,45 +1792,45 @@ function renderEditOrderPrefixListChaimae() {
 }
 
 // Select edit order prefix
-window.selectEditOrderPrefixChaimae = function(prefix) {
+window.selectEditOrderPrefixChaimae = function (prefix) {
     window.selectedOrderPrefix = prefix;
-    
+
     const prefixInput = document.getElementById('editOrderPrefixInputChaimae');
     const prefixExample = document.getElementById('editOrderPrefixExampleChaimae');
-    
+
     if (prefixInput) prefixInput.value = prefix;
     if (prefixExample) prefixExample.textContent = prefix;
-    
+
     const dropdown = document.getElementById('editOrderPrefixDropdownChaimae');
     if (dropdown) dropdown.style.display = 'none';
-    
+
     renderEditOrderPrefixListChaimae();
 };
 
 // Add new edit order prefix
-window.addEditNewOrderPrefixChaimae = async function() {
+window.addEditNewOrderPrefixChaimae = async function () {
     const newPrefixInput = document.getElementById('editNewOrderPrefixInputChaimae');
     if (!newPrefixInput) return;
-    
+
     const newPrefix = newPrefixInput.value.trim().toUpperCase();
-    
+
     if (!newPrefix) {
         window.notify.warning('Attention', 'Veuillez saisir un prefix', 2000);
         return;
     }
-    
+
     if (window.orderPrefixes.includes(newPrefix)) {
         window.notify.warning('Attention', 'Ce prefix existe déjà', 2000);
         return;
     }
-    
+
     const result = await window.electron.dbChaimae.addOrderPrefix(newPrefix);
-    
+
     if (result.success) {
         window.orderPrefixes.push(newPrefix);
         window.orderPrefixes.sort();
         newPrefixInput.value = '';
-        
+
         renderEditOrderPrefixListChaimae();
         window.notify.success('Succès', `Prefix "${newPrefix}" ajouté`, 2000);
     } else {
@@ -1836,19 +1839,19 @@ window.addEditNewOrderPrefixChaimae = async function() {
 };
 
 // Delete edit order prefix
-window.deleteEditOrderPrefixChaimae = async function(prefix) {
+window.deleteEditOrderPrefixChaimae = async function (prefix) {
     if (window.orderPrefixes.length <= 1) {
         window.notify.warning('Attention', 'Vous devez garder au moins un prefix', 2000);
         return;
     }
-    
+
     const result = await window.electron.dbChaimae.deleteOrderPrefix(prefix);
-    
+
     if (result.success) {
         const index = window.orderPrefixes.indexOf(prefix);
         if (index > -1) {
             window.orderPrefixes.splice(index, 1);
-            
+
             if (window.selectedOrderPrefix === prefix) {
                 window.selectedOrderPrefix = window.orderPrefixes[0];
                 const prefixInput = document.getElementById('editOrderPrefixInputChaimae');
@@ -1856,7 +1859,7 @@ window.deleteEditOrderPrefixChaimae = async function(prefix) {
                 if (prefixInput) prefixInput.value = window.selectedOrderPrefix;
                 if (prefixExample) prefixExample.textContent = window.selectedOrderPrefix;
             }
-            
+
             renderEditOrderPrefixListChaimae();
             window.notify.success('Succès', `Prefix "${prefix}" supprimé`, 2000);
         }
@@ -1899,25 +1902,25 @@ function formatNumberChaimaeOld(num) {
 // Handle edit form submit
 async function handleEditSubmitChaimae(e, invoiceId, documentType) {
     e.preventDefault();
-    
+
     try {
         // Get prefix and numero
         // For Bon de livraison: combine prefix + numero
         // For Facture/Devis: use numero directly (no prefix)
         const prefixInput = document.getElementById('editPrefixInputChaimae');
         const numeroInput = document.getElementById('editNumeroChaimae');
-        
+
         let fullNumero;
         if (prefixInput && prefixInput.offsetParent !== null) {
             // Prefix input is visible (Bon de livraison)
             const prefix = prefixInput.value || '';
             const numero = numeroInput?.value || '';
-            
+
             // 🔍 DEBUG: Log what we're getting
             console.log('🔴 [DEBUG] PREFIX VALUE:', prefix);
             console.log('🔴 [DEBUG] NUMERO VALUE:', numero);
             console.log('🔴 [DEBUG] PREFIX length:', prefix.length, 'NUMERO starts with PREFIX?', numero.startsWith(prefix));
-            
+
             // ✅ FIX: Check if numero already contains the prefix
             // Only add prefix if numero doesn't start with it
             if (numero && prefix && numero.startsWith(prefix)) {
@@ -1931,23 +1934,23 @@ async function handleEditSubmitChaimae(e, invoiceId, documentType) {
             // Prefix input is hidden (Facture/Devis)
             fullNumero = numeroInput?.value || '';
         }
-        
+
         console.log('📝 [CHAIMAE EDIT] Final Full numero:', fullNumero);
-        
+
         // Collect products data
         const products = [];
         document.querySelectorAll('#editProductsListChaimae .edit-product-row').forEach(row => {
             const designation = row.querySelector('textarea').value;
             const quantiteOriginal = row.querySelector('input[type="text"]').value;
             const prix = parseFloat(row.querySelector('input[type="number"]').value) || 0;
-            
+
             if (designation || quantiteOriginal || prix) {
                 // For calculation: convert F to 1
                 let quantiteForCalc = quantiteOriginal;
                 if (quantiteForCalc.toUpperCase() === 'F') {
                     quantiteForCalc = '1';
                 }
-                
+
                 const qty = parseFloat(quantiteForCalc) || 1;
                 products.push({
                     designation,
@@ -1957,7 +1960,7 @@ async function handleEditSubmitChaimae(e, invoiceId, documentType) {
                 });
             }
         });
-        
+
         const updateData = {
             client: {
                 nom: document.getElementById('editClientNomChaimae').value,
@@ -1974,7 +1977,7 @@ async function handleEditSubmitChaimae(e, invoiceId, documentType) {
                     const orderValue = document.getElementById('editBonCommandeChaimae')?.value?.trim();
                     if (orderValue && documentType === 'bon_livraison') {
                         const selectedOrderPrefix = window.selectedOrderPrefix || 'BC';
-                        
+
                         // Remove any existing prefix from all known prefixes
                         let cleanValue = orderValue;
                         if (window.orderPrefixes && window.orderPrefixes.length > 0) {
@@ -1985,7 +1988,7 @@ async function handleEditSubmitChaimae(e, invoiceId, documentType) {
                                 }
                             }
                         }
-                        
+
                         // Add the selected prefix
                         return `${selectedOrderPrefix}${cleanValue}`;
                     }
@@ -2000,7 +2003,7 @@ async function handleEditSubmitChaimae(e, invoiceId, documentType) {
                 total_ttc: parseFloat(document.getElementById('editTotalTTCChaimae').textContent.replace(' DH', ''))
             }
         };
-        
+
         // Check for duplicate document numero in regular invoices
         const allInvoicesResult = await window.electron.dbChaimae.getAllInvoices('CHAIMAE');
         if (allInvoicesResult.success) {
@@ -2011,24 +2014,24 @@ async function handleEditSubmitChaimae(e, invoiceId, documentType) {
                     console.log('✅ [EDIT] Skipping current invoice:', invoiceId);
                     return false;
                 }
-                
+
                 if (documentType === 'facture') {
                     return inv.document_type === 'facture' && inv.document_numero === fullNumero;
                 } else if (documentType === 'devis') {
                     return inv.document_type === 'devis' && inv.document_numero_devis === fullNumero;
                 } else if (documentType === 'bon_livraison') {
-                    return (inv.document_type === 'bon_livraison' || inv.document_type === 'bon de livraison') && 
-                           (inv.document_numero === fullNumero || 
-                            inv.document_numero_bl === fullNumero || 
+                    return (inv.document_type === 'bon_livraison' || inv.document_type === 'bon de livraison') &&
+                        (inv.document_numero === fullNumero ||
+                            inv.document_numero_bl === fullNumero ||
                             inv.document_bon_de_livraison === fullNumero);
                 }
                 return false;
             });
-            
+
             if (duplicateNumero) {
-                const docTypeLabel = documentType === 'facture' ? 'Facture' : 
-                                   documentType === 'devis' ? 'Devis' : 
-                                   'Bon de livraison';
+                const docTypeLabel = documentType === 'facture' ? 'Facture' :
+                    documentType === 'devis' ? 'Devis' :
+                        'Bon de livraison';
                 console.error('❌ [EDIT] Duplicate found:', duplicateNumero.id, 'Number:', fullNumero);
                 window.notify.error(
                     'Numéro déjà utilisé',
@@ -2038,15 +2041,15 @@ async function handleEditSubmitChaimae(e, invoiceId, documentType) {
                 return;
             }
         }
-        
+
         // Check for duplicate in global invoices (for facture only)
         if (documentType === 'facture' && fullNumero) {
             const allGlobalInvoicesResult = await window.electron.dbChaimae.getAllGlobalInvoices();
             if (allGlobalInvoicesResult.success) {
-                const duplicateGlobal = allGlobalInvoicesResult.data.find(inv => 
+                const duplicateGlobal = allGlobalInvoicesResult.data.find(inv =>
                     inv.document_numero === fullNumero
                 );
-                
+
                 if (duplicateGlobal) {
                     window.notify.error(
                         'Numéro déjà utilisé',
@@ -2057,18 +2060,18 @@ async function handleEditSubmitChaimae(e, invoiceId, documentType) {
                 }
             }
         }
-        
+
         if (allInvoicesResult.success) {
-            
+
             // Check for duplicate N° Order if provided (for FACTURE only)
             if (documentType === 'facture' && updateData.document.numero_Order) {
-                const duplicateOrder = allInvoicesResult.data.find(inv => 
-                    inv.id !== invoiceId && 
+                const duplicateOrder = allInvoicesResult.data.find(inv =>
+                    inv.id !== invoiceId &&
                     inv.document_type === 'facture' &&
-                    inv.document_numero_Order && 
+                    inv.document_numero_Order &&
                     inv.document_numero_Order.trim() === updateData.document.numero_Order.trim()
                 );
-                
+
                 if (duplicateOrder) {
                     window.notify.error(
                         'Numéro de commande déjà utilisé',
@@ -2078,16 +2081,16 @@ async function handleEditSubmitChaimae(e, invoiceId, documentType) {
                     return;
                 }
             }
-            
+
             // Check for duplicate Bon de livraison if provided (for FACTURE only)
             if (documentType === 'facture' && updateData.document.bon_de_livraison) {
-                const duplicateBL = allInvoicesResult.data.find(inv => 
-                    inv.id !== invoiceId && 
+                const duplicateBL = allInvoicesResult.data.find(inv =>
+                    inv.id !== invoiceId &&
                     inv.document_type === 'facture' &&
-                    inv.document_bon_de_livraison && 
+                    inv.document_bon_de_livraison &&
                     inv.document_bon_de_livraison.trim() === updateData.document.bon_de_livraison.trim()
                 );
-                
+
                 if (duplicateBL) {
                     window.notify.error(
                         'Bon de livraison déjà utilisé',
@@ -2097,16 +2100,16 @@ async function handleEditSubmitChaimae(e, invoiceId, documentType) {
                     return;
                 }
             }
-            
+
             // Check for duplicate N° Order if provided (for BON_LIVRAISON only)
             if (documentType === 'bon_livraison' && updateData.document.numero_commande) {
-                const duplicateOrderBL = allInvoicesResult.data.find(inv => 
-                    inv.id !== invoiceId && 
+                const duplicateOrderBL = allInvoicesResult.data.find(inv =>
+                    inv.id !== invoiceId &&
                     (inv.document_type === 'bon_livraison' || inv.document_type === 'bon de livraison') &&
-                    inv.document_numero_commande && 
+                    inv.document_numero_commande &&
                     inv.document_numero_commande.trim() === updateData.document.numero_commande.trim()
                 );
-                
+
                 if (duplicateOrderBL) {
                     window.notify.error(
                         'Numéro de commande déjà utilisé',
@@ -2117,15 +2120,15 @@ async function handleEditSubmitChaimae(e, invoiceId, documentType) {
                 }
             }
         }
-        
+
         console.log('📝 Updating invoice:', invoiceId);
         console.log('📊 Update data:', updateData);
-        
+
         // Update in database
         const result = await window.electron.dbChaimae.updateInvoice(invoiceId, updateData);
-        
+
         console.log('📥 Update result:', result);
-        
+
         if (result.success) {
             // 📝 Log user action (UPDATE)
             try {
@@ -2146,7 +2149,7 @@ async function handleEditSubmitChaimae(e, invoiceId, documentType) {
             } catch (auditError) {
                 console.error('⚠️ Error recording audit log:', auditError);
             }
-            
+
             // Check if this bon is part of any global invoice and update it
             const allGlobalInvoices = await window.electron.dbChaimae.getAllGlobalInvoices();
             if (allGlobalInvoices.success && allGlobalInvoices.data) {
@@ -2155,7 +2158,7 @@ async function handleEditSubmitChaimae(e, invoiceId, documentType) {
                         // This bon is part of a global invoice - recalculate totals
                         let totalHT = 0;
                         let totalTTC = 0;
-                        
+
                         for (const bon of globalInvoice.bons) {
                             if (bon.id === invoiceId) {
                                 // Use updated values
@@ -2167,10 +2170,10 @@ async function handleEditSubmitChaimae(e, invoiceId, documentType) {
                                 totalTTC += parseFloat(bon.total_ttc) || 0;
                             }
                         }
-                        
+
                         const tvaRate = globalInvoice.tva_rate || 20;
                         const montantTVA = totalHT * (tvaRate / 100);
-                        
+
                         // Update global invoice
                         await window.electron.dbChaimae.updateGlobalInvoice(globalInvoice.id, {
                             document_numero: globalInvoice.document_numero,
@@ -2181,12 +2184,12 @@ async function handleEditSubmitChaimae(e, invoiceId, documentType) {
                             total_ttc: totalTTC,
                             bon_livraison_ids: globalInvoice.bons.map(b => b.id)
                         });
-                        
+
                         console.log('✅ Updated global invoice:', globalInvoice.id, 'New total:', totalTTC);
                     }
                 }
             }
-            
+
             // Save or delete notes
             const noteText = document.getElementById('editNotesChaimae')?.value?.trim();
             console.log('📝 [NOTES] Saving note for invoice:', invoiceId, 'Text:', noteText);
@@ -2198,12 +2201,12 @@ async function handleEditSubmitChaimae(e, invoiceId, documentType) {
                 const deleteResult = await window.electron.dbChaimae.deleteNote(invoiceId);
                 console.log('🗑️ [NOTES] Delete result:', deleteResult);
             }
-            
+
             window.notify.success('Succès', 'Document mis à jour avec succès!', 3000);
-            
+
             // Close modal
             document.querySelector('.modal-overlay').remove();
-            
+
             // Reload list
             setTimeout(() => {
                 loadInvoicesChaimae();
@@ -2212,7 +2215,7 @@ async function handleEditSubmitChaimae(e, invoiceId, documentType) {
             console.error('❌ Update failed:', result.error);
             throw new Error(result.error || 'Échec de la mise à jour');
         }
-        
+
     } catch (error) {
         console.error('Error updating invoice:', error);
         window.notify.error('Erreur', 'Impossible de mettre à jour', 3000);
@@ -2220,28 +2223,28 @@ async function handleEditSubmitChaimae(e, invoiceId, documentType) {
 }
 
 // Add attachment in edit modal
-window.addEditAttachmentChaimae = async function(invoiceId) {
+window.addEditAttachmentChaimae = async function (invoiceId) {
     const input = document.createElement('input');
     input.type = 'file';
     input.accept = '.png,.jpg,.jpeg,.pdf';
     input.multiple = true;
-    
+
     input.onchange = async (e) => {
         const files = Array.from(e.target.files);
         if (files.length === 0) return;
-        
+
         for (const file of files) {
             try {
                 const arrayBuffer = await file.arrayBuffer();
                 const uint8Array = new Uint8Array(arrayBuffer);
-                
+
                 const result = await window.electron.dbChaimae.addAttachment(
                     invoiceId,
                     file.name,
                     file.type,
                     uint8Array
                 );
-                
+
                 if (result.success) {
                     window.notify.success('Succès', `${file.name} ajouté`, 2000);
                     // Refresh the edit modal
@@ -2256,20 +2259,20 @@ window.addEditAttachmentChaimae = async function(invoiceId) {
             }
         }
     };
-    
+
     input.click();
 }
 
 // Delete attachment from edit modal
-window.deleteEditAttachmentChaimae = async function(attachmentId, invoiceId) {
+window.deleteEditAttachmentChaimae = async function (attachmentId, invoiceId) {
     const confirmed = await customConfirm('Confirmation', 'Êtes-vous sûr de vouloir supprimer cette pièce jointe ?', 'warning');
     if (!confirmed) {
         return;
     }
-    
+
     try {
         const result = await window.electron.dbChaimae.deleteAttachment(attachmentId);
-        
+
         if (result.success) {
             window.notify.success('Succès', 'Pièce jointe supprimée', 2000);
             // Refresh the edit modal
@@ -2300,7 +2303,7 @@ function showConvertInputModalChaimae(newType, newTypeLabel, prefillNumero = '',
             const invoicesResult = await window.electron.dbChaimae.getAllInvoices();
             if (invoicesResult.success && invoicesResult.data && invoicesResult.data.length > 0) {
                 const invoices = invoicesResult.data;
-                
+
                 // Helper function to extract numeric value
                 const extractNumber = (docNumber) => {
                     if (!docNumber) return 0;
@@ -2321,8 +2324,8 @@ function showConvertInputModalChaimae(newType, newTypeLabel, prefillNumero = '',
                         highestNumber = devisList[0].document_numero_devis;
                     }
                 } else if (newType === 'bon_livraison') {
-                    const bonsList = invoices.filter(inv => 
-                        (inv.document_type === 'bon_livraison' || inv.document_type === 'bon de livraison') && 
+                    const bonsList = invoices.filter(inv =>
+                        (inv.document_type === 'bon_livraison' || inv.document_type === 'bon de livraison') &&
                         (inv.document_numero || inv.document_bon_de_livraison || inv.document_numero_bl)
                     );
                     if (bonsList.length > 0) {
@@ -2338,34 +2341,34 @@ function showConvertInputModalChaimae(newType, newTypeLabel, prefillNumero = '',
         } catch (error) {
             console.error('Error getting highest numbers for conversion:', error);
         }
-        
+
         // For bon_livraison, extract prefix and numero separately
         let extractedPrefix = 'MG';
         let numeroWithoutPrefix = prefillNumero;
-        
+
         if (newType === 'bon_livraison' && prefillNumero) {
             // Check if prefillNumero has a prefix (MG, TL, BL, etc.)
             const match = prefillNumero.match(/^([A-Z]+)(.+)$/);
             if (match) {
                 extractedPrefix = match[1]; // Extract prefix (MG, TL, BL, etc.)
                 numeroWithoutPrefix = match[2]; // Extract rest (2/2025, 123/2025, etc.)
-                
+
                 // Update selected prefix
                 window.selectedPrefixConvert = extractedPrefix;
             }
         }
-        
+
         // Create floating input box
         const overlay = document.createElement('div');
         overlay.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.95);z-index:999999;display:flex;align-items:center;justify-content:center;animation:fadeIn 0.2s;';
-        
+
         const container = document.createElement('div');
         container.style.cssText = 'background:#1e1e1e;border:3px solid #9c27b0;border-radius:16px;padding:2.5rem;min-width:500px;box-shadow:0 20px 60px rgba(0,0,0,0.9);animation:slideIn 0.3s;';
-        
-        const numeroLabel = newType === 'facture' ? 'N° Facture' : 
-                           newType === 'devis' ? 'N° Devis' : 
-                           'N° Bon de livraison';
-        
+
+        const numeroLabel = newType === 'facture' ? 'N° Facture' :
+            newType === 'devis' ? 'N° Devis' :
+                'N° Bon de livraison';
+
         container.innerHTML = `
             <style>
                 @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
@@ -2486,16 +2489,16 @@ function showConvertInputModalChaimae(newType, newTypeLabel, prefillNumero = '',
                 </button>
             </div>
         `;
-        
+
         overlay.appendChild(container);
         document.body.appendChild(overlay);
-        
+
         const input1 = document.getElementById('convertInput1Chaimae');
         const input2 = document.getElementById('convertInput2Chaimae');
         const input3 = document.getElementById('convertInput3Chaimae');
         const btnConfirm = document.getElementById('convertBtnConfirmChaimae');
         const btnCancel = document.getElementById('convertBtnCancelChaimae');
-        
+
         // Focus on first input
         setTimeout(() => {
             if (input1) {
@@ -2503,7 +2506,7 @@ function showConvertInputModalChaimae(newType, newTypeLabel, prefillNumero = '',
                 input1.select();
             }
         }, 100);
-        
+
         const cleanup = () => {
             overlay.remove();
             if (editModal && wasVisible) {
@@ -2515,14 +2518,14 @@ function showConvertInputModalChaimae(newType, newTypeLabel, prefillNumero = '',
             let val1 = input1.value.trim();
             let val2 = input2 ? input2.value.trim() : '';
             let val3 = input3 ? input3.value.trim() : '';
-            
+
             // For bon_livraison, check if already formatted
             const currentYear = new Date().getFullYear();
             if (newType === 'bon_livraison') {
                 // Get selected prefix and combine with numero
                 const selectedPrefix = window.selectedPrefix || 'MG';
                 const fullNumero = selectedPrefix + val1;
-                
+
                 // Check if already formatted as PREFIX+XXX/YYYY (accept any prefix and any number of digits)
                 const prefixPattern = new RegExp(`^[A-Z]+\\d+\\/\\d{4}$`);
                 if (!fullNumero || !fullNumero.match(prefixPattern)) {
@@ -2531,10 +2534,10 @@ function showConvertInputModalChaimae(newType, newTypeLabel, prefillNumero = '',
                     window.notify.error('Erreur', `Format invalide. Entrez des chiffres (ex: 2 → ${selectedPrefix}2/2025)`, 3000);
                     return;
                 }
-                
+
                 // Update val1 with full numero including prefix
                 val1 = fullNumero;
-                
+
                 // Format val2 (Order) with prefix if provided
                 if (val2) {
                     const selectedOrderPrefix = window.selectedOrderPrefix || 'BC';
@@ -2560,13 +2563,13 @@ function showConvertInputModalChaimae(newType, newTypeLabel, prefillNumero = '',
                 // val3 is Bon de livraison - keep as is, no year suffix needed
                 // (It should be entered as-is by the user, e.g., "123" or "MG123/2025")
             }
-            
+
             if (!val1 || val1.startsWith('/')) {
                 input1.style.borderColor = '#f44336';
                 input1.focus();
                 return;
             }
-            
+
             cleanup();
             resolve({
                 newNumero: val1,
@@ -2575,13 +2578,13 @@ function showConvertInputModalChaimae(newType, newTypeLabel, prefillNumero = '',
                 newBonCommande: val2 || null
             });
         };
-        
+
         btnConfirm.onclick = handleConfirm;
         btnCancel.onclick = () => {
             cleanup();
             resolve(null);
         };
-        
+
         input1.addEventListener('keypress', (e) => {
             if (e.key === 'Enter') handleConfirm();
         });
@@ -2595,30 +2598,30 @@ function showConvertInputModalChaimae(newType, newTypeLabel, prefillNumero = '',
                 if (e.key === 'Enter') handleConfirm();
             });
         }
-        
+
         // Removed overlay click to close - user must use Cancel button
     });
 }
 
 // Convert invoice type (Facture ↔ Devis ↔ Bon de livraison)
-window.convertInvoiceTypeChaimae = async function(invoiceId, currentType) {
+window.convertInvoiceTypeChaimae = async function (invoiceId, currentType) {
     console.log('🔄 [CONVERT CHAIMAE] Starting conversion for invoice:', invoiceId);
-    
+
     // Show conversion options based on current type
     const options = [];
     if (currentType !== 'facture') options.push({ value: 'facture', label: 'Facture' });
     if (currentType !== 'devis') options.push({ value: 'devis', label: 'Devis' });
     if (currentType !== 'bon_livraison') options.push({ value: 'bon_livraison', label: 'Bon de livraison' });
-    
+
     // Create conversion modal
     const modal = document.createElement('div');
     modal.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.95);z-index:999999;display:flex;align-items:center;justify-content:center;animation:fadeIn 0.2s;';
-    
+
     const container = document.createElement('div');
     container.style.cssText = 'background:#1e1e1e;border:3px solid #9c27b0;border-radius:16px;padding:2.5rem;min-width:500px;box-shadow:0 20px 60px rgba(0,0,0,0.9);';
-    
+
     const currentTypeLabel = currentType === 'facture' ? 'Facture' : (currentType === 'devis' ? 'Devis' : 'Bon de livraison');
-    
+
     container.innerHTML = `
         <style>
             @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
@@ -2645,30 +2648,30 @@ window.convertInvoiceTypeChaimae = async function(invoiceId, currentType) {
             </button>
         </div>
     `;
-    
+
     modal.appendChild(container);
     document.body.appendChild(modal);
-    
+
     // Handle cancel
     document.getElementById('cancelConvert').onclick = () => {
         modal.remove();
     };
-    
+
     // Handle confirm
     document.getElementById('confirmConvert').onclick = async () => {
         const newType = document.getElementById('convertTypeSelect').value;
         const newTypeLabel = newType === 'facture' ? 'Facture' : (newType === 'devis' ? 'Devis' : 'Bon de livraison');
         modal.remove();
-        
+
         try {
             // Get current invoice data
             const result = await window.electron.dbChaimae.getInvoiceById(invoiceId);
             if (!result.success || !result.data) {
                 throw new Error('Document introuvable');
             }
-            
+
             const invoice = result.data;
-            
+
             // Get current document number based on type
             let currentNumero = '';
             if (currentType === 'facture') {
@@ -2678,10 +2681,10 @@ window.convertInvoiceTypeChaimae = async function(invoiceId, currentType) {
             } else if (currentType === 'bon_livraison') {
                 currentNumero = invoice.document_numero || '';
             }
-            
+
             // Process numero based on conversion direction
             let prefillBonLivraison = '';
-            
+
             if (newType === 'bon_livraison' && currentNumero) {
                 // Converting TO bon_livraison: Add MG prefix if not present
                 if (!currentNumero.startsWith('MG')) {
@@ -2694,37 +2697,37 @@ window.convertInvoiceTypeChaimae = async function(invoiceId, currentType) {
                 // Converting FROM bon_livraison to Facture/Devis
                 // Keep the original BL number WITH MG for the "Bon de livraison" field
                 prefillBonLivraison = currentNumero; // Keep MG123/2025
-                
+
                 // Remove MG prefix for the main document number
                 if (currentNumero.startsWith('MG')) {
                     currentNumero = currentNumero.substring(2); // Remove 'MG' -> 123/2025
                 }
             }
-            
+
             // Get N° Order from bon_livraison if converting to facture
             let prefillNumeroOrder = '';
             if (currentType === 'bon_livraison' && newType === 'facture' && invoice.document_numero_commande) {
                 prefillNumeroOrder = invoice.document_numero_commande;
             }
-            
+
             // Show input modal for document numbers with pre-filled current number
             const inputData = await showConvertInputModalChaimae(newType, newTypeLabel, currentNumero, prefillBonLivraison, prefillNumeroOrder);
-            
+
             if (!inputData) {
                 window.notify.warning('Annulé', 'Conversion annulée', 3000);
                 return;
             }
-            
+
             const { newNumero, newNumeroOrder, newBonLivraison, newBonCommande } = inputData;
-            
+
             // Check if numbers are unique
             const allInvoicesResult = await window.electron.dbChaimae.getAllInvoices();
             if (allInvoicesResult.success) {
                 const invoices = allInvoicesResult.data;
-                
+
                 // Check document number
                 if (newType === 'facture') {
-                    const duplicateNumero = invoices.find(inv => 
+                    const duplicateNumero = invoices.find(inv =>
                         inv.document_type === 'facture' && inv.document_numero === newNumero
                     );
                     if (duplicateNumero) {
@@ -2732,7 +2735,7 @@ window.convertInvoiceTypeChaimae = async function(invoiceId, currentType) {
                         return;
                     }
                 } else if (newType === 'devis') {
-                    const duplicateNumero = invoices.find(inv => 
+                    const duplicateNumero = invoices.find(inv =>
                         inv.document_type === 'devis' && inv.document_numero_devis === newNumero
                     );
                     if (duplicateNumero) {
@@ -2740,23 +2743,23 @@ window.convertInvoiceTypeChaimae = async function(invoiceId, currentType) {
                         return;
                     }
                 } else if (newType === 'bon_livraison') {
-                    const duplicateNumero = invoices.find(inv => 
-                        (inv.document_type === 'bon_livraison' || inv.document_type === 'bon de livraison') && 
-                        (inv.document_numero === newNumero || 
-                         inv.document_numero_bl === newNumero || 
-                         inv.document_bon_de_livraison === newNumero)
+                    const duplicateNumero = invoices.find(inv =>
+                        (inv.document_type === 'bon_livraison' || inv.document_type === 'bon de livraison') &&
+                        (inv.document_numero === newNumero ||
+                            inv.document_numero_bl === newNumero ||
+                            inv.document_bon_de_livraison === newNumero)
                     );
                     if (duplicateNumero) {
                         window.notify.error('Erreur', `Le N° Bon de livraison "${newNumero}" existe déjà`, 5000);
                         return;
                     }
                 }
-                
+
                 // Check N° Order if provided (for facture only)
                 if (newType === 'facture' && newNumeroOrder) {
-                    const duplicateOrder = invoices.find(inv => 
+                    const duplicateOrder = invoices.find(inv =>
                         inv.document_type === 'facture' &&
-                        inv.document_numero_Order && 
+                        inv.document_numero_Order &&
                         inv.document_numero_Order.trim() === newNumeroOrder.trim()
                     );
                     if (duplicateOrder) {
@@ -2764,12 +2767,12 @@ window.convertInvoiceTypeChaimae = async function(invoiceId, currentType) {
                         return;
                     }
                 }
-                
+
                 // Check Bon de livraison if provided (for facture)
                 if (newType === 'facture' && newBonLivraison) {
-                    const duplicateBL = invoices.find(inv => 
+                    const duplicateBL = invoices.find(inv =>
                         inv.document_type === 'facture' &&
-                        inv.document_bon_de_livraison && 
+                        inv.document_bon_de_livraison &&
                         inv.document_bon_de_livraison.trim() === newBonLivraison.trim()
                     );
                     if (duplicateBL) {
@@ -2777,12 +2780,12 @@ window.convertInvoiceTypeChaimae = async function(invoiceId, currentType) {
                         return;
                     }
                 }
-                
+
                 // Check N° Order if provided (for bon_livraison)
                 if (newType === 'bon_livraison' && newBonCommande) {
-                    const duplicateBC = invoices.find(inv => 
+                    const duplicateBC = invoices.find(inv =>
                         (inv.document_type === 'bon_livraison' || inv.document_type === 'bon de livraison') &&
-                        inv.document_numero_commande && 
+                        inv.document_numero_commande &&
                         inv.document_numero_commande.trim() === newBonCommande.trim()
                     );
                     if (duplicateBC) {
@@ -2791,11 +2794,11 @@ window.convertInvoiceTypeChaimae = async function(invoiceId, currentType) {
                     }
                 }
             }
-            
+
             // Prepare new document data
             // Get current user info
             const user = JSON.parse(localStorage.getItem('user'));
-            
+
             const newDocData = {
                 client: {
                     nom: invoice.client_nom,
@@ -2821,20 +2824,20 @@ window.convertInvoiceTypeChaimae = async function(invoiceId, currentType) {
                     total_ttc: invoice.total_ttc
                 }
             };
-            
+
             // Create new document
             const createResult = await window.electron.dbChaimae.createInvoice(newDocData);
-            
+
             if (createResult.success) {
                 window.notify.success('Succès', `${newTypeLabel} créé(e) avec succès!`, 3000);
-                
+
                 // Close edit modal and reload list
                 document.querySelector('.modal-overlay')?.remove();
                 setTimeout(() => loadInvoicesChaimae(), 300);
             } else {
                 throw new Error(createResult.error || 'Échec de la conversion');
             }
-            
+
         } catch (error) {
             console.error('Error converting invoice:', error);
             window.notify.error('Erreur', 'Impossible de convertir: ' + error.message, 4000);
@@ -2856,37 +2859,37 @@ function formatNumberForPDFChaimae(number) {
 }
 
 // Download invoice as PDF
-window.downloadInvoicePDFChaimae = async function(invoiceId) {
+window.downloadInvoicePDFChaimae = async function (invoiceId) {
     try {
         console.log('📥 Generating PDF for invoice:', invoiceId);
-        
+
         // Get invoice data
         const result = await window.electron.dbChaimae.getInvoiceById(invoiceId);
-        
+
         if (!result.success || !result.data) {
             throw new Error('Document introuvable');
         }
-        
+
         const invoice = result.data;
-        
+
         console.log('🔍 Invoice type:', invoice.document_type);
         console.log('🔍 Current Order number:', invoice.document_numero_Order);
         console.log('🔍 Current BL number:', invoice.document_bon_de_livraison);
         console.log('🔍 Current BC number:', invoice.document_numero_commande);
-        
+
         // Show dialog with checkboxes based on document type
         if (invoice.document_type === 'facture') {
             // For FACTURE: show N° Order and Bon de livraison options
             const hasOrder = invoice.document_numero_Order && invoice.document_numero_Order.trim() !== '';
             const hasBL = invoice.document_bon_de_livraison && invoice.document_bon_de_livraison.trim() !== '';
-            
+
             console.log('✅ hasOrder:', hasOrder, '| hasBL:', hasBL);
-            
+
             if (hasOrder || hasBL) {
                 const result = await new Promise((resolve) => {
                     const overlay = document.createElement('div');
                     overlay.className = 'custom-modal-overlay';
-                    
+
                     overlay.innerHTML = `
                         <div class="custom-modal">
                             <div class="custom-modal-header">
@@ -2922,20 +2925,20 @@ window.downloadInvoicePDFChaimae = async function(invoiceId) {
                             </div>
                         </div>
                     `;
-                    
+
                     document.body.appendChild(overlay);
-                    
+
                     const orderCheckbox = overlay.querySelector('#includeOrderCheckbox');
                     const blCheckbox = overlay.querySelector('#includeBLCheckbox');
                     const continueBtn = overlay.querySelector('#continueBtn');
-                    
+
                     continueBtn.addEventListener('click', () => {
                         const includeOrder = orderCheckbox ? orderCheckbox.checked : false;
                         const includeBL = blCheckbox ? blCheckbox.checked : false;
                         overlay.remove();
                         resolve({ includeOrder, includeBL });
                     });
-                    
+
                     overlay.addEventListener('click', (e) => {
                         if (e.target === overlay) {
                             const includeOrder = orderCheckbox ? orderCheckbox.checked : false;
@@ -2944,17 +2947,17 @@ window.downloadInvoicePDFChaimae = async function(invoiceId) {
                             resolve({ includeOrder, includeBL });
                         }
                     });
-                    
+
                     setTimeout(() => continueBtn.focus(), 100);
                 });
-                
+
                 if (!result.includeOrder) {
                     console.log('⚠️ User chose not to include Order number in PDF');
                     invoice.document_numero_Order = null;
                 } else {
                     console.log('✅ Including Order number in PDF:', invoice.document_numero_Order);
                 }
-                
+
                 if (!result.includeBL) {
                     console.log('⚠️ User chose not to include BL in PDF');
                     invoice.document_bon_de_livraison = null;
@@ -2965,12 +2968,12 @@ window.downloadInvoicePDFChaimae = async function(invoiceId) {
         } else if (invoice.document_type === 'bl' || invoice.document_type === 'bon_livraison') {
             // For BON DE LIVRAISON: show N° Order option
             const hasBC = invoice.document_numero_commande && invoice.document_numero_commande.trim() !== '';
-            
+
             if (hasBC) {
                 const includeBC = await new Promise((resolve) => {
                     const overlay = document.createElement('div');
                     overlay.className = 'custom-modal-overlay';
-                    
+
                     overlay.innerHTML = `
                         <div class="custom-modal">
                             <div class="custom-modal-header">
@@ -2991,18 +2994,18 @@ window.downloadInvoicePDFChaimae = async function(invoiceId) {
                             </div>
                         </div>
                     `;
-                    
+
                     document.body.appendChild(overlay);
-                    
+
                     const checkbox = overlay.querySelector('#includeBCCheckbox');
                     const continueBtn = overlay.querySelector('#continueBtn');
-                    
+
                     continueBtn.addEventListener('click', () => {
                         const include = checkbox.checked;
                         overlay.remove();
                         resolve(include);
                     });
-                    
+
                     overlay.addEventListener('click', (e) => {
                         if (e.target === overlay) {
                             const include = checkbox.checked;
@@ -3010,10 +3013,10 @@ window.downloadInvoicePDFChaimae = async function(invoiceId) {
                             resolve(include);
                         }
                     });
-                    
+
                     setTimeout(() => continueBtn.focus(), 100);
                 });
-                
+
                 if (!includeBC) {
                     console.log('⚠️ User chose not to include BC in PDF');
                     invoice.document_numero_commande = null;
@@ -3022,21 +3025,21 @@ window.downloadInvoicePDFChaimae = async function(invoiceId) {
                 }
             }
         }
-        
+
         console.log('📄 Continuing with PDF generation...');
-        
+
         // Check if there are products with zero quantity or price
-        const hasZeroProducts = invoice.products && invoice.products.some(p => 
+        const hasZeroProducts = invoice.products && invoice.products.some(p =>
             parseFloat(p.quantite) === 0 || parseFloat(p.prix_unitaire_ht) === 0
         );
-        
+
         let includeZeroProducts = true; // Default: include all products
-        
+
         if (hasZeroProducts) {
             includeZeroProducts = await new Promise((resolve) => {
                 const overlay = document.createElement('div');
                 overlay.className = 'custom-modal-overlay';
-                
+
                 overlay.innerHTML = `
                     <div class="custom-modal">
                         <div class="custom-modal-header">
@@ -3061,94 +3064,94 @@ window.downloadInvoicePDFChaimae = async function(invoiceId) {
                         </div>
                     </div>
                 `;
-                
+
                 document.body.appendChild(overlay);
-                
+
                 const excludeBtn = document.getElementById('excludeZeroBtnChaimae');
                 const includeBtn = document.getElementById('includeZeroBtnChaimae');
-                
+
                 excludeBtn.addEventListener('click', () => {
                     overlay.remove();
                     resolve(false);
                 });
-                
+
                 includeBtn.addEventListener('click', () => {
                     overlay.remove();
                     resolve(true);
                 });
-                
+
                 overlay.addEventListener('click', (e) => {
                     if (e.target === overlay) {
                         overlay.remove();
                         resolve(true); // Default to include if user clicks outside
                     }
                 });
-                
+
                 setTimeout(() => includeBtn.focus(), 100);
             });
-            
+
             console.log('🔍 User choice for zero products:', includeZeroProducts ? 'Include' : 'Exclude');
         }
-        
+
         // Mark products with zero values for special display (don't remove them)
         const showZeroValues = includeZeroProducts;
         console.log('📊 Show zero values in PDF:', showZeroValues);
-        
+
         // Check if jsPDF is loaded
         if (typeof window.jspdf === 'undefined') {
             await loadJsPDFChaimae();
         }
-        
+
         const { jsPDF } = window.jspdf;
         const doc = new jsPDF();
-        
+
         // Colors
         const blueColor = [33, 97, 140]; // #21618C
         const greenColor = [76, 175, 80]; // #4caf50
         const orangeColor = [255, 152, 0]; // #FF9800
-        
+
         const dateStr = new Date(invoice.document_date).toLocaleDateString('fr-FR');
-        
+
         // Determine document type
-        const docType = invoice.document_type === 'facture' ? 'FACTURE' : 
-                       invoice.document_type === 'devis' ? 'DEVIS' : 
-                       'BON DE LIVRAISON';
+        const docType = invoice.document_type === 'facture' ? 'FACTURE' :
+            invoice.document_type === 'devis' ? 'DEVIS' :
+                'BON DE LIVRAISON';
         const docNumero = invoice.document_numero || invoice.document_numero_devis || invoice.document_numero_bl || '-';
-        
+
         // Function to add header
         const addHeader = (isFirstPage = true) => {
             // Add Logo
             try {
-                const logoImg = document.querySelector('img[src*="chaimae.png"]') || 
-                               document.querySelector('img[data-asset="chaimae"]') ||
-                               document.querySelector('img[src^="data:image"]');
+                const logoImg = document.querySelector('img[src*="chaimae.png"]') ||
+                    document.querySelector('img[data-asset="chaimae"]') ||
+                    document.querySelector('img[src^="data:image"]');
                 if (logoImg && logoImg.src && logoImg.src.startsWith('data:')) {
                     doc.addImage(logoImg.src, 'PNG', 15, 10, 35, 35);
                 }
             } catch (error) {
                 console.log('Logo not added:', error);
             }
-            
+
             // Company Header
             doc.setFontSize(18);
             doc.setTextColor(...blueColor);
             doc.setFont(undefined, 'bold');
             doc.text('CHAIMAE ERRBAHI MDIQ sarl (AU)', 105, 20, { align: 'center' });
-            
+
             doc.setFontSize(10);
             doc.setFont(undefined, 'normal');
             doc.setTextColor(0, 0, 0);
             doc.text('Patente N° 52003366 - NIF : 40190505', 105, 27, { align: 'center' });
             doc.text('RC N° : 10487 - CNSS : 8721591', 105, 32, { align: 'center' });
             doc.text('ICE : 001544861000014', 105, 37, { align: 'center' });
-            
+
             // Client Info
             doc.setFontSize(11);
             doc.setFont(undefined, 'bold');
             doc.text('CLIENT :', 15, 55);
             doc.setTextColor(...greenColor);
             doc.text(invoice.client_nom, 40, 55);
-            
+
             // Only show ICE if it exists and is not "0"
             if (invoice.client_ice && invoice.client_ice !== '0') {
                 doc.setTextColor(0, 0, 0);
@@ -3156,16 +3159,16 @@ window.downloadInvoicePDFChaimae = async function(invoiceId) {
                 doc.setTextColor(...greenColor);
                 doc.text(invoice.client_ice, 40, 62);
             }
-            
+
             // Date
             doc.setTextColor(0, 0, 0);
             doc.text(`Date: ${dateStr}`, 150, 55);
-            
+
             // Document Number
             doc.setFontSize(14);
             doc.setFont(undefined, 'bold');
             doc.setTextColor(0, 0, 0);
-            
+
             // Adjust position based on document type length
             if (invoice.document_type === 'bon_livraison') {
                 doc.text(`${docType} N°:`, 15, 75);
@@ -3176,9 +3179,9 @@ window.downloadInvoicePDFChaimae = async function(invoiceId) {
                 doc.setTextColor(...orangeColor);
                 doc.text(docNumero, 55, 75);
             }
-            
+
             let currentY = 75;
-            
+
             // Additional fields based on document type
             if (invoice.document_type === 'facture') {
                 if (invoice.document_numero_Order) {
@@ -3209,7 +3212,7 @@ window.downloadInvoicePDFChaimae = async function(invoiceId) {
                 doc.text(invoice.document_numero_commande, 40, currentY);
             }
         };
-        
+
         // Function to add footer
         const addFooter = (pageNum, totalPages) => {
             doc.setTextColor(0, 0, 0);
@@ -3219,7 +3222,7 @@ window.downloadInvoicePDFChaimae = async function(invoiceId) {
             doc.text('Email: errbahiabderrahim@gmail.com', 15, 279);
             doc.text('ADRESSE: LOT ALBAHR AV TETOUAN N94 GARAGE 2 M\'DIQ', 15, 283);
             doc.text('Tel: +212 661 307 323', 15, 287);
-            
+
             // Page numbering
             if (pageNum && totalPages) {
                 doc.setFontSize(8);
@@ -3227,10 +3230,10 @@ window.downloadInvoicePDFChaimae = async function(invoiceId) {
                 doc.text(`Page ${pageNum} / ${totalPages}`, 105, 293, { align: 'center' });
             }
         };
-        
+
         // Add header to first page
         addHeader(true);
-        
+
         // Calculate start Y based on additional fields
         let startY = 85;
         if (invoice.document_type === 'facture') {
@@ -3239,7 +3242,7 @@ window.downloadInvoicePDFChaimae = async function(invoiceId) {
         } else if (invoice.document_type === 'bon_livraison' && invoice.document_numero_commande) {
             startY += 7;
         }
-        
+
         // Products Table
         doc.setFillColor(...blueColor);
         doc.rect(15, startY, 180, 8, 'F');
@@ -3250,41 +3253,41 @@ window.downloadInvoicePDFChaimae = async function(invoiceId) {
         doc.text('QTE', 115, startY + 5.5, { align: 'center' });
         doc.text('PU HT', 150, startY + 5.5, { align: 'right' });
         doc.text('TOTAL HT', 188, startY + 5.5, { align: 'right' });
-        
+
         // Table Body
         let currentY = startY + 10;
         doc.setTextColor(0, 0, 0);
         doc.setFont(undefined, 'normal');
         doc.setFontSize(9);
-        
+
         let pageCount = 1;
         const pages = [];
-        
+
         console.log('=== PDF Generation Started (CHAIMAE) ===');
         console.log('Document Type:', invoice.document_type);
         console.log('Initial startY (Page 1):', startY);
         console.log('Continuation pages will use same calculation as Page 1');
         console.log('Total Products:', invoice.products.length);
-        
+
         invoice.products.forEach((product, index) => {
             const designation = product.designation || '';
             const lines = doc.splitTextToSize(designation, 85);
             const rowHeight = Math.max(8, (lines.length * 4.5) + 4);
-            
+
             // Split very long products across multiple pages if needed
             let remainingLines = [...lines];
             let isFirstPart = true;
-            
+
             while (remainingLines.length > 0) {
                 const availableSpace = 215 - currentY;
-                
+
                 // If not enough space for even one line, create new page first
                 if (availableSpace < 15) {
                     pages.push(pageCount);
                     doc.addPage();
                     addHeader(false);
                     pageCount++;
-                    
+
                     let newStartY = 85;
                     if (invoice.document_type === 'facture') {
                         if (invoice.document_numero_Order) newStartY += 7;
@@ -3292,7 +3295,7 @@ window.downloadInvoicePDFChaimae = async function(invoiceId) {
                     } else if (invoice.document_type === 'bon_livraison' && invoice.document_numero_commande) {
                         newStartY += 7;
                     }
-                    
+
                     doc.setFillColor(...blueColor);
                     doc.rect(15, newStartY, 180, 8, 'F');
                     doc.setTextColor(255, 255, 255);
@@ -3302,61 +3305,61 @@ window.downloadInvoicePDFChaimae = async function(invoiceId) {
                     doc.text('QTE', 115, newStartY + 5.5, { align: 'center' });
                     doc.text('PU HT', 150, newStartY + 5.5, { align: 'right' });
                     doc.text('TOTAL HT', 188, newStartY + 5.5, { align: 'right' });
-                    
+
                     currentY = newStartY + 10;
                     doc.setTextColor(0, 0, 0);
                     doc.setFont(undefined, 'normal');
                     doc.setFontSize(9);
                     continue;
                 }
-                
+
                 const maxLinesPerPage = Math.floor((availableSpace - 10) / 4.5);
                 const linesToDraw = remainingLines.splice(0, Math.max(1, maxLinesPerPage));
                 const partialRowHeight = Math.max(8, (linesToDraw.length * 4.5) + 4);
-                
+
                 // Alternate row colors (only for first part)
                 if (isFirstPart && index % 2 === 0) {
                     doc.setFillColor(245, 245, 245);
                     doc.rect(15, currentY - 3, 180, partialRowHeight, 'F');
                 }
-                
+
                 doc.setFontSize(8);
                 // Draw lines
                 linesToDraw.forEach((line, lineIndex) => {
                     doc.text(line, 18, currentY + 3 + (lineIndex * 4.5));
                 });
-                
+
                 // Only show quantity, price, and total on the first part
                 if (isFirstPart) {
                     const centerOffset = (linesToDraw.length > 1) ? ((linesToDraw.length - 1) * 2.25) : 0;
-                    
+
                     const qty = parseFloat(product.quantite);
                     if (showZeroValues || qty !== 0) {
                         doc.text(String(product.quantite || ''), 115, currentY + 3 + centerOffset, { align: 'center' });
                     }
-                    
+
                     doc.setFontSize(7.5);
                     const price = parseFloat(product.prix_unitaire_ht);
                     if (showZeroValues || price !== 0) {
                         doc.text(`${formatNumberForPDFChaimae(product.prix_unitaire_ht)} DH`, 150, currentY + 3 + centerOffset, { align: 'right' });
                     }
-                    
+
                     const total = parseFloat(product.total_ht);
                     if (showZeroValues || total !== 0) {
                         doc.text(`${formatNumberForPDFChaimae(product.total_ht)} DH`, 188, currentY + 3 + centerOffset, { align: 'right' });
                     }
                 }
-                
+
                 currentY += partialRowHeight;
                 isFirstPart = false;
-                
+
                 // If there are more lines and we're near the bottom, create new page
                 if (remainingLines.length > 0 && currentY > 200) {
                     pages.push(pageCount);
                     doc.addPage();
                     addHeader(false);
                     pageCount++;
-                    
+
                     let newStartY = 85;
                     if (invoice.document_type === 'facture') {
                         if (invoice.document_numero_Order) {
@@ -3368,7 +3371,7 @@ window.downloadInvoicePDFChaimae = async function(invoiceId) {
                     } else if (invoice.document_type === 'bon_livraison' && invoice.document_numero_commande) {
                         newStartY += 7;
                     }
-                    
+
                     doc.setFillColor(...blueColor);
                     doc.rect(15, newStartY, 180, 8, 'F');
                     doc.setTextColor(255, 255, 255);
@@ -3378,7 +3381,7 @@ window.downloadInvoicePDFChaimae = async function(invoiceId) {
                     doc.text('QTE', 115, newStartY + 5.5, { align: 'center' });
                     doc.text('PU HT', 150, newStartY + 5.5, { align: 'right' });
                     doc.text('TOTAL HT', 188, newStartY + 5.5, { align: 'right' });
-                    
+
                     currentY = newStartY + 10;
                     doc.setTextColor(0, 0, 0);
                     doc.setFont(undefined, 'normal');
@@ -3386,10 +3389,10 @@ window.downloadInvoicePDFChaimae = async function(invoiceId) {
                 }
             }
         });
-        
+
         // Totals
         currentY += 10;
-        
+
         // TOTAL HT
         doc.setFillColor(245, 245, 245);
         doc.rect(110, currentY, 85, 8, 'F');
@@ -3399,7 +3402,7 @@ window.downloadInvoicePDFChaimae = async function(invoiceId) {
         doc.text('TOTAL HT :', 113, currentY + 5.5);
         doc.setFontSize(8);
         doc.text(`${formatNumberForPDFChaimae(invoice.total_ht)} DH`, 192, currentY + 5.5, { align: 'right' });
-        
+
         // MONTANT TVA
         currentY += 8;
         doc.setFillColor(255, 255, 255);
@@ -3408,7 +3411,7 @@ window.downloadInvoicePDFChaimae = async function(invoiceId) {
         doc.text(`MONTANT TVA ${invoice.tva_rate}% :`, 113, currentY + 5.5);
         doc.setFontSize(8);
         doc.text(`${formatNumberForPDFChaimae(invoice.montant_tva)} DH`, 192, currentY + 5.5, { align: 'right' });
-        
+
         // MONTANT T.T.C
         currentY += 8;
         doc.setFillColor(173, 216, 230);
@@ -3418,7 +3421,7 @@ window.downloadInvoicePDFChaimae = async function(invoiceId) {
         doc.text('MONTANT T.T.C :', 113, currentY + 5.5);
         doc.setFontSize(8.5);
         doc.text(`${formatNumberForPDFChaimae(invoice.total_ttc)} DH`, 192, currentY + 5.5, { align: 'right' });
-        
+
         // Amount in words
         currentY += 15;
         doc.setTextColor(0, 0, 0);
@@ -3430,7 +3433,7 @@ window.downloadInvoicePDFChaimae = async function(invoiceId) {
             const docTypeText = invoice.document_type === 'facture' ? 'Facture' : 'Devis';
             doc.text(`La Présente ${docTypeText} est Arrêtée à la somme de : ${amountInWords}`, 15, currentY, { maxWidth: 180 });
         }
-        
+
         // Add notes if any
         const noteResult = await window.electron.dbChaimae.getNote(invoiceId);
         if (noteResult.success && noteResult.data) {
@@ -3439,7 +3442,7 @@ window.downloadInvoicePDFChaimae = async function(invoiceId) {
             doc.setFont(undefined, 'bold');
             doc.setTextColor(96, 125, 139);
             doc.text('Notes:', 15, currentY);
-            
+
             doc.setFont(undefined, 'bold');
             doc.setTextColor(0, 0, 0);
             doc.setFontSize(9);
@@ -3476,24 +3479,24 @@ window.downloadInvoicePDFChaimae = async function(invoiceId) {
                 lineY += 4.5;
             }
         }
-        
+
         // Add page numbering to all pages
         pages.push(pageCount);
         const totalPages = pages.length;
-        
+
         for (let i = 0; i < totalPages; i++) {
             doc.setPage(i + 1);
             addFooter(i + 1, totalPages);
         }
-        
+
         // Save PDF
         const selectedCompany = JSON.parse(localStorage.getItem('selectedCompany') || '{}');
         const companyName = selectedCompany.name ? selectedCompany.name.replace(' Company', '') : 'Unknown';
         const filename = `${docType}_${docNumero}_${invoice.client_nom}_${companyName}.pdf`;
         doc.save(filename);
-        
+
         window.notify.success('Succès', 'PDF téléchargé avec succès', 3000);
-        
+
     } catch (error) {
         console.error('❌ Error generating PDF:', error);
         window.notify.error('Erreur', 'Impossible de générer le PDF: ' + error.message, 4000);
@@ -3501,31 +3504,31 @@ window.downloadInvoicePDFChaimae = async function(invoiceId) {
 }
 
 // Download Bon de travaux as PDF (without prices)
-window.downloadBonDeTravauxPDFChaimae = async function(invoiceId) {
+window.downloadBonDeTravauxPDFChaimae = async function (invoiceId) {
     try {
         console.log('📥 Generating Bon de travaux PDF for invoice:', invoiceId);
-        
+
         // Get invoice data
         const result = await window.electron.dbChaimae.getInvoiceById(invoiceId);
-        
+
         if (!result.success || !result.data) {
             throw new Error('Document introuvable');
         }
-        
+
         const invoice = result.data;
-        
+
         // Check if there are products with zero quantity or price
-        const hasZeroProducts = invoice.products && invoice.products.some(p => 
+        const hasZeroProducts = invoice.products && invoice.products.some(p =>
             parseFloat(p.quantite) === 0 || parseFloat(p.prix_unitaire_ht) === 0
         );
-        
+
         let includeZeroProducts = true; // Default: include all products
-        
+
         if (hasZeroProducts) {
             includeZeroProducts = await new Promise((resolve) => {
                 const overlay = document.createElement('div');
                 overlay.className = 'custom-modal-overlay';
-                
+
                 overlay.innerHTML = `
                     <div class="custom-modal">
                         <div class="custom-modal-header">
@@ -3550,81 +3553,81 @@ window.downloadBonDeTravauxPDFChaimae = async function(invoiceId) {
                         </div>
                     </div>
                 `;
-                
+
                 document.body.appendChild(overlay);
-                
+
                 const excludeBtn = document.getElementById('excludeZeroBtnBonTravauxChaimae');
                 const includeBtn = document.getElementById('includeZeroBtnBonTravauxChaimae');
-                
+
                 excludeBtn.addEventListener('click', () => {
                     overlay.remove();
                     resolve(false);
                 });
-                
+
                 includeBtn.addEventListener('click', () => {
                     overlay.remove();
                     resolve(true);
                 });
-                
+
                 overlay.addEventListener('click', (e) => {
                     if (e.target === overlay) {
                         overlay.remove();
                         resolve(true); // Default to include if user clicks outside
                     }
                 });
-                
+
                 setTimeout(() => includeBtn.focus(), 100);
             });
-            
+
             console.log('🔍 User choice for zero products in Bon de travaux:', includeZeroProducts ? 'Include' : 'Exclude');
         }
-        
+
         // Mark products with zero values for special display (don't remove them)
         const showZeroValues = includeZeroProducts;
         console.log('📊 Show zero values in Bon de travaux:', showZeroValues);
-        
+
         // Check if jsPDF is loaded
         if (typeof window.jspdf === 'undefined') {
             await loadJsPDFChaimae();
         }
-        
+
         const { jsPDF } = window.jspdf;
         const doc = new jsPDF();
-        
+
         // Colors
         const blueColor = [33, 97, 140];
         const greenColor = [76, 175, 80];
         const purpleColor = [156, 39, 176]; // For "Bon de travaux"
-        
+
         const dateStr = new Date(invoice.document_date).toLocaleDateString('fr-FR');
-        
+
         // Function to add header
         const addHeader = (isFirstPage = true) => {
             // Add Logo
             try {
-                const logoImg = document.querySelector('img[src*="chaimae.png"]') || 
-                               document.querySelector('img[data-asset="chaimae"]') ||
-                               document.querySelector('img[src^="data:image"]');
+                const logoImg = document.querySelector('img[src*="chaimae.png"]') ||
+                    document.querySelector('img[data-asset="chaimae"]') ||
+                    document.querySelector('img[src^="data:image"]');
                 if (logoImg && logoImg.src && logoImg.src.startsWith('data:')) {
                     doc.addImage(logoImg.src, 'PNG', 15, 10, 35, 35);
                 }
             } catch (error) {
                 console.log('Logo not added:', error);
             }
-            
+
             // Company Header
             doc.setFontSize(18);
             doc.setTextColor(...blueColor);
             doc.setFont(undefined, 'bold');
             doc.text('CHAIMAE ERRBAHI MDIQ sarl (AU)', 105, 20, { align: 'center' });
-            
+
             doc.setFontSize(10);
             doc.setFont(undefined, 'normal');
             doc.setTextColor(0, 0, 0);
             doc.text('Patente N° 52003366 - NIF : 40190505', 105, 27, { align: 'center' });
             doc.text('RC N° : 10487 - CNSS : 8721591', 105, 32, { align: 'center' });
             doc.text('ICE : 001544861000014', 105, 37, { align: 'center' });
-            
+
             // Client Info
             doc.setFontSize(11);
             doc.setFont(undefined, 'bold');
@@ -3632,7 +3635,7 @@ window.downloadBonDeTravauxPDFChaimae = async function(invoiceId) {
             doc.text('CLIENT :', 15, 50);
             doc.setTextColor(...greenColor);
             doc.text(invoice.client_nom, 40, 50);
-            
+
             // Only show ICE if it exists and is not "0"
             if (invoice.client_ice && invoice.client_ice !== '0') {
                 doc.setTextColor(0, 0, 0);
@@ -3640,18 +3643,18 @@ window.downloadBonDeTravauxPDFChaimae = async function(invoiceId) {
                 doc.setTextColor(...greenColor);
                 doc.text(invoice.client_ice, 40, 57);
             }
-            
+
             // Date
             doc.setTextColor(0, 0, 0);
             doc.text(`Date: ${dateStr}`, 150, 50);
-            
+
             // "BON DE TRAVAUX" title in center (below ICE)
             doc.setFontSize(20);
             doc.setFont(undefined, 'bold');
             doc.setTextColor(...blueColor);
             doc.text('BON DE TRAVAUX', 105, 70, { align: 'center' });
         };
-        
+
         // Function to add footer
         const addFooter = (pageNum, totalPages) => {
             doc.setTextColor(0, 0, 0);
@@ -3661,7 +3664,7 @@ window.downloadBonDeTravauxPDFChaimae = async function(invoiceId) {
             doc.text('Email: errbahiabderrahim@gmail.com', 15, 279);
             doc.text('ADRESSE: LOT ALBAHR AV TETOUAN N94 GARAGE 2 M\'DIQ', 15, 283);
             doc.text('Tel: +212 661 307 323', 15, 287);
-            
+
             // Page numbering
             if (pageNum && totalPages) {
                 doc.setFontSize(8);
@@ -3669,17 +3672,17 @@ window.downloadBonDeTravauxPDFChaimae = async function(invoiceId) {
                 doc.text(`Page ${pageNum} / ${totalPages}`, 105, 293, { align: 'center' });
             }
         };
-        
+
         // Add header to first page
         addHeader(true);
-        
+
         const startY = 85;
-        
+
         // Helper function to format numbers
         const formatNumberForPDF = (num) => {
             return parseFloat(num).toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ' ');
         };
-        
+
         // Products Table (with all columns and prices)
         doc.setFillColor(...blueColor);
         doc.rect(15, startY, 180, 8, 'F');
@@ -3690,35 +3693,35 @@ window.downloadBonDeTravauxPDFChaimae = async function(invoiceId) {
         doc.text('QTE', 115, startY + 5.5, { align: 'center' });
         doc.text('Prix unitaire HT', 150, startY + 5.5, { align: 'right' });
         doc.text('Prix total HT', 188, startY + 5.5, { align: 'right' });
-        
+
         // Table Body
         let currentY = startY + 10;
         doc.setTextColor(0, 0, 0);
         doc.setFont(undefined, 'normal');
         doc.setFontSize(9);
-        
+
         let pageCount = 1;
         const pages = [];
-        
+
         invoice.products.forEach((product, index) => {
             const designation = product.designation || '';
             const lines = doc.splitTextToSize(designation, 75);
             const rowHeight = Math.max(8, (lines.length * 4.5) + 4);
-            
+
             // Split very long products across multiple pages if needed
             let remainingLines = [...lines];
             let isFirstPart = true;
-            
+
             while (remainingLines.length > 0) {
                 const availableSpace = 215 - currentY;
-                
+
                 // If not enough space for even one line, create new page first
                 if (availableSpace < 15) {
                     pages.push(pageCount);
                     doc.addPage();
                     addHeader(false);
                     pageCount++;
-                    
+
                     doc.setFillColor(...blueColor);
                     doc.rect(15, startY, 180, 8, 'F');
                     doc.setTextColor(255, 255, 255);
@@ -3728,60 +3731,60 @@ window.downloadBonDeTravauxPDFChaimae = async function(invoiceId) {
                     doc.text('QTE', 115, startY + 5.5, { align: 'center' });
                     doc.text('Prix unitaire HT', 150, startY + 5.5, { align: 'right' });
                     doc.text('Prix total HT', 188, startY + 5.5, { align: 'right' });
-                    
+
                     currentY = startY + 10;
                     doc.setTextColor(0, 0, 0);
                     doc.setFont(undefined, 'normal');
                     doc.setFontSize(9);
                     continue;
                 }
-                
+
                 const maxLinesPerPage = Math.floor((availableSpace - 10) / 4.5);
                 const linesToDraw = remainingLines.splice(0, Math.max(1, maxLinesPerPage));
                 const partialRowHeight = Math.max(8, (linesToDraw.length * 4.5) + 4);
-                
+
                 // Alternate row colors (only for first part)
                 if (isFirstPart && index % 2 === 0) {
                     doc.setFillColor(245, 245, 245);
                     doc.rect(15, currentY - 3, 180, partialRowHeight, 'F');
                 }
-                
+
                 doc.setFontSize(8);
                 // Draw lines
                 linesToDraw.forEach((line, lineIndex) => {
                     doc.text(line, 18, currentY + 3 + (lineIndex * 4.5));
                 });
-                
+
                 // Only show quantity, price, and total on the first part
                 if (isFirstPart) {
                     const centerOffset = (linesToDraw.length > 1) ? ((linesToDraw.length - 1) * 2.25) : 0;
-                    
+
                     const qty = parseFloat(product.quantite);
                     if (showZeroValues || qty !== 0) {
                         doc.text(String(product.quantite || ''), 115, currentY + 3 + centerOffset, { align: 'center' });
                     }
-                    
+
                     const price = parseFloat(product.prix_unitaire_ht);
                     if (showZeroValues || price !== 0) {
                         doc.text(`${formatNumberForPDF(product.prix_unitaire_ht)} DH`, 150, currentY + 3 + centerOffset, { align: 'right' });
                     }
-                    
+
                     const total = parseFloat(product.total_ht);
                     if (showZeroValues || total !== 0) {
                         doc.text(`${formatNumberForPDF(product.total_ht)} DH`, 188, currentY + 3 + centerOffset, { align: 'right' });
                     }
                 }
-                
+
                 currentY += partialRowHeight;
                 isFirstPart = false;
-                
+
                 // If there are more lines and we're near the bottom, create new page
                 if (remainingLines.length > 0 && currentY > 200) {
                     pages.push(pageCount);
                     doc.addPage();
                     addHeader(false);
                     pageCount++;
-                    
+
                     doc.setFillColor(...blueColor);
                     doc.rect(15, startY, 180, 8, 'F');
                     doc.setTextColor(255, 255, 255);
@@ -3791,7 +3794,7 @@ window.downloadBonDeTravauxPDFChaimae = async function(invoiceId) {
                     doc.text('QTE', 115, startY + 5.5, { align: 'center' });
                     doc.text('Prix unitaire HT', 150, startY + 5.5, { align: 'right' });
                     doc.text('Prix total HT', 188, startY + 5.5, { align: 'right' });
-                    
+
                     currentY = startY + 10;
                     doc.setTextColor(0, 0, 0);
                     doc.setFont(undefined, 'normal');
@@ -3799,10 +3802,10 @@ window.downloadBonDeTravauxPDFChaimae = async function(invoiceId) {
                 }
             }
         });
-        
+
         // Totals section - directly below table (dynamic position)
         currentY += 10; // Add some spacing after table
-        
+
         doc.setFillColor(...blueColor);
         doc.rect(110, currentY, 85, 7, 'F');
         doc.setTextColor(255, 255, 255);
@@ -3810,14 +3813,14 @@ window.downloadBonDeTravauxPDFChaimae = async function(invoiceId) {
         doc.setFont(undefined, 'bold');
         doc.text('Total HT', 113, currentY + 5);
         doc.text(`${formatNumberForPDF(invoice.total_ht)} DH`, 192, currentY + 5, { align: 'right' });
-        
+
         currentY += 7;
         doc.setFillColor(245, 245, 245);
         doc.rect(110, currentY, 85, 7, 'F');
         doc.setTextColor(0, 0, 0);
         doc.text(`TVA ${invoice.tva_rate}%`, 113, currentY + 5);
         doc.text(`${formatNumberForPDF(invoice.montant_tva)} DH`, 192, currentY + 5, { align: 'right' });
-        
+
         currentY += 7;
         doc.setFillColor(...greenColor);
         doc.rect(110, currentY, 85, 7, 'F');
@@ -3825,25 +3828,25 @@ window.downloadBonDeTravauxPDFChaimae = async function(invoiceId) {
         doc.setFont(undefined, 'bold');
         doc.text('Total TTC', 113, currentY + 5);
         doc.text(`${formatNumberForPDF(invoice.total_ttc)} DH`, 192, currentY + 5, { align: 'right' });
-        
+
         // Add page numbering to all pages
         pages.push(pageCount);
         const totalPages = pages.length;
-        
+
         for (let i = 0; i < totalPages; i++) {
             doc.setPage(i + 1);
             addFooter(i + 1, totalPages);
         }
-        
+
         // Save PDF
         const docNumero = invoice.document_numero || invoice.document_numero_devis || invoice.document_numero_bl || 'N';
         const selectedCompany = JSON.parse(localStorage.getItem('selectedCompany') || '{}');
         const companyName = selectedCompany.name ? selectedCompany.name.replace(' Company', '') : 'Unknown';
         const filename = `Bon_de_travaux_${docNumero}_${invoice.client_nom}_${companyName}.pdf`;
         doc.save(filename);
-        
+
         window.notify.success('Succès', 'Bon de travaux téléchargé avec succès', 3000);
-        
+
     } catch (error) {
         console.error('❌ Error generating Bon de travaux PDF:', error);
         window.notify.error('Erreur', 'Impossible de générer le PDF: ' + error.message, 4000);
@@ -3855,7 +3858,7 @@ function numberToFrenchWordsChaimae(number) {
     const units = ['', 'un', 'deux', 'trois', 'quatre', 'cinq', 'six', 'sept', 'huit', 'neuf'];
     const teens = ['dix', 'onze', 'douze', 'treize', 'quatorze', 'quinze', 'seize', 'dix-sept', 'dix-huit', 'dix-neuf'];
     const tens = ['', '', 'vingt', 'trente', 'quarante', 'cinquante', 'soixante', 'soixante', 'quatre-vingt', 'quatre-vingt'];
-    
+
     function convertLessThanThousand(n) {
         if (n === 0) return '';
         if (n < 10) return units[n];
@@ -3879,7 +3882,7 @@ function numberToFrenchWordsChaimae(number) {
             if (remainder < 10) return 'quatre-vingt-' + units[remainder];
             return 'quatre-vingt-' + teens[remainder - 10];
         }
-        
+
         const hundred = Math.floor(n / 100);
         const remainder = n % 100;
         let result = hundred === 1 ? 'cent' : units[hundred] + ' cent';
@@ -3887,11 +3890,11 @@ function numberToFrenchWordsChaimae(number) {
         if (remainder > 0) result += ' ' + convertLessThanThousand(remainder);
         return result;
     }
-    
+
     function convertNumber(n) {
         if (n === 0) return 'zéro';
         if (n < 1000) return convertLessThanThousand(n);
-        
+
         // Billions (milliards)
         if (n >= 1000000000) {
             const billion = Math.floor(n / 1000000000);
@@ -3900,7 +3903,7 @@ function numberToFrenchWordsChaimae(number) {
             if (remainder > 0) result += ' ' + convertNumber(remainder);
             return result;
         }
-        
+
         // Millions
         if (n >= 1000000) {
             const million = Math.floor(n / 1000000);
@@ -3909,7 +3912,7 @@ function numberToFrenchWordsChaimae(number) {
             if (remainder > 0) result += ' ' + convertNumber(remainder);
             return result;
         }
-        
+
         // Thousands
         const thousand = Math.floor(n / 1000);
         const remainder = n % 1000;
@@ -3917,27 +3920,27 @@ function numberToFrenchWordsChaimae(number) {
         if (remainder > 0) result += ' ' + convertLessThanThousand(remainder);
         return result;
     }
-    
+
     const parts = number.toFixed(2).split('.');
     const dirhams = parseInt(parts[0]);
     const centimes = parseInt(parts[1]);
-    
+
     let result = '';
-    
+
     if (dirhams === 0) {
         result = 'zéro dirham';
     } else {
         result = convertNumber(dirhams) + ' dirham';
         if (dirhams > 1) result += 's';
     }
-    
+
     if (centimes > 0) {
         result += ' et ' + convertNumber(centimes) + ' centime';
         if (centimes > 1) result += 's';
     } else {
         result += ' et zéro centime';
     }
-    
+
     return result.charAt(0).toUpperCase() + result.slice(1);
 }
 
@@ -3945,49 +3948,49 @@ function numberToFrenchWordsChaimae(number) {
 async function generateSinglePDFBlobChaimae(invoice, organizationType, folderName, includeOrder = true, includeBL = true, includeBC = true) {
     // For bulk PDF, always hide zero values (no prompt)
     const showZeroValues = false;
-    
+
     const { jsPDF } = window.jspdf;
     const doc = new jsPDF();
-    
+
     // Colors
     const blueColor = [33, 97, 140];
     const greenColor = [76, 175, 80];
     const orangeColor = [255, 152, 0];
     const dateStr = new Date(invoice.document_date).toLocaleDateString('fr-FR');
-    
-    const docType = invoice.document_type === 'facture' ? 'FACTURE' : 
-                   invoice.document_type === 'devis' ? 'DEVIS' : 
-                   'BON DE LIVRAISON';
+
+    const docType = invoice.document_type === 'facture' ? 'FACTURE' :
+        invoice.document_type === 'devis' ? 'DEVIS' :
+            'BON DE LIVRAISON';
     const docNumero = invoice.document_numero || invoice.document_numero_devis || invoice.document_numero_bl || '-';
-    
+
     const addHeader = (isFirstPage = true) => {
         try {
-            const logoImg = document.querySelector('img[src*="chaimae.png"]') || 
-                           document.querySelector('img[data-asset="chaimae"]') ||
-                           document.querySelector('img[src^="data:image"]');
+            const logoImg = document.querySelector('img[src*="chaimae.png"]') ||
+                document.querySelector('img[data-asset="chaimae"]') ||
+                document.querySelector('img[src^="data:image"]');
             if (logoImg && logoImg.src && logoImg.src.startsWith('data:')) {
                 doc.addImage(logoImg.src, 'PNG', 15, 10, 35, 35);
             }
-        } catch (error) {}
-        
+        } catch (error) { }
+
         doc.setFontSize(18);
         doc.setTextColor(...blueColor);
         doc.setFont(undefined, 'bold');
         doc.text('CHAIMAE ERRBAHI MDIQ sarl (AU)', 105, 20, { align: 'center' });
-        
+
         doc.setFontSize(10);
         doc.setFont(undefined, 'normal');
         doc.setTextColor(0, 0, 0);
         doc.text('Patente N° 52003366 - NIF : 40190505', 105, 27, { align: 'center' });
         doc.text('RC N° : 10487 - CNSS : 8721591', 105, 32, { align: 'center' });
         doc.text('ICE : 001544861000014', 105, 37, { align: 'center' });
-        
+
         doc.setFontSize(11);
         doc.setFont(undefined, 'bold');
         doc.text('CLIENT :', 15, 55);
         doc.setTextColor(...greenColor);
         doc.text(invoice.client_nom, 40, 55);
-        
+
         // Only show ICE if it exists and is not "0"
         if (invoice.client_ice && invoice.client_ice !== '0') {
             doc.setTextColor(0, 0, 0);
@@ -3995,14 +3998,14 @@ async function generateSinglePDFBlobChaimae(invoice, organizationType, folderNam
             doc.setTextColor(...greenColor);
             doc.text(invoice.client_ice, 40, 62);
         }
-        
+
         doc.setTextColor(0, 0, 0);
         doc.text(`Date: ${dateStr}`, 150, 55);
-        
+
         doc.setFontSize(14);
         doc.setFont(undefined, 'bold');
         doc.setTextColor(0, 0, 0);
-        
+
         if (invoice.document_type === 'bon_livraison') {
             doc.text(`${docType} N°:`, 15, 75);
             doc.setTextColor(...orangeColor);
@@ -4012,9 +4015,9 @@ async function generateSinglePDFBlobChaimae(invoice, organizationType, folderNam
             doc.setTextColor(...orangeColor);
             doc.text(docNumero, 55, 75);
         }
-        
+
         let currentY = 75;
-        
+
         if (invoice.document_type === 'facture') {
             if (includeOrder && invoice.document_numero_Order) {
                 currentY += 7;
@@ -4044,7 +4047,7 @@ async function generateSinglePDFBlobChaimae(invoice, organizationType, folderNam
             doc.text(invoice.document_numero_commande, 65, currentY);
         }
     };
-    
+
     const addFooter = (pageNum, totalPages) => {
         doc.setTextColor(0, 0, 0);
         doc.setFontSize(7);
@@ -4053,7 +4056,7 @@ async function generateSinglePDFBlobChaimae(invoice, organizationType, folderNam
         doc.text('Email: errbahiabderrahim@gmail.com', 15, 279);
         doc.text('ADRESSE: LOT ALBAHR AV TETOUAN N94 GARAGE 2 M\'DIQ', 15, 283);
         doc.text('Tel: +212 661 307 323', 15, 287);
-        
+
         // Page numbering
         if (pageNum && totalPages) {
             doc.setFontSize(8);
@@ -4061,9 +4064,9 @@ async function generateSinglePDFBlobChaimae(invoice, organizationType, folderNam
             doc.text(`Page ${pageNum} / ${totalPages}`, 105, 293, { align: 'center' });
         }
     };
-    
+
     addHeader(true);
-    
+
     let startY = 85;
     if (invoice.document_type === 'facture') {
         if (includeOrder && invoice.document_numero_Order) startY += 7;
@@ -4071,7 +4074,7 @@ async function generateSinglePDFBlobChaimae(invoice, organizationType, folderNam
     } else if (invoice.document_type === 'bon_livraison' && includeBC && invoice.document_numero_commande) {
         startY += 7;
     }
-    
+
     doc.setFillColor(...blueColor);
     doc.rect(15, startY, 180, 8, 'F');
     doc.setTextColor(255, 255, 255);
@@ -4081,34 +4084,34 @@ async function generateSinglePDFBlobChaimae(invoice, organizationType, folderNam
     doc.text('QTE', 125, startY + 5.5, { align: 'center' });
     doc.text('PU HT', 160, startY + 5.5, { align: 'right' });
     doc.text('TOTAL HT', 188, startY + 5.5, { align: 'right' });
-    
+
     let currentY = startY + 10;
     doc.setTextColor(0, 0, 0);
     doc.setFont(undefined, 'normal');
     doc.setFontSize(9);
-    
+
     let pageCount = 1;
     const pages = [];
-    
+
     invoice.products.forEach((product, index) => {
         const designation = product.designation || '';
         const lines = doc.splitTextToSize(designation, 85);
         const rowHeight = Math.max(8, (lines.length * 4.5) + 4);
-        
+
         // Split very long products across multiple pages if needed
         let remainingLines = [...lines];
         let isFirstPart = true;
-        
+
         while (remainingLines.length > 0) {
             const availableSpace = 215 - currentY;
-            
+
             // If not enough space for even one line, create new page first
             if (availableSpace < 15) {
                 pages.push(pageCount);
                 doc.addPage();
                 addHeader(false);
                 pageCount++;
-                
+
                 let newStartY = 85;
                 if (invoice.document_type === 'facture') {
                     if (invoice.document_numero_Order) newStartY += 7;
@@ -4116,7 +4119,7 @@ async function generateSinglePDFBlobChaimae(invoice, organizationType, folderNam
                 } else if (invoice.document_type === 'bon_livraison' && invoice.document_numero_commande) {
                     newStartY += 7;
                 }
-                
+
                 doc.setFillColor(...blueColor);
                 doc.rect(15, newStartY, 180, 8, 'F');
                 doc.setTextColor(255, 255, 255);
@@ -4126,61 +4129,61 @@ async function generateSinglePDFBlobChaimae(invoice, organizationType, folderNam
                 doc.text('QTE', 125, newStartY + 5.5, { align: 'center' });
                 doc.text('PU HT', 160, newStartY + 5.5, { align: 'right' });
                 doc.text('TOTAL HT', 188, newStartY + 5.5, { align: 'right' });
-                
+
                 currentY = newStartY + 10;
                 doc.setTextColor(0, 0, 0);
                 doc.setFont(undefined, 'normal');
                 doc.setFontSize(9);
                 continue;
             }
-            
+
             const maxLinesPerPage = Math.floor((availableSpace - 10) / 4.5);
             const linesToDraw = remainingLines.splice(0, Math.max(1, maxLinesPerPage));
             const partialRowHeight = Math.max(8, (linesToDraw.length * 4.5) + 4);
-            
+
             // Alternate row colors (only for first part)
             if (isFirstPart && index % 2 === 0) {
                 doc.setFillColor(245, 245, 245);
                 doc.rect(15, currentY - 3, 180, partialRowHeight, 'F');
             }
-            
+
             doc.setFontSize(8);
             // Draw lines
             linesToDraw.forEach((line, lineIndex) => {
                 doc.text(line, 18, currentY + 3 + (lineIndex * 4.5));
             });
-            
+
             // Only show quantity, price, and total on the first part
             if (isFirstPart) {
                 const centerOffset = (linesToDraw.length > 1) ? ((linesToDraw.length - 1) * 2.25) : 0;
-                
+
                 const qty = parseFloat(product.quantite);
                 if (qty !== 0) {
                     doc.text(String(product.quantite || ''), 125, currentY + 3 + centerOffset, { align: 'center' });
                 }
-                
+
                 doc.setFontSize(7.5);
                 const price = parseFloat(product.prix_unitaire_ht);
                 if (price !== 0) {
                     doc.text(`${formatNumberForPDFChaimae(product.prix_unitaire_ht)} DH`, 160, currentY + 3 + centerOffset, { align: 'right' });
                 }
-                
+
                 const total = parseFloat(product.total_ht);
                 if (total !== 0) {
                     doc.text(`${formatNumberForPDFChaimae(product.total_ht)} DH`, 188, currentY + 3 + centerOffset, { align: 'right' });
                 }
             }
-            
+
             currentY += partialRowHeight;
             isFirstPart = false;
-            
+
             // If there are more lines and we're near the bottom, create new page
             if (remainingLines.length > 0 && currentY > 200) {
                 pages.push(pageCount);
                 doc.addPage();
                 addHeader(false);
                 pageCount++;
-                
+
                 let newStartY = 85;
                 if (invoice.document_type === 'facture') {
                     if (invoice.document_numero_Order) newStartY += 7;
@@ -4188,7 +4191,7 @@ async function generateSinglePDFBlobChaimae(invoice, organizationType, folderNam
                 } else if (invoice.document_type === 'bon_livraison' && invoice.document_numero_commande) {
                     newStartY += 7;
                 }
-                
+
                 doc.setFillColor(...blueColor);
                 doc.rect(15, newStartY, 180, 8, 'F');
                 doc.setTextColor(255, 255, 255);
@@ -4198,7 +4201,7 @@ async function generateSinglePDFBlobChaimae(invoice, organizationType, folderNam
                 doc.text('QTE', 125, newStartY + 5.5, { align: 'center' });
                 doc.text('PU HT', 160, newStartY + 5.5, { align: 'right' });
                 doc.text('TOTAL HT', 188, newStartY + 5.5, { align: 'right' });
-                
+
                 currentY = newStartY + 10;
                 doc.setTextColor(0, 0, 0);
                 doc.setFont(undefined, 'normal');
@@ -4206,9 +4209,9 @@ async function generateSinglePDFBlobChaimae(invoice, organizationType, folderNam
             }
         }
     });
-    
+
     currentY += 10;
-    
+
     doc.setFillColor(245, 245, 245);
     doc.rect(110, currentY, 85, 8, 'F');
     doc.setFont(undefined, 'bold');
@@ -4217,7 +4220,7 @@ async function generateSinglePDFBlobChaimae(invoice, organizationType, folderNam
     doc.text('TOTAL HT :', 113, currentY + 5.5);
     doc.setFontSize(8);
     doc.text(`${formatNumberForPDFChaimae(invoice.total_ht)} DH`, 192, currentY + 5.5, { align: 'right' });
-    
+
     currentY += 8;
     doc.setFillColor(255, 255, 255);
     doc.rect(110, currentY, 85, 8, 'F');
@@ -4225,7 +4228,7 @@ async function generateSinglePDFBlobChaimae(invoice, organizationType, folderNam
     doc.text(`MONTANT TVA ${invoice.tva_rate}% :`, 113, currentY + 5.5);
     doc.setFontSize(8);
     doc.text(`${formatNumberForPDFChaimae(invoice.montant_tva)} DH`, 192, currentY + 5.5, { align: 'right' });
-    
+
     currentY += 8;
     doc.setFillColor(173, 216, 230);
     doc.rect(110, currentY, 85, 8, 'F');
@@ -4234,7 +4237,7 @@ async function generateSinglePDFBlobChaimae(invoice, organizationType, folderNam
     doc.text('MONTANT T.T.C :', 113, currentY + 5.5);
     doc.setFontSize(8.5);
     doc.text(`${formatNumberForPDFChaimae(invoice.total_ttc)} DH`, 192, currentY + 5.5, { align: 'right' });
-    
+
     currentY += 15;
     doc.setTextColor(0, 0, 0);
     doc.setFontSize(9);
@@ -4245,7 +4248,7 @@ async function generateSinglePDFBlobChaimae(invoice, organizationType, folderNam
         const docTypeText = invoice.document_type === 'facture' ? 'Facture' : 'Devis';
         doc.text(`La Présente ${docTypeText} est Arrêtée à la somme de : ${amountInWords}`, 15, currentY, { maxWidth: 180 });
     }
-    
+
     // Add notes if invoice has an id
     if (invoice.id) {
         try {
@@ -4256,7 +4259,7 @@ async function generateSinglePDFBlobChaimae(invoice, organizationType, folderNam
                 doc.setFont(undefined, 'bold');
                 doc.setTextColor(96, 125, 139);
                 doc.text('Notes:', 15, currentY);
-                
+
                 doc.setFont(undefined, 'bold');
                 doc.setTextColor(0, 0, 0);
                 doc.setFontSize(9);
@@ -4286,16 +4289,16 @@ async function generateSinglePDFBlobChaimae(invoice, organizationType, folderNam
             console.log('Note not loaded for bulk PDF:', error);
         }
     }
-    
+
     // Add page numbering to all pages
     pages.push(pageCount);
     const totalPages = pages.length;
-    
+
     for (let i = 0; i < totalPages; i++) {
         doc.setPage(i + 1);
         addFooter(i + 1, totalPages);
     }
-    
+
     return doc.output('blob');
 }
 
@@ -4306,7 +4309,7 @@ async function loadJsPDFChaimae() {
             resolve();
             return;
         }
-        
+
         const script = document.createElement('script');
         script.src = 'https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js';
         script.onload = () => {
@@ -4323,36 +4326,36 @@ async function viewGlobalInvoiceChaimae(id) {
     console.log('🔍🔍🔍 [VIEW BUTTON CLICKED!!!] Global Invoice ID:', id);
     console.log('📍📍📍 [LOCATION] viewGlobalInvoiceChaimae function called in invoices_list_chaimae.js');
     console.log('✅✅✅ [CONFIRMATION] تم الضغط على زر العرض - الدالة تعمل!');
-    
+
     try {
         console.log('📡 [API CALL] Fetching global invoice data...');
         const result = await window.electron.dbChaimae.getGlobalInvoiceById(id);
-        
+
         console.log('📦 [API RESPONSE]', result);
-        
+
         if (result.success && result.data) {
             const invoice = result.data;
             console.log('✅ [SUCCESS] Invoice data loaded:', invoice);
-            
+
             // Calculate totals dynamically from bons
             let calculatedTotalHT = 0;
             let calculatedTotalTTC = 0;
-            
+
             if (invoice.bons && invoice.bons.length > 0) {
                 invoice.bons.forEach(bon => {
                     calculatedTotalHT += parseFloat(bon.total_ht) || 0;
                     calculatedTotalTTC += parseFloat(bon.total_ttc) || 0;
                 });
             }
-            
+
             const tvaRate = invoice.tva_rate || 20;
             const calculatedMontantTVA = calculatedTotalHT * (tvaRate / 100);
-            
+
             // Use calculated values instead of stored values
             invoice.total_ht = calculatedTotalHT;
             invoice.montant_tva = calculatedMontantTVA;
             invoice.total_ttc = calculatedTotalTTC;
-            
+
             const modal = document.createElement('div');
             modal.className = 'modal-overlay';
             modal.innerHTML = `
@@ -4413,7 +4416,7 @@ async function viewGlobalInvoiceChaimae(id) {
                     </div>
                 </div>
             `;
-            
+
             document.body.appendChild(modal);
         } else {
             window.notify.error('Erreur', 'Impossible de charger les détails', 3000);
@@ -4425,22 +4428,22 @@ async function viewGlobalInvoiceChaimae(id) {
 }
 
 // Delete invoice
-window.deleteInvoiceChaimae = async function(id, documentType) {
+window.deleteInvoiceChaimae = async function (id, documentType) {
     const confirmed = await customConfirm('Confirmation', 'Êtes-vous sûr de vouloir supprimer ce document ?', 'warning');
     if (!confirmed) {
         return;
     }
-    
+
     try {
         let result;
-        
+
         // Check if it's a global invoice
         if (documentType === 'facture_globale') {
             result = await window.electron.dbChaimae.deleteGlobalInvoice(id);
         } else {
             result = await window.electron.dbChaimae.deleteInvoice(id);
         }
-        
+
         if (result.success) {
             window.notify.success('Succès', 'Document supprimé avec succès', 3000);
             loadInvoicesChaimae();
@@ -4454,28 +4457,28 @@ window.deleteInvoiceChaimae = async function(id, documentType) {
 }
 
 // Handle bulk delete button click
-window.handleBulkDeleteChaimae = async function() {
+window.handleBulkDeleteChaimae = async function () {
     const checkedBoxes = document.querySelectorAll('.invoice-checkbox-chaimae:checked');
-    
+
     if (checkedBoxes.length === 0) {
         window.notify.error('Erreur', 'Veuillez sélectionner au moins un document', 3000);
         return;
     }
-    
+
     const count = checkedBoxes.length;
     const confirmMessage = `Êtes-vous sûr de vouloir supprimer ${count} document(s) ?\n\nCette action est irréversible.`;
-    
+
     const confirmed = await customConfirm('Confirmation', confirmMessage, 'warning');
     if (!confirmed) {
         return;
     }
-    
+
     // Create progress modal
     const progressOverlay = document.createElement('div');
     progressOverlay.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.85);z-index:10000;display:flex;align-items:center;justify-content:center;';
-    
+
     let cancelRequested = false;
-    
+
     progressOverlay.innerHTML = `
         <div style="background:#2d2d30;border-radius:12px;padding:2rem;min-width:400px;box-shadow:0 20px 60px rgba(0,0,0,0.9);">
             <h3 style="color:#fff;margin:0 0 1.5rem 0;font-size:1.2rem;display:flex;align-items:center;gap:0.5rem;">
@@ -4496,13 +4499,13 @@ window.handleBulkDeleteChaimae = async function() {
             </div>
         </div>
     `;
-    
+
     document.body.appendChild(progressOverlay);
-    
+
     const progressBar = document.getElementById('deleteProgressBar');
     const progressText = document.getElementById('deleteProgressText');
     const cancelBtn = document.getElementById('cancelDeleteBtn');
-    
+
     // Handle cancel button
     cancelBtn.addEventListener('click', () => {
         cancelRequested = true;
@@ -4511,11 +4514,11 @@ window.handleBulkDeleteChaimae = async function() {
         cancelBtn.textContent = '⏸️ Annulation...';
         progressText.textContent = 'Annulation en cours...';
     });
-    
+
     try {
         let successCount = 0;
         let errorCount = 0;
-        
+
         // Get all selected invoices with their types
         const selectedInvoices = Array.from(checkedBoxes).map(cb => {
             const invoiceId = parseInt(cb.dataset.invoiceId);
@@ -4525,9 +4528,9 @@ window.handleBulkDeleteChaimae = async function() {
                 type: invoice ? invoice.document_type : null
             };
         });
-        
+
         const total = selectedInvoices.length;
-        
+
         // Delete each invoice
         for (let i = 0; i < selectedInvoices.length; i++) {
             // Check if cancel was requested
@@ -4536,18 +4539,18 @@ window.handleBulkDeleteChaimae = async function() {
                 await new Promise(resolve => setTimeout(resolve, 1500));
                 break;
             }
-            
+
             const invoice = selectedInvoices[i];
-            
+
             try {
                 let result;
-                
+
                 if (invoice.type === 'facture_globale') {
                     result = await window.electron.dbChaimae.deleteGlobalInvoice(invoice.id);
                 } else {
                     result = await window.electron.dbChaimae.deleteInvoice(invoice.id);
                 }
-                
+
                 if (result.success) {
                     successCount++;
                 } else {
@@ -4557,30 +4560,30 @@ window.handleBulkDeleteChaimae = async function() {
                 console.error(`Error deleting invoice ${invoice.id}:`, error);
                 errorCount++;
             }
-            
+
             // Update progress
             const progress = Math.round(((i + 1) / total) * 100);
             progressBar.style.width = progress + '%';
             progressBar.textContent = progress + '%';
             progressText.textContent = `Suppression: ${i + 1} / ${total}`;
-            
+
             // Small delay to show progress
             await new Promise(resolve => setTimeout(resolve, 10));
         }
-        
+
         // Remove progress modal
         document.body.removeChild(progressOverlay);
-        
+
         // Show result
         if (successCount > 0) {
             window.notify.success('Succès', `${successCount} document(s) supprimé(s) avec succès`, 3000);
             loadInvoicesChaimae();
         }
-        
+
         if (errorCount > 0) {
             window.notify.error('Erreur', `${errorCount} document(s) n'ont pas pu être supprimés`, 3000);
         }
-        
+
     } catch (error) {
         console.error('Error in bulk delete:', error);
         document.body.removeChild(progressOverlay);
@@ -4589,31 +4592,31 @@ window.handleBulkDeleteChaimae = async function() {
 }
 
 // Handle bulk download button click
-window.handleBulkDownloadChaimae = function() {
+window.handleBulkDownloadChaimae = function () {
     const checkedBoxes = document.querySelectorAll('.invoice-checkbox-chaimae:checked');
-    
+
     if (checkedBoxes.length === 0) {
         window.notify.error('Erreur', 'Veuillez sélectionner au moins une facture', 3000);
         return;
     }
-    
+
     showBulkDownloadModalChaimae();
 }
 
 // Show bulk download modal
-window.showBulkDownloadModalChaimae = function() {
+window.showBulkDownloadModalChaimae = function () {
     const checkedBoxes = document.querySelectorAll('.invoice-checkbox-chaimae:checked');
     const selectedIds = Array.from(checkedBoxes).map(cb => cb.dataset.invoiceId);
-    
+
     if (selectedIds.length === 0) {
         window.notify.warning('Attention', 'Veuillez sélectionner au moins une facture', 3000);
         return;
     }
-    
+
     const overlay = document.createElement('div');
     overlay.className = 'modal-overlay';
     overlay.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.85);z-index:9999;display:flex;align-items:center;justify-content:center;animation:fadeIn 0.3s;';
-    
+
     overlay.innerHTML = `
         <div style="background:#2d2d30;border-radius:12px;padding:2rem;max-width:500px;width:90%;max-height:70vh;display:flex;flex-direction:column;box-shadow:0 20px 60px rgba(0,0,0,0.9);animation:slideIn 0.3s;">
             <style>
@@ -4729,12 +4732,12 @@ window.showBulkDownloadModalChaimae = function() {
             </div>
         </div>
     `;
-    
+
     document.body.appendChild(overlay);
-    
+
     // Auto-select default option
     document.querySelector('.org-option input[checked]').closest('.org-option').classList.add('selected');
-    
+
     // Add click event to confirm button
     document.getElementById('bulkDownloadConfirmBtnChaimae').onclick = () => {
         const organizationType = document.querySelector('input[name="organization"]:checked').value;
@@ -4744,18 +4747,18 @@ window.showBulkDownloadModalChaimae = function() {
 };
 
 // Select organization option
-window.selectOrganizationChaimae = function(element, value) {
+window.selectOrganizationChaimae = function (element, value) {
     document.querySelectorAll('.org-option').forEach(opt => opt.classList.remove('selected'));
     element.classList.add('selected');
     element.querySelector('input').checked = true;
 };
 
 // Show Order/BL/BC selection modal before download for Chaimae
-window.showOrderBLBCSelectionModalBeforeDownloadChaimae = function(selectedIds, organizationType) {
+window.showOrderBLBCSelectionModalBeforeDownloadChaimae = function (selectedIds, organizationType) {
     const selectionOverlay = document.createElement('div');
     selectionOverlay.className = 'custom-modal-overlay';
     selectionOverlay.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.95);z-index:10000;display:flex;align-items:center;justify-content:center;';
-    
+
     selectionOverlay.innerHTML = `
         <div class="custom-modal">
             <div class="custom-modal-header">
@@ -4788,26 +4791,26 @@ window.showOrderBLBCSelectionModalBeforeDownloadChaimae = function(selectedIds, 
             </div>
         </div>
     `;
-    
+
     document.body.appendChild(selectionOverlay);
-    
+
     const orderCheckbox = selectionOverlay.querySelector('#includeOrderCheckboxDownloadChaimae');
     const blCheckbox = selectionOverlay.querySelector('#includeBLCheckboxDownloadChaimae');
     const bcCheckbox = selectionOverlay.querySelector('#includeBCCheckboxDownloadChaimae');
     const continueBtn = selectionOverlay.querySelector('#continueBtnDownloadChaimae');
-    
+
     continueBtn.addEventListener('click', async () => {
         const includeOrder = orderCheckbox.checked;
         const includeBL = blCheckbox.checked;
         const includeBC = bcCheckbox.checked;
-        
+
         console.log('✅ [CHAIMAE DOWNLOAD] Include Order:', includeOrder, '| Include BL:', includeBL, '| Include BC:', includeBC);
-        
+
         selectionOverlay.remove();
-        
+
         await startBulkDownloadChaimae(selectedIds, organizationType, includeOrder, includeBL, includeBC);
     });
-    
+
     selectionOverlay.addEventListener('click', (e) => {
         if (e.target === selectionOverlay) {
             const includeOrder = orderCheckbox.checked;
@@ -4817,7 +4820,7 @@ window.showOrderBLBCSelectionModalBeforeDownloadChaimae = function(selectedIds, 
             startBulkDownloadChaimae(selectedIds, organizationType, includeOrder, includeBL, includeBC);
         }
     });
-    
+
     setTimeout(() => continueBtn.focus(), 100);
 };
 
@@ -4828,7 +4831,7 @@ async function loadJSZipChaimae() {
             resolve();
             return;
         }
-        
+
         const script = document.createElement('script');
         script.src = 'https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js';
         script.onload = () => {
@@ -4841,15 +4844,15 @@ async function loadJSZipChaimae() {
 }
 
 // Start bulk download
-window.startBulkDownloadChaimae = async function(selectedIds, organizationType, includeOrder = true, includeBL = true, includeBC = true) {
+window.startBulkDownloadChaimae = async function (selectedIds, organizationType, includeOrder = true, includeBL = true, includeBC = true) {
     try {
-        
+
         // Close modal
         document.querySelector('.modal-overlay')?.remove();
-        
+
         // Show progress notification
         window.notify.info('Téléchargement', `Génération de ${selectedIds.length} PDF(s)...`, 10000);
-        
+
         // Get all selected invoices data
         const invoicesData = [];
         for (const id of selectedIds) {
@@ -4858,36 +4861,36 @@ window.startBulkDownloadChaimae = async function(selectedIds, organizationType, 
                 invoicesData.push(result.data);
             }
         }
-        
+
         if (invoicesData.length === 0) {
             window.notify.error('Erreur', 'Aucune facture trouvée', 3000);
             return;
         }
-        
+
         // Load libraries
         if (typeof window.jspdf === 'undefined') {
             await loadJsPDFChaimae();
         }
         await loadJSZipChaimae();
-        
+
         // Create ZIP file
         const zip = new JSZip();
         const timestamp = new Date().toISOString().split('T')[0];
         const folderName = `Factures_CHAIMAE_Export_${timestamp}`;
-        
+
         // Generate all PDFs and add to ZIP
         let successCount = 0;
-        
+
         for (const invoice of invoicesData) {
             try {
                 const pdfBlob = await generateSinglePDFBlobChaimae(invoice, organizationType, folderName, includeOrder, includeBL, includeBC);
-                
+
                 // Organize in folders based on type
                 const invoiceDate = new Date(invoice.document_date);
                 const yearMonth = `${invoiceDate.getFullYear()}-${String(invoiceDate.getMonth() + 1).padStart(2, '0')}`;
                 const clientName = invoice.client_nom.replace(/[^a-zA-Z0-9]/g, '_');
                 const numero = (invoice.document_numero || invoice.document_numero_devis || invoice.document_numero_bl || invoice.id).toString().replace(/\//g, '_');
-                
+
                 // Determine document type folder
                 let docType = 'Documents';
                 let docPrefix = 'Document';
@@ -4901,9 +4904,9 @@ window.startBulkDownloadChaimae = async function(selectedIds, organizationType, 
                     docType = 'Bons_de_livraison';
                     docPrefix = 'BL';
                 }
-                
+
                 const filename = `${docPrefix}_${numero}_${clientName}.pdf`;
-                
+
                 let zipPath = '';
                 if (organizationType === 'client-month-type') {
                     // Client → Mois → Type
@@ -4927,33 +4930,33 @@ window.startBulkDownloadChaimae = async function(selectedIds, organizationType, 
                     // Tout dans un dossier (flat)
                     zipPath = `${docType}/${filename}`;
                 }
-                
+
                 zip.file(zipPath, pdfBlob);
                 successCount++;
             } catch (error) {
                 console.error(`Error generating PDF for invoice ${invoice.id}:`, error);
             }
         }
-        
+
         // Generate and download ZIP
         window.notify.info('Téléchargement', 'Création du fichier ZIP...', 3000);
         const zipBlob = await zip.generateAsync({ type: 'blob' });
-        
+
         // Download ZIP file
         const link = document.createElement('a');
         link.href = URL.createObjectURL(zipBlob);
         link.download = `${folderName}.zip`;
         link.click();
         URL.revokeObjectURL(link.href);
-        
+
         window.notify.success('Succès', `${successCount} PDF(s) téléchargé(s) dans ${folderName}.zip`, 4000);
-        
+
         // Uncheck all checkboxes
         document.querySelectorAll('.invoice-checkbox-chaimae').forEach(cb => cb.checked = false);
         const selectAllCheckbox = document.getElementById('selectAllInvoicesChaimae');
         if (selectAllCheckbox) selectAllCheckbox.checked = false;
         updateSelectedCountChaimae();
-        
+
     } catch (error) {
         console.error('Error in bulk download:', error);
         window.notify.error('Erreur', 'Erreur lors du téléchargement: ' + error.message, 5000);
@@ -4961,19 +4964,19 @@ window.startBulkDownloadChaimae = async function(selectedIds, organizationType, 
 };
 
 // Add new attachment
-window.addNewAttachmentChaimae = function(invoiceId) {
+window.addNewAttachmentChaimae = function (invoiceId) {
     const input = document.createElement('input');
     input.type = 'file';
     input.multiple = true;
     input.accept = 'image/*,application/pdf';
-    
+
     input.onchange = async (e) => {
         const files = Array.from(e.target.files);
-        
+
         if (files.length === 0) return;
-        
+
         window.notify.info('Upload', `Upload de ${files.length} fichier(s)...`, 2000);
-        
+
         for (const file of files) {
             // Check file type
             const validTypes = ['image/png', 'image/jpeg', 'image/jpg', 'application/pdf'];
@@ -4981,17 +4984,17 @@ window.addNewAttachmentChaimae = function(invoiceId) {
                 window.notify.warning('Type non supporté', `${file.name} n'est pas accepté`, 3000);
                 continue;
             }
-            
+
             // Check file size (max 10MB)
             if (file.size > 10 * 1024 * 1024) {
                 window.notify.warning('Fichier trop volumineux', `${file.name} dépasse 10MB`, 3000);
                 continue;
             }
-            
+
             // Read file as array buffer
             const arrayBuffer = await file.arrayBuffer();
             const uint8Array = new Uint8Array(arrayBuffer);
-            
+
             // Upload to database
             const result = await window.electron.dbChaimae.addAttachment(
                 invoiceId,
@@ -4999,46 +5002,46 @@ window.addNewAttachmentChaimae = function(invoiceId) {
                 file.type,
                 uint8Array
             );
-            
+
             if (result.success) {
                 window.notify.success('Succès', `${file.name} ajouté`, 2000);
             } else {
                 window.notify.error('Erreur', `Échec: ${file.name}`, 3000);
             }
         }
-        
+
         // Close modal and reopen to refresh
         document.querySelector('.invoice-view-overlay')?.remove();
         setTimeout(() => viewInvoiceChaimae(invoiceId), 300);
     };
-    
+
     input.click();
 }
 
 // Open attachment
-window.openAttachmentChaimae = async function(attachmentId) {
+window.openAttachmentChaimae = async function (attachmentId) {
     try {
         const result = await window.electron.dbChaimae.getAttachment(attachmentId);
-        
+
         if (result.success && result.data) {
             const attachment = result.data;
-            
+
             // Convert base64 to binary
             const binaryString = atob(attachment.file_data);
             const bytes = new Uint8Array(binaryString.length);
             for (let i = 0; i < binaryString.length; i++) {
                 bytes[i] = binaryString.charCodeAt(i);
             }
-            
+
             // Create blob from binary data
             const blob = new Blob([bytes], {
                 type: attachment.file_type
             });
-            
+
             // Create URL and open
             const url = URL.createObjectURL(blob);
             window.open(url, '_blank');
-            
+
             // Clean up URL after a delay
             setTimeout(() => URL.revokeObjectURL(url), 10000);
         } else {
@@ -5051,18 +5054,18 @@ window.openAttachmentChaimae = async function(attachmentId) {
 }
 
 // Delete attachment
-window.deleteAttachmentChaimae = async function(attachmentId, invoiceId) {
+window.deleteAttachmentChaimae = async function (attachmentId, invoiceId) {
     const confirmed = await customConfirm('Confirmation', 'Êtes-vous sûr de vouloir supprimer cette pièce jointe ?', 'warning');
     if (!confirmed) {
         return;
     }
-    
+
     try {
         const result = await window.electron.dbChaimae.deleteAttachment(attachmentId);
-        
+
         if (result.success) {
             window.notify.success('Succès', 'Pièce jointe supprimée', 2000);
-            
+
             // Close modal and reopen to refresh
             document.querySelector('.invoice-view-overlay')?.remove();
             setTimeout(() => viewInvoiceChaimae(invoiceId), 300);
@@ -5076,34 +5079,34 @@ window.deleteAttachmentChaimae = async function(attachmentId, invoiceId) {
 }
 
 // Show create global invoice modal
-window.showCreateGlobalInvoiceModalChaimae = async function() {
+window.showCreateGlobalInvoiceModalChaimae = async function () {
     // Check if client filter is selected
     const clientFilter = document.getElementById('filterClientChaimae').value;
     if (!clientFilter) {
         window.notify.error('Erreur', 'Veuillez sélectionner un client dans les filtres', 4000);
         return;
     }
-    
+
     // Check if type filter is set to bon_livraison
     const typeFilter = document.getElementById('filterTypeChaimae').value;
     if (typeFilter !== 'bon_livraison') {
         window.notify.error('Erreur', 'Veuillez sélectionner "Bon de livraison" dans le filtre Type', 4000);
         return;
     }
-    
+
     // Get all bon de livraison for the selected client
-    const clientBons = filteredInvoicesChaimae.filter(inv => 
+    const clientBons = filteredInvoicesChaimae.filter(inv =>
         inv.document_type === 'bon_livraison' && inv.client_nom === clientFilter
     );
-    
+
     if (clientBons.length === 0) {
         window.notify.error('Erreur', 'Aucun bon de livraison trouvé pour ce client', 3000);
         return;
     }
-    
+
     const clientName = clientBons[0].client_nom;
     const clientICE = clientBons[0].client_ice;
-    
+
     // Show modal with checkboxes for selecting bons
     const bonsListHtml = clientBons.map(inv => `
         <tr style="border-bottom: 1px solid #3e3e42;">
@@ -5118,11 +5121,11 @@ window.showCreateGlobalInvoiceModalChaimae = async function() {
             <td style="padding: 0.75rem; color: #4caf50;">${formatNumberChaimae(inv.total_ttc || 0)} DH</td>
         </tr>
     `).join('');
-    
+
     const modal = document.createElement('div');
     modal.className = 'modal-overlay';
     modal.style.cssText = 'position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.8); display: flex; align-items: center; justify-content: center; z-index: 10000;';
-    
+
     modal.innerHTML = `
         <div style="background: #2d2d30; border-radius: 12px; padding: 2rem; max-width: 700px; width: 90%; max-height: 90vh; overflow-y: auto;">
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;">
@@ -5203,26 +5206,26 @@ window.showCreateGlobalInvoiceModalChaimae = async function() {
             </div>
         </div>
     `;
-    
+
     document.body.appendChild(modal);
-    
+
     // Store all available bons for this client
     window.globalInvoiceModalData = { clientBons, clientName, clientICE };
 }
 
 // Toggle all bons in modal
-window.toggleAllBonsModal = function(checkbox) {
+window.toggleAllBonsModal = function (checkbox) {
     const checkboxes = document.querySelectorAll('.bon-select-checkbox');
     checkboxes.forEach(cb => cb.checked = checkbox.checked);
     updateGlobalInvoiceTotals();
 }
 
 // Update totals based on selected bons
-window.updateGlobalInvoiceTotals = function() {
+window.updateGlobalInvoiceTotals = function () {
     const selectedCheckboxes = document.querySelectorAll('.bon-select-checkbox:checked');
     const selectedIds = Array.from(selectedCheckboxes).map(cb => parseInt(cb.dataset.bonId));
     const clientBons = window.globalInvoiceModalData.clientBons;
-    
+
     let totalHT = 0;
     selectedIds.forEach(bonId => {
         const bon = clientBons.find(b => b.id === bonId);
@@ -5230,29 +5233,29 @@ window.updateGlobalInvoiceTotals = function() {
             totalHT += bon.total_ht || 0;
         }
     });
-    
+
     const tvaRate = 20;
     const montantTVA = totalHT * (tvaRate / 100);
     const totalTTC = totalHT + montantTVA;
-    
+
     document.getElementById('modalTotalHT').textContent = formatNumberChaimae(totalHT) + ' DH';
     document.getElementById('modalTotalTVA').textContent = formatNumberChaimae(montantTVA) + ' DH';
     document.getElementById('modalTotalTTC').textContent = formatNumberChaimae(totalTTC) + ' DH';
 }
 
 // Auto-format global invoice number on blur
-window.autoFormatGlobalInvoiceNumberOnBlur = function(input) {
+window.autoFormatGlobalInvoiceNumberOnBlur = function (input) {
     let value = input.value.trim();
-    
+
     // إذا كان الحقل فارغاً، لا تفعل شيئاً
     if (!value) return;
-    
+
     // إذا كان يحتوي بالفعل على سلاش، لا تفعل شيئاً
     if (value.includes('/')) return;
-    
+
     // استخراج الأرقام فقط
     let numbers = value.replace(/[^0-9]/g, '');
-    
+
     // إذا كان هناك أرقام، أضف السنة
     if (numbers) {
         const year = new Date().getFullYear();
@@ -5260,27 +5263,27 @@ window.autoFormatGlobalInvoiceNumberOnBlur = function(input) {
     }
 }
 
-window.saveGlobalInvoiceFromModal = async function() {
+window.saveGlobalInvoiceFromModal = async function () {
     const numero = document.getElementById('globalInvoiceNumeroModal').value.trim();
     const date = document.getElementById('globalInvoiceDateModal').value;
-    
+
     if (!numero || !date) {
         window.notify.error('Erreur', 'Veuillez remplir tous les champs', 3000);
         return;
     }
-    
+
     // Get selected bons
     const selectedCheckboxes = document.querySelectorAll('.bon-select-checkbox:checked');
     const selectedIds = Array.from(selectedCheckboxes).map(cb => parseInt(cb.dataset.bonId));
-    
+
     if (selectedIds.length === 0) {
         window.notify.error('Erreur', 'Veuillez sélectionner au moins un bon de livraison', 3000);
         return;
     }
-    
+
     const data = window.globalInvoiceModalData;
     const clientBons = data.clientBons;
-    
+
     // Calculate totals
     let totalHT = 0;
     selectedIds.forEach(bonId => {
@@ -5289,16 +5292,16 @@ window.saveGlobalInvoiceFromModal = async function() {
             totalHT += bon.total_ht || 0;
         }
     });
-    
+
     const tvaRate = 20;
     const montantTVA = totalHT * (tvaRate / 100);
     const totalTTC = totalHT + montantTVA;
-    
+
     try {
         // Check in both global invoices AND regular invoices
         const allGlobalInvoicesResult = await window.electron.dbChaimae.getAllGlobalInvoices();
         const allRegularInvoicesResult = await window.electron.dbChaimae.getAllInvoices();
-        
+
         // Check in global invoices
         if (allGlobalInvoicesResult.success) {
             const duplicate = allGlobalInvoicesResult.data.find(inv => inv.document_numero === numero);
@@ -5307,10 +5310,10 @@ window.saveGlobalInvoiceFromModal = async function() {
                 return;
             }
         }
-        
+
         // Check in regular invoices (facture type only)
         if (allRegularInvoicesResult.success) {
-            const duplicate = allRegularInvoicesResult.data.find(inv => 
+            const duplicate = allRegularInvoicesResult.data.find(inv =>
                 inv.document_type === 'facture' && inv.document_numero === numero
             );
             if (duplicate) {
@@ -5318,7 +5321,7 @@ window.saveGlobalInvoiceFromModal = async function() {
                 return;
             }
         }
-        
+
         const formData = {
             client: { nom: data.clientName, ICE: data.clientICE },
             document_numero: numero,
@@ -5329,9 +5332,9 @@ window.saveGlobalInvoiceFromModal = async function() {
             total_ttc: totalTTC,
             bon_livraison_ids: selectedIds
         };
-        
+
         const result = await window.electron.dbChaimae.createGlobalInvoice(formData);
-        
+
         if (result.success) {
             window.notify.success('Succès', 'Facture globale créée!', 3000);
             document.querySelector('.modal-overlay')?.remove();
@@ -5348,11 +5351,11 @@ window.saveGlobalInvoiceFromModal = async function() {
 // Removed duplicate - using the main formatNumberChaimae function above
 
 // Export database
-window.exportDatabaseChaimae = async function() {
+window.exportDatabaseChaimae = async function () {
     try {
         window.notify.info('Export', 'Exportation en cours...', 2000);
         const result = await window.electron.dbChaimae.exportDatabase();
-        
+
         if (result.success) {
             window.notify.success('Succès', 'Base de données exportée avec succès!', 3000);
         } else if (result.canceled) {
@@ -5367,15 +5370,15 @@ window.exportDatabaseChaimae = async function() {
 }
 
 // Import database
-window.importDatabaseChaimae = async function() {
+window.importDatabaseChaimae = async function () {
     const confirmed = await customConfirm('Attention', '⚠️ ATTENTION: L\'importation remplacera toutes les données actuelles.\n\nUne sauvegarde automatique sera créée.\n\nVoulez-vous continuer?', 'warning');
-    
+
     if (!confirmed) return;
-    
+
     try {
         window.notify.info('Import', 'Importation en cours...', 2000);
         const result = await window.electron.dbChaimae.importDatabase();
-        
+
         if (result.success) {
             window.notify.success('Succès', 'Base de données importée! Rechargement...', 3000);
             setTimeout(() => {
@@ -5393,23 +5396,23 @@ window.importDatabaseChaimae = async function() {
 }
 
 // Initialize page
-window.initInvoicesListChaimaePage = function() {
+window.initInvoicesListChaimaePage = function () {
     console.log('🔄 Initializing invoices list page for Chaimae...');
-    
+
     // Define downloadGlobalInvoicePDF function if not already defined
     if (typeof window.downloadGlobalInvoicePDF === 'undefined') {
-        window.downloadGlobalInvoicePDF = async function(invoiceId, sortOrder = null) {
+        window.downloadGlobalInvoicePDF = async function (invoiceId, sortOrder = null) {
             try {
                 console.log('📥 Generating PDF for global invoice:', invoiceId);
-                
+
                 const result = await window.electron.dbChaimae.getGlobalInvoiceById(invoiceId);
-                
+
                 if (!result.success || !result.data) {
                     throw new Error('Facture globale introuvable');
                 }
-                
+
                 const invoice = result.data;
-                
+
                 // If sortOrder not provided, ask user
                 if (sortOrder === null && invoice.bons && invoice.bons.length > 1) {
                     return new Promise((resolve) => {
@@ -5457,7 +5460,7 @@ window.initInvoicesListChaimaePage = function() {
                         document.body.appendChild(modal);
                     });
                 }
-                
+
                 if (typeof window.jspdf === 'undefined') {
                     window.notify.info('Info', 'Chargement de jsPDF...', 2000);
                     const script = document.createElement('script');
@@ -5466,30 +5469,30 @@ window.initInvoicesListChaimaePage = function() {
                     document.head.appendChild(script);
                     return;
                 }
-                
+
                 // Wait for logo to load if not already loaded
                 const logoImg = document.querySelector('img[src*="chaimae.png"]');
                 if (logoImg && !logoImg.src.startsWith('data:')) {
                     console.log('⏳ Waiting for logo to load...');
                     await new Promise(resolve => setTimeout(resolve, 500));
                 }
-                
+
                 const { jsPDF } = window.jspdf;
                 const doc = new jsPDF();
                 const blueColor = [52, 103, 138];
                 const dateStr = new Date(invoice.document_date).toLocaleDateString('fr-FR');
-                
+
                 const addHeader = () => {
                     // Add Logo with detailed logging
                     console.log('🔍 === LOGO DEBUG START ===');
                     try {
                         // Try multiple selectors to find the logo
-                        let logoImg = document.querySelector('img[src*="chaimae.png"]') || 
-                                     document.querySelector('img[data-asset="chaimae"]') ||
-                                     document.querySelector('img[src^="data:image"]');
-                        
+                        let logoImg = document.querySelector('img[src*="chaimae.png"]') ||
+                            document.querySelector('img[data-asset="chaimae"]') ||
+                            document.querySelector('img[src^="data:image"]');
+
                         console.log('🖼️ Logo element found:', !!logoImg);
-                        
+
                         if (logoImg) {
                             console.log('📍 Logo src type:', typeof logoImg.src);
                             console.log('📍 Logo src length:', logoImg.src?.length);
@@ -5498,7 +5501,7 @@ window.initInvoicesListChaimaePage = function() {
                             console.log('📍 Logo complete:', logoImg.complete);
                             console.log('📍 Logo naturalWidth:', logoImg.naturalWidth);
                             console.log('📍 Logo naturalHeight:', logoImg.naturalHeight);
-                            
+
                             if (logoImg.src && logoImg.src.startsWith('data:')) {
                                 doc.addImage(logoImg.src, 'PNG', 15, 10, 35, 35);
                                 console.log('✅ Logo successfully added to PDF');
@@ -5519,26 +5522,26 @@ window.initInvoicesListChaimaePage = function() {
                     }
                     console.log('🔍 === LOGO DEBUG END ===');
                     console.log('');
-                    
+
                     // Company Header
                     doc.setFontSize(16);
                     doc.setTextColor(...blueColor);
                     doc.setFont(undefined, 'bold');
                     doc.text('CHAIMAE ERRBAHI MDIQ sarl (AU)', 105, 18, { align: 'center' });
-                    
+
                     doc.setFontSize(8);
                     doc.setFont(undefined, 'normal');
                     doc.setTextColor(0, 0, 0);
                     doc.text('Patente N° 52003366 - NIF : 40190505', 105, 25, { align: 'center' });
                     doc.text('RC N° : 10487 - CNSS : 8721591', 105, 30, { align: 'center' });
                     doc.text('ICE : 001544861000014', 105, 35, { align: 'center' });
-                    
+
                     doc.setFontSize(11);
                     doc.setFont(undefined, 'bold');
                     doc.text('CLIENT :', 15, 50);
                     doc.setTextColor(0, 128, 0); // Green color
                     doc.text(invoice.client_nom, 40, 50);
-                    
+
                     // Only show ICE if it exists and is not "0"
                     if (invoice.client_ice && invoice.client_ice !== '0') {
                         doc.setTextColor(0, 0, 0);
@@ -5546,17 +5549,17 @@ window.initInvoicesListChaimaePage = function() {
                         doc.setTextColor(0, 128, 0); // Green color
                         doc.text(invoice.client_ice, 40, 57);
                     }
-                    
+
                     doc.setTextColor(0, 0, 0);
                     doc.text(`Date: ${dateStr}`, 150, 50);
-                    
+
                     doc.setFontSize(14);
                     doc.setFont(undefined, 'bold');
                     doc.text('FACTURE N°:', 15, 70);
                     doc.setTextColor(...blueColor);
                     doc.text(invoice.document_numero, 50, 70);
                 };
-                
+
                 const addFooter = (pageNum, totalPages) => {
                     doc.setTextColor(0, 0, 0);
                     doc.setFontSize(7);
@@ -5565,7 +5568,7 @@ window.initInvoicesListChaimaePage = function() {
                     doc.text('Email: errbahiabderrahim@gmail.com', 15, 279);
                     doc.text('ADRESSE: LOT ALBAHR AV TETOUAN N94 GARAGE 2 M\'DIQ', 15, 283);
                     doc.text('Tel: +212 661 307 323', 15, 287);
-                    
+
                     // Page numbering
                     if (pageNum && totalPages) {
                         doc.setFontSize(8);
@@ -5573,9 +5576,9 @@ window.initInvoicesListChaimaePage = function() {
                         doc.text(`Page ${pageNum} / ${totalPages}`, 105, 293, { align: 'center' });
                     }
                 };
-                
+
                 addHeader();
-                
+
                 const startY = 80;
                 doc.setFillColor(...blueColor);
                 doc.rect(15, startY, 180, 8, 'F');
@@ -5586,21 +5589,21 @@ window.initInvoicesListChaimaePage = function() {
                 doc.text('N° Order', 70, startY + 5.5);
                 doc.text('Date de livraison', 120, startY + 5.5);
                 doc.text('Total HT', 180, startY + 5.5, { align: 'right' });
-                
+
                 let currentY = startY + 10;
                 doc.setTextColor(0, 0, 0);
                 doc.setFont(undefined, 'normal');
                 doc.setFontSize(9);
-                
+
                 let pageCount = 1;
                 const pages = [];
-                
+
                 const formatNumber = (num) => num.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ' ');
-                
+
                 // Sort bons based on user selection
                 if (invoice.bons && invoice.bons.length > 0) {
                     let sortedBons = [...invoice.bons];
-                    
+
                     if (sortOrder === 'oldest') {
                         // Sort from oldest to newest (ascending by date)
                         sortedBons.sort((a, b) => new Date(a.document_date) - new Date(b.document_date));
@@ -5639,7 +5642,7 @@ window.initInvoicesListChaimaePage = function() {
                         });
                     }
                     // If sortOrder is null, keep original order
-                    
+
                     sortedBons.forEach((bon, index) => {
                         if (currentY > 240) {
                             pages.push(pageCount);
@@ -5660,12 +5663,12 @@ window.initInvoicesListChaimaePage = function() {
                             doc.setFont(undefined, 'normal');
                             doc.setFontSize(9);
                         }
-                        
+
                         if (index % 2 === 0) {
                             doc.setFillColor(245, 245, 245);
                             doc.rect(15, currentY - 3, 180, 8, 'F');
                         }
-                        
+
                         const bonHT = parseFloat(bon.total_ht) || 0;
                         doc.text(bon.document_numero_bl || bon.document_numero || '-', 20, currentY + 3);
                         doc.text(bon.document_numero_commande || '-', 70, currentY + 3);
@@ -5674,7 +5677,7 @@ window.initInvoicesListChaimaePage = function() {
                         currentY += 8;
                     });
                 }
-                
+
                 currentY += 10;
                 doc.setFillColor(245, 245, 245);
                 doc.rect(110, currentY, 85, 8, 'F');
@@ -5684,7 +5687,7 @@ window.initInvoicesListChaimaePage = function() {
                 doc.text('TOTAL HT :', 113, currentY + 5.5);
                 doc.setFontSize(8);
                 doc.text(`${formatNumber(invoice.total_ht)} DH`, 192, currentY + 5.5, { align: 'right' });
-                
+
                 currentY += 8;
                 doc.setFillColor(255, 255, 255);
                 doc.rect(110, currentY, 85, 8, 'F');
@@ -5692,7 +5695,7 @@ window.initInvoicesListChaimaePage = function() {
                 doc.text(`MONTANT TVA ${invoice.tva_rate}% :`, 113, currentY + 5.5);
                 doc.setFontSize(8);
                 doc.text(`${formatNumber(invoice.montant_tva)} DH`, 192, currentY + 5.5, { align: 'right' });
-                
+
                 currentY += 8;
                 doc.setFillColor(173, 216, 230);
                 doc.rect(110, currentY, 85, 8, 'F');
@@ -5701,18 +5704,18 @@ window.initInvoicesListChaimaePage = function() {
                 doc.text('MONTANT T.T.C :', 113, currentY + 5.5);
                 doc.setFontSize(8.5);
                 doc.text(`${formatNumber(invoice.total_ttc)} DH`, 192, currentY + 5.5, { align: 'right' });
-                
+
                 // Amount in words (French)
                 currentY += 15;
                 doc.setTextColor(0, 0, 0);
                 doc.setFontSize(9);
                 doc.setFont(undefined, 'italic');
                 const amountInWords = numberToFrenchWordsChaimae(invoice.total_ttc);
-                
+
                 console.log('🔍 [GLOBAL INVOICE PDF] Invoice type:', invoice.document_type);
                 console.log('🔍 [GLOBAL INVOICE PDF] Has bons:', !!invoice.bons);
                 console.log('🔍 [GLOBAL INVOICE PDF] Bons count:', invoice.bons?.length);
-                
+
                 // For Global Invoice (has bons array), always show "Facture Globale"
                 if (invoice.bons && invoice.bons.length > 0) {
                     console.log('✅ [GLOBAL INVOICE PDF] This is a Global Invoice - showing "Facture Globale"');
@@ -5723,7 +5726,7 @@ window.initInvoicesListChaimaePage = function() {
                     console.log('📄 [REGULAR INVOICE PDF] Regular invoice type:', docTypeText);
                     doc.text(`La Présente ${docTypeText} est Arrêtée à la somme de : ${amountInWords}`, 15, currentY, { maxWidth: 180 });
                 }
-                
+
                 // Add notes if any
                 const noteResult = await window.electron.dbChaimae.getNote(invoiceId);
                 if (noteResult.success && noteResult.data) {
@@ -5732,7 +5735,7 @@ window.initInvoicesListChaimaePage = function() {
                     doc.setFont(undefined, 'bold');
                     doc.setTextColor(96, 125, 139);
                     doc.text('Notes:', 15, currentY);
-                    
+
                     doc.setFont(undefined, 'bold');
                     doc.setTextColor(0, 0, 0);
                     doc.setFontSize(9);
@@ -5758,39 +5761,39 @@ window.initInvoicesListChaimaePage = function() {
                         lineY += 4.5;
                     }
                 }
-                
+
                 // Add page numbering to all pages
                 pages.push(pageCount);
                 const totalPages = pages.length;
-                
+
                 for (let i = 0; i < totalPages; i++) {
                     doc.setPage(i + 1);
                     addFooter(i + 1, totalPages);
                 }
-                
+
                 const selectedCompany = JSON.parse(localStorage.getItem('selectedCompany') || '{}');
                 const companyName = selectedCompany.name ? selectedCompany.name.replace(' Company', '') : 'Unknown';
                 const filename = `Facture_Globale_${invoice.document_numero}_${invoice.client_nom}_${companyName}.pdf`;
                 doc.save(filename);
-                
+
                 window.notify.success('Succès', 'PDF téléchargé avec succès', 3000);
-                
+
             } catch (error) {
                 console.error('❌ Error generating PDF:', error);
                 window.notify.error('Erreur', 'Impossible de générer le PDF: ' + error.message, 4000);
             }
         };
     }
-    
+
     setTimeout(() => {
         loadInvoicesChaimae();
-        
+
         // Add event listeners
         const selectAll = document.getElementById('selectAllInvoicesChaimae');
         if (selectAll) {
             selectAll.addEventListener('change', selectAllInvoicesChaimae);
         }
-        
+
         // Add checkbox change listeners
         document.addEventListener('change', (e) => {
             if (e.target.classList.contains('invoice-checkbox-chaimae')) {
@@ -5808,10 +5811,10 @@ if (!window.bonLivraisonPrefixes) {
 }
 
 // Toggle prefix dropdown for Convert modal (Global)
-window.togglePrefixDropdownConvert = async function() {
+window.togglePrefixDropdownConvert = async function () {
     const dropdown = document.getElementById('prefixDropdownConvert');
     if (!dropdown) return;
-    
+
     if (dropdown.style.display === 'none') {
         // Load prefixes from database first
         if (!window.prefixesLoaded) {
@@ -5834,10 +5837,10 @@ window.togglePrefixDropdownConvert = async function() {
 }
 
 // Render prefix list for Convert modal (Global)
-window.renderPrefixListConvert = function() {
+window.renderPrefixListConvert = function () {
     const listContainer = document.getElementById('prefixListConvert');
     if (!listContainer) return;
-    
+
     listContainer.innerHTML = window.bonLivraisonPrefixes.map((prefix, index) => `
         <div onclick="selectPrefixConvert('${prefix}')" 
              style="margin: 0.35rem; padding: 0.75rem 1rem; cursor: pointer; border-radius: 8px; transition: all 0.3s; color: #fff; display: flex; justify-content: space-between; align-items: center; background: ${prefix === window.selectedPrefix ? 'linear-gradient(90deg, #667eea 0%, #764ba2 100%)' : 'rgba(255,255,255,0.05)'}; border: 2px solid ${prefix === window.selectedPrefix ? '#667eea' : 'transparent'}; box-shadow: ${prefix === window.selectedPrefix ? '0 2px 8px rgba(102, 126, 234, 0.3)' : 'none'};"
@@ -5865,45 +5868,45 @@ window.renderPrefixListConvert = function() {
 }
 
 // Select prefix for Convert modal (Global)
-window.selectPrefixConvert = function(prefix) {
+window.selectPrefixConvert = function (prefix) {
     window.selectedPrefix = prefix;
     const prefixInput = document.getElementById('prefixInputConvert');
     const prefixExample = document.getElementById('prefixExampleConvert');
-    
+
     if (prefixInput) prefixInput.value = prefix;
     if (prefixExample) prefixExample.textContent = prefix;
-    
+
     const dropdown = document.getElementById('prefixDropdownConvert');
     if (dropdown) dropdown.style.display = 'none';
-    
+
     renderPrefixListConvert();
 }
 
 // Add new prefix for Convert modal (Global)
-window.addNewPrefixConvert = async function() {
+window.addNewPrefixConvert = async function () {
     const newPrefixInput = document.getElementById('newPrefixInputConvert');
     if (!newPrefixInput) return;
-    
+
     const newPrefix = newPrefixInput.value.trim().toUpperCase();
-    
+
     if (!newPrefix) {
         window.notify.warning('Attention', 'Veuillez saisir un prefix', 2000);
         return;
     }
-    
+
     if (window.bonLivraisonPrefixes.includes(newPrefix)) {
         window.notify.warning('Attention', 'Ce prefix existe déjà', 2000);
         return;
     }
-    
+
     // Add to database
     const result = await window.electron.dbChaimae.addPrefix(newPrefix);
-    
+
     if (result.success) {
         window.bonLivraisonPrefixes.push(newPrefix);
         window.bonLivraisonPrefixes.sort();
         newPrefixInput.value = '';
-        
+
         renderPrefixListConvert();
         window.notify.success('Succès', `Prefix "${newPrefix}" ajouté`, 2000);
     } else {
@@ -5912,20 +5915,20 @@ window.addNewPrefixConvert = async function() {
 }
 
 // Delete prefix for Convert modal (Global)
-window.deletePrefixConvert = async function(prefix) {
+window.deletePrefixConvert = async function (prefix) {
     if (window.bonLivraisonPrefixes.length <= 1) {
         window.notify.warning('Attention', 'Vous devez garder au moins un prefix', 2000);
         return;
     }
-    
+
     // Delete from database
     const result = await window.electron.dbChaimae.deletePrefix(prefix);
-    
+
     if (result.success) {
         const index = window.bonLivraisonPrefixes.indexOf(prefix);
         if (index > -1) {
             window.bonLivraisonPrefixes.splice(index, 1);
-            
+
             // If deleted prefix was selected, select the first one
             if (window.selectedPrefix === prefix) {
                 window.selectedPrefix = window.bonLivraisonPrefixes[0];
@@ -5934,7 +5937,7 @@ window.deletePrefixConvert = async function(prefix) {
                 if (prefixInput) prefixInput.value = window.selectedPrefix;
                 if (prefixExample) prefixExample.textContent = window.selectedPrefix;
             }
-            
+
             renderPrefixListConvert();
             window.notify.success('Succès', `Prefix "${prefix}" supprimé`, 2000);
         }
@@ -5946,10 +5949,10 @@ window.deletePrefixConvert = async function(prefix) {
 // ==================== CONVERT ORDER PREFIX FUNCTIONS ====================
 
 // Toggle convert order prefix dropdown
-window.toggleConvertOrderPrefixDropdown = async function() {
+window.toggleConvertOrderPrefixDropdown = async function () {
     const dropdown = document.getElementById('convertOrderPrefixDropdown');
     if (!dropdown) return;
-    
+
     if (dropdown.style.display === 'none') {
         await loadConvertOrderPrefixes();
         renderConvertOrderPrefixList();
@@ -5963,11 +5966,11 @@ window.toggleConvertOrderPrefixDropdown = async function() {
 function renderConvertOrderPrefixList() {
     const listContainer = document.getElementById('convertOrderPrefixList');
     if (!listContainer) return;
-    
+
     if (!window.orderPrefixes || window.orderPrefixes.length === 0) {
         window.orderPrefixes = ['BC', 'CMD', 'ORD'];
     }
-    
+
     listContainer.innerHTML = window.orderPrefixes.map(prefix => `
         <div onclick="selectConvertOrderPrefix('${prefix}')" 
              style="margin: 0.35rem; padding: 0.75rem 1rem; cursor: pointer; border-radius: 8px; transition: all 0.3s; color: #fff; display: flex; justify-content: space-between; align-items: center; background: ${prefix === window.selectedOrderPrefix ? 'linear-gradient(90deg, #2196f3 0%, #1976d2 100%)' : 'rgba(255,255,255,0.05)'}; border: 2px solid ${prefix === window.selectedOrderPrefix ? '#2196f3' : 'transparent'};"
@@ -5990,45 +5993,45 @@ function renderConvertOrderPrefixList() {
 }
 
 // Select convert order prefix
-window.selectConvertOrderPrefix = function(prefix) {
+window.selectConvertOrderPrefix = function (prefix) {
     window.selectedOrderPrefix = prefix;
-    
+
     const prefixInput = document.getElementById('convertOrderPrefixInput');
     const prefixExample = document.getElementById('convertOrderPrefixExample');
-    
+
     if (prefixInput) prefixInput.value = prefix;
     if (prefixExample) prefixExample.textContent = prefix;
-    
+
     const dropdown = document.getElementById('convertOrderPrefixDropdown');
     if (dropdown) dropdown.style.display = 'none';
-    
+
     renderConvertOrderPrefixList();
 };
 
 // Add new convert order prefix
-window.addConvertNewOrderPrefix = async function() {
+window.addConvertNewOrderPrefix = async function () {
     const newPrefixInput = document.getElementById('convertNewOrderPrefixInput');
     if (!newPrefixInput) return;
-    
+
     const newPrefix = newPrefixInput.value.trim().toUpperCase();
-    
+
     if (!newPrefix) {
         window.notify.warning('Attention', 'Veuillez saisir un prefix', 2000);
         return;
     }
-    
+
     if (window.orderPrefixes.includes(newPrefix)) {
         window.notify.warning('Attention', 'Ce prefix existe déjà', 2000);
         return;
     }
-    
+
     const result = await window.electron.dbChaimae.addOrderPrefix(newPrefix);
-    
+
     if (result.success) {
         window.orderPrefixes.push(newPrefix);
         window.orderPrefixes.sort();
         newPrefixInput.value = '';
-        
+
         renderConvertOrderPrefixList();
         window.notify.success('Succès', `Prefix "${newPrefix}" ajouté`, 2000);
     } else {
@@ -6037,19 +6040,19 @@ window.addConvertNewOrderPrefix = async function() {
 };
 
 // Delete convert order prefix
-window.deleteConvertOrderPrefix = async function(prefix) {
+window.deleteConvertOrderPrefix = async function (prefix) {
     if (window.orderPrefixes.length <= 1) {
         window.notify.warning('Attention', 'Vous devez garder au moins un prefix', 2000);
         return;
     }
-    
+
     const result = await window.electron.dbChaimae.deleteOrderPrefix(prefix);
-    
+
     if (result.success) {
         const index = window.orderPrefixes.indexOf(prefix);
         if (index > -1) {
             window.orderPrefixes.splice(index, 1);
-            
+
             if (window.selectedOrderPrefix === prefix) {
                 window.selectedOrderPrefix = window.orderPrefixes[0];
                 const prefixInput = document.getElementById('convertOrderPrefixInput');
@@ -6057,7 +6060,7 @@ window.deleteConvertOrderPrefix = async function(prefix) {
                 if (prefixInput) prefixInput.value = window.selectedOrderPrefix;
                 if (prefixExample) prefixExample.textContent = window.selectedOrderPrefix;
             }
-            
+
             renderConvertOrderPrefixList();
             window.notify.success('Succès', `Prefix "${prefix}" supprimé`, 2000);
         }
@@ -6095,33 +6098,33 @@ async function loadConvertOrderPrefixes() {
 // Search clients in edit mode for Chaimae
 let allClientsEditChaimae = [];
 let filteredClientsEditChaimae = [];
-window.searchClientsEditChaimae = function(query) {
+window.searchClientsEditChaimae = function (query) {
     const dropdown = document.getElementById('clientsDropdownEditChaimae');
     if (!dropdown) return;
-    
+
     if (!query || query.trim().length === 0) {
         filteredClientsEditChaimae = allClientsChaimae;
     } else {
         const searchTerm = query.toLowerCase().trim();
-        filteredClientsEditChaimae = allClientsChaimae.filter(client => 
-            client.nom.toLowerCase().includes(searchTerm) || 
+        filteredClientsEditChaimae = allClientsChaimae.filter(client =>
+            client.nom.toLowerCase().includes(searchTerm) ||
             client.ice.toLowerCase().includes(searchTerm)
         );
     }
-    
+
     displayClientsListEditChaimae();
 }
 
-window.displayClientsListEditChaimae = function() {
+window.displayClientsListEditChaimae = function () {
     const dropdown = document.getElementById('clientsDropdownEditChaimae');
     if (!dropdown) return;
-    
+
     if (filteredClientsEditChaimae.length === 0) {
         dropdown.innerHTML = '<div class="dropdown-item no-results">Aucun client trouvé</div>';
         dropdown.style.display = 'block';
         return;
     }
-    
+
     dropdown.innerHTML = filteredClientsEditChaimae.slice(0, 10).map(client => `
         <div class="dropdown-item" style="display: flex; justify-content: space-between; align-items: center;">
             <div style="flex: 1;" onmousedown="selectClientEditChaimae('${client.nom.replace(/'/g, "\\'")}', '${client.ice}')">
@@ -6139,25 +6142,25 @@ window.displayClientsListEditChaimae = function() {
             </button>
         </div>
     `).join('');
-    
+
     dropdown.style.display = 'block';
 }
 
-window.showClientsListEditChaimae = function() {
+window.showClientsListEditChaimae = function () {
     if (allClientsChaimae.length > 0) {
         filteredClientsEditChaimae = allClientsChaimae;
         displayClientsListEditChaimae();
     }
 }
 
-window.hideClientsListEditChaimae = function() {
+window.hideClientsListEditChaimae = function () {
     setTimeout(() => {
         const dropdown = document.getElementById('clientsDropdownEditChaimae');
         if (dropdown) dropdown.style.display = 'none';
     }, 200);
 }
 
-window.selectClientEditChaimae = function(nom, ice) {
+window.selectClientEditChaimae = function (nom, ice) {
     document.getElementById('editClientNomChaimae').value = nom;
     document.getElementById('editClientICEChaimae').value = ice;
     const dropdown = document.getElementById('clientsDropdownEditChaimae');
@@ -6165,16 +6168,16 @@ window.selectClientEditChaimae = function(nom, ice) {
 }
 
 // Delete a client from edit mode
-window.deleteClientEditChaimae = async function(clientId, clientName) {
+window.deleteClientEditChaimae = async function (clientId, clientName) {
     if (!confirm(`هل أنت متأكد من حذف الزبون "${clientName}"؟`)) {
         return;
     }
-    
+
     try {
         const response = await fetch(`http://localhost:3000/api/clients/${clientId}`, {
             method: 'DELETE'
         });
-        
+
         if (response.ok) {
             window.notify.success('تم الحذف', `تم حذف الزبون "${clientName}" بنجاح`);
             // Reload clients list
@@ -6191,18 +6194,18 @@ window.deleteClientEditChaimae = async function(clientId, clientName) {
 }
 
 // Format Bon numero with selected prefix for Convert modal (Global)
-window.formatBonNumeroWithPrefixConvert = function(input) {
+window.formatBonNumeroWithPrefixConvert = function (input) {
     let value = input.value.trim();
-    
+
     // إذا كان الحقل فارغاً، لا تفعل شيئاً
     if (!value) return;
-    
+
     // إذا كان يحتوي بالفعل على سلاش، لا تفعل شيئاً
     if (value.includes('/')) return;
-    
+
     // استخراج الأرقام فقط
     let numbers = value.replace(/[^0-9]/g, '');
-    
+
     // إذا كان هناك أرقام، أضف السنة
     if (numbers) {
         const year = new Date().getFullYear();
