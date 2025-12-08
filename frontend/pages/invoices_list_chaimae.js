@@ -212,20 +212,8 @@ function InvoicesListChaimaePage() {
                     <!-- Column Visibility Controls -->
                     <div id="columnVisibilityControlsChaimae" style="display: flex; flex-wrap: wrap; gap: 0.5rem; margin-bottom: 1rem; padding: 0.75rem; background: #2d2d30; border: 1px solid #3e3e42; border-radius: 6px; align-items: center;">
                         <span style="color: #cccccc; font-size: 0.9rem; font-weight: 600; margin-right: 0.5rem;">👁️ Afficher:</span>
-                        <button id="toggleColTypeChaimae" onclick="toggleColumnChaimae('type')" class="col-toggle-btn active" style="padding: 0.4rem 0.8rem; background: #4caf50; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 0.85rem; transition: all 0.2s;">
-                            📄 Type
-                        </button>
-                        <button id="toggleColIceChaimae" onclick="toggleColumnChaimae('ice')" class="col-toggle-btn active" style="padding: 0.4rem 0.8rem; background: #4caf50; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 0.85rem; transition: all 0.2s;">
+                        <button id="toggleColIceChaimae" onclick="toggleColumnChaimae('ice')" class="col-toggle-btn" style="padding: 0.4rem 0.8rem; background: #f44336; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 0.85rem; transition: all 0.2s; opacity: 0.7;">
                             🏢 ICE
-                        </button>
-                        <button id="toggleColDateChaimae" onclick="toggleColumnChaimae('date')" class="col-toggle-btn active" style="padding: 0.4rem 0.8rem; background: #4caf50; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 0.85rem; transition: all 0.2s;">
-                            📅 Date
-                        </button>
-                        <button id="toggleColCreatedByChaimae" onclick="toggleColumnChaimae('createdBy')" class="col-toggle-btn active" style="padding: 0.4rem 0.8rem; background: #4caf50; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 0.85rem; transition: all 0.2s;">
-                            👤 Créé par
-                        </button>
-                        <button id="toggleColTotalHTChaimae" onclick="toggleColumnChaimae('totalHT')" class="col-toggle-btn active" style="padding: 0.4rem 0.8rem; background: #4caf50; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 0.85rem; transition: all 0.2s;">
-                            💵 Total HT
                         </button>
                     </div>
 
@@ -303,13 +291,9 @@ let filteredInvoicesChaimae = [];
 let currentPageChaimae = 1;
 let itemsPerPageChaimae = 10;
 
-// Column visibility state for Chaimae
+// Column visibility state for Chaimae - ICE hidden by default
 let columnVisibilityChaimae = {
-    type: true,
-    ice: true,
-    date: true,
-    createdBy: true,
-    totalHT: true
+    ice: false
 };
 
 // Load column visibility from localStorage on page load
@@ -341,43 +325,32 @@ window.toggleColumnChaimae = function (column) {
     displayInvoicesChaimae(filteredInvoicesChaimae);
 };
 
-// Apply column visibility to table and buttons
+// Apply column visibility to table and buttons - ICE only
 function applyColumnVisibilityChaimae() {
-    const columnMap = {
-        type: { btnId: 'toggleColTypeChaimae', className: 'col-type-chaimae' },
-        ice: { btnId: 'toggleColIceChaimae', className: 'col-ice-chaimae' },
-        date: { btnId: 'toggleColDateChaimae', className: 'col-date-chaimae' },
-        createdBy: { btnId: 'toggleColCreatedByChaimae', className: 'col-createdBy-chaimae' },
-        totalHT: { btnId: 'toggleColTotalHTChaimae', className: 'col-totalHT-chaimae' }
-    };
+    const isVisible = columnVisibilityChaimae.ice;
 
-    Object.keys(columnMap).forEach(col => {
-        const isVisible = columnVisibilityChaimae[col];
-        const { btnId, className } = columnMap[col];
-
-        // Update button style
-        const btn = document.getElementById(btnId);
-        if (btn) {
-            if (isVisible) {
-                btn.style.background = '#4caf50';
-                btn.style.opacity = '1';
-            } else {
-                btn.style.background = '#f44336';
-                btn.style.opacity = '0.7';
-            }
+    // Update button style
+    const btn = document.getElementById('toggleColIceChaimae');
+    if (btn) {
+        if (isVisible) {
+            btn.style.background = '#4caf50';
+            btn.style.opacity = '1';
+        } else {
+            btn.style.background = '#f44336';
+            btn.style.opacity = '0.7';
         }
+    }
 
-        // Update header visibility
-        const headerCells = document.querySelectorAll(`.${className}`);
-        headerCells.forEach(cell => {
-            cell.style.display = isVisible ? '' : 'none';
-        });
+    // Update header visibility
+    const headerCells = document.querySelectorAll('.col-ice-chaimae');
+    headerCells.forEach(cell => {
+        cell.style.display = isVisible ? '' : 'none';
+    });
 
-        // Update body cells visibility
-        const bodyCells = document.querySelectorAll(`.${className}-body`);
-        bodyCells.forEach(cell => {
-            cell.style.display = isVisible ? '' : 'none';
-        });
+    // Update body cells visibility
+    const bodyCells = document.querySelectorAll('.col-ice-chaimae-body');
+    bodyCells.forEach(cell => {
+        cell.style.display = isVisible ? '' : 'none';
     });
 }
 

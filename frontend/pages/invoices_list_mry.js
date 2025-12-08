@@ -184,20 +184,8 @@ function InvoicesListMRYPage() {
                     <!-- Column Visibility Controls -->
                     <div id="columnVisibilityControlsMRY" style="display: flex; flex-wrap: wrap; gap: 0.5rem; margin-bottom: 1rem; padding: 0.75rem; background: #2d2d30; border: 1px solid #3e3e42; border-radius: 6px; align-items: center;">
                         <span style="color: #cccccc; font-size: 0.9rem; font-weight: 600; margin-right: 0.5rem;">👁️ Afficher:</span>
-                        <button id="toggleColTypeMRY" onclick="toggleColumnMRY('type')" class="col-toggle-btn active" style="padding: 0.4rem 0.8rem; background: #4caf50; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 0.85rem; transition: all 0.2s;">
-                            📄 Type
-                        </button>
-                        <button id="toggleColIceMRY" onclick="toggleColumnMRY('ice')" class="col-toggle-btn active" style="padding: 0.4rem 0.8rem; background: #4caf50; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 0.85rem; transition: all 0.2s;">
+                        <button id="toggleColIceMRY" onclick="toggleColumnMRY('ice')" class="col-toggle-btn" style="padding: 0.4rem 0.8rem; background: #f44336; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 0.85rem; transition: all 0.2s; opacity: 0.7;">
                             🏢 ICE
-                        </button>
-                        <button id="toggleColDateMRY" onclick="toggleColumnMRY('date')" class="col-toggle-btn active" style="padding: 0.4rem 0.8rem; background: #4caf50; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 0.85rem; transition: all 0.2s;">
-                            📅 Date
-                        </button>
-                        <button id="toggleColCreatedByMRY" onclick="toggleColumnMRY('createdBy')" class="col-toggle-btn active" style="padding: 0.4rem 0.8rem; background: #4caf50; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 0.85rem; transition: all 0.2s;">
-                            👤 Créé par
-                        </button>
-                        <button id="toggleColTotalHTMRY" onclick="toggleColumnMRY('totalHT')" class="col-toggle-btn active" style="padding: 0.4rem 0.8rem; background: #4caf50; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 0.85rem; transition: all 0.2s;">
-                            💵 Total HT
                         </button>
                     </div>
 
@@ -272,13 +260,9 @@ let filteredInvoices = [];
 let currentPage = 1;
 let itemsPerPage = 10;
 
-// Column visibility state for MRY
+// Column visibility state for MRY - ICE hidden by default
 let columnVisibilityMRY = {
-    type: true,
-    ice: true,
-    date: true,
-    createdBy: true,
-    totalHT: true
+    ice: false
 };
 
 // Load column visibility from localStorage on page load
@@ -310,43 +294,32 @@ window.toggleColumnMRY = function (column) {
     displayInvoices(filteredInvoices);
 };
 
-// Apply column visibility to table and buttons
+// Apply column visibility to table and buttons - ICE only
 function applyColumnVisibilityMRY() {
-    const columnMap = {
-        type: { btnId: 'toggleColTypeMRY', className: 'col-type-mry' },
-        ice: { btnId: 'toggleColIceMRY', className: 'col-ice-mry' },
-        date: { btnId: 'toggleColDateMRY', className: 'col-date-mry' },
-        createdBy: { btnId: 'toggleColCreatedByMRY', className: 'col-createdBy-mry' },
-        totalHT: { btnId: 'toggleColTotalHTMRY', className: 'col-totalHT-mry' }
-    };
+    const isVisible = columnVisibilityMRY.ice;
 
-    Object.keys(columnMap).forEach(col => {
-        const isVisible = columnVisibilityMRY[col];
-        const { btnId, className } = columnMap[col];
-
-        // Update button style
-        const btn = document.getElementById(btnId);
-        if (btn) {
-            if (isVisible) {
-                btn.style.background = '#4caf50';
-                btn.style.opacity = '1';
-            } else {
-                btn.style.background = '#f44336';
-                btn.style.opacity = '0.7';
-            }
+    // Update button style
+    const btn = document.getElementById('toggleColIceMRY');
+    if (btn) {
+        if (isVisible) {
+            btn.style.background = '#4caf50';
+            btn.style.opacity = '1';
+        } else {
+            btn.style.background = '#f44336';
+            btn.style.opacity = '0.7';
         }
+    }
 
-        // Update header visibility
-        const headerCells = document.querySelectorAll(`.${className}`);
-        headerCells.forEach(cell => {
-            cell.style.display = isVisible ? '' : 'none';
-        });
+    // Update header visibility
+    const headerCells = document.querySelectorAll('.col-ice-mry');
+    headerCells.forEach(cell => {
+        cell.style.display = isVisible ? '' : 'none';
+    });
 
-        // Update body cells visibility
-        const bodyCells = document.querySelectorAll(`.${className}-body`);
-        bodyCells.forEach(cell => {
-            cell.style.display = isVisible ? '' : 'none';
-        });
+    // Update body cells visibility
+    const bodyCells = document.querySelectorAll('.col-ice-mry-body');
+    bodyCells.forEach(cell => {
+        cell.style.display = isVisible ? '' : 'none';
     });
 }
 

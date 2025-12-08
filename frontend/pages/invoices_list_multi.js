@@ -184,20 +184,8 @@ function InvoicesListMultiPage() {
                     <!-- Column Visibility Controls -->
                     <div id="columnVisibilityControlsMulti" style="display: flex; flex-wrap: wrap; gap: 0.5rem; margin-bottom: 1rem; padding: 0.75rem; background: #2d2d30; border: 1px solid #3e3e42; border-radius: 6px; align-items: center;">
                         <span style="color: #cccccc; font-size: 0.9rem; font-weight: 600; margin-right: 0.5rem;">👁️ Afficher:</span>
-                        <button id="toggleColTypeMulti" onclick="toggleColumnMulti('type')" class="col-toggle-btn active" style="padding: 0.4rem 0.8rem; background: #4caf50; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 0.85rem; transition: all 0.2s;">
-                            📄 Type
-                        </button>
-                        <button id="toggleColIceMulti" onclick="toggleColumnMulti('ice')" class="col-toggle-btn active" style="padding: 0.4rem 0.8rem; background: #4caf50; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 0.85rem; transition: all 0.2s;">
+                        <button id="toggleColIceMulti" onclick="toggleColumnMulti('ice')" class="col-toggle-btn" style="padding: 0.4rem 0.8rem; background: #f44336; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 0.85rem; transition: all 0.2s; opacity: 0.7;">
                             🏢 ICE
-                        </button>
-                        <button id="toggleColDateMulti" onclick="toggleColumnMulti('date')" class="col-toggle-btn active" style="padding: 0.4rem 0.8rem; background: #4caf50; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 0.85rem; transition: all 0.2s;">
-                            📅 Date
-                        </button>
-                        <button id="toggleColCreatedByMulti" onclick="toggleColumnMulti('createdBy')" class="col-toggle-btn active" style="padding: 0.4rem 0.8rem; background: #4caf50; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 0.85rem; transition: all 0.2s;">
-                            👤 Créé par
-                        </button>
-                        <button id="toggleColTotalHTMulti" onclick="toggleColumnMulti('totalHT')" class="col-toggle-btn active" style="padding: 0.4rem 0.8rem; background: #4caf50; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 0.85rem; transition: all 0.2s;">
-                            💵 Total HT
                         </button>
                     </div>
 
@@ -274,13 +262,9 @@ let filteredInvoicesMulti = [];
 let currentPageMulti = 1;
 let itemsPerPageMulti = 10;
 
-// Column visibility state for Multi
+// Column visibility state for Multi - ICE hidden by default
 let columnVisibilityMulti = {
-    type: true,
-    ice: true,
-    date: true,
-    createdBy: true,
-    totalHT: true
+    ice: false
 };
 
 // Load column visibility from localStorage on page load
@@ -312,43 +296,32 @@ window.toggleColumnMulti = function (column) {
     displayInvoicesMulti();
 };
 
-// Apply column visibility to table and buttons
+// Apply column visibility to table and buttons - ICE only
 function applyColumnVisibilityMulti() {
-    const columnMap = {
-        type: { btnId: 'toggleColTypeMulti', className: 'col-type-multi' },
-        ice: { btnId: 'toggleColIceMulti', className: 'col-ice-multi' },
-        date: { btnId: 'toggleColDateMulti', className: 'col-date-multi' },
-        createdBy: { btnId: 'toggleColCreatedByMulti', className: 'col-createdBy-multi' },
-        totalHT: { btnId: 'toggleColTotalHTMulti', className: 'col-totalHT-multi' }
-    };
+    const isVisible = columnVisibilityMulti.ice;
 
-    Object.keys(columnMap).forEach(col => {
-        const isVisible = columnVisibilityMulti[col];
-        const { btnId, className } = columnMap[col];
-
-        // Update button style
-        const btn = document.getElementById(btnId);
-        if (btn) {
-            if (isVisible) {
-                btn.style.background = '#4caf50';
-                btn.style.opacity = '1';
-            } else {
-                btn.style.background = '#f44336';
-                btn.style.opacity = '0.7';
-            }
+    // Update button style
+    const btn = document.getElementById('toggleColIceMulti');
+    if (btn) {
+        if (isVisible) {
+            btn.style.background = '#4caf50';
+            btn.style.opacity = '1';
+        } else {
+            btn.style.background = '#f44336';
+            btn.style.opacity = '0.7';
         }
+    }
 
-        // Update header visibility
-        const headerCells = document.querySelectorAll(`.${className}`);
-        headerCells.forEach(cell => {
-            cell.style.display = isVisible ? '' : 'none';
-        });
+    // Update header visibility
+    const headerCells = document.querySelectorAll('.col-ice-multi');
+    headerCells.forEach(cell => {
+        cell.style.display = isVisible ? '' : 'none';
+    });
 
-        // Update body cells visibility
-        const bodyCells = document.querySelectorAll(`.${className}-body`);
-        bodyCells.forEach(cell => {
-            cell.style.display = isVisible ? '' : 'none';
-        });
+    // Update body cells visibility
+    const bodyCells = document.querySelectorAll('.col-ice-multi-body');
+    bodyCells.forEach(cell => {
+        cell.style.display = isVisible ? '' : 'none';
     });
 }
 
