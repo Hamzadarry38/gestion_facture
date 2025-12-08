@@ -181,27 +181,47 @@ function InvoicesListMRYPage() {
                         </button>
                     </div>
 
+                    <!-- Column Visibility Controls -->
+                    <div id="columnVisibilityControlsMRY" style="display: flex; flex-wrap: wrap; gap: 0.5rem; margin-bottom: 1rem; padding: 0.75rem; background: #2d2d30; border: 1px solid #3e3e42; border-radius: 6px; align-items: center;">
+                        <span style="color: #cccccc; font-size: 0.9rem; font-weight: 600; margin-right: 0.5rem;">👁️ Afficher:</span>
+                        <button id="toggleColTypeMRY" onclick="toggleColumnMRY('type')" class="col-toggle-btn active" style="padding: 0.4rem 0.8rem; background: #4caf50; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 0.85rem; transition: all 0.2s;">
+                            📄 Type
+                        </button>
+                        <button id="toggleColIceMRY" onclick="toggleColumnMRY('ice')" class="col-toggle-btn active" style="padding: 0.4rem 0.8rem; background: #4caf50; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 0.85rem; transition: all 0.2s;">
+                            🏢 ICE
+                        </button>
+                        <button id="toggleColDateMRY" onclick="toggleColumnMRY('date')" class="col-toggle-btn active" style="padding: 0.4rem 0.8rem; background: #4caf50; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 0.85rem; transition: all 0.2s;">
+                            📅 Date
+                        </button>
+                        <button id="toggleColCreatedByMRY" onclick="toggleColumnMRY('createdBy')" class="col-toggle-btn active" style="padding: 0.4rem 0.8rem; background: #4caf50; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 0.85rem; transition: all 0.2s;">
+                            👤 Créé par
+                        </button>
+                        <button id="toggleColTotalHTMRY" onclick="toggleColumnMRY('totalHT')" class="col-toggle-btn active" style="padding: 0.4rem 0.8rem; background: #4caf50; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 0.85rem; transition: all 0.2s;">
+                            💵 Total HT
+                        </button>
+                    </div>
+
                     <!-- Invoices Table -->
                     <div class="table-container">
-                        <table class="invoices-table">
-                            <thead>
+                        <table class="invoices-table" id="invoicesTableMRY">
+                            <thead id="invoicesTableHeadMRY">
                                 <tr>
                                     <th>
                                         <input type="checkbox" id="selectAllInvoices" 
                                                style="width: 18px; height: 18px; cursor: pointer;"
                                                title="Sélectionner tout">
                                     </th>
-                                    <th>Type</th>
+                                    <th class="col-type-mry">Type</th>
                                     <th onclick="sortTableMry('numero')" style="cursor: pointer; user-select: none;" title="Cliquez pour trier">
                                         N° Document <span id="sortIconNumeroMry">⇅</span>
                                     </th>
                                     <th>Client</th>
-                                    <th>ICE</th>
-                                    <th onclick="sortTableMry('date')" style="cursor: pointer; user-select: none;" title="Cliquez pour trier">
+                                    <th class="col-ice-mry">ICE</th>
+                                    <th class="col-date-mry" onclick="sortTableMry('date')" style="cursor: pointer; user-select: none;" title="Cliquez pour trier">
                                         Date <span id="sortIconDateMry">⇅</span>
                                     </th>
-                                    <th>Créé par</th>
-                                    <th onclick="sortTableMry('total_ht')" style="cursor: pointer; user-select: none;" title="Cliquez pour trier">
+                                    <th class="col-createdBy-mry">Créé par</th>
+                                    <th class="col-totalHT-mry" onclick="sortTableMry('total_ht')" style="cursor: pointer; user-select: none;" title="Cliquez pour trier">
                                         Total HT <span id="sortIconTotalHTMry">⇅</span>
                                     </th>
                                     <th onclick="sortTableMry('total_ttc')" style="cursor: pointer; user-select: none;" title="Cliquez pour trier">
@@ -252,6 +272,84 @@ let filteredInvoices = [];
 let currentPage = 1;
 let itemsPerPage = 10;
 
+// Column visibility state for MRY
+let columnVisibilityMRY = {
+    type: true,
+    ice: true,
+    date: true,
+    createdBy: true,
+    totalHT: true
+};
+
+// Load column visibility from localStorage on page load
+function loadColumnVisibilityMRY() {
+    const saved = localStorage.getItem('mry_column_visibility');
+    if (saved) {
+        try {
+            columnVisibilityMRY = JSON.parse(saved);
+        } catch (e) {
+            console.error('Error loading column visibility:', e);
+        }
+    }
+    // Apply visibility on load
+    applyColumnVisibilityMRY();
+}
+
+// Save column visibility to localStorage
+function saveColumnVisibilityMRY() {
+    localStorage.setItem('mry_column_visibility', JSON.stringify(columnVisibilityMRY));
+}
+
+// Toggle column visibility
+window.toggleColumnMRY = function (column) {
+    columnVisibilityMRY[column] = !columnVisibilityMRY[column];
+    saveColumnVisibilityMRY();
+    applyColumnVisibilityMRY();
+
+    // Re-display invoices to update table body
+    displayInvoices(filteredInvoices);
+};
+
+// Apply column visibility to table and buttons
+function applyColumnVisibilityMRY() {
+    const columnMap = {
+        type: { btnId: 'toggleColTypeMRY', className: 'col-type-mry' },
+        ice: { btnId: 'toggleColIceMRY', className: 'col-ice-mry' },
+        date: { btnId: 'toggleColDateMRY', className: 'col-date-mry' },
+        createdBy: { btnId: 'toggleColCreatedByMRY', className: 'col-createdBy-mry' },
+        totalHT: { btnId: 'toggleColTotalHTMRY', className: 'col-totalHT-mry' }
+    };
+
+    Object.keys(columnMap).forEach(col => {
+        const isVisible = columnVisibilityMRY[col];
+        const { btnId, className } = columnMap[col];
+
+        // Update button style
+        const btn = document.getElementById(btnId);
+        if (btn) {
+            if (isVisible) {
+                btn.style.background = '#4caf50';
+                btn.style.opacity = '1';
+            } else {
+                btn.style.background = '#f44336';
+                btn.style.opacity = '0.7';
+            }
+        }
+
+        // Update header visibility
+        const headerCells = document.querySelectorAll(`.${className}`);
+        headerCells.forEach(cell => {
+            cell.style.display = isVisible ? '' : 'none';
+        });
+
+        // Update body cells visibility
+        const bodyCells = document.querySelectorAll(`.${className}-body`);
+        bodyCells.forEach(cell => {
+            cell.style.display = isVisible ? '' : 'none';
+        });
+    });
+}
+
 // Format number for display with proper formatting
 function formatNumber(number) {
     const num = parseFloat(number) || 0;
@@ -262,31 +360,34 @@ function formatNumber(number) {
 }
 
 // Load invoices from database
-window.loadInvoices = async function() {
+window.loadInvoices = async function () {
+    // Load column visibility preferences
+    loadColumnVisibilityMRY();
+
     console.log('🔄 [LOAD] Starting to load invoices from database...');
     const loadingSpinner = document.getElementById('loadingSpinner');
     const tableBody = document.getElementById('invoicesTableBody');
     const emptyState = document.getElementById('emptyState');
-    
+
     if (!loadingSpinner || !tableBody || !emptyState) {
         console.error('❌ Required elements not found in DOM');
         return;
     }
-    
+
     try {
         // Show loading
         loadingSpinner.style.display = 'flex';
         tableBody.innerHTML = '';
         emptyState.style.display = 'none';
-        
+
         // Get invoices from database
         const result = await window.electron.db.getAllInvoices('MRY');
-        
+
         console.log('📥 [LOAD] Received from database:', result.success ? `${result.data.length} invoices` : 'Failed');
-        
+
         if (result.success) {
             let invoices = result.data;
-            
+
             // Check if a year was selected from year selector
             const selectedYear = sessionStorage.getItem('mry_current_year');
             if (selectedYear && selectedYear !== '') {
@@ -296,23 +397,23 @@ window.loadInvoices = async function() {
                     return year.toString() === selectedYear;
                 });
                 console.log(`📊 [LOAD] Filtered to year ${selectedYear}:`, invoices.length, 'invoices');
-                
+
                 // Update the year display button
                 const yearDisplay = document.getElementById('currentYearDisplayMRY');
                 if (yearDisplay) {
                     yearDisplay.textContent = selectedYear;
                 }
             }
-            
+
             // Add default display if not present
             const enrichedInvoices = invoices.map(inv => ({
                 ...inv,
                 created_by_user_name: inv.created_by_user_name || '-'
             }));
-            
+
             allInvoices = enrichedInvoices;
             console.log('✅ [LOAD] All invoices stored in memory:', allInvoices.length);
-            
+
             // Log first 3 invoices for debugging
             if (allInvoices.length > 0) {
                 console.log('📋 [LOAD] Sample invoices:', allInvoices.slice(0, 3).map(inv => ({
@@ -322,13 +423,13 @@ window.loadInvoices = async function() {
                     numero_devis: inv.document_numero_devis
                 })));
             }
-            
+
             // Populate filters
             populateFilters();
-            
+
             // Hide loading
             loadingSpinner.style.display = 'none';
-            
+
             if (allInvoices.length === 0) {
                 emptyState.style.display = 'flex';
             } else {
@@ -341,7 +442,7 @@ window.loadInvoices = async function() {
     } catch (error) {
         console.error('❌ Error loading invoices:', error);
         loadingSpinner.style.display = 'none';
-        
+
         window.notify.error(
             'Erreur de chargement',
             'Impossible de charger les factures: ' + error.message,
@@ -355,31 +456,31 @@ function displayInvoices(invoices) {
     const tableBody = document.getElementById('invoicesTableBody');
     const emptyState = document.getElementById('emptyState');
     const pagination = document.getElementById('pagination');
-    
+
     if (invoices.length === 0) {
         tableBody.innerHTML = '';
         emptyState.style.display = 'flex';
         if (pagination) pagination.style.display = 'none';
         return;
     }
-    
+
     emptyState.style.display = 'none';
-    
+
     // Calculate pagination
     const totalItems = invoices.length;
     const itemsPerPageNum = itemsPerPage === 'all' ? totalItems : parseInt(itemsPerPage);
     const totalPages = itemsPerPage === 'all' ? 1 : Math.ceil(totalItems / itemsPerPageNum);
-    
+
     // Adjust current page if needed
     if (currentPage > totalPages) {
         currentPage = totalPages || 1;
     }
-    
+
     // Get items for current page
     const startIndex = (currentPage - 1) * itemsPerPageNum;
     const endIndex = itemsPerPage === 'all' ? totalItems : startIndex + itemsPerPageNum;
     const paginatedInvoices = invoices.slice(startIndex, endIndex);
-    
+
     tableBody.innerHTML = paginatedInvoices.map(invoice => {
         console.log('📊 [DISPLAY] Invoice data:', {
             id: invoice.id,
@@ -389,47 +490,47 @@ function displayInvoices(invoices) {
             total_ht: invoice.total_ht,
             total_ttc: invoice.total_ttc
         });
-        
+
         const typeLabel = invoice.document_type === 'facture' ? '📄 Facture' : '📋 Devis';
         const typeBadge = invoice.document_type === 'facture' ? 'badge-facture' : 'badge-devis';
         const numero = invoice.document_numero || invoice.document_numero_devis || '-';
         const numeroOrder = invoice.document_numero_Order;
-        
+
         console.log('📊 [DISPLAY] Displaying numero:', numero, 'for invoice', invoice.id);
         const date = new Date(invoice.document_date).toLocaleDateString('fr-FR');
-        
+
         // Build document number display with N° Order below if exists
         let documentDisplay = `<strong>${numero}</strong>`;
         if (numeroOrder) {
             documentDisplay += `<br><small style="color: #2196f3; font-weight: 500;">N° Order: ${numeroOrder}</small>`;
         }
-        
+
         const totalHT = formatNumber(invoice.total_ht || 0);
         const totalTTC = formatNumber(invoice.total_ttc || 0);
-        
+
         console.log('📊 MRY Formatted values:', {
             totalHT,
             totalTTC
         });
-        
+
         console.log('👤 User info for invoice', invoice.id, ':', {
             created_by_user_name: invoice.created_by_user_name,
             created_by_user_id: invoice.created_by_user_id
         });
-        
+
         return `
             <tr>
                 <td>
                     <input type="checkbox" class="invoice-checkbox" data-invoice-id="${invoice.id}" 
                            style="width: 18px; height: 18px; cursor: pointer;">
                 </td>
-                <td><span class="badge ${typeBadge}">${typeLabel}</span></td>
+                <td class="col-type-mry-body" style="${columnVisibilityMRY.type ? '' : 'display: none;'}"><span class="badge ${typeBadge}">${typeLabel}</span></td>
                 <td>${documentDisplay}</td>
                 <td>${invoice.client_nom}</td>
-                <td>${invoice.client_ice}</td>
-                <td>${date}</td>
-                <td><small style="color: #2196f3;">${invoice.created_by_user_name || '-'}</small></td>
-                <td>${formatNumber(invoice.total_ht)} DH</td>
+                <td class="col-ice-mry-body" style="${columnVisibilityMRY.ice ? '' : 'display: none;'}">${invoice.client_ice}</td>
+                <td class="col-date-mry-body" style="${columnVisibilityMRY.date ? '' : 'display: none;'}">${date}</td>
+                <td class="col-createdBy-mry-body" style="${columnVisibilityMRY.createdBy ? '' : 'display: none;'}"><small style="color: #2196f3;">${invoice.created_by_user_name || '-'}</small></td>
+                <td class="col-totalHT-mry-body" style="${columnVisibilityMRY.totalHT ? '' : 'display: none;'}">${formatNumber(invoice.total_ht)} DH</td>
                 <td><strong>${formatNumber(invoice.total_ttc)} DH</strong></td>
                 <td>
                     <div class="action-buttons">
@@ -474,7 +575,7 @@ function displayInvoices(invoices) {
             </tr>
         `;
     }).join('');
-    
+
     // Update pagination controls
     updatePaginationControls(totalPages);
 }
@@ -485,45 +586,45 @@ function updatePaginationControls(totalPages) {
     const pageNumbers = document.getElementById('pageNumbers');
     const prevBtn = document.getElementById('prevPage');
     const nextBtn = document.getElementById('nextPage');
-    
+
     if (!pagination || !pageNumbers) return;
-    
+
     // Show/hide pagination
     if (totalPages <= 1 && itemsPerPage !== 'all') {
         pagination.style.display = 'none';
         return;
     }
-    
+
     if (itemsPerPage === 'all') {
         pagination.style.display = 'none';
         return;
     }
-    
+
     pagination.style.display = 'block';
-    
+
     // Update prev/next buttons
     if (prevBtn) {
         prevBtn.disabled = currentPage === 1;
         prevBtn.style.opacity = currentPage === 1 ? '0.5' : '1';
         prevBtn.style.cursor = currentPage === 1 ? 'not-allowed' : 'pointer';
     }
-    
+
     if (nextBtn) {
         nextBtn.disabled = currentPage === totalPages;
         nextBtn.style.opacity = currentPage === totalPages ? '0.5' : '1';
         nextBtn.style.cursor = currentPage === totalPages ? 'not-allowed' : 'pointer';
     }
-    
+
     // Generate page numbers
     let pagesHTML = '';
     const maxVisiblePages = 5;
     let startPage = Math.max(1, currentPage - Math.floor(maxVisiblePages / 2));
     let endPage = Math.min(totalPages, startPage + maxVisiblePages - 1);
-    
+
     if (endPage - startPage < maxVisiblePages - 1) {
         startPage = Math.max(1, endPage - maxVisiblePages + 1);
     }
-    
+
     // First page
     if (startPage > 1) {
         pagesHTML += `<button onclick="goToPage(1)" style="padding: 0.5rem 0.75rem; background: #3e3e42; color: #ffffff; border: none; border-radius: 4px; cursor: pointer;">1</button>`;
@@ -531,13 +632,13 @@ function updatePaginationControls(totalPages) {
             pagesHTML += `<span style="color: #cccccc; padding: 0 0.5rem;">...</span>`;
         }
     }
-    
+
     // Page numbers
     for (let i = startPage; i <= endPage; i++) {
         const isActive = i === currentPage;
         pagesHTML += `<button onclick="goToPage(${i})" style="padding: 0.5rem 0.75rem; background: ${isActive ? '#2196f3' : '#3e3e42'}; color: #ffffff; border: none; border-radius: 4px; cursor: pointer; font-weight: ${isActive ? '600' : 'normal'};">${i}</button>`;
     }
-    
+
     // Last page
     if (endPage < totalPages) {
         if (endPage < totalPages - 1) {
@@ -545,12 +646,12 @@ function updatePaginationControls(totalPages) {
         }
         pagesHTML += `<button onclick="goToPage(${totalPages})" style="padding: 0.5rem 0.75rem; background: #3e3e42; color: #ffffff; border: none; border-radius: 4px; cursor: pointer;">${totalPages}</button>`;
     }
-    
+
     pageNumbers.innerHTML = pagesHTML;
 }
 
 // Change items per page
-window.changeItemsPerPage = function() {
+window.changeItemsPerPage = function () {
     const select = document.getElementById('itemsPerPage');
     itemsPerPage = select.value;
     currentPage = 1;
@@ -558,13 +659,13 @@ window.changeItemsPerPage = function() {
 }
 
 // Go to specific page
-window.goToPage = function(page) {
+window.goToPage = function (page) {
     currentPage = page;
     displayInvoices(filteredInvoices);
 }
 
 // Change page (prev/next)
-window.changePaginationPage = function(direction) {
+window.changePaginationPage = function (direction) {
     if (direction === 'prev' && currentPage > 1) {
         currentPage--;
     } else if (direction === 'next') {
@@ -582,27 +683,27 @@ window.changePaginationPage = function(direction) {
 function populateFilters() {
     // Get unique years from invoices
     const invoiceYears = [...new Set(allInvoices.map(inv => new Date(inv.document_date).getFullYear()))];
-    
+
     // Add current year and previous 2 years if not present
     const currentYear = new Date().getFullYear();
     const defaultYears = [currentYear, currentYear - 1, currentYear - 2];
-    
+
     // Combine and remove duplicates
     const allYears = [...new Set([...invoiceYears, ...defaultYears])].sort((a, b) => b - a);
-    
+
     const yearSelect = document.getElementById('filterYear');
-    yearSelect.innerHTML = '<option value="">Toutes</option>' + 
+    yearSelect.innerHTML = '<option value="">Toutes</option>' +
         allYears.map(year => `<option value="${year}">${year}</option>`).join('');
-    
+
     // Populate clients
     const clients = [...new Set(allInvoices.map(inv => inv.client_nom))].sort();
     const clientSelect = document.getElementById('filterClient');
-    clientSelect.innerHTML = '<option value="">Tous</option>' + 
+    clientSelect.innerHTML = '<option value="">Tous</option>' +
         clients.map(client => `<option value="${client}">${client}</option>`).join('');
 }
 
 // Reset filters
-window.resetFilters = function() {
+window.resetFilters = function () {
     document.getElementById('filterType').value = '';
     document.getElementById('filterYear').value = '';
     document.getElementById('filterMonth').value = '';
@@ -614,27 +715,27 @@ window.resetFilters = function() {
 }
 
 // Filter invoices
-window.filterInvoices = async function() {
+window.filterInvoices = async function () {
     currentPage = 1; // Reset to first page when filtering
     const filterType = document.getElementById('filterType').value;
     const filterYear = document.getElementById('filterYear').value;
     const filterMonth = document.getElementById('filterMonth').value;
     const filterClient = document.getElementById('filterClient').value;
     const searchInput = document.getElementById('searchInput').value.toLowerCase();
-    
+
     // Show loading if search is active
     const loadingSpinner = document.getElementById('loadingSpinner');
     if (searchInput) {
         loadingSpinner.style.display = 'flex';
     }
-    
+
     let filtered = allInvoices;
-    
+
     // Filter by type
     if (filterType) {
         filtered = filtered.filter(inv => inv.document_type === filterType);
     }
-    
+
     // Filter by year
     if (filterYear) {
         filtered = filtered.filter(inv => {
@@ -642,7 +743,7 @@ window.filterInvoices = async function() {
             return year === filterYear;
         });
     }
-    
+
     // Filter by month
     if (filterMonth) {
         filtered = filtered.filter(inv => {
@@ -651,16 +752,16 @@ window.filterInvoices = async function() {
             return monthStr === filterMonth;
         });
     }
-    
+
     // Filter by client
     if (filterClient) {
         filtered = filtered.filter(inv => inv.client_nom === filterClient);
     }
-    
+
     // Advanced search
     if (searchInput) {
         const searchType = document.getElementById('searchType').value;
-        
+
         // Get all invoices with their products for product/price search
         const needProducts = searchType === 'all' || searchType === 'product' || searchType === 'price';
         const invoicesWithProducts = needProducts ? await Promise.all(
@@ -669,28 +770,28 @@ window.filterInvoices = async function() {
                 return result.success ? result.data : inv;
             })
         ) : filtered;
-        
+
         filtered = invoicesWithProducts.filter(inv => {
             const numero = (inv.document_numero || inv.document_numero_devis || '').toLowerCase();
             const numeroOrder = (inv.document_numero_Order || '').toLowerCase();
             const client = inv.client_nom.toLowerCase();
             const ice = inv.client_ice.toLowerCase();
             const totalTTC = inv.total_ttc.toString();
-            
+
             // Search based on selected type
-            switch(searchType) {
+            switch (searchType) {
                 case 'numero':
                     return numero.includes(searchInput);
-                
+
                 case 'order':
                     return numeroOrder.includes(searchInput);
-                
+
                 case 'client':
                     return client.includes(searchInput);
-                
+
                 case 'ice':
                     return ice.includes(searchInput);
-                
+
                 case 'product':
                     if (inv.products && inv.products.length > 0) {
                         return inv.products.some(p => {
@@ -699,7 +800,7 @@ window.filterInvoices = async function() {
                         });
                     }
                     return false;
-                
+
                 case 'price':
                     if (inv.products && inv.products.length > 0) {
                         return inv.products.some(p => {
@@ -709,23 +810,23 @@ window.filterInvoices = async function() {
                         });
                     }
                     return false;
-                
+
                 case 'total_ht':
                     // Search from the beginning of the number
                     const searchNumberHT = searchInput.trim();
                     const totalHTStr = (inv.total_ht || 0).toString();
-                    
+
                     // Check if total HT starts with the search number
                     return totalHTStr.startsWith(searchNumberHT);
-                
+
                 case 'total':
                     // Search from the beginning of the number
                     const searchNumber = searchInput.trim();
                     const totalStr = (inv.total_ttc || 0).toString();
-                    
+
                     // Check if total starts with the search number
                     return totalStr.startsWith(searchNumber);
-                
+
                 case 'all':
                 default:
                     // Search in products
@@ -735,46 +836,46 @@ window.filterInvoices = async function() {
                             const designation = (p.designation || '').toLowerCase();
                             const price = p.prix_unitaire_ht.toString();
                             const total = p.total_ht.toString();
-                            
-                            return designation.includes(searchInput) || 
-                                   price.includes(searchInput) || 
-                                   total.includes(searchInput);
+
+                            return designation.includes(searchInput) ||
+                                price.includes(searchInput) ||
+                                total.includes(searchInput);
                         });
                     }
-                    
+
                     // Search in ALL fields when "Tout" is selected
                     const totalHT = (inv.total_ht || 0).toString();
-                    
-                    return numero.includes(searchInput) || 
-                           numeroOrder.includes(searchInput) ||
-                           client.includes(searchInput) || 
-                           ice.includes(searchInput) ||
-                           totalHT.includes(searchInput) ||
-                           totalTTC.includes(searchInput) ||
-                           productMatch;
+
+                    return numero.includes(searchInput) ||
+                        numeroOrder.includes(searchInput) ||
+                        client.includes(searchInput) ||
+                        ice.includes(searchInput) ||
+                        totalHT.includes(searchInput) ||
+                        totalTTC.includes(searchInput) ||
+                        productMatch;
             }
         });
     }
-    
+
     // Hide loading
     if (searchInput) {
         loadingSpinner.style.display = 'none';
     }
-    
+
     filteredInvoices = filtered;
     displayInvoices(filtered);
-    
+
     // Update result counter
     const resultsCounter = document.getElementById('resultsCounter');
     const resultCount = document.getElementById('resultCount');
-    
+
     if (filterType || filterYear || filterMonth || filterClient || searchInput) {
         resultsCounter.style.display = 'block';
         resultCount.textContent = filtered.length;
     } else {
         resultsCounter.style.display = 'none';
     }
-    
+
     console.log(`🔍 Filtered: ${filtered.length} / ${allInvoices.length} invoices`);
 }
 
@@ -782,7 +883,7 @@ window.filterInvoices = async function() {
 let currentSortColumnMry = null;
 let currentSortDirectionMry = 'asc';
 
-window.sortTableMry = function(column) {
+window.sortTableMry = function (column) {
     // Toggle sort direction if clicking same column
     if (currentSortColumnMry === column) {
         currentSortDirectionMry = currentSortDirectionMry === 'asc' ? 'desc' : 'asc';
@@ -790,7 +891,7 @@ window.sortTableMry = function(column) {
         currentSortColumnMry = column;
         currentSortDirectionMry = 'asc';
     }
-    
+
     // Update sort icons
     ['numero', 'date', 'total_ht', 'total_ttc'].forEach(col => {
         const iconId = `sortIcon${col.charAt(0).toUpperCase() + col.slice(1).replace('_', '')}Mry`;
@@ -805,11 +906,11 @@ window.sortTableMry = function(column) {
             }
         }
     });
-    
+
     // Sort the filtered invoices
     const sorted = [...filteredInvoices].sort((a, b) => {
         let valueA, valueB;
-        
+
         switch (column) {
             case 'numero':
                 // Extract numeric part from document number
@@ -821,65 +922,65 @@ window.sortTableMry = function(column) {
                 valueA = getNumero(a);
                 valueB = getNumero(b);
                 break;
-                
+
             case 'date':
                 valueA = new Date(a.document_date || 0).getTime();
                 valueB = new Date(b.document_date || 0).getTime();
                 break;
-                
+
             case 'total_ht':
                 valueA = parseFloat(a.total_ht || 0);
                 valueB = parseFloat(b.total_ht || 0);
                 break;
-                
+
             case 'total_ttc':
                 valueA = parseFloat(a.total_ttc || 0);
                 valueB = parseFloat(b.total_ttc || 0);
                 break;
-                
+
             default:
                 return 0;
         }
-        
+
         if (currentSortDirectionMry === 'asc') {
             return valueA - valueB;
         } else {
             return valueB - valueA;
         }
     });
-    
+
     // Update filtered invoices and display
     filteredInvoices = sorted;
     currentPage = 1; // Reset to first page
     displayInvoices(sorted);
-    
+
     console.log(`📊 [MRY] Sorted by ${column} (${currentSortDirectionMry})`);
 };
 
 // View invoice details
-window.viewInvoice = async function(id) {
+window.viewInvoice = async function (id) {
     try {
         console.log('👁️ [VIEW] Opening invoice details for ID:', id);
         const result = await window.electron.db.getInvoiceById(id);
-        
+
         if (!result.success || !result.data) {
             window.notify.error('Erreur', 'Facture introuvable', 3000);
             return;
         }
-        
+
         const invoice = result.data;
         const date = new Date(invoice.document_date).toLocaleDateString('fr-FR');
         const docNumber = invoice.document_numero || invoice.document_numero_devis || '-';
         const typeLabel = invoice.document_type === 'facture' ? 'Facture' : 'Devis';
-        
+
         console.log('👁️ [VIEW] Creating overlay and modal...');
         const overlay = document.createElement('div');
         overlay.className = 'invoice-view-overlay'; // Add class for easy selection
         overlay.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.85);z-index:9999;display:flex;align-items:center;justify-content:center;padding:2rem;';
-        
+
         const modal = document.createElement('div');
         modal.style.cssText = 'background:#2d2d30;border-radius:16px;max-width:900px;width:100%;max-height:90vh;overflow-y:auto;box-shadow:0 25px 50px rgba(0,0,0,0.5);';
-        
+
         modal.innerHTML = `
             <div style="background:#1e1e1e;padding:1.5rem 2rem;border-radius:16px 16px 0 0;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid #3e3e42;">
                 <div style="display:flex;align-items:center;gap:1rem;">
@@ -979,10 +1080,10 @@ window.viewInvoice = async function(id) {
                             </thead>
                             <tbody>
                                 ${invoice.products.map((p, idx) => {
-                                    // Escape HTML to prevent rendering issues
-                                    const designation = (p.designation || '').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-                                    
-                                    return `
+            // Escape HTML to prevent rendering issues
+            const designation = (p.designation || '').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+
+            return `
                                     <tr style="border-bottom:1px solid #3e3e42;">
                                         <td style="padding:0.75rem;color:#fff;word-break:break-word;max-width:400px;overflow-wrap:break-word;white-space:pre-wrap;">${designation}</td>
                                         <td style="padding:0.75rem;text-align:center;color:#fff;white-space:nowrap;">${p.quantite}</td>
@@ -990,7 +1091,7 @@ window.viewInvoice = async function(id) {
                                         <td style="padding:0.75rem;text-align:right;color:#fff;font-weight:500;white-space:nowrap;">${formatNumber(parseFloat(p.total_ht))} DH</td>
                                     </tr>
                                     `;
-                                }).join('')}
+        }).join('')}
                             </tbody>
                         </table>
                     </div>
@@ -1069,14 +1170,14 @@ window.viewInvoice = async function(id) {
                 </div>
             </div>
         `;
-        
+
         overlay.appendChild(modal);
         document.body.appendChild(overlay);
         console.log('👁️ [VIEW] Overlay added to DOM');
-        
+
         const closeBtn = document.getElementById('closeViewModal');
         console.log('👁️ [VIEW] Close button found:', closeBtn ? 'Yes' : 'No');
-        
+
         if (closeBtn) {
             closeBtn.onclick = () => {
                 console.log('🔴🔴🔴 [CLOSE] Close button clicked from JavaScript event listener!');
@@ -1094,7 +1195,7 @@ window.viewInvoice = async function(id) {
                 overlay.remove();
             }
         };
-        
+
         // Load notes asynchronously
         console.log('📝 [NOTES VIEW MRY] Loading notes for invoice:', id);
         const noteResult = await window.electron.db.getNote(id);
@@ -1113,7 +1214,7 @@ window.viewInvoice = async function(id) {
                 notesContent.textContent = 'Aucune note';
             }
         }
-        
+
         // Load audit log asynchronously
         console.log('📋 [AUDIT LOG MRY] Loading audit log for invoice:', id);
         const auditLogSection = document.getElementById(`auditLogSectionMRY${id}`);
@@ -1125,16 +1226,16 @@ window.viewInvoice = async function(id) {
                     console.error('❌ [AUDIT LOG MRY] getAuditLog function not found');
                     throw new Error('getAuditLog function not available');
                 }
-                
+
                 const auditResult = await window.electron.db.getAuditLog(id);
                 console.log('📥 [AUDIT LOG MRY] Audit log result:', auditResult);
-                
+
                 if (auditResult.success && auditResult.data && auditResult.data.length > 0) {
                     const logs = auditResult.data;
                     console.log('✅ [AUDIT LOG MRY] Displaying audit logs:', logs);
-                    
+
                     let auditHTML = '<div style="max-height: 400px; overflow-y: auto;">';
-                    
+
                     // Add creation info first
                     if (invoice.created_by_user_name) {
                         const createdDate = new Date(invoice.created_at).toLocaleDateString('fr-FR');
@@ -1151,7 +1252,7 @@ window.viewInvoice = async function(id) {
                             </div>
                         `;
                     }
-                    
+
                     // Add modification logs
                     logs.forEach(log => {
                         const logDate = new Date(log.created_at).toLocaleDateString('fr-FR');
@@ -1168,7 +1269,7 @@ window.viewInvoice = async function(id) {
                             </div>
                         `;
                     });
-                    
+
                     auditHTML += '</div>';
                     auditLogContent.innerHTML = auditHTML;
                     auditLogContent.style.color = '#fff';
@@ -1194,7 +1295,7 @@ window.viewInvoice = async function(id) {
                 auditLogContent.innerHTML = '<div style="color:#f44336;">Erreur lors du chargement de l\'historique</div>';
             }
         }
-        
+
     } catch (error) {
         console.error('Error viewing invoice:', error);
         window.notify.error('Erreur', 'Impossible de charger les détails', 3000);
@@ -1202,27 +1303,27 @@ window.viewInvoice = async function(id) {
 }
 
 // Edit invoice - Navigate to separate page
-window.editInvoice = function(id) {
+window.editInvoice = function (id) {
     console.log('✏️ [EDIT] Opening edit page for invoice ID:', id);
     localStorage.setItem('editInvoiceIdMRY', id);
     router.navigate('/edit-invoice-mry');
 }
 
 // Handle arrow key navigation in edit modal products (Global)
-window.handleArrowNavigationEdit = function(event, currentCellIndex) {
+window.handleArrowNavigationEdit = function (event, currentCellIndex) {
     // Only handle arrow keys
     if (!['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(event.key)) {
         return;
     }
-    
+
     const currentRow = event.target.closest('.edit-product-row');
     const container = document.getElementById('editProductsList');
     const allRows = Array.from(container.querySelectorAll('.edit-product-row'));
     const currentRowIndex = allRows.indexOf(currentRow);
-    
+
     let targetRow = null;
     let targetCellIndex = currentCellIndex;
-    
+
     // Handle arrow keys
     if (event.key === 'ArrowUp') {
         // Move to row above
@@ -1261,7 +1362,7 @@ window.handleArrowNavigationEdit = function(event, currentCellIndex) {
             event.preventDefault();
         }
     }
-    
+
     // Focus the target cell
     if (targetRow) {
         focusCellEdit(targetRow, targetCellIndex);
@@ -1284,7 +1385,7 @@ function focusCellEdit(row, cellIndex) {
 }
 
 // Add product row in edit modal
-window.addEditProductRow = function() {
+window.addEditProductRow = function () {
     const container = document.getElementById('editProductsList');
     const row = document.createElement('div');
     row.className = 'edit-product-row';
@@ -1303,20 +1404,20 @@ window.addEditProductRow = function() {
 }
 
 // Recalculate totals in edit modal
-window.recalculateEditTotals = function() {
+window.recalculateEditTotals = function () {
     const rows = document.querySelectorAll('.edit-product-row');
     let totalHT = 0;
-    
+
     rows.forEach(row => {
         const qty = parseFloat(row.querySelector('input[type="text"]').value) || 1;
         const price = parseFloat(row.querySelector('input[type="number"]').value) || 0;
         totalHT += qty * price;
     });
-    
+
     const tvaRate = parseFloat(document.getElementById('editTvaRate').value) || 0;
     const montantTVA = totalHT * (tvaRate / 100);
     const totalTTC = totalHT + montantTVA;
-    
+
     // Use simple format without spaces in edit modal
     document.getElementById('editTotalHT').textContent = totalHT.toFixed(2) + ' DH';
     document.getElementById('editMontantTVA').textContent = montantTVA.toFixed(2) + ' DH';
@@ -1333,19 +1434,19 @@ async function checkEditDocumentNumberUnique(invoiceId, currentInvoice, newNumer
             currentNumero: currentInvoice.document_numero,
             currentNumeroDevis: currentInvoice.document_numero_devis
         });
-        
+
         const result = await window.electron.db.getAllInvoices('MRY');
         if (!result.success) return true;
-        
+
         const invoices = result.data.filter(inv => inv.id !== invoiceId); // Exclude current invoice
         console.log('🔍 [CHECK] Checking against', invoices.length, 'other invoices');
-        
+
         // Check based on document type
         if (currentInvoice.document_type === 'facture') {
             // Check N° Facture
             if (newNumero && newNumero !== currentInvoice.document_numero) {
                 console.log('🔍 [CHECK] Checking facture numero:', newNumero);
-                const duplicateFacture = invoices.find(inv => 
+                const duplicateFacture = invoices.find(inv =>
                     inv.document_type === 'facture' && inv.document_numero === newNumero
                 );
                 if (duplicateFacture) {
@@ -1360,16 +1461,16 @@ async function checkEditDocumentNumberUnique(invoiceId, currentInvoice, newNumer
             } else {
                 console.log('✅ [CHECK] Facture numero unchanged, skipping check');
             }
-            
+
             // Check N° Order if provided (only in factures)
             if (newNumeroOrder && newNumeroOrder.trim() !== '') {
                 // Normalize current value (null or empty string to null)
                 const currentOrder = currentInvoice.document_numero_Order?.trim() || null;
                 const newOrder = newNumeroOrder.trim();
-                
+
                 // Only check if the value actually changed
                 if (newOrder !== currentOrder) {
-                    const duplicateOrder = invoices.find(inv => 
+                    const duplicateOrder = invoices.find(inv =>
                         inv.document_type === 'facture' &&
                         inv.document_numero_Order &&
                         inv.document_numero_Order.trim() === newOrder
@@ -1388,7 +1489,7 @@ async function checkEditDocumentNumberUnique(invoiceId, currentInvoice, newNumer
             // Check N° Devis
             if (newNumero && newNumero !== currentInvoice.document_numero_devis) {
                 console.log('🔍 [CHECK] Checking devis numero:', newNumero, 'vs current:', currentInvoice.document_numero_devis);
-                const duplicateDevis = invoices.find(inv => 
+                const duplicateDevis = invoices.find(inv =>
                     inv.document_type === 'devis' && inv.document_numero_devis === newNumero
                 );
                 if (duplicateDevis) {
@@ -1405,7 +1506,7 @@ async function checkEditDocumentNumberUnique(invoiceId, currentInvoice, newNumer
                 console.log('✅ [CHECK] Devis numero unchanged, skipping check');
             }
         }
-        
+
         console.log('✅ [CHECK] All checks passed, update allowed');
         return true;
     } catch (error) {
@@ -1417,28 +1518,28 @@ async function checkEditDocumentNumberUnique(invoiceId, currentInvoice, newNumer
 // Handle edit form submit
 async function handleEditSubmit(e, invoiceId) {
     e.preventDefault();
-    
+
     try {
         // Get current invoice data for comparison
         const currentInvoice = allInvoices.find(inv => inv.id === invoiceId);
         if (!currentInvoice) {
             throw new Error('Invoice not found');
         }
-        
+
         // Collect data
         const products = [];
         document.querySelectorAll('.edit-product-row').forEach(row => {
             const designation = row.querySelector('textarea').value;
             const quantiteOriginal = row.querySelector('input[type="text"]').value;
             const prix = parseFloat(row.querySelector('input[type="number"]').value) || 0;
-            
+
             if (designation || quantiteOriginal || prix) {
                 // For calculation: convert F to 1
                 let quantiteForCalc = quantiteOriginal;
                 if (quantiteForCalc.toUpperCase() === 'F') {
                     quantiteForCalc = '1';
                 }
-                
+
                 const qty = parseFloat(quantiteForCalc) || 1;
                 products.push({
                     designation,
@@ -1448,16 +1549,16 @@ async function handleEditSubmit(e, invoiceId) {
                 });
             }
         });
-        
+
         const newNumero = document.getElementById('editNumero').value;
         const newNumeroOrder = document.getElementById('editNumeroOrder')?.value || null;
-        
+
         console.log('🔍 [UPDATE] Values from form:', {
             newNumero,
             newNumeroOrder,
             currentType: currentInvoice.document_type
         });
-        
+
         // Check uniqueness before proceeding
         console.log('🔍 [UPDATE] Checking uniqueness...');
         const isUnique = await checkEditDocumentNumberUnique(
@@ -1466,19 +1567,19 @@ async function handleEditSubmit(e, invoiceId) {
             newNumero,
             newNumeroOrder
         );
-        
+
         console.log('🔍 [UPDATE] Uniqueness check result:', isUnique);
-        
+
         if (!isUnique) {
             console.log('❌ [UPDATE] Update blocked - duplicate number detected');
             return;
         }
-        
+
         // Prepare document data based on type
         const documentData = {
             date: document.getElementById('editDate').value
         };
-        
+
         // Set the correct numero field based on document type
         if (currentInvoice.document_type === 'facture') {
             documentData.numero = newNumero;
@@ -1489,9 +1590,9 @@ async function handleEditSubmit(e, invoiceId) {
             documentData.numero = null;  // Clear facture numero for devis
             documentData.numero_Order = null;
         }
-        
+
         console.log('📝 [UPDATE] Document data prepared:', documentData);
-        
+
         const updateData = {
             client: {
                 nom: document.getElementById('editClientNom').value,
@@ -1506,18 +1607,18 @@ async function handleEditSubmit(e, invoiceId) {
                 total_ttc: parseFloat(document.getElementById('editTotalTTC').textContent.replace(' DH', ''))
             }
         };
-        
+
         console.log('📝 Updating invoice:', invoiceId);
         console.log('📊 Update data:', updateData);
-        
+
         // Update in database
         const result = await window.electron.db.updateInvoice(invoiceId, updateData);
-        
+
         console.log('📥 Update result:', result);
-        
+
         if (result.success) {
             console.log('✅ [UPDATE] Invoice updated successfully in database');
-            
+
             // Save or delete notes
             const noteText = document.getElementById('editNotesMRY')?.value?.trim();
             console.log('📝 [NOTES MRY] Saving note for invoice:', invoiceId, 'Text:', noteText);
@@ -1529,7 +1630,7 @@ async function handleEditSubmit(e, invoiceId) {
                 const deleteResult = await window.electron.db.deleteNote(invoiceId);
                 console.log('🗑️ [NOTES MRY] Delete result:', deleteResult);
             }
-            
+
             // Add audit log entry for the update
             const user = JSON.parse(localStorage.getItem('user'));
             if (user && window.electron.db.addAuditLog) {
@@ -1552,12 +1653,12 @@ async function handleEditSubmit(e, invoiceId) {
                     console.error('❌ [AUDIT LOG MRY] Error adding audit log:', auditError);
                 }
             }
-            
+
             window.notify.success('Succès', 'Facture mise à jour avec succès!', 3000);
-            
+
             // Close modal
             document.querySelector('.modal-overlay').remove();
-            
+
             // Reload list immediately to ensure fresh data
             console.log('🔄 [UPDATE] Reloading invoice list...');
             await loadInvoices();
@@ -1566,7 +1667,7 @@ async function handleEditSubmit(e, invoiceId) {
             console.error('❌ [UPDATE] Update failed:', result.error);
             throw new Error(result.error || 'Échec de la mise à jour');
         }
-        
+
     } catch (error) {
         console.error('Error updating invoice:', error);
         window.notify.error('Erreur', 'Impossible de mettre à jour', 3000);
@@ -1582,7 +1683,7 @@ function showConvertInputModal(newType, newTypeLabel, prefillNumero = '') {
         if (editModal) {
             editModal.style.display = 'none';
         }
-        
+
         // Get highest number for the target type
         let highestNumber = 'Aucun';
         try {
@@ -1590,7 +1691,7 @@ function showConvertInputModal(newType, newTypeLabel, prefillNumero = '') {
             if (allInvoicesResult.success) {
                 const invoices = allInvoicesResult.data;
                 let maxNum = 0;
-                
+
                 if (newType === 'facture') {
                     // Find highest facture number
                     invoices.forEach(inv => {
@@ -1608,7 +1709,7 @@ function showConvertInputModal(newType, newTypeLabel, prefillNumero = '') {
                         }
                     });
                 }
-                
+
                 if (maxNum > 0) {
                     highestNumber = maxNum;
                 }
@@ -1616,14 +1717,14 @@ function showConvertInputModal(newType, newTypeLabel, prefillNumero = '') {
         } catch (error) {
             console.log('Error getting highest number:', error);
         }
-        
+
         // Create floating input box
         const overlay = document.createElement('div');
         overlay.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.95);z-index:999999;display:flex;align-items:center;justify-content:center;animation:fadeIn 0.2s;';
-        
+
         const container = document.createElement('div');
         container.style.cssText = 'background:#1e1e1e;border:3px solid #2196f3;border-radius:16px;padding:2.5rem;min-width:500px;box-shadow:0 20px 60px rgba(0,0,0,0.9);animation:slideIn 0.3s;';
-        
+
         container.innerHTML = `
             <style>
                 @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
@@ -1665,15 +1766,15 @@ function showConvertInputModal(newType, newTypeLabel, prefillNumero = '') {
                 </button>
             </div>
         `;
-        
+
         overlay.appendChild(container);
         document.body.appendChild(overlay);
-        
+
         const input1 = document.getElementById('convertInput1');
         const input2 = document.getElementById('convertInput2');
         const btnConfirm = document.getElementById('convertBtnConfirm');
         const btnCancel = document.getElementById('convertBtnCancel');
-        
+
         // Multiple focus attempts
         const doFocus = () => {
             if (input1) {
@@ -1681,22 +1782,22 @@ function showConvertInputModal(newType, newTypeLabel, prefillNumero = '') {
                 input1.select();
             }
         };
-        
+
         setTimeout(doFocus, 10);
         setTimeout(doFocus, 100);
         setTimeout(doFocus, 300);
-        
+
         const cleanup = () => {
             overlay.remove();
             if (editModal && wasVisible) {
                 editModal.style.display = '';
             }
         };
-        
+
         const handleConfirm = () => {
             let val1 = input1.value.trim();
             let val2 = input2 ? input2.value.trim() : '';
-            
+
             // Auto-add year if not present (ONLY for document number, not for N° Order)
             const currentYear = new Date().getFullYear();
             if (val1 && !val1.includes('/')) {
@@ -1704,7 +1805,7 @@ function showConvertInputModal(newType, newTypeLabel, prefillNumero = '') {
             }
             // N° Order should NOT have year added - keep it as simple number
             // val2 remains unchanged
-            
+
             // Check if empty or only slash
             if (!val1 || val1.startsWith('/')) {
                 input1.style.borderColor = '#f44336';
@@ -1713,27 +1814,27 @@ function showConvertInputModal(newType, newTypeLabel, prefillNumero = '') {
                 window.notify.warning('Attention', 'Veuillez entrer un numéro', 3000);
                 return;
             }
-            
+
             cleanup();
-            resolve({ 
-                newNumero: val1, 
-                newNumeroOrder: val2 || null 
+            resolve({
+                newNumero: val1,
+                newNumeroOrder: val2 || null
             });
         };
-        
+
         const handleCancel = () => {
             cleanup();
             resolve(null);
         };
-        
+
         btnConfirm.onclick = handleConfirm;
         btnCancel.onclick = handleCancel;
-        
+
         input1.onkeydown = (e) => {
             if (e.key === 'Enter') handleConfirm();
             if (e.key === 'Escape') handleCancel();
         };
-        
+
         if (input2) {
             input2.onkeydown = (e) => {
                 if (e.key === 'Enter') handleConfirm();
@@ -1748,10 +1849,10 @@ function showConfirmDialog(message) {
     return new Promise((resolve) => {
         const overlay = document.createElement('div');
         overlay.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.9);z-index:999998;display:flex;align-items:center;justify-content:center;';
-        
+
         const box = document.createElement('div');
         box.style.cssText = 'background:#2d2d30;border:2px solid #ff9800;border-radius:12px;padding:2rem;max-width:450px;box-shadow:0 20px 60px rgba(0,0,0,0.9);';
-        
+
         box.innerHTML = `
             <div style="text-align:center;margin-bottom:1.5rem;">
                 <div style="font-size:3rem;margin-bottom:0.5rem;">⚠️</div>
@@ -1762,48 +1863,48 @@ function showConfirmDialog(message) {
                 <button id="confirmYes" style="flex:1;padding:0.75rem;background:#ff9800;color:#fff;border:none;border-radius:8px;cursor:pointer;font-size:1rem;font-weight:600;">Oui</button>
             </div>
         `;
-        
+
         overlay.appendChild(box);
         document.body.appendChild(overlay);
-        
+
         document.getElementById('confirmYes').onclick = () => {
             overlay.remove();
             resolve(true);
         };
-        
+
         document.getElementById('confirmNo').onclick = () => {
             overlay.remove();
             resolve(false);
         };
-        
+
         // Removed overlay.onclick to prevent closing when clicking outside
         // Modal should only close via Cancel or Confirm buttons
     });
 }
 
 // Add attachment in edit modal
-window.addEditAttachment = async function(invoiceId) {
+window.addEditAttachment = async function (invoiceId) {
     const input = document.createElement('input');
     input.type = 'file';
     input.accept = '.png,.jpg,.jpeg,.pdf';
     input.multiple = true;
-    
+
     input.onchange = async (e) => {
         const files = Array.from(e.target.files);
         if (files.length === 0) return;
-        
+
         for (const file of files) {
             try {
                 const arrayBuffer = await file.arrayBuffer();
                 const uint8Array = new Uint8Array(arrayBuffer);
-                
+
                 const result = await window.electron.db.addAttachment(
                     invoiceId,
                     file.name,
                     file.type,
                     uint8Array
                 );
-                
+
                 if (result.success) {
                     window.notify.success('Succès', `${file.name} ajouté`, 2000);
                     // Refresh the edit modal
@@ -1818,20 +1919,20 @@ window.addEditAttachment = async function(invoiceId) {
             }
         }
     };
-    
+
     input.click();
 }
 
 // Delete attachment from edit modal
-window.deleteEditAttachment = async function(attachmentId, invoiceId) {
+window.deleteEditAttachment = async function (attachmentId, invoiceId) {
     const confirmed = await customConfirm('Confirmation', 'Êtes-vous sûr de vouloir supprimer cette pièce jointe ?', 'warning');
     if (!confirmed) {
         return;
     }
-    
+
     try {
         const result = await window.electron.db.deleteAttachment(attachmentId);
-        
+
         if (result.success) {
             window.notify.success('Succès', 'Pièce jointe supprimée', 2000);
             // Refresh the edit modal
@@ -1847,42 +1948,42 @@ window.deleteEditAttachment = async function(attachmentId, invoiceId) {
 }
 
 // Convert invoice type (Facture ↔ Devis)
-window.convertInvoiceType = async function(invoiceId, currentType) {
+window.convertInvoiceType = async function (invoiceId, currentType) {
     console.log('🔄 [CONVERT] Starting conversion for invoice:', invoiceId);
-    
+
     const newType = currentType === 'facture' ? 'devis' : 'facture';
     const newTypeLabel = newType === 'facture' ? 'Facture' : 'Devis';
     const currentTypeLabel = currentType === 'facture' ? 'Facture' : 'Devis';
-    
+
     // Ask for confirmation with custom dialog
     const confirmMsg = `Voulez-vous vraiment convertir ce ${currentTypeLabel} en ${newTypeLabel} ?<br><br>Cela créera un nouveau document avec les mêmes produits.`;
     const confirmed = await showConfirmDialog(confirmMsg);
-    
+
     if (!confirmed) {
         console.log('❌ [CONVERT] User cancelled confirmation');
         return;
     }
-    
+
     console.log('✅ [CONVERT] User confirmed conversion');
-    
+
     try {
         // Get current invoice data
         const result = await window.electron.db.getInvoiceById(invoiceId);
         if (!result.success || !result.data) {
             throw new Error('Document introuvable');
         }
-        
+
         const invoice = result.data;
         console.log('📊 [CONVERT] Invoice data loaded:', invoice);
-        
+
         // Validate invoice data - at least client name should exist
         if (!invoice.client_nom || invoice.client_nom.trim() === '') {
             throw new Error('Données client manquantes - Le nom du client est requis');
         }
-        
+
         // ICE is optional, but if it exists, it should be valid
         const clientIce = invoice.client_ice && invoice.client_ice.trim() !== '' ? invoice.client_ice : '0';
-        
+
         // Get current document number
         let currentNumero = '';
         if (currentType === 'facture') {
@@ -1890,19 +1991,19 @@ window.convertInvoiceType = async function(invoiceId, currentType) {
         } else if (currentType === 'devis') {
             currentNumero = invoice.document_numero_devis || '';
         }
-        
+
         // Show input modal for document numbers with pre-filled number
         console.log('🎯 [CONVERT] Calling showConvertInputModal...');
         const inputData = await showConvertInputModal(newType, newTypeLabel, currentNumero);
         console.log('📊 [CONVERT] Input data received:', inputData);
-        
+
         if (!inputData) {
             window.notify.warning('Annulé', 'Conversion annulée', 3000);
             return;
         }
-        
+
         const { newNumero, newNumeroOrder } = inputData;
-        
+
         // Check if numbers are unique
         const allInvoicesResult = await window.electron.db.getAllInvoices('MRY');
         if (allInvoicesResult.success) {
@@ -1914,36 +2015,36 @@ window.convertInvoiceType = async function(invoiceId, currentType) {
                     return inv.document_type === 'devis' && inv.document_numero_devis === newNumero;
                 }
             });
-            
+
             if (duplicateNumero) {
                 const label = newType === 'facture' ? 'N° Facture' : 'N° Devis';
                 window.notify.error('Erreur', `Ce ${label} existe déjà`, 5000);
                 return;
             }
-            
+
             // Check N° Order if provided (only for facture)
             if (newType === 'facture' && newNumeroOrder) {
-                const duplicateOrder = allInvoicesResult.data.find(inv => 
+                const duplicateOrder = allInvoicesResult.data.find(inv =>
                     inv.document_type === 'facture' &&
                     inv.document_numero_Order === newNumeroOrder
                 );
-                
+
                 if (duplicateOrder) {
                     window.notify.error('Erreur', `Ce N° Order existe déjà`, 5000);
                     return;
                 }
             }
         }
-        
+
         // Prepare data for new document
         console.log('📦 [CONVERT] Preparing invoice data...');
         console.log('📦 [CONVERT] client_nom:', invoice.client_nom);
         console.log('📦 [CONVERT] client_ice:', invoice.client_ice);
         console.log('📦 [CONVERT] products:', invoice.products);
-        
+
         // Get current user info
         const user = JSON.parse(localStorage.getItem('user'));
-        
+
         const newInvoiceData = {
             company_code: 'MRY',
             client: {
@@ -1973,26 +2074,26 @@ window.convertInvoiceType = async function(invoiceId, currentType) {
                 total_ttc: invoice.total_ttc || 0
             }
         };
-        
+
         // Create new invoice
         console.log('📤 [CONVERT] Sending data to backend:', JSON.stringify(newInvoiceData, null, 2));
         const createResult = await window.electron.db.createInvoice(newInvoiceData, 'MRY');
         console.log('📥 [CONVERT] Backend response:', createResult);
-        
+
         if (createResult.success) {
             window.notify.success(
                 'Succès',
                 `${newTypeLabel} créé(e) avec succès à partir du ${currentTypeLabel}`,
                 4000
             );
-            
+
             // Close modal and reload
             document.querySelector('.modal-overlay')?.remove();
             await loadInvoices();
         } else {
             throw new Error(createResult.error || 'Erreur lors de la création du document');
         }
-        
+
     } catch (error) {
         console.error('Error converting invoice:', error);
         window.notify.error('Erreur', 'Erreur lors de la conversion: ' + error.message, 5000);
@@ -2000,15 +2101,15 @@ window.convertInvoiceType = async function(invoiceId, currentType) {
 }
 
 // Delete invoice
-window.deleteInvoice = async function(id) {
+window.deleteInvoice = async function (id) {
     const confirmed = await customConfirm('Confirmation', 'Êtes-vous sûr de vouloir supprimer cette facture ?', 'warning');
     if (!confirmed) {
         return;
     }
-    
+
     try {
         const result = await window.electron.db.deleteInvoice(id);
-        
+
         if (result.success) {
             window.notify.success('Supprimé', 'Facture supprimée avec succès', 3000);
             loadInvoices(); // Reload list
@@ -2022,11 +2123,11 @@ window.deleteInvoice = async function(id) {
 }
 
 // Open attachment
-window.openAttachment = async function(attachmentId) {
+window.openAttachment = async function (attachmentId) {
     try {
         console.log('📂 Opening attachment:', attachmentId);
         const result = await window.electron.db.getAttachment(attachmentId);
-        
+
         if (result.success && result.data) {
             const attachment = result.data;
             console.log('📄 Full attachment object:', attachment);
@@ -2043,7 +2144,7 @@ window.openAttachment = async function(attachmentId) {
                 keys: attachment.file_data ? Object.keys(attachment.file_data).slice(0, 10) : [],
                 firstValues: attachment.file_data ? (Array.isArray(attachment.file_data) ? attachment.file_data.slice(0, 5) : Object.values(attachment.file_data).slice(0, 5)) : []
             });
-            
+
             // Convert base64 string to binary
             console.log('🔄 Converting base64 to binary...');
             const binaryString = atob(attachment.file_data);
@@ -2051,19 +2152,19 @@ window.openAttachment = async function(attachmentId) {
             for (let i = 0; i < binaryString.length; i++) {
                 bytes[i] = binaryString.charCodeAt(i);
             }
-            
+
             console.log('✅ File data converted, size:', bytes.length);
-            
+
             // Create blob from binary data
             const blob = new Blob([bytes], { type: attachment.file_type });
             console.log('✅ Blob created, size:', blob.size, 'type:', blob.type);
-            
+
             const url = URL.createObjectURL(blob);
             console.log('✅ URL created:', url);
-            
+
             // Open in new window
             window.open(url, '_blank');
-            
+
             // Clean up after a delay
             setTimeout(() => URL.revokeObjectURL(url), 60000);
         } else {
@@ -2076,23 +2177,23 @@ window.openAttachment = async function(attachmentId) {
 }
 
 // Delete attachment
-window.deleteAttachment = async function(attachmentId, invoiceId) {
+window.deleteAttachment = async function (attachmentId, invoiceId) {
     console.log('🗑️ [DELETE] Delete attachment requested:', attachmentId, 'for invoice:', invoiceId);
-    
+
     const confirmed = await customConfirm('Confirmation', 'Êtes-vous sûr de vouloir supprimer ce fichier ?', 'warning');
     if (!confirmed) {
         console.log('🗑️ [DELETE] User cancelled deletion');
         return;
     }
-    
+
     try {
         console.log('🗑️ [DELETE] Deleting attachment from database...');
         const result = await window.electron.db.deleteAttachment(attachmentId);
-        
+
         if (result.success) {
             console.log('🗑️ [DELETE] Attachment deleted successfully');
             window.notify.success('Supprimé', 'Fichier supprimé avec succès', 3000);
-            
+
             // Close modal and reopen to refresh
             console.log('🗑️ [DELETE] Closing modal...');
             const modalToClose = document.querySelector('.invoice-view-overlay');
@@ -2118,21 +2219,21 @@ window.deleteAttachment = async function(attachmentId, invoiceId) {
 }
 
 // Add new attachment
-window.addNewAttachment = async function(invoiceId) {
+window.addNewAttachment = async function (invoiceId) {
     // Create file input
     const input = document.createElement('input');
     input.type = 'file';
     input.accept = '.png,.jpg,.jpeg,.pdf';
     input.multiple = true;
-    
+
     input.onchange = async (e) => {
         const files = Array.from(e.target.files);
-        
+
         if (files.length === 0) return;
-        
+
         try {
             window.notify.info('Upload', `Upload de ${files.length} fichier(s)...`, 2000);
-            
+
             for (const file of files) {
                 // Check file type
                 const validTypes = ['image/png', 'image/jpeg', 'image/jpg', 'application/pdf'];
@@ -2140,17 +2241,17 @@ window.addNewAttachment = async function(invoiceId) {
                     window.notify.warning('Type non supporté', `${file.name} n'est pas accepté`, 3000);
                     continue;
                 }
-                
+
                 // Check file size (max 10MB)
                 if (file.size > 10 * 1024 * 1024) {
                     window.notify.warning('Fichier trop volumineux', `${file.name} dépasse 10MB`, 3000);
                     continue;
                 }
-                
+
                 // Read file as array buffer
                 const arrayBuffer = await file.arrayBuffer();
                 const uint8Array = new Uint8Array(arrayBuffer);
-                
+
                 // Upload to database
                 const result = await window.electron.db.addAttachment(
                     invoiceId,
@@ -2158,16 +2259,16 @@ window.addNewAttachment = async function(invoiceId) {
                     file.type,
                     uint8Array
                 );
-                
+
                 if (result.success) {
                     console.log('✅ Attachment uploaded:', file.name);
                 } else {
                     console.error('❌ Failed to upload:', file.name, result.error);
                 }
             }
-            
+
             window.notify.success('Succès', 'Fichier(s) ajouté(s) avec succès', 3000);
-            
+
             // Close modal and reopen to refresh
             console.log('📎 [UPLOAD] Files uploaded, closing modal...');
             const modalToClose = document.querySelector('.invoice-view-overlay');
@@ -2183,13 +2284,13 @@ window.addNewAttachment = async function(invoiceId) {
                 console.log('📎 [UPLOAD] Calling viewInvoice(' + invoiceId + ')');
                 viewInvoice(invoiceId);
             }, 300);
-            
+
         } catch (error) {
             console.error('Error uploading attachments:', error);
             window.notify.error('Erreur', 'Impossible d\'ajouter les fichiers', 3000);
         }
     };
-    
+
     input.click();
 }
 
@@ -2207,28 +2308,28 @@ function formatNumberForPDF(number) {
 }
 
 // Download invoice as PDF
-window.downloadInvoicePDF = async function(invoiceId) {
+window.downloadInvoicePDF = async function (invoiceId) {
     try {
         console.log('📥 Generating PDF for invoice:', invoiceId);
-        
+
         // Get invoice data
         const result = await window.electron.db.getInvoiceById(invoiceId);
-        
+
         if (!result.success || !result.data) {
             throw new Error('Facture introuvable');
         }
-        
+
         const invoice = result.data;
-        
+
         console.log('🔍 Invoice type:', invoice.document_type);
         console.log('🔍 Current Order number:', invoice.document_numero_Order);
-        
+
         // Show dialog with checkbox for FACTURE type (only if Order exists)
         if (invoice.document_type === 'facture' && invoice.document_numero_Order && invoice.document_numero_Order.trim() !== '') {
             const includeOrder = await new Promise((resolve) => {
                 const overlay = document.createElement('div');
                 overlay.className = 'custom-modal-overlay';
-                
+
                 overlay.innerHTML = `
                     <div class="custom-modal">
                         <div class="custom-modal-header">
@@ -2249,18 +2350,18 @@ window.downloadInvoicePDF = async function(invoiceId) {
                         </div>
                     </div>
                 `;
-                
+
                 document.body.appendChild(overlay);
-                
+
                 const checkbox = overlay.querySelector('#includeOrderCheckbox');
                 const continueBtn = overlay.querySelector('#continueBtn');
-                
+
                 continueBtn.addEventListener('click', () => {
                     const include = checkbox.checked;
                     overlay.remove();
                     resolve(include);
                 });
-                
+
                 overlay.addEventListener('click', (e) => {
                     if (e.target === overlay) {
                         const include = checkbox.checked;
@@ -2268,10 +2369,10 @@ window.downloadInvoicePDF = async function(invoiceId) {
                         resolve(include);
                     }
                 });
-                
+
                 setTimeout(() => continueBtn.focus(), 100);
             });
-            
+
             // Temporarily remove Order number if user doesn't want it in PDF
             if (!includeOrder) {
                 console.log('⚠️ User chose not to include Order number in PDF');
@@ -2280,21 +2381,21 @@ window.downloadInvoicePDF = async function(invoiceId) {
                 console.log('✅ Including Order number in PDF:', invoice.document_numero_Order);
             }
         }
-        
+
         console.log('📄 Continuing with PDF generation...');
-        
+
         // Check if there are products with zero quantity or price
-        const hasZeroProducts = invoice.products && invoice.products.some(p => 
+        const hasZeroProducts = invoice.products && invoice.products.some(p =>
             parseFloat(p.quantite) === 0 || parseFloat(p.prix_unitaire_ht) === 0
         );
-        
+
         let includeZeroProducts = true; // Default: include all products
-        
+
         if (hasZeroProducts) {
             includeZeroProducts = await new Promise((resolve) => {
                 const overlay = document.createElement('div');
                 overlay.className = 'custom-modal-overlay';
-                
+
                 overlay.innerHTML = `
                     <div class="custom-modal">
                         <div class="custom-modal-header">
@@ -2319,89 +2420,89 @@ window.downloadInvoicePDF = async function(invoiceId) {
                         </div>
                     </div>
                 `;
-                
+
                 document.body.appendChild(overlay);
-                
+
                 const excludeBtn = document.getElementById('excludeZeroBtnMRY');
                 const includeBtn = document.getElementById('includeZeroBtnMRY');
-                
+
                 excludeBtn.addEventListener('click', () => {
                     overlay.remove();
                     resolve(false);
                 });
-                
+
                 includeBtn.addEventListener('click', () => {
                     overlay.remove();
                     resolve(true);
                 });
-                
+
                 overlay.addEventListener('click', (e) => {
                     if (e.target === overlay) {
                         overlay.remove();
                         resolve(true); // Default to include if user clicks outside
                     }
                 });
-                
+
                 setTimeout(() => includeBtn.focus(), 100);
             });
-            
+
             console.log('🔍 User choice for zero products:', includeZeroProducts ? 'Include' : 'Exclude');
         }
-        
+
         // Mark products with zero values for special display (don't remove them)
         const showZeroValues = includeZeroProducts;
         console.log('📊 Show zero values in PDF:', showZeroValues);
-        
+
         // Check if jsPDF is loaded
         if (typeof window.jspdf === 'undefined') {
             // Load jsPDF from CDN
             await loadJsPDF();
         }
-        
+
         const { jsPDF } = window.jspdf;
         const doc = new jsPDF();
-        
+
         // Colors
         const blueColor = [33, 97, 140]; // #21618C
         const greenColor = [16, 172, 132]; // #10AC84
         const orangeColor = [255, 152, 0]; // #FF9800
-        
+
         const dateStr = new Date(invoice.document_date).toLocaleDateString('fr-FR');
-        
+
         // Function to add header to any page
         const addHeader = (isFirstPage = true) => {
             // Add Logo
             try {
-                const logoImg = document.querySelector('img[src*="mry.png"]') || 
-                               document.querySelector('img[data-asset="mry"]') ||
-                               document.querySelector('img[src^="data:image"]');
+                const logoImg = document.querySelector('img[src*="mry.png"]') ||
+                    document.querySelector('img[data-asset="mry"]') ||
+                    document.querySelector('img[src^="data:image"]');
                 if (logoImg && logoImg.src && logoImg.src.startsWith('data:')) {
                     doc.addImage(logoImg.src, 'PNG', 15, 10, 35, 35);
                 }
             } catch (error) {
                 console.log('Logo not added:', error);
             }
-            
+
             // Company Header
             doc.setFontSize(18);
             doc.setTextColor(...blueColor);
             doc.setFont(undefined, 'bold');
             doc.text('MRY TRAV SARL (AU)', 105, 20, { align: 'center' });
-            
+
             doc.setFontSize(10);
             doc.setFont(undefined, 'normal');
             doc.setTextColor(0, 0, 0);
             doc.text('TRAVAUX DIVERS DE CONSTRUCTION', 105, 27, { align: 'center' });
             doc.text('VENTE DE MATERIAUX DE CONSTRUCTION', 105, 32, { align: 'center' });
             doc.text('VENTE DE QUINCAILLERIE & DE DROGUERIE', 105, 37, { align: 'center' });
-            
+
             // Client Info
             doc.setFontSize(11);
             doc.setFont(undefined, 'bold');
             doc.text('CLIENT :', 15, 50);
             doc.setTextColor(...greenColor);
             doc.text(invoice.client_nom, 40, 50);
-            
+
             // Only show ICE if it exists and is not "0"
             if (invoice.client_ice && invoice.client_ice !== '0') {
                 doc.setTextColor(0, 0, 0);
@@ -2409,11 +2510,11 @@ window.downloadInvoicePDF = async function(invoiceId) {
                 doc.setTextColor(...greenColor);
                 doc.text(invoice.client_ice, 40, 57);
             }
-            
+
             // Date
             doc.setTextColor(0, 0, 0);
             doc.text(`Date: ${dateStr}`, 150, 50);
-            
+
             // Always show document and order numbers on every page
             doc.setFontSize(14);
             doc.setFont(undefined, 'bold');
@@ -2436,7 +2537,7 @@ window.downloadInvoicePDF = async function(invoiceId) {
                 doc.text(invoice.document_numero_Order, 42, 77);
             }
         };
-        
+
         // Function to add footer to any page
         const addFooter = (pageNum, totalPages) => {
             doc.setTextColor(0, 0, 0);
@@ -2446,7 +2547,7 @@ window.downloadInvoicePDF = async function(invoiceId) {
             doc.text('R.I.B : 007 720 0005973000000519 74  ATTIJARI WAFA BANQ', 15, 279);
             doc.text('AV, BNI IDDER RUE 14 N°10 COELMA - TÉTOUAN.', 15, 283);
             doc.text('EMAIL: errbahiabderrahim@gmail.com  TEL : 0661307323', 15, 287);
-            
+
             // Page numbering
             if (pageNum && totalPages) {
                 doc.setFontSize(8);
@@ -2454,13 +2555,13 @@ window.downloadInvoicePDF = async function(invoiceId) {
                 doc.text(`Page ${pageNum} / ${totalPages}`, 105, 293, { align: 'center' });
             }
         };
-        
+
         // Add header to first page
         addHeader(true);
-        
+
         // Products Table
         const startY = invoice.document_numero_Order ? 85 : 80;
-        
+
         // Table Header - Redesigned with better column widths
         doc.setFillColor(...blueColor);
         doc.rect(15, startY, 180, 8, 'F');
@@ -2471,52 +2572,52 @@ window.downloadInvoicePDF = async function(invoiceId) {
         doc.text('QTE', 125, startY + 5.5, { align: 'center' });
         doc.text('PU HT', 160, startY + 5.5, { align: 'right' });
         doc.text('TOTAL HT', 188, startY + 5.5, { align: 'right' });
-        
+
         // Table Body
         let currentY = startY + 10;
         doc.setTextColor(0, 0, 0);
         doc.setFont(undefined, 'normal');
         doc.setFontSize(9);
-        
+
         let pageCount = 1;
         const pages = [];
-        
+
         console.log('=== PDF Generation Started (MRY) ===');
         console.log('Document Type:', invoice.document_type);
         console.log('Initial startY (Page 1):', startY);
         console.log('Continuation pages will use same calculation as Page 1');
         console.log('Has N° Order:', !!invoice.document_numero_Order);
         console.log('Total Products:', invoice.products.length);
-        
+
         invoice.products.forEach((product, index) => {
             // Wrap long text - limit width to prevent overlap with QTE column
             const designation = product.designation || '';
-            
+
             // Width set to 85 to ensure text stays within Désignation column (QTE is at position 125)
             const lines = doc.splitTextToSize(designation, 85);
-            
+
             // Calculate row height based on text lines - each line needs 4.5 units + padding
             const rowHeight = Math.max(8, (lines.length * 4.5) + 4);
-            
+
             // Split very long products across multiple pages if needed
             let remainingLines = [...lines];
             let isFirstPart = true;
-            
+
             while (remainingLines.length > 0) {
                 const availableSpace = 215 - currentY;
-                
+
                 // If not enough space for even one line, create new page first
                 if (availableSpace < 15) {
                     pages.push(pageCount);
                     doc.addPage();
                     addHeader(false);
                     pageCount++;
-                    
+
                     let newStartY = 80;
                     if (invoice.document_numero_Order) {
                         newStartY += 7;
                     }
-                    
+
                     doc.setFillColor(...blueColor);
                     doc.rect(15, newStartY, 180, 8, 'F');
                     doc.setTextColor(255, 255, 255);
@@ -2526,66 +2627,66 @@ window.downloadInvoicePDF = async function(invoiceId) {
                     doc.text('QTE', 125, newStartY + 5.5, { align: 'center' });
                     doc.text('PU HT', 160, newStartY + 5.5, { align: 'right' });
                     doc.text('TOTAL HT', 188, newStartY + 5.5, { align: 'right' });
-                    
+
                     currentY = newStartY + 10;
                     doc.setTextColor(0, 0, 0);
                     doc.setFont(undefined, 'normal');
                     doc.setFontSize(9);
                     continue; // Re-check available space on new page
                 }
-                
+
                 const maxLinesPerPage = Math.floor((availableSpace - 10) / 4.5);
                 const linesToDraw = remainingLines.splice(0, Math.max(1, maxLinesPerPage));
                 const partialRowHeight = Math.max(8, (linesToDraw.length * 4.5) + 4);
-                
+
                 // Alternate row colors (only for first part)
                 if (isFirstPart && index % 2 === 0) {
                     doc.setFillColor(245, 245, 245);
                     doc.rect(15, currentY - 3, 180, partialRowHeight, 'F');
                 }
-                
+
                 doc.setFontSize(8);
                 // Draw lines
                 linesToDraw.forEach((line, lineIndex) => {
                     doc.text(line, 18, currentY + 3 + (lineIndex * 4.5));
                 });
-                
+
                 // Only show quantity, price, and total on the first part
                 if (isFirstPart) {
                     const centerOffset = (linesToDraw.length > 1) ? ((linesToDraw.length - 1) * 2.25) : 0;
-                    
+
                     const qty = parseFloat(product.quantite);
                     if (showZeroValues || qty !== 0) {
                         doc.text(String(product.quantite || ''), 125, currentY + 3 + centerOffset, { align: 'center' });
                     }
-                    
+
                     doc.setFontSize(7.5);
                     const price = parseFloat(product.prix_unitaire_ht);
                     if (showZeroValues || price !== 0) {
                         doc.text(`${formatNumberForPDF(product.prix_unitaire_ht)} DH`, 160, currentY + 3 + centerOffset, { align: 'right' });
                     }
-                    
+
                     const total = parseFloat(product.total_ht);
                     if (showZeroValues || total !== 0) {
                         doc.text(`${formatNumberForPDF(product.total_ht)} DH`, 188, currentY + 3 + centerOffset, { align: 'right' });
                     }
                 }
-                
+
                 currentY += partialRowHeight;
                 isFirstPart = false;
-                
+
                 // If there are more lines and we're near the bottom, create new page
                 if (remainingLines.length > 0 && currentY > 200) {
                     pages.push(pageCount);
                     doc.addPage();
                     addHeader(false);
                     pageCount++;
-                    
+
                     let newStartY = 80;
                     if (invoice.document_numero_Order) {
                         newStartY += 7;
                     }
-                    
+
                     doc.setFillColor(...blueColor);
                     doc.rect(15, newStartY, 180, 8, 'F');
                     doc.setTextColor(255, 255, 255);
@@ -2595,7 +2696,7 @@ window.downloadInvoicePDF = async function(invoiceId) {
                     doc.text('QTE', 125, newStartY + 5.5, { align: 'center' });
                     doc.text('PU HT', 160, newStartY + 5.5, { align: 'right' });
                     doc.text('TOTAL HT', 188, newStartY + 5.5, { align: 'right' });
-                    
+
                     currentY = newStartY + 10;
                     doc.setTextColor(0, 0, 0);
                     doc.setFont(undefined, 'normal');
@@ -2603,10 +2704,10 @@ window.downloadInvoicePDF = async function(invoiceId) {
                 }
             }
         });
-        
+
         // Totals
         currentY += 10;
-        
+
         // TOTAL HT
         doc.setFillColor(245, 245, 245);
         doc.rect(110, currentY, 85, 8, 'F');
@@ -2616,7 +2717,7 @@ window.downloadInvoicePDF = async function(invoiceId) {
         doc.text('TOTAL HT :', 113, currentY + 5.5);
         doc.setFontSize(8);
         doc.text(`${formatNumberForPDF(invoice.total_ht)} DH`, 192, currentY + 5.5, { align: 'right' });
-        
+
         // MONTANT TVA
         currentY += 8;
         doc.setFillColor(255, 255, 255);
@@ -2625,7 +2726,7 @@ window.downloadInvoicePDF = async function(invoiceId) {
         doc.text(`MONTANT TVA ${invoice.tva_rate}% :`, 113, currentY + 5.5);
         doc.setFontSize(8);
         doc.text(`${formatNumberForPDF(invoice.montant_tva)} DH`, 192, currentY + 5.5, { align: 'right' });
-        
+
         // MONTANT T.T.C
         currentY += 8;
         doc.setFillColor(173, 216, 230);
@@ -2635,7 +2736,7 @@ window.downloadInvoicePDF = async function(invoiceId) {
         doc.text('MONTANT T.T.C :', 113, currentY + 5.5);
         doc.setFontSize(8.5);
         doc.text(`${formatNumberForPDF(invoice.total_ttc)} DH`, 192, currentY + 5.5, { align: 'right' });
-        
+
         // Amount in words
         currentY += 15;
         doc.setTextColor(0, 0, 0);
@@ -2644,7 +2745,7 @@ window.downloadInvoicePDF = async function(invoiceId) {
         const amountInWords = numberToFrenchWords(invoice.total_ttc);
         const docTypeText = invoice.document_type === 'facture' ? 'Facture' : 'Devis';
         doc.text(`La Présente ${docTypeText} est Arrêtée à la somme de : ${amountInWords}`, 15, currentY, { maxWidth: 180 });
-        
+
         // Add notes if any
         const noteResult = await window.electron.db.getNote(invoiceId);
         if (noteResult.success && noteResult.data) {
@@ -2653,7 +2754,7 @@ window.downloadInvoicePDF = async function(invoiceId) {
             doc.setFont(undefined, 'bold');
             doc.setTextColor(96, 125, 139);
             doc.text('Notes:', 15, currentY);
-            
+
             doc.setFont(undefined, 'bold');
             doc.setTextColor(0, 0, 0);
             doc.setFontSize(9);
@@ -2682,16 +2783,16 @@ window.downloadInvoicePDF = async function(invoiceId) {
                 lineY += 4.5;
             }
         }
-        
+
         // Add page numbering to all pages
         pages.push(pageCount);
         const totalPages = pages.length;
-        
+
         for (let i = 0; i < totalPages; i++) {
             doc.setPage(i + 1);
             addFooter(i + 1, totalPages);
         }
-        
+
         // Save PDF with appropriate filename
         const selectedCompany = JSON.parse(localStorage.getItem('selectedCompany') || '{}');
         const companyName = selectedCompany.name ? selectedCompany.name.replace(' Company', '') : 'Unknown';
@@ -2702,9 +2803,9 @@ window.downloadInvoicePDF = async function(invoiceId) {
             filename = `Facture_${invoice.document_numero || invoice.id}_${invoice.client_nom}_${companyName}.pdf`;
         }
         doc.save(filename);
-        
+
         window.notify.success('Succès', 'PDF téléchargé avec succès', 3000);
-        
+
     } catch (error) {
         console.error('❌ Error generating PDF:', error);
         window.notify.error('Erreur', 'Impossible de générer le PDF: ' + error.message, 4000);
@@ -2712,31 +2813,31 @@ window.downloadInvoicePDF = async function(invoiceId) {
 }
 
 // Download Bon de travaux as PDF (without prices)
-window.downloadBonDeTravauxPDF = async function(invoiceId) {
+window.downloadBonDeTravauxPDF = async function (invoiceId) {
     try {
         console.log('📥 Generating Bon de travaux PDF for invoice:', invoiceId);
-        
+
         // Get invoice data
         const result = await window.electron.db.getInvoiceById(invoiceId);
-        
+
         if (!result.success || !result.data) {
             throw new Error('Document introuvable');
         }
-        
+
         const invoice = result.data;
-        
+
         // Check if there are products with zero quantity or price
-        const hasZeroProducts = invoice.products && invoice.products.some(p => 
+        const hasZeroProducts = invoice.products && invoice.products.some(p =>
             parseFloat(p.quantite) === 0 || parseFloat(p.prix_unitaire_ht) === 0
         );
-        
+
         let includeZeroProducts = true; // Default: include all products
-        
+
         if (hasZeroProducts) {
             includeZeroProducts = await new Promise((resolve) => {
                 const overlay = document.createElement('div');
                 overlay.className = 'custom-modal-overlay';
-                
+
                 overlay.innerHTML = `
                     <div class="custom-modal">
                         <div class="custom-modal-header">
@@ -2761,81 +2862,81 @@ window.downloadBonDeTravauxPDF = async function(invoiceId) {
                         </div>
                     </div>
                 `;
-                
+
                 document.body.appendChild(overlay);
-                
+
                 const excludeBtn = document.getElementById('excludeZeroBtnBonTravauxMRY');
                 const includeBtn = document.getElementById('includeZeroBtnBonTravauxMRY');
-                
+
                 excludeBtn.addEventListener('click', () => {
                     overlay.remove();
                     resolve(false);
                 });
-                
+
                 includeBtn.addEventListener('click', () => {
                     overlay.remove();
                     resolve(true);
                 });
-                
+
                 overlay.addEventListener('click', (e) => {
                     if (e.target === overlay) {
                         overlay.remove();
                         resolve(true); // Default to include if user clicks outside
                     }
                 });
-                
+
                 setTimeout(() => includeBtn.focus(), 100);
             });
-            
+
             console.log('🔍 User choice for zero products in Bon de travaux:', includeZeroProducts ? 'Include' : 'Exclude');
         }
-        
+
         // Mark products with zero values for special display (don't remove them)
         const showZeroValues = includeZeroProducts;
         console.log('📊 Show zero values in Bon de travaux:', showZeroValues);
-        
+
         // Check if jsPDF is loaded
         if (typeof window.jspdf === 'undefined') {
             await loadJsPDF();
         }
-        
+
         const { jsPDF } = window.jspdf;
         const doc = new jsPDF();
-        
+
         // Colors
         const blueColor = [33, 97, 140];
         const greenColor = [16, 172, 132];
         const purpleColor = [156, 39, 176]; // For "Bon de travaux"
-        
+
         const dateStr = new Date(invoice.document_date).toLocaleDateString('fr-FR');
-        
+
         // Function to add header
         const addHeader = (isFirstPage = true) => {
             // Add Logo
             try {
-                const logoImg = document.querySelector('img[src*="mry.png"]') || 
-                               document.querySelector('img[data-asset="mry"]') ||
-                               document.querySelector('img[src^="data:image"]');
+                const logoImg = document.querySelector('img[src*="mry.png"]') ||
+                    document.querySelector('img[data-asset="mry"]') ||
+                    document.querySelector('img[src^="data:image"]');
                 if (logoImg && logoImg.src && logoImg.src.startsWith('data:')) {
                     doc.addImage(logoImg.src, 'PNG', 15, 10, 35, 35);
                 }
             } catch (error) {
                 console.log('Logo not added:', error);
             }
-            
+
             // Company Header
             doc.setFontSize(18);
             doc.setTextColor(...blueColor);
             doc.setFont(undefined, 'bold');
             doc.text('MRY TRAV SARL (AU)', 105, 20, { align: 'center' });
-            
+
             doc.setFontSize(10);
             doc.setFont(undefined, 'normal');
             doc.setTextColor(0, 0, 0);
             doc.text('TRAVAUX DIVERS DE CONSTRUCTION', 105, 27, { align: 'center' });
             doc.text('VENTE DE MATERIAUX DE CONSTRUCTION', 105, 32, { align: 'center' });
             doc.text('VENTE DE QUINCAILLERIE & DE DROGUERIE', 105, 37, { align: 'center' });
-            
+
             // Client Info
             doc.setFontSize(11);
             doc.setFont(undefined, 'bold');
@@ -2843,7 +2944,7 @@ window.downloadBonDeTravauxPDF = async function(invoiceId) {
             doc.text('CLIENT :', 15, 50);
             doc.setTextColor(...greenColor);
             doc.text(invoice.client_nom, 40, 50);
-            
+
             // Only show ICE if it exists and is not "0"
             if (invoice.client_ice && invoice.client_ice !== '0') {
                 doc.setTextColor(0, 0, 0);
@@ -2851,18 +2952,18 @@ window.downloadBonDeTravauxPDF = async function(invoiceId) {
                 doc.setTextColor(...greenColor);
                 doc.text(invoice.client_ice, 40, 57);
             }
-            
+
             // Date
             doc.setTextColor(0, 0, 0);
             doc.text(`Date: ${dateStr}`, 150, 50);
-            
+
             // "BON DE TRAVAUX" title in center (below ICE)
             doc.setFontSize(20);
             doc.setFont(undefined, 'bold');
             doc.setTextColor(...blueColor);
             doc.text('BON DE TRAVAUX', 105, 70, { align: 'center' });
         };
-        
+
         // Function to add footer
         const addFooter = (pageNum, totalPages) => {
             doc.setTextColor(0, 0, 0);
@@ -2872,7 +2973,7 @@ window.downloadBonDeTravauxPDF = async function(invoiceId) {
             doc.text('R.I.B : 007 720 0005973000000519 74  ATTIJARI WAFA BANQ', 15, 279);
             doc.text('AV, BNI IDDER RUE 14 N°10 COELMA - TÉTOUAN.', 15, 283);
             doc.text('EMAIL: errbahiabderrahim@gmail.com  TEL : 0661307323', 15, 287);
-            
+
             // Page numbering
             if (pageNum && totalPages) {
                 doc.setFontSize(8);
@@ -2880,17 +2981,17 @@ window.downloadBonDeTravauxPDF = async function(invoiceId) {
                 doc.text(`Page ${pageNum} / ${totalPages}`, 105, 293, { align: 'center' });
             }
         };
-        
+
         // Add header to first page
         addHeader(true);
-        
+
         const startY = 85;
-        
+
         // Helper function to format numbers
         const formatNumberForPDF = (num) => {
             return parseFloat(num).toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ' ');
         };
-        
+
         // Products Table (with all columns and prices)
         doc.setFillColor(...blueColor);
         doc.rect(15, startY, 180, 8, 'F');
@@ -2901,31 +3002,31 @@ window.downloadBonDeTravauxPDF = async function(invoiceId) {
         doc.text('QTE', 125, startY + 5.5, { align: 'center' });
         doc.text('Prix unitaire HT', 160, startY + 5.5, { align: 'right' });
         doc.text('Prix total HT', 188, startY + 5.5, { align: 'right' });
-        
+
         // Table Body
         let currentY = startY + 10;
         doc.setTextColor(0, 0, 0);
         doc.setFont(undefined, 'normal');
         doc.setFontSize(9);
-        
+
         let pageCount = 1;
         const pages = [];
-        
+
         invoice.products.forEach((product, index) => {
             const designation = product.designation || '';
-            
+
             const lines = doc.splitTextToSize(designation, 85);
-            
+
             // Calculate row height based on text lines - each line needs 4.5 units + padding
             const rowHeight = Math.max(8, (lines.length * 4.5) + 4);
-            
+
             // Check if we need a new page
             if (currentY + rowHeight > 215) {
                 pages.push(pageCount);
                 doc.addPage();
                 addHeader(false);
                 pageCount++;
-                
+
                 doc.setFillColor(...blueColor);
                 doc.rect(15, startY, 180, 8, 'F');
                 doc.setTextColor(255, 255, 255);
@@ -2935,53 +3036,53 @@ window.downloadBonDeTravauxPDF = async function(invoiceId) {
                 doc.text('QTE', 125, startY + 5.5, { align: 'center' });
                 doc.text('Prix unitaire HT', 160, startY + 5.5, { align: 'right' });
                 doc.text('Prix total HT', 188, startY + 5.5, { align: 'right' });
-                
+
                 currentY = startY + 10;
                 doc.setTextColor(0, 0, 0);
                 doc.setFont(undefined, 'normal');
                 doc.setFontSize(9);
             }
-            
+
             // Alternate row colors
             if (index % 2 === 0) {
                 doc.setFillColor(245, 245, 245);
                 doc.rect(15, currentY - 3, 180, rowHeight, 'F');
             }
-            
+
             doc.setFontSize(8);
             // Draw each line separately
             lines.forEach((line, lineIndex) => {
                 doc.text(line, 18, currentY + 3 + (lineIndex * 4.5));
             });
-            
+
             // Center vertically for multi-line products
             const centerOffset = (lines.length > 1) ? ((lines.length - 1) * 2.25) : 0;
-            
+
             // Show quantity only if it's not zero OR if user chose to show zero values
             const qty = parseFloat(product.quantite);
             if (showZeroValues || qty !== 0) {
                 doc.text(String(product.quantite || ''), 125, currentY + 3 + centerOffset, { align: 'center' });
             }
-            
+
             doc.setFontSize(7.5);
             // Show price only if it's not zero OR if user chose to show zero values
             const price = parseFloat(product.prix_unitaire_ht);
             if (showZeroValues || price !== 0) {
                 doc.text(`${formatNumberForPDF(product.prix_unitaire_ht)} DH`, 160, currentY + 3 + centerOffset, { align: 'right' });
             }
-            
+
             // Show total only if it's not zero OR if user chose to show zero values
             const total = parseFloat(product.total_ht);
             if (showZeroValues || total !== 0) {
                 doc.text(`${formatNumberForPDF(product.total_ht)} DH`, 188, currentY + 3 + centerOffset, { align: 'right' });
             }
-            
+
             currentY += rowHeight;
         });
-        
+
         // Totals section - directly below table (dynamic position)
         currentY += 10; // Add some spacing after table
-        
+
         doc.setFillColor(...blueColor);
         doc.rect(110, currentY, 85, 7, 'F');
         doc.setTextColor(255, 255, 255);
@@ -2989,14 +3090,14 @@ window.downloadBonDeTravauxPDF = async function(invoiceId) {
         doc.setFont(undefined, 'bold');
         doc.text('Total HT', 113, currentY + 5);
         doc.text(`${formatNumberForPDF(invoice.total_ht)} DH`, 192, currentY + 5, { align: 'right' });
-        
+
         currentY += 7;
         doc.setFillColor(245, 245, 245);
         doc.rect(110, currentY, 85, 7, 'F');
         doc.setTextColor(0, 0, 0);
         doc.text(`TVA ${invoice.tva_rate}%`, 113, currentY + 5);
         doc.text(`${formatNumberForPDF(invoice.montant_tva)} DH`, 192, currentY + 5, { align: 'right' });
-        
+
         currentY += 7;
         doc.setFillColor(...greenColor);
         doc.rect(110, currentY, 85, 7, 'F');
@@ -3004,25 +3105,25 @@ window.downloadBonDeTravauxPDF = async function(invoiceId) {
         doc.setFont(undefined, 'bold');
         doc.text('Total TTC', 113, currentY + 5);
         doc.text(`${formatNumberForPDF(invoice.total_ttc)} DH`, 192, currentY + 5, { align: 'right' });
-        
+
         // Add page numbering to all pages
         pages.push(pageCount);
         const totalPages = pages.length;
-        
+
         for (let i = 0; i < totalPages; i++) {
             doc.setPage(i + 1);
             addFooter(i + 1, totalPages);
         }
-        
+
         // Save PDF
         const docNumero = invoice.document_numero || invoice.document_numero_devis || 'N';
         const selectedCompany = JSON.parse(localStorage.getItem('selectedCompany') || '{}');
         const companyName = selectedCompany.name ? selectedCompany.name.replace(' Company', '') : 'Unknown';
         const filename = `Bon_de_travaux_${docNumero}_${invoice.client_nom}_${companyName}.pdf`;
         doc.save(filename);
-        
+
         window.notify.success('Succès', 'Bon de travaux téléchargé avec succès', 3000);
-        
+
     } catch (error) {
         console.error('❌ Error generating Bon de travaux PDF:', error);
         window.notify.error('Erreur', 'Impossible de générer le PDF: ' + error.message, 4000);
@@ -3034,7 +3135,7 @@ function numberToFrenchWords(number) {
     const units = ['', 'un', 'deux', 'trois', 'quatre', 'cinq', 'six', 'sept', 'huit', 'neuf'];
     const teens = ['dix', 'onze', 'douze', 'treize', 'quatorze', 'quinze', 'seize', 'dix-sept', 'dix-huit', 'dix-neuf'];
     const tens = ['', '', 'vingt', 'trente', 'quarante', 'cinquante', 'soixante', 'soixante', 'quatre-vingt', 'quatre-vingt'];
-    
+
     function convertLessThanThousand(n) {
         if (n === 0) return '';
         if (n < 10) return units[n];
@@ -3058,7 +3159,7 @@ function numberToFrenchWords(number) {
             if (remainder < 10) return 'quatre-vingt-' + units[remainder];
             return 'quatre-vingt-' + teens[remainder - 10];
         }
-        
+
         const hundred = Math.floor(n / 100);
         const remainder = n % 100;
         let result = hundred === 1 ? 'cent' : units[hundred] + ' cent';
@@ -3066,11 +3167,11 @@ function numberToFrenchWords(number) {
         if (remainder > 0) result += ' ' + convertLessThanThousand(remainder);
         return result;
     }
-    
+
     function convertNumber(n) {
         if (n === 0) return 'zéro';
         if (n < 1000) return convertLessThanThousand(n);
-        
+
         // Billions (milliards)
         if (n >= 1000000000) {
             const billion = Math.floor(n / 1000000000);
@@ -3079,7 +3180,7 @@ function numberToFrenchWords(number) {
             if (remainder > 0) result += ' ' + convertNumber(remainder);
             return result;
         }
-        
+
         // Millions
         if (n >= 1000000) {
             const million = Math.floor(n / 1000000);
@@ -3088,7 +3189,7 @@ function numberToFrenchWords(number) {
             if (remainder > 0) result += ' ' + convertNumber(remainder);
             return result;
         }
-        
+
         // Thousands
         const thousand = Math.floor(n / 1000);
         const remainder = n % 1000;
@@ -3096,21 +3197,21 @@ function numberToFrenchWords(number) {
         if (remainder > 0) result += ' ' + convertLessThanThousand(remainder);
         return result;
     }
-    
+
     const parts = number.toFixed(2).split('.');
     const dirhams = parseInt(parts[0]);
     const centimes = parseInt(parts[1]);
-    
+
     let result = convertNumber(dirhams) + ' dirham';
     if (dirhams > 1) result += 's';
-    
+
     if (centimes > 0) {
         result += ' et ' + convertNumber(centimes) + ' centime';
         if (centimes > 1) result += 's';
     } else {
         result += ' et zéro centime';
     }
-    
+
     return result.charAt(0).toUpperCase() + result.slice(1);
 }
 
@@ -3121,7 +3222,7 @@ async function loadJsPDF() {
             resolve();
             return;
         }
-        
+
         const script = document.createElement('script');
         script.src = 'https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js';
         script.onload = () => {
@@ -3134,19 +3235,19 @@ async function loadJsPDF() {
 }
 
 // Show bulk download modal
-window.showBulkDownloadModal = function() {
+window.showBulkDownloadModal = function () {
     const checkedBoxes = document.querySelectorAll('.invoice-checkbox:checked');
     const selectedIds = Array.from(checkedBoxes).map(cb => cb.dataset.invoiceId);
-    
+
     if (selectedIds.length === 0) {
         window.notify.warning('Attention', 'Veuillez sélectionner au moins une facture', 3000);
         return;
     }
-    
+
     const overlay = document.createElement('div');
     overlay.className = 'modal-overlay';
     overlay.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.85);z-index:9999;display:flex;align-items:center;justify-content:center;animation:fadeIn 0.3s;';
-    
+
     overlay.innerHTML = `
         <div style="background:#2d2d30;border-radius:12px;padding:2rem;max-width:500px;width:90%;max-height:70vh;display:flex;flex-direction:column;box-shadow:0 20px 60px rgba(0,0,0,0.9);animation:slideIn 0.3s;">
             <style>
@@ -3262,12 +3363,12 @@ window.showBulkDownloadModal = function() {
             </div>
         </div>
     `;
-    
+
     document.body.appendChild(overlay);
-    
+
     // Auto-select default option
     document.querySelector('.org-option input[checked]').closest('.org-option').classList.add('selected');
-    
+
     // Add click event to confirm button
     document.getElementById('bulkDownloadConfirmBtn').onclick = () => {
         const organizationType = document.querySelector('input[name="organization"]:checked').value;
@@ -3277,18 +3378,18 @@ window.showBulkDownloadModal = function() {
 };
 
 // Select organization option
-window.selectOrganization = function(element, value) {
+window.selectOrganization = function (element, value) {
     document.querySelectorAll('.org-option').forEach(opt => opt.classList.remove('selected'));
     element.classList.add('selected');
     element.querySelector('input').checked = true;
 };
 
 // Show Order selection modal before download for MRY
-window.showOrderSelectionModalBeforeDownloadMRY = function(selectedIds, organizationType) {
+window.showOrderSelectionModalBeforeDownloadMRY = function (selectedIds, organizationType) {
     const selectionOverlay = document.createElement('div');
     selectionOverlay.className = 'custom-modal-overlay';
     selectionOverlay.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.95);z-index:10000;display:flex;align-items:center;justify-content:center;';
-    
+
     selectionOverlay.innerHTML = `
         <div class="custom-modal">
             <div class="custom-modal-header">
@@ -3309,22 +3410,22 @@ window.showOrderSelectionModalBeforeDownloadMRY = function(selectedIds, organiza
             </div>
         </div>
     `;
-    
+
     document.body.appendChild(selectionOverlay);
-    
+
     const orderCheckbox = selectionOverlay.querySelector('#includeOrderCheckboxDownloadMRY');
     const continueBtn = selectionOverlay.querySelector('#continueBtnDownloadMRY');
-    
+
     continueBtn.addEventListener('click', async () => {
         const includeOrder = orderCheckbox.checked;
-        
+
         console.log('✅ [MRY DOWNLOAD] Include Order:', includeOrder);
-        
+
         selectionOverlay.remove();
-        
+
         await startBulkDownload(selectedIds, organizationType, includeOrder);
     });
-    
+
     selectionOverlay.addEventListener('click', (e) => {
         if (e.target === selectionOverlay) {
             const includeOrder = orderCheckbox.checked;
@@ -3332,7 +3433,7 @@ window.showOrderSelectionModalBeforeDownloadMRY = function(selectedIds, organiza
             startBulkDownload(selectedIds, organizationType, includeOrder);
         }
     });
-    
+
     setTimeout(() => continueBtn.focus(), 100);
 };
 
@@ -3343,7 +3444,7 @@ async function loadJSZip() {
             resolve();
             return;
         }
-        
+
         const script = document.createElement('script');
         script.src = 'https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js';
         script.onload = () => {
@@ -3356,15 +3457,15 @@ async function loadJSZip() {
 }
 
 // Start bulk download
-window.startBulkDownload = async function(selectedIds, organizationType, includeOrder = true) {
+window.startBulkDownload = async function (selectedIds, organizationType, includeOrder = true) {
     try {
-        
+
         // Close modal
         document.querySelector('.modal-overlay')?.remove();
-        
+
         // Show progress notification
         window.notify.info('Téléchargement', `Génération de ${selectedIds.length} PDF(s)...`, 10000);
-        
+
         // Get all selected invoices data
         const invoicesData = [];
         for (const id of selectedIds) {
@@ -3373,41 +3474,41 @@ window.startBulkDownload = async function(selectedIds, organizationType, include
                 invoicesData.push(result.data);
             }
         }
-        
+
         if (invoicesData.length === 0) {
             window.notify.error('Erreur', 'Aucune facture trouvée', 3000);
             return;
         }
-        
+
         // Load libraries
         if (typeof window.jspdf === 'undefined') {
             await loadJsPDF();
         }
         await loadJSZip();
-        
+
         // Create ZIP file
         const zip = new JSZip();
         const timestamp = new Date().toISOString().split('T')[0];
         const folderName = `Factures_Export_${timestamp}`;
-        
+
         // Generate all PDFs and add to ZIP
         let successCount = 0;
-        
+
         for (const invoice of invoicesData) {
             try {
                 const pdfBlob = await generateSinglePDFBlob(invoice, organizationType, folderName, includeOrder);
-                
+
                 // Organize in folders based on type
                 const invoiceDate = new Date(invoice.document_date);
                 const yearMonth = `${invoiceDate.getFullYear()}-${String(invoiceDate.getMonth() + 1).padStart(2, '0')}`;
                 const clientName = invoice.client_nom.replace(/[^a-zA-Z0-9]/g, '_');
                 const numero = (invoice.document_numero || invoice.document_numero_devis || invoice.id).replace(/\//g, '_');
-                
+
                 // Determine document type folder
                 const docType = invoice.document_type === 'facture' ? 'Factures' : 'Devis';
                 const docPrefix = invoice.document_type === 'facture' ? 'Facture' : 'Devis';
                 const filename = `${docPrefix}_${numero}_${clientName}.pdf`;
-                
+
                 let zipPath = '';
                 if (organizationType === 'client-month-type') {
                     // Client → Mois → Type
@@ -3431,32 +3532,32 @@ window.startBulkDownload = async function(selectedIds, organizationType, include
                     // Tout dans un dossier (flat)
                     zipPath = `${docType}/${filename}`;
                 }
-                
+
                 zip.file(zipPath, pdfBlob);
                 successCount++;
             } catch (error) {
                 console.error(`Error generating PDF for invoice ${invoice.id}:`, error);
             }
         }
-        
+
         // Generate and download ZIP
         window.notify.info('Téléchargement', 'Création du fichier ZIP...', 3000);
         const zipBlob = await zip.generateAsync({ type: 'blob' });
-        
+
         // Download ZIP file
         const link = document.createElement('a');
         link.href = URL.createObjectURL(zipBlob);
         link.download = `${folderName}.zip`;
         link.click();
         URL.revokeObjectURL(link.href);
-        
+
         window.notify.success('Succès', `${successCount} PDF(s) téléchargé(s) dans ${folderName}.zip`, 4000);
-        
+
         // Uncheck all checkboxes
         document.querySelectorAll('.invoice-checkbox').forEach(cb => cb.checked = false);
         document.getElementById('selectAllInvoices').checked = false;
         updateSelectedCount();
-        
+
     } catch (error) {
         console.error('Error in bulk download:', error);
         window.notify.error('Erreur', 'Erreur lors du téléchargement: ' + error.message, 5000);
@@ -3467,48 +3568,48 @@ window.startBulkDownload = async function(selectedIds, organizationType, include
 async function generateSinglePDFBlob(invoice, organizationType, folderName, includeOrder = true) {
     // This will use the same PDF generation logic as downloadInvoicePDF
     // but with custom filename based on organization type and includeOrder parameter
-    
+
     // For bulk PDF, always hide zero values (no prompt)
     const showZeroValues = false;
-    
+
     const { jsPDF } = window.jspdf;
     const doc = new jsPDF();
-    
+
     // Colors
     const blueColor = [33, 97, 140];
     const greenColor = [16, 172, 132];
     const orangeColor = [255, 152, 0];
     const dateStr = new Date(invoice.document_date).toLocaleDateString('fr-FR');
-    
+
     // Add header function (same as before)
     const addHeader = () => {
         try {
-            const logoImg = document.querySelector('img[src*="mry.png"]') || 
-                           document.querySelector('img[data-asset="mry"]') ||
-                           document.querySelector('img[src^="data:image"]');
+            const logoImg = document.querySelector('img[src*="mry.png"]') ||
+                document.querySelector('img[data-asset="mry"]') ||
+                document.querySelector('img[src^="data:image"]');
             if (logoImg && logoImg.src && logoImg.src.startsWith('data:')) {
                 doc.addImage(logoImg.src, 'PNG', 15, 10, 35, 35);
             }
-        } catch (error) {}
-        
+        } catch (error) { }
+
         doc.setFontSize(18);
         doc.setTextColor(...blueColor);
         doc.setFont(undefined, 'bold');
         doc.text('MRY TRAV SARL (AU)', 105, 20, { align: 'center' });
-        
+
         doc.setFontSize(10);
         doc.setFont(undefined, 'normal');
         doc.setTextColor(0, 0, 0);
         doc.text('TRAVAUX DIVERS DE CONSTRUCTION', 105, 27, { align: 'center' });
         doc.text('VENTE DE MATERIAUX DE CONSTRUCTION', 105, 32, { align: 'center' });
         doc.text('VENTE DE QUINCAILLERIE & DE DROGUERIE', 105, 37, { align: 'center' });
-        
+
         doc.setFontSize(11);
         doc.setFont(undefined, 'bold');
         doc.text('CLIENT :', 15, 50);
         doc.setTextColor(...greenColor);
         doc.text(invoice.client_nom, 40, 50);
-        
+
         // Only show ICE if it exists and is not "0"
         if (invoice.client_ice && invoice.client_ice !== '0') {
             doc.setTextColor(0, 0, 0);
@@ -3516,23 +3617,23 @@ async function generateSinglePDFBlob(invoice, organizationType, folderName, incl
             doc.setTextColor(...greenColor);
             doc.text(invoice.client_ice, 40, 57);
         }
-        
+
         doc.setTextColor(0, 0, 0);
         doc.text(`Date: ${dateStr}`, 150, 50);
-        
+
         doc.setFontSize(14);
         doc.setFont(undefined, 'bold');
-        
+
         // Show correct label based on document type
         const docLabel = invoice.document_type === 'devis' ? 'DEVIS N°:' : 'FACTURE N°:';
-        const docNumero = invoice.document_type === 'devis' 
+        const docNumero = invoice.document_type === 'devis'
             ? (invoice.document_numero_devis || invoice.document_numero || '-')
             : (invoice.document_numero || invoice.document_numero_devis || '-');
-        
+
         doc.text(docLabel, 15, 70);
         doc.setTextColor(...orangeColor);
         doc.text(docNumero, 55, 70);
-        
+
         if (includeOrder && invoice.document_numero_Order) {
             doc.setFontSize(12);
             doc.setFont(undefined, 'bold');
@@ -3542,7 +3643,7 @@ async function generateSinglePDFBlob(invoice, organizationType, folderName, incl
             doc.text(invoice.document_numero_Order, 42, 77);
         }
     };
-    
+
     const addFooter = () => {
         doc.setTextColor(0, 0, 0);
         doc.setFontSize(7);
@@ -3552,9 +3653,9 @@ async function generateSinglePDFBlob(invoice, organizationType, folderName, incl
         doc.text('AV, BNI IDDER RUE 14 N°10 COELMA - TÉTOUAN.', 15, 288);
         doc.text('EMAIL: errbahiabderrahim@gmail.com  TEL : 0661307323', 15, 292);
     };
-    
+
     addHeader();
-    
+
     // Add products table (simplified version)
     const startY = (includeOrder && invoice.document_numero_Order) ? 85 : 80;
     doc.setFillColor(...blueColor);
@@ -3566,29 +3667,29 @@ async function generateSinglePDFBlob(invoice, organizationType, folderName, incl
     doc.text('QTE', 125, startY + 5.5, { align: 'center' });
     doc.text('PU HT', 160, startY + 5.5, { align: 'right' });
     doc.text('TOTAL HT', 188, startY + 5.5, { align: 'right' });
-    
+
     let currentY = startY + 10;
     doc.setTextColor(0, 0, 0);
     doc.setFont(undefined, 'normal');
     doc.setFontSize(9);
-    
+
     let pageCount = 0;
-    
+
     invoice.products.forEach((product, index) => {
         const designation = product.designation || '';
         const lines = doc.splitTextToSize(designation, 85);
         const rowHeight = Math.max(8, (lines.length * 4.5) + 4);
-        
+
         if (currentY + rowHeight > 215) {
             addFooter();
             doc.addPage();
             addHeader();
             pageCount++;
-            
+
             // Re-draw table header on new page
             let newStartY = 80;
             if (invoice.document_numero_Order) newStartY += 7;
-            
+
             doc.setFillColor(...blueColor);
             doc.rect(15, newStartY, 180, 8, 'F');
             doc.setTextColor(255, 255, 255);
@@ -3598,52 +3699,52 @@ async function generateSinglePDFBlob(invoice, organizationType, folderName, incl
             doc.text('QTE', 125, newStartY + 5.5, { align: 'center' });
             doc.text('PU HT', 160, newStartY + 5.5, { align: 'right' });
             doc.text('TOTAL HT', 188, newStartY + 5.5, { align: 'right' });
-            
+
             currentY = newStartY + 10;
             doc.setTextColor(0, 0, 0);
             doc.setFont(undefined, 'normal');
             doc.setFontSize(9);
         }
-        
+
         if (index % 2 === 0) {
             doc.setFillColor(245, 245, 245);
             doc.rect(15, currentY - 3, 180, rowHeight, 'F');
         }
-        
+
         doc.setFontSize(8);
         // Draw each line separately with proper spacing - show full text
         lines.forEach((line, lineIndex) => {
             doc.text(line, 18, currentY + 3 + (lineIndex * 4.5));
         });
-        
+
         // Center vertically for multi-line products
         const centerOffset = (lines.length > 1) ? ((lines.length - 1) * 2.25) : 0;
-        
+
         // Show quantity only if it's not zero (bulk PDF always shows all values)
         const qty = parseFloat(product.quantite);
         if (qty !== 0) {
             doc.text(String(product.quantite || ''), 125, currentY + 3 + centerOffset, { align: 'center' });
         }
-        
+
         doc.setFontSize(7.5);
         // Show price only if it's not zero
         const price = parseFloat(product.prix_unitaire_ht);
         if (price !== 0) {
             doc.text(`${formatNumberForPDF(product.prix_unitaire_ht)} DH`, 160, currentY + 3 + centerOffset, { align: 'right' });
         }
-        
+
         // Show total only if it's not zero
         const total = parseFloat(product.total_ht);
         if (total !== 0) {
             doc.text(`${formatNumberForPDF(product.total_ht)} DH`, 188, currentY + 3 + centerOffset, { align: 'right' });
         }
-        
+
         currentY += rowHeight;
     });
-    
+
     // Add totals
     currentY += 10;
-    
+
     doc.setFillColor(245, 245, 245);
     doc.rect(110, currentY, 85, 8, 'F');
     doc.setFont(undefined, 'bold');
@@ -3652,7 +3753,7 @@ async function generateSinglePDFBlob(invoice, organizationType, folderName, incl
     doc.text('TOTAL HT :', 113, currentY + 5.5);
     doc.setFontSize(8);
     doc.text(`${formatNumberForPDF(invoice.total_ht)} DH`, 192, currentY + 5.5, { align: 'right' });
-    
+
     currentY += 8;
     doc.setFillColor(255, 255, 255);
     doc.rect(110, currentY, 85, 8, 'F');
@@ -3660,7 +3761,7 @@ async function generateSinglePDFBlob(invoice, organizationType, folderName, incl
     doc.text(`MONTANT TVA ${invoice.tva_rate}% :`, 113, currentY + 5.5);
     doc.setFontSize(8);
     doc.text(`${formatNumberForPDF(invoice.montant_tva)} DH`, 192, currentY + 5.5, { align: 'right' });
-    
+
     currentY += 8;
     doc.setFillColor(173, 216, 230);
     doc.rect(110, currentY, 85, 8, 'F');
@@ -3669,7 +3770,7 @@ async function generateSinglePDFBlob(invoice, organizationType, folderName, incl
     doc.text('MONTANT T.T.C :', 113, currentY + 5.5);
     doc.setFontSize(8.5);
     doc.text(`${formatNumberForPDF(invoice.total_ttc)} DH`, 192, currentY + 5.5, { align: 'right' });
-    
+
     currentY += 15;
     doc.setTextColor(0, 0, 0);
     doc.setFontSize(9);
@@ -3677,7 +3778,7 @@ async function generateSinglePDFBlob(invoice, organizationType, folderName, incl
     const amountInWords = numberToFrenchWords(invoice.total_ttc);
     const docTypeText = invoice.document_type === 'facture' ? 'Facture' : 'Devis';
     doc.text(`La Présente ${docTypeText} est Arrêtée à la somme de : ${amountInWords}`, 15, currentY, { maxWidth: 180 });
-    
+
     // Add notes if invoice has an id (for bulk download, notes might not be loaded)
     if (invoice.id) {
         try {
@@ -3688,7 +3789,7 @@ async function generateSinglePDFBlob(invoice, organizationType, folderName, incl
                 doc.setFont(undefined, 'bold');
                 doc.setTextColor(96, 125, 139);
                 doc.text('Notes:', 15, currentY);
-                
+
                 doc.setFont(undefined, 'bold');
                 doc.setTextColor(0, 0, 0);
                 doc.setFontSize(9);
@@ -3719,9 +3820,9 @@ async function generateSinglePDFBlob(invoice, organizationType, folderName, incl
             console.log('Note not loaded for bulk PDF:', error);
         }
     }
-    
+
     addFooter();
-    
+
     // Return PDF as Blob instead of downloading
     return doc.output('blob');
 };
@@ -3734,7 +3835,7 @@ function updateSelectedCount() {
     const selectedDeleteCountSpan = document.getElementById('selectedDeleteCount');
     const bulkDownloadBtn = document.getElementById('bulkDownloadBtn');
     const bulkDeleteBtn = document.getElementById('bulkDeleteBtnMRY');
-    
+
     if (selectedCountSpan) selectedCountSpan.textContent = count;
     if (selectedDeleteCountSpan) selectedDeleteCountSpan.textContent = count;
     if (bulkDownloadBtn) {
@@ -3753,7 +3854,7 @@ document.addEventListener('change', (e) => {
         updateSelectedCount();
     } else if (e.target.classList.contains('invoice-checkbox')) {
         updateSelectedCount();
-        
+
         // Update "select all" checkbox
         const allCheckboxes = document.querySelectorAll('.invoice-checkbox');
         const checkedCheckboxes = document.querySelectorAll('.invoice-checkbox:checked');
@@ -3765,11 +3866,11 @@ document.addEventListener('change', (e) => {
 });
 
 // Export database
-window.exportDatabaseMRY = async function() {
+window.exportDatabaseMRY = async function () {
     try {
         window.notify.info('Export', 'Exportation en cours...', 2000);
         const result = await window.electron.db.exportDatabase();
-        
+
         if (result.success) {
             window.notify.success('Succès', 'Base de données exportée avec succès!', 3000);
         } else if (result.canceled) {
@@ -3784,15 +3885,15 @@ window.exportDatabaseMRY = async function() {
 }
 
 // Import database
-window.importDatabaseMRY = async function() {
+window.importDatabaseMRY = async function () {
     const confirmed = await customConfirm('Attention', '⚠️ ATTENTION: L\'importation remplacera toutes les données actuelles.\n\nUne sauvegarde automatique sera créée.\n\nVoulez-vous continuer?', 'warning');
-    
+
     if (!confirmed) return;
-    
+
     try {
         window.notify.info('Import', 'Importation en cours...', 2000);
         const result = await window.electron.db.importDatabase();
-        
+
         if (result.success) {
             window.notify.success('Succès', 'Base de données importée! Rechargement...', 3000);
             setTimeout(() => {
@@ -3810,28 +3911,28 @@ window.importDatabaseMRY = async function() {
 }
 
 // Handle bulk delete for MRY
-window.handleBulkDeleteMRY = async function() {
+window.handleBulkDeleteMRY = async function () {
     const checkedBoxes = document.querySelectorAll('.invoice-checkbox:checked');
-    
+
     if (checkedBoxes.length === 0) {
         window.notify.error('Erreur', 'Veuillez sélectionner au moins un document', 3000);
         return;
     }
-    
+
     const count = checkedBoxes.length;
     const confirmMessage = `Êtes-vous sûr de vouloir supprimer ${count} document(s) ?\n\nCette action est irréversible.`;
-    
+
     const confirmed = await customConfirm('Confirmation', confirmMessage, 'warning');
     if (!confirmed) {
         return;
     }
-    
+
     // Create progress modal
     const progressOverlay = document.createElement('div');
     progressOverlay.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.85);z-index:10000;display:flex;align-items:center;justify-content:center;';
-    
+
     let cancelRequested = false;
-    
+
     progressOverlay.innerHTML = `
         <div style="background:#2d2d30;border-radius:12px;padding:2rem;min-width:400px;box-shadow:0 20px 60px rgba(0,0,0,0.9);">
             <h3 style="color:#fff;margin:0 0 1.5rem 0;font-size:1.2rem;display:flex;align-items:center;gap:0.5rem;">
@@ -3852,13 +3953,13 @@ window.handleBulkDeleteMRY = async function() {
             </div>
         </div>
     `;
-    
+
     document.body.appendChild(progressOverlay);
-    
+
     const progressBar = document.getElementById('deleteProgressBarMRY');
     const progressText = document.getElementById('deleteProgressTextMRY');
     const cancelBtn = document.getElementById('cancelDeleteBtnMRY');
-    
+
     // Handle cancel button
     cancelBtn.addEventListener('click', () => {
         cancelRequested = true;
@@ -3867,14 +3968,14 @@ window.handleBulkDeleteMRY = async function() {
         cancelBtn.textContent = '⏸️ Annulation...';
         progressText.textContent = 'Annulation en cours...';
     });
-    
+
     try {
         let successCount = 0;
         let errorCount = 0;
-        
+
         const selectedInvoices = Array.from(checkedBoxes).map(cb => parseInt(cb.dataset.invoiceId));
         const total = selectedInvoices.length;
-        
+
         // Delete each invoice
         for (let i = 0; i < selectedInvoices.length; i++) {
             // Check if cancel was requested
@@ -3883,12 +3984,12 @@ window.handleBulkDeleteMRY = async function() {
                 await new Promise(resolve => setTimeout(resolve, 1500));
                 break;
             }
-            
+
             const invoiceId = selectedInvoices[i];
-            
+
             try {
                 const result = await window.electron.db.deleteInvoice(invoiceId);
-                
+
                 if (result.success) {
                     successCount++;
                 } else {
@@ -3898,30 +3999,30 @@ window.handleBulkDeleteMRY = async function() {
                 console.error(`Error deleting invoice ${invoiceId}:`, error);
                 errorCount++;
             }
-            
+
             // Update progress
             const progress = Math.round(((i + 1) / total) * 100);
             progressBar.style.width = progress + '%';
             progressBar.textContent = progress + '%';
             progressText.textContent = `Suppression: ${i + 1} / ${total}`;
-            
+
             // Small delay to show progress
             await new Promise(resolve => setTimeout(resolve, 10));
         }
-        
+
         // Remove progress modal
         document.body.removeChild(progressOverlay);
-        
+
         // Show result
         if (successCount > 0) {
             window.notify.success('Succès', `${successCount} document(s) supprimé(s) avec succès`, 3000);
             loadInvoices();
         }
-        
+
         if (errorCount > 0) {
             window.notify.error('Erreur', `${errorCount} document(s) n'ont pas pu être supprimés`, 3000);
         }
-        
+
     } catch (error) {
         console.error('Error in bulk delete:', error);
         document.body.removeChild(progressOverlay);
@@ -3931,33 +4032,33 @@ window.handleBulkDeleteMRY = async function() {
 
 // Search clients in edit mode
 let filteredClientsEdit = [];
-window.searchClientsEdit = function(query) {
+window.searchClientsEdit = function (query) {
     const dropdown = document.getElementById('clientsDropdownEdit');
     if (!dropdown) return;
-    
+
     if (!query || query.trim().length === 0) {
         filteredClientsEdit = allClients;
     } else {
         const searchTerm = query.toLowerCase().trim();
-        filteredClientsEdit = allClients.filter(client => 
-            client.nom.toLowerCase().includes(searchTerm) || 
+        filteredClientsEdit = allClients.filter(client =>
+            client.nom.toLowerCase().includes(searchTerm) ||
             client.ice.toLowerCase().includes(searchTerm)
         );
     }
-    
+
     displayClientsListEdit();
 }
 
 function displayClientsListEdit() {
     const dropdown = document.getElementById('clientsDropdownEdit');
     if (!dropdown) return;
-    
+
     if (filteredClientsEdit.length === 0) {
         dropdown.innerHTML = '<div class="dropdown-item no-results">Aucun client trouvé</div>';
         dropdown.style.display = 'block';
         return;
     }
-    
+
     dropdown.innerHTML = filteredClientsEdit.slice(0, 10).map(client => `
         <div class="dropdown-item" style="display: flex; justify-content: space-between; align-items: center;">
             <div style="flex: 1;" onmousedown="selectClientEdit('${client.nom.replace(/'/g, "\\'")}', '${client.ice}')">
@@ -3975,25 +4076,25 @@ function displayClientsListEdit() {
             </button>
         </div>
     `).join('');
-    
+
     dropdown.style.display = 'block';
 }
 
-window.showClientsListEdit = function() {
+window.showClientsListEdit = function () {
     if (allClients.length > 0) {
         filteredClientsEdit = allClients;
         displayClientsListEdit();
     }
 }
 
-window.hideClientsListEdit = function() {
+window.hideClientsListEdit = function () {
     setTimeout(() => {
         const dropdown = document.getElementById('clientsDropdownEdit');
         if (dropdown) dropdown.style.display = 'none';
     }, 200);
 }
 
-window.selectClientEdit = function(nom, ice) {
+window.selectClientEdit = function (nom, ice) {
     document.getElementById('editClientNom').value = nom;
     document.getElementById('editClientICE').value = ice;
     const dropdown = document.getElementById('clientsDropdownEdit');
@@ -4001,16 +4102,16 @@ window.selectClientEdit = function(nom, ice) {
 }
 
 // Delete a client from edit mode
-window.deleteClientEdit = async function(clientId, clientName) {
+window.deleteClientEdit = async function (clientId, clientName) {
     if (!confirm(`هل أنت متأكد من حذف الزبون "${clientName}"؟`)) {
         return;
     }
-    
+
     try {
         const response = await fetch(`http://localhost:3000/api/clients/${clientId}`, {
             method: 'DELETE'
         });
-        
+
         if (response.ok) {
             window.notify.success('تم الحذف', `تم حذف الزبون "${clientName}" بنجاح`);
             // Reload clients list
@@ -4027,14 +4128,14 @@ window.deleteClientEdit = async function(clientId, clientName) {
 }
 
 // Initialize page
-window.initInvoicesListMRYPage = function() {
+window.initInvoicesListMRYPage = function () {
     console.log('🔄 Initializing invoices list page...');
-    
+
     // Get selected year from session or localStorage
     const sessionYear = sessionStorage.getItem('mry_current_year');
     const savedYear = localStorage.getItem('mry_selected_year');
     const rememberYear = localStorage.getItem('mry_remember_year');
-    
+
     // Use session year first, then saved year if remember is enabled
     let selectedYear = '';
     if (sessionYear) {
@@ -4042,7 +4143,7 @@ window.initInvoicesListMRYPage = function() {
     } else if (rememberYear === 'true' && savedYear) {
         selectedYear = savedYear;
     }
-    
+
     // Update year display button
     setTimeout(() => {
         const yearDisplay = document.getElementById('currentYearDisplayMRY');
@@ -4050,7 +4151,7 @@ window.initInvoicesListMRYPage = function() {
             yearDisplay.textContent = selectedYear ? `Année ${selectedYear}` : 'Toutes';
         }
     }, 100);
-    
+
     setTimeout(() => {
         loadInvoices();
     }, 100);

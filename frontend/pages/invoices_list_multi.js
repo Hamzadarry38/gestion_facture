@@ -181,27 +181,47 @@ function InvoicesListMultiPage() {
                         </button>
                     </div>
 
+                    <!-- Column Visibility Controls -->
+                    <div id="columnVisibilityControlsMulti" style="display: flex; flex-wrap: wrap; gap: 0.5rem; margin-bottom: 1rem; padding: 0.75rem; background: #2d2d30; border: 1px solid #3e3e42; border-radius: 6px; align-items: center;">
+                        <span style="color: #cccccc; font-size: 0.9rem; font-weight: 600; margin-right: 0.5rem;">👁️ Afficher:</span>
+                        <button id="toggleColTypeMulti" onclick="toggleColumnMulti('type')" class="col-toggle-btn active" style="padding: 0.4rem 0.8rem; background: #4caf50; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 0.85rem; transition: all 0.2s;">
+                            📄 Type
+                        </button>
+                        <button id="toggleColIceMulti" onclick="toggleColumnMulti('ice')" class="col-toggle-btn active" style="padding: 0.4rem 0.8rem; background: #4caf50; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 0.85rem; transition: all 0.2s;">
+                            🏢 ICE
+                        </button>
+                        <button id="toggleColDateMulti" onclick="toggleColumnMulti('date')" class="col-toggle-btn active" style="padding: 0.4rem 0.8rem; background: #4caf50; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 0.85rem; transition: all 0.2s;">
+                            📅 Date
+                        </button>
+                        <button id="toggleColCreatedByMulti" onclick="toggleColumnMulti('createdBy')" class="col-toggle-btn active" style="padding: 0.4rem 0.8rem; background: #4caf50; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 0.85rem; transition: all 0.2s;">
+                            👤 Créé par
+                        </button>
+                        <button id="toggleColTotalHTMulti" onclick="toggleColumnMulti('totalHT')" class="col-toggle-btn active" style="padding: 0.4rem 0.8rem; background: #4caf50; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 0.85rem; transition: all 0.2s;">
+                            💵 Total HT
+                        </button>
+                    </div>
+
                     <!-- Invoices Table -->
                     <div class="table-container">
-                        <table class="invoices-table">
-                            <thead>
+                        <table class="invoices-table" id="invoicesTableMulti">
+                            <thead id="invoicesTableHeadMulti">
                                 <tr>
                                     <th>
                                         <input type="checkbox" id="selectAllInvoicesMulti" 
                                                style="width: 18px; height: 18px; cursor: pointer;"
                                                title="Sélectionner tout">
                                     </th>
-                                    <th>Type</th>
+                                    <th class="col-type-multi">Type</th>
                                     <th onclick="sortTableMulti('numero')" style="cursor: pointer; user-select: none;" title="Cliquer pour trier">
                                         N° Document <span id="sortIconNumero">⇅</span>
                                     </th>
                                     <th>Client</th>
-                                    <th>ICE</th>
-                                    <th onclick="sortTableMulti('date')" style="cursor: pointer; user-select: none;" title="Cliquer pour trier">
+                                    <th class="col-ice-multi">ICE</th>
+                                    <th class="col-date-multi" onclick="sortTableMulti('date')" style="cursor: pointer; user-select: none;" title="Cliquer pour trier">
                                         Date <span id="sortIconDate">⇅</span>
                                     </th>
-                                    <th>Créé par</th>
-                                    <th onclick="sortTableMulti('total_ht')" style="cursor: pointer; user-select: none;" title="Cliquer pour trier">
+                                    <th class="col-createdBy-multi">Créé par</th>
+                                    <th class="col-totalHT-multi" onclick="sortTableMulti('total_ht')" style="cursor: pointer; user-select: none;" title="Cliquer pour trier">
                                         Total HT <span id="sortIconHT">⇅</span>
                                     </th>
                                     <th onclick="sortTableMulti('total_ttc')" style="cursor: pointer; user-select: none;" title="Cliquer pour trier">
@@ -254,21 +274,102 @@ let filteredInvoicesMulti = [];
 let currentPageMulti = 1;
 let itemsPerPageMulti = 10;
 
+// Column visibility state for Multi
+let columnVisibilityMulti = {
+    type: true,
+    ice: true,
+    date: true,
+    createdBy: true,
+    totalHT: true
+};
+
+// Load column visibility from localStorage on page load
+function loadColumnVisibilityMulti() {
+    const saved = localStorage.getItem('multi_column_visibility');
+    if (saved) {
+        try {
+            columnVisibilityMulti = JSON.parse(saved);
+        } catch (e) {
+            console.error('Error loading column visibility:', e);
+        }
+    }
+    // Apply visibility on load
+    applyColumnVisibilityMulti();
+}
+
+// Save column visibility to localStorage
+function saveColumnVisibilityMulti() {
+    localStorage.setItem('multi_column_visibility', JSON.stringify(columnVisibilityMulti));
+}
+
+// Toggle column visibility
+window.toggleColumnMulti = function (column) {
+    columnVisibilityMulti[column] = !columnVisibilityMulti[column];
+    saveColumnVisibilityMulti();
+    applyColumnVisibilityMulti();
+
+    // Re-display invoices to update table body
+    displayInvoicesMulti();
+};
+
+// Apply column visibility to table and buttons
+function applyColumnVisibilityMulti() {
+    const columnMap = {
+        type: { btnId: 'toggleColTypeMulti', className: 'col-type-multi' },
+        ice: { btnId: 'toggleColIceMulti', className: 'col-ice-multi' },
+        date: { btnId: 'toggleColDateMulti', className: 'col-date-multi' },
+        createdBy: { btnId: 'toggleColCreatedByMulti', className: 'col-createdBy-multi' },
+        totalHT: { btnId: 'toggleColTotalHTMulti', className: 'col-totalHT-multi' }
+    };
+
+    Object.keys(columnMap).forEach(col => {
+        const isVisible = columnVisibilityMulti[col];
+        const { btnId, className } = columnMap[col];
+
+        // Update button style
+        const btn = document.getElementById(btnId);
+        if (btn) {
+            if (isVisible) {
+                btn.style.background = '#4caf50';
+                btn.style.opacity = '1';
+            } else {
+                btn.style.background = '#f44336';
+                btn.style.opacity = '0.7';
+            }
+        }
+
+        // Update header visibility
+        const headerCells = document.querySelectorAll(`.${className}`);
+        headerCells.forEach(cell => {
+            cell.style.display = isVisible ? '' : 'none';
+        });
+
+        // Update body cells visibility
+        const bodyCells = document.querySelectorAll(`.${className}-body`);
+        bodyCells.forEach(cell => {
+            cell.style.display = isVisible ? '' : 'none';
+        });
+    });
+}
+
 // Load invoices
 async function loadInvoicesMulti() {
+    // Load column visibility preferences
+    loadColumnVisibilityMulti();
+
     const spinner = document.getElementById('loadingSpinnerMulti');
     const tableBody = document.getElementById('invoicesTableBodyMulti');
     const emptyState = document.getElementById('emptyStateMulti');
-    
+
     if (spinner) spinner.style.display = 'flex';
     if (tableBody) tableBody.innerHTML = '';
-    
+
     try {
         const result = await window.electron.dbMulti.getAllInvoices('MULTI');
-        
+
         if (result.success) {
             let invoices = result.data;
-            
+
             // Check if a year was selected from year selector
             const selectedYear = sessionStorage.getItem('multi_current_year');
             if (selectedYear && selectedYear !== '') {
@@ -278,26 +379,26 @@ async function loadInvoicesMulti() {
                     return year.toString() === selectedYear;
                 });
                 console.log(`📊 [MULTI] Filtered to year ${selectedYear}:`, invoices.length, 'invoices');
-                
+
                 // Update the year display button
                 const yearDisplay = document.getElementById('currentYearDisplayMulti');
                 if (yearDisplay) {
                     yearDisplay.textContent = selectedYear;
                 }
             }
-            
+
             // Add default display if not present
             const enrichedInvoices = invoices.map(inv => ({
                 ...inv,
                 created_by_user_name: inv.created_by_user_name || '-'
             }));
-            
+
             allInvoicesMulti = enrichedInvoices;
             filteredInvoicesMulti = [...allInvoicesMulti];
-            
+
             populateFiltersMulti();
             displayInvoicesMulti();
-            
+
             if (allInvoicesMulti.length === 0 && emptyState) {
                 emptyState.style.display = 'flex';
             }
@@ -316,13 +417,13 @@ async function loadInvoicesMulti() {
 function populateFiltersMulti() {
     const yearFilter = document.getElementById('filterYearMulti');
     const clientFilter = document.getElementById('filterClientMulti');
-    
+
     if (!yearFilter || !clientFilter) return;
-    
+
     // Get unique years
     const years = [...new Set(allInvoicesMulti.map(inv => new Date(inv.document_date).getFullYear()))].sort((a, b) => b - a);
     yearFilter.innerHTML = '<option value="">Toutes</option>' + years.map(year => `<option value="${year}">${year}</option>`).join('');
-    
+
     // Get unique clients
     const clients = [...new Set(allInvoicesMulti.map(inv => inv.client_nom))].sort();
     clientFilter.innerHTML = '<option value="">Tous</option>' + clients.map(client => `<option value="${client}">${client}</option>`).join('');
@@ -336,19 +437,19 @@ function filterInvoicesMulti() {
     const clientFilter = document.getElementById('filterClientMulti')?.value || '';
     const searchType = document.getElementById('searchTypeMulti')?.value || 'all';
     const searchInput = document.getElementById('searchInputMulti')?.value.toLowerCase() || '';
-    
+
     filteredInvoicesMulti = allInvoicesMulti.filter(invoice => {
         const matchType = !typeFilter || invoice.document_type === typeFilter;
         const matchYear = !yearFilter || new Date(invoice.document_date).getFullYear().toString() === yearFilter;
         const matchMonth = !monthFilter || new Date(invoice.document_date).toISOString().slice(5, 7) === monthFilter;
         const matchClient = !clientFilter || invoice.client_nom === clientFilter;
-        
+
         let searchMatch = true;
         if (searchInput) {
-            switch(searchType) {
+            switch (searchType) {
                 case 'numero':
                     searchMatch = (invoice.document_numero && invoice.document_numero.toLowerCase().includes(searchInput)) ||
-                                  (invoice.document_numero_devis && invoice.document_numero_devis.toLowerCase().includes(searchInput));
+                        (invoice.document_numero_devis && invoice.document_numero_devis.toLowerCase().includes(searchInput));
                     break;
                 case 'order':
                     searchMatch = invoice.document_numero_Order && invoice.document_numero_Order.toLowerCase().includes(searchInput);
@@ -360,12 +461,12 @@ function filterInvoicesMulti() {
                     searchMatch = invoice.client_ice.toLowerCase().includes(searchInput);
                     break;
                 case 'product':
-                    searchMatch = invoice.products && invoice.products.some(p => 
+                    searchMatch = invoice.products && invoice.products.some(p =>
                         p.designation && p.designation.toLowerCase().includes(searchInput)
                     );
                     break;
                 case 'price':
-                    searchMatch = invoice.products && invoice.products.some(p => 
+                    searchMatch = invoice.products && invoice.products.some(p =>
                         p.prix_unitaire_ht && p.prix_unitaire_ht.toString().includes(searchInput)
                     );
                     break;
@@ -377,11 +478,11 @@ function filterInvoicesMulti() {
                     break;
                 case 'all':
                 default:
-                    const productMatchAll = invoice.products && invoice.products.some(p => 
+                    const productMatchAll = invoice.products && invoice.products.some(p =>
                         (p.designation && p.designation.toLowerCase().includes(searchInput)) ||
                         (p.prix_unitaire_ht && p.prix_unitaire_ht.toString().includes(searchInput))
                     );
-                    searchMatch = 
+                    searchMatch =
                         (invoice.document_numero && invoice.document_numero.toLowerCase().includes(searchInput)) ||
                         (invoice.document_numero_devis && invoice.document_numero_devis.toLowerCase().includes(searchInput)) ||
                         (invoice.document_numero_Order && invoice.document_numero_Order.toLowerCase().includes(searchInput)) ||
@@ -393,10 +494,10 @@ function filterInvoicesMulti() {
                     break;
             }
         }
-        
+
         return matchType && matchYear && matchMonth && matchClient && searchMatch;
     });
-    
+
     displayInvoicesMulti();
 }
 
@@ -407,29 +508,29 @@ function displayInvoicesMulti() {
     const resultsCounter = document.getElementById('resultsCounterMulti');
     const resultCount = document.getElementById('resultCountMulti');
     const pagination = document.getElementById('paginationMulti');
-    
+
     if (!tableBody) return;
-    
+
     tableBody.innerHTML = '';
-    
+
     if (filteredInvoicesMulti.length === 0) {
         if (emptyState) emptyState.style.display = 'flex';
         if (resultsCounter) resultsCounter.style.display = 'none';
         if (pagination) pagination.style.display = 'none';
         return;
     }
-    
+
     if (emptyState) emptyState.style.display = 'none';
     if (resultsCounter) resultsCounter.style.display = 'block';
     if (resultCount) resultCount.textContent = filteredInvoicesMulti.length;
-    
+
     // Calculate pagination
     const totalItems = filteredInvoicesMulti.length;
     const totalPages = itemsPerPageMulti === 'all' ? 1 : Math.ceil(totalItems / itemsPerPageMulti);
-    
+
     // Adjust current page if needed
     if (currentPageMulti > totalPages) currentPageMulti = totalPages || 1;
-    
+
     // Get items for current page
     let itemsToDisplay;
     if (itemsPerPageMulti === 'all') {
@@ -442,35 +543,35 @@ function displayInvoicesMulti() {
         if (pagination && totalPages > 1) pagination.style.display = 'block';
         else if (pagination) pagination.style.display = 'none';
     }
-    
+
     itemsToDisplay.forEach(invoice => {
         const row = document.createElement('tr');
-        
+
         const docNumber = invoice.document_type === 'facture' ? invoice.document_numero : invoice.document_numero_devis || invoice.document_numero;
         const typeLabel = invoice.document_type === 'facture' ? '📄 Facture' : '📋 Devis';
         const date = new Date(invoice.document_date).toLocaleDateString('fr-FR');
-        
+
         console.log('👤 User info for invoice', invoice.id, ':', {
             created_by_user_name: invoice.created_by_user_name,
             created_by_user_id: invoice.created_by_user_id
         });
-        
+
         row.innerHTML = `
             <td>
                 <input type="checkbox" class="invoice-checkbox-multi" data-invoice-id="${invoice.id}" 
                        style="width: 18px; height: 18px; cursor: pointer;"
                        onchange="updateSelectedCountMulti()">
             </td>
-            <td><span class="badge badge-${invoice.document_type}">${typeLabel}</span></td>
+            <td class="col-type-multi-body" style="${columnVisibilityMulti.type ? '' : 'display: none;'}"><span class="badge badge-${invoice.document_type}">${typeLabel}</span></td>
             <td>
                 <strong>${docNumber || 'N/A'}</strong>
                 ${invoice.document_numero_Order ? `<div style="font-size:0.75rem;color:#999;margin-top:0.25rem;">Order: ${invoice.document_numero_Order}</div>` : ''}
             </td>
             <td>${invoice.client_nom}</td>
-            <td>${invoice.client_ice}</td>
-            <td>${date}</td>
-            <td><small style="color: #2196f3;">${invoice.created_by_user_name || '-'}</small></td>
-            <td>${invoice.total_ht.toFixed(2)} DH</td>
+            <td class="col-ice-multi-body" style="${columnVisibilityMulti.ice ? '' : 'display: none;'}">${invoice.client_ice}</td>
+            <td class="col-date-multi-body" style="${columnVisibilityMulti.date ? '' : 'display: none;'}">${date}</td>
+            <td class="col-createdBy-multi-body" style="${columnVisibilityMulti.createdBy ? '' : 'display: none;'}"><small style="color: #2196f3;">${invoice.created_by_user_name || '-'}</small></td>
+            <td class="col-totalHT-multi-body" style="${columnVisibilityMulti.totalHT ? '' : 'display: none;'}">${invoice.total_ht.toFixed(2)} DH</td>
             <td><strong>${invoice.total_ttc.toFixed(2)} DH</strong></td>
             <td>
                 <div class="action-buttons">
@@ -514,43 +615,43 @@ function displayInvoicesMulti() {
                 </div>
             </td>
         `;
-        
+
         tableBody.appendChild(row);
     });
-    
+
     // Update pagination
     if (itemsPerPageMulti !== 'all' && totalPages > 1) {
         updatePaginationMulti(totalPages);
     }
-    
+
     // Setup select all checkbox
     setupSelectAllMulti();
 }
 
 // View invoice details
-window.viewInvoiceMulti = async function(id) {
+window.viewInvoiceMulti = async function (id) {
     try {
         const result = await window.electron.dbMulti.getInvoiceById(id);
-        
+
         if (!result.success || !result.data) {
             window.notify.error('Erreur', 'Facture introuvable', 3000);
             return;
         }
-        
+
         const invoice = result.data;
         const date = new Date(invoice.document_date).toLocaleDateString('fr-FR');
         const docNumber = invoice.document_type === 'facture' ? invoice.document_numero : invoice.document_numero_devis || invoice.document_numero;
         const typeLabel = invoice.document_type === 'facture' ? 'Facture' : 'Devis';
-        
+
         const overlay = document.createElement('div');
         overlay.className = 'invoice-view-overlay';
         overlay.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.85);z-index:9999;display:flex;align-items:center;justify-content:center;padding:2rem;';
-        
+
         const modal = document.createElement('div');
         modal.style.cssText = 'background:#2d2d30;border-radius:16px;max-width:900px;width:100%;max-height:90vh;overflow-y:auto;box-shadow:0 25px 50px rgba(0,0,0,0.5);';
-        
+
         modal.innerHTML = `
-            <div style="background:#1e1e1e;padding:1.5rem 2rem;border-radius:16px 16px 0 0;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid #3e3e42;">
+            < div style = "background:#1e1e1e;padding:1.5rem 2rem;border-radius:16px 16px 0 0;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid #3e3e42;" >
                 <div style="display:flex;align-items:center;gap:1rem;">
                     <svg width="24" height="24" viewBox="0 0 16 16" fill="currentColor" style="color:#fff;">
                         <path d="M4 0a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2V2a2 2 0 0 0-2-2H4zm0 1h8a1 1 0 0 1 1 1v12a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V2a1 1 0 0 1 1-1z"/>
@@ -590,8 +691,8 @@ window.viewInvoiceMulti = async function(id) {
                     ` : ''}
                     <button id="closeViewModal" style="background:none;border:none;color:#999;cursor:pointer;font-size:1.5rem;padding:0;width:32px;height:32px;display:flex;align-items:center;justify-content:center;border-radius:4px;transition:all 0.2s;margin-left:auto;" onmouseover="this.style.background='#3e3e42';this.style.color='#fff'" onmouseout="this.style.background='none';this.style.color='#999'">×</button>
                 </div>
-            </div>
-            
+            </div >
+
             <div style="padding:2rem;">
                 <!-- Client Section -->
                 <div style="margin-bottom:2rem;">
@@ -607,7 +708,7 @@ window.viewInvoiceMulti = async function(id) {
                         </div>
                     </div>
                 </div>
-                
+
                 <!-- Document Section -->
                 <div style="margin-bottom:2rem;">
                     <h3 style="color:#fff;font-size:1.1rem;margin:0 0 1rem 0;font-weight:600;">Document</h3>
@@ -632,7 +733,7 @@ window.viewInvoiceMulti = async function(id) {
                         </div>
                     </div>
                 </div>
-                
+
                 <!-- Products Section -->
                 <div style="margin-bottom:2rem;">
                     <h3 style="color:#fff;font-size:1.1rem;margin:0 0 1rem 0;font-weight:600;">Produits</h3>
@@ -648,8 +749,8 @@ window.viewInvoiceMulti = async function(id) {
                             </thead>
                             <tbody>
                                 ${invoice.products.map((p, idx) => {
-                                    const designation = String(p.designation || '').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-                                    return `
+            const designation = String(p.designation || '').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+            return `
                                     <tr style="border-bottom:1px solid #3e3e42;">
                                         <td style="padding:0.75rem;color:#fff;max-width:400px;word-break:break-word;overflow-wrap:break-word;white-space:pre-wrap;">${designation}</td>
                                         <td style="padding:0.75rem;text-align:center;color:#fff;">${p.quantite}</td>
@@ -661,7 +762,7 @@ window.viewInvoiceMulti = async function(id) {
                         </table>
                     </div>
                 </div>
-                
+
                 <!-- Totals Section -->
                 <div style="margin-bottom:2rem;">
                     <h3 style="color:#fff;font-size:1.1rem;margin:0 0 1rem 0;font-weight:600;">Totaux</h3>
@@ -680,7 +781,7 @@ window.viewInvoiceMulti = async function(id) {
                         </div>
                     </div>
                 </div>
-                
+
                 <!-- Notes Section -->
                 <div style="margin-bottom:2rem;" id="notesSectionMulti${id}">
                     <h3 style="color:#fff;font-size:1.1rem;margin:0 0 1rem 0;font-weight:600;">📝 Notes</h3>
@@ -688,14 +789,14 @@ window.viewInvoiceMulti = async function(id) {
                         <div style="color:#999;font-size:0.9rem;font-style:italic;">Chargement...</div>
                     </div>
                 </div>
-                
+
                 <!-- Attachments Section -->
                 <div style="margin-bottom:2rem;">
                     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1rem;">
                         <h3 style="color:#fff;font-size:1.1rem;margin:0;font-weight:600;">Pièces jointes</h3>
                         <button onclick="addNewAttachmentMulti(${id})" style="padding:0.5rem 1rem;background:#4CAF50;color:#fff;border:none;border-radius:6px;cursor:pointer;font-size:0.85rem;font-weight:600;display:flex;align-items:center;gap:0.5rem;transition:all 0.2s;" onmouseover="this.style.background='#45a049'" onmouseout="this.style.background='#4CAF50'">
                             <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor">
-                                <path d="M8 4a.5.5 0 0 1 .5.5v3h3a.5.5 0 0 1 0 1h-3v3a.5.5 0 0 1-1 0v-3h-3a.5.5 0 0 1 0-1h3v-3A.5.5 0 0 1 8 4z"/>
+                                <path d="M8 4a.5.5 0 0 1 .5.5v3h3a.5.5 0 0 1 0 1h-3v3a.5.5 0 0 1-1 0v-3h-3a.5.5 0 0 1 0-1h3v-3A.5.5 0 0 1 8 4z" />
                             </svg>
                             Ajouter
                         </button>
@@ -706,10 +807,10 @@ window.viewInvoiceMulti = async function(id) {
                                 <div style="background:#1e1e1e;padding:1rem;border-radius:8px;display:flex;align-items:center;justify-content:space-between;">
                                     <div style="display:flex;align-items:center;gap:1rem;flex:1;min-width:0;">
                                         <div style="width:40px;height:40px;background:#2d2d30;border-radius:8px;display:flex;align-items:center;justify-content:center;flex-shrink:0;">
-                                            ${a.file_type.includes('pdf') ? 
-                                                '<svg width="20" height="20" viewBox="0 0 16 16" fill="#f44336"><path d="M14 4.5V14a2 2 0 0 1-2 2h-1v-1h1a1 1 0 0 0 1-1V4.5h-2A1.5 1.5 0 0 1 9.5 3V1H4a1 1 0 0 0-1 1v9H2V2a2 2 0 0 1 2-2h5.5L14 4.5z"/><path d="M1.6 11.85H0v3.999h.791v-1.342h.803c.287 0 .531-.057.732-.173.203-.117.358-.275.463-.474a1.42 1.42 0 0 0 .161-.677c0-.25-.053-.476-.158-.677a1.176 1.176 0 0 0-.46-.477c-.2-.12-.443-.179-.732-.179Zm.545 1.333a.795.795 0 0 1-.085.38.574.574 0 0 1-.238.241.794.794 0 0 1-.375.082H.788V12.48h.66c.218 0 .389.06.512.181.123.122.185.296.185.522Zm1.217-1.333v3.999h1.46c.401 0 .734-.08.998-.237a1.45 1.45 0 0 0 .595-.689c.13-.3.196-.662.196-1.084 0-.42-.065-.778-.196-1.075a1.426 1.426 0 0 0-.589-.68c-.264-.156-.599-.234-1.005-.234H3.362Zm.791.645h.563c.248 0 .45.05.609.152a.89.89 0 0 1 .354.454c.079.201.118.452.118.753a2.3 2.3 0 0 1-.068.592 1.14 1.14 0 0 1-.196.422.8.8 0 0 1-.334.252 1.298 1.298 0 0 1-.483.082h-.563v-2.707Zm3.743 1.763v1.591h-.79V11.85h2.548v.653H7.896v1.117h1.606v.638H7.896Z"/></svg>' :
-                                                '<svg width="20" height="20" viewBox="0 0 16 16" fill="#2196F3"><path d="M6.002 5.5a1.5 1.5 0 1 1-3 0 1.5 1.5 0 0 1 3 0z"/><path d="M2.002 1a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V3a2 2 0 0 0-2-2h-12zm12 1a1 1 0 0 1 1 1v6.5l-3.777-1.947a.5.5 0 0 0-.577.093l-3.71 3.71-2.66-1.772a.5.5 0 0 0-.63.062L1.002 12V3a1 1 0 0 1 1-1h12z"/></svg>'
-                                            }
+                                            ${a.file_type.includes('pdf') ?
+                    '<svg width="20" height="20" viewBox="0 0 16 16" fill="#f44336"><path d="M14 4.5V14a2 2 0 0 1-2 2h-1v-1h1a1 1 0 0 0 1-1V4.5h-2A1.5 1.5 0 0 1 9.5 3V1H4a1 1 0 0 0-1 1v9H2V2a2 2 0 0 1 2-2h5.5L14 4.5z"/><path d="M1.6 11.85H0v3.999h.791v-1.342h.803c.287 0 .531-.057.732-.173.203-.117.358-.275.463-.474a1.42 1.42 0 0 0 .161-.677c0-.25-.053-.476-.158-.677a1.176 1.176 0 0 0-.46-.477c-.2-.12-.443-.179-.732-.179Zm.545 1.333a.795.795 0 0 1-.085.38.574.574 0 0 1-.238.241.794.794 0 0 1-.375.082H.788V12.48h.66c.218 0 .389.06.512.181.123.122.185.296.185.522Zm1.217-1.333v3.999h1.46c.401 0 .734-.08.998-.237a1.45 1.45 0 0 0 .595-.689c.13-.3.196-.662.196-1.084 0-.42-.065-.778-.196-1.075a1.426 1.426 0 0 0-.589-.68c-.264-.156-.599-.234-1.005-.234H3.362Zm.791.645h.563c.248 0 .45.05.609.152a.89.89 0 0 1 .354.454c.079.201.118.452.118.753a2.3 2.3 0 0 1-.068.592 1.14 1.14 0 0 1-.196.422.8.8 0 0 1-.334.252 1.298 1.298 0 0 1-.483.082h-.563v-2.707Zm3.743 1.763v1.591h-.79V11.85h2.548v.653H7.896v1.117h1.606v.638H7.896Z"/></svg>' :
+                    '<svg width="20" height="20" viewBox="0 0 16 16" fill="#2196F3"><path d="M6.002 5.5a1.5 1.5 0 1 1-3 0 1.5 1.5 0 0 1 3 0z"/><path d="M2.002 1a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V3a2 2 0 0 0-2-2h-12zm12 1a1 1 0 0 1 1 1v6.5l-3.777-1.947a.5.5 0 0 0-.577.093l-3.71 3.71-2.66-1.772a.5.5 0 0 0-.63.062L1.002 12V3a1 1 0 0 1 1-1h12z"/></svg>'
+                }
                                         </div>
                                         <div style="flex:1;min-width:0;">
                                             <div style="color:#fff;font-weight:500;font-size:0.9rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${a.filename}</div>
@@ -733,7 +834,7 @@ window.viewInvoiceMulti = async function(id) {
                         </div>
                     ` : '<p style="color:#999;text-align:center;padding:2rem;background:#1e1e1e;border-radius:8px;">Aucune pièce jointe</p>'}
                 </div>
-                
+
                 <!-- Audit Log Section -->
                 <div id="auditLogSectionMulti${id}">
                     <h3 style="color:#fff;font-size:1.1rem;margin:0 0 1rem 0;font-weight:600;">📋 Historique des modifications</h3>
@@ -743,20 +844,20 @@ window.viewInvoiceMulti = async function(id) {
                 </div>
             </div>
         `;
-        
+
         overlay.appendChild(modal);
         document.body.appendChild(overlay);
-        
+
         document.getElementById('closeViewModal').onclick = () => overlay.remove();
         overlay.onclick = (e) => {
             if (e.target === overlay) overlay.remove();
         };
-        
+
         // Load notes asynchronously
         console.log('📝 [NOTES VIEW MULTI] Loading notes for invoice:', id);
         const noteResult = await window.electron.dbMulti.getNote(id);
         console.log('📥 [NOTES VIEW MULTI] Note result:', noteResult);
-        const notesSection = document.getElementById(`notesSectionMulti${id}`);
+        const notesSection = document.getElementById(`notesSectionMulti${id} `);
         if (notesSection) {
             const notesContent = notesSection.querySelector('div > div');
             if (noteResult.success && noteResult.data) {
@@ -770,10 +871,10 @@ window.viewInvoiceMulti = async function(id) {
                 notesContent.textContent = 'Aucune note';
             }
         }
-        
+
         // Load audit log asynchronously
         console.log('📋 [AUDIT LOG MULTI] Loading audit log for invoice:', id);
-        const auditLogSection = document.getElementById(`auditLogSectionMulti${id}`);
+        const auditLogSection = document.getElementById(`auditLogSectionMulti${id} `);
         if (auditLogSection) {
             const auditLogContent = auditLogSection.querySelector('div > div');
             try {
@@ -782,50 +883,50 @@ window.viewInvoiceMulti = async function(id) {
                     console.error('❌ [AUDIT LOG MULTI] getAuditLog function not found');
                     throw new Error('getAuditLog function not available');
                 }
-                
+
                 const auditResult = await window.electron.dbMulti.getAuditLog(id);
                 console.log('📥 [AUDIT LOG MULTI] Audit log result:', auditResult);
-                
+
                 if (auditResult.success && auditResult.data && auditResult.data.length > 0) {
                     const logs = auditResult.data;
                     console.log('✅ [AUDIT LOG MULTI] Displaying audit logs:', logs);
-                    
+
                     let auditHTML = '<div style="max-height: 400px; overflow-y: auto;">';
-                    
+
                     // Add creation info first
                     if (invoice.created_by_user_name) {
                         const createdDate = new Date(invoice.created_at).toLocaleDateString('fr-FR');
                         auditHTML += `
-                            <div style="padding:0.75rem;background:#252526;border-radius:6px;margin-bottom:0.5rem;border-left:4px solid #4CAF50;">
-                                <div style="display:flex;justify-content:space-between;align-items:start;">
-                                    <div>
-                                        <div style="color:#4CAF50;font-weight:600;font-size:0.9rem;">➕ Création</div>
-                                        <div style="color:#fff;margin-top:0.25rem;">Par: <strong>${invoice.created_by_user_name}</strong></div>
-                                        ${invoice.created_by_user_email ? `<div style="color:#999;font-size:0.85rem;">${invoice.created_by_user_email}</div>` : ''}
-                                    </div>
-                                    <div style="color:#999;font-size:0.85rem;white-space:nowrap;">${createdDate}</div>
-                                </div>
-                            </div>
-                        `;
+            < div style = "padding:0.75rem;background:#252526;border-radius:6px;margin-bottom:0.5rem;border-left:4px solid #4CAF50;" >
+                <div style="display:flex;justify-content:space-between;align-items:start;">
+                    <div>
+                        <div style="color:#4CAF50;font-weight:600;font-size:0.9rem;">➕ Création</div>
+                        <div style="color:#fff;margin-top:0.25rem;">Par: <strong>${invoice.created_by_user_name}</strong></div>
+                        ${invoice.created_by_user_email ? `<div style="color:#999;font-size:0.85rem;">${invoice.created_by_user_email}</div>` : ''}
+                    </div>
+                    <div style="color:#999;font-size:0.85rem;white-space:nowrap;">${createdDate}</div>
+                </div>
+                            </div >
+            `;
                     }
-                    
+
                     // Add modification logs
                     logs.forEach(log => {
                         const logDate = new Date(log.created_at).toLocaleDateString('fr-FR');
                         auditHTML += `
-                            <div style="padding:0.75rem;background:#252526;border-radius:6px;margin-bottom:0.5rem;border-left:4px solid #2196F3;">
-                                <div style="display:flex;justify-content:space-between;align-items:start;">
-                                    <div>
-                                        <div style="color:#2196F3;font-weight:600;font-size:0.9rem;">✏️ Mis à jour</div>
-                                        <div style="color:#fff;margin-top:0.25rem;">Par: <strong>${log.user_name}</strong></div>
-                                        ${log.user_email ? `<div style="color:#999;font-size:0.85rem;">${log.user_email}</div>` : ''}
-                                    </div>
-                                    <div style="color:#999;font-size:0.85rem;white-space:nowrap;">${logDate}</div>
-                                </div>
-                            </div>
-                        `;
+            < div style = "padding:0.75rem;background:#252526;border-radius:6px;margin-bottom:0.5rem;border-left:4px solid #2196F3;" >
+                <div style="display:flex;justify-content:space-between;align-items:start;">
+                    <div>
+                        <div style="color:#2196F3;font-weight:600;font-size:0.9rem;">✏️ Mis à jour</div>
+                        <div style="color:#fff;margin-top:0.25rem;">Par: <strong>${log.user_name}</strong></div>
+                        ${log.user_email ? `<div style="color:#999;font-size:0.85rem;">${log.user_email}</div>` : ''}
+                    </div>
+                    <div style="color:#999;font-size:0.85rem;white-space:nowrap;">${logDate}</div>
+                </div>
+                            </div >
+            `;
                     });
-                    
+
                     auditHTML += '</div>';
                     auditLogContent.innerHTML = auditHTML;
                     auditLogContent.style.color = '#fff';
@@ -834,24 +935,24 @@ window.viewInvoiceMulti = async function(id) {
                     console.log('ℹ️ [AUDIT LOG MULTI] No audit logs found');
                     const createdDate = new Date(invoice.created_at).toLocaleDateString('fr-FR');
                     auditLogContent.innerHTML = `
-                        <div style="padding:0.75rem;background:#252526;border-radius:6px;border-left:4px solid #4CAF50;">
-                            <div style="display:flex;justify-content:space-between;align-items:start;">
-                                <div>
-                                    <div style="color:#4CAF50;font-weight:600;font-size:0.9rem;">➕ Création</div>
-                                    <div style="color:#fff;margin-top:0.25rem;">Par: <strong>${invoice.created_by_user_name || 'Utilisateur inconnu'}</strong></div>
-                                    ${invoice.created_by_user_email ? `<div style="color:#999;font-size:0.85rem;">${invoice.created_by_user_email}</div>` : ''}
-                                </div>
-                                <div style="color:#999;font-size:0.85rem;white-space:nowrap;">${createdDate}</div>
-                            </div>
-                        </div>
-                    `;
+            < div style = "padding:0.75rem;background:#252526;border-radius:6px;border-left:4px solid #4CAF50;" >
+                <div style="display:flex;justify-content:space-between;align-items:start;">
+                    <div>
+                        <div style="color:#4CAF50;font-weight:600;font-size:0.9rem;">➕ Création</div>
+                        <div style="color:#fff;margin-top:0.25rem;">Par: <strong>${invoice.created_by_user_name || 'Utilisateur inconnu'}</strong></div>
+                        ${invoice.created_by_user_email ? `<div style="color:#999;font-size:0.85rem;">${invoice.created_by_user_email}</div>` : ''}
+                    </div>
+                    <div style="color:#999;font-size:0.85rem;white-space:nowrap;">${createdDate}</div>
+                </div>
+                        </div >
+            `;
                 }
             } catch (error) {
                 console.error('❌ [AUDIT LOG MULTI] Error loading audit log:', error);
                 auditLogContent.innerHTML = '<div style="color:#f44336;">Erreur lors du chargement de l\'historique</div>';
             }
         }
-        
+
     } catch (error) {
         console.error('[MULTI] Error viewing invoice:', error);
         window.notify.error('Erreur', 'Impossible d\'afficher la facture', 3000);
@@ -859,14 +960,14 @@ window.viewInvoiceMulti = async function(id) {
 }
 
 // Delete invoice
-window.deleteInvoiceMulti = async function(id) {
+window.deleteInvoiceMulti = async function (id) {
     const confirmed = await customConfirm('Confirmation', 'Êtes-vous sûr de vouloir supprimer cette facture ?', 'warning');
-    
+
     if (!confirmed) return;
-    
+
     try {
         const result = await window.electron.dbMulti.deleteInvoice(id);
-        
+
         if (result.success) {
             window.notify.success('Succès', 'Facture supprimée avec succès', 3000);
             loadInvoicesMulti();
@@ -880,16 +981,16 @@ window.deleteInvoiceMulti = async function(id) {
 }
 
 // Edit invoice
-window.editInvoiceMulti = function(id) {
+window.editInvoiceMulti = function (id) {
     localStorage.setItem('editInvoiceIdMulti', id);
     router.navigate('/edit-invoice-multi');
 }
 
 // Open attachment
-window.openAttachmentMulti = async function(attachmentId) {
+window.openAttachmentMulti = async function (attachmentId) {
     try {
         const result = await window.electron.dbMulti.getAttachment(attachmentId);
-        
+
         if (result.success && result.data) {
             const blob = new Blob([result.data.file_data], { type: result.data.file_type });
             const url = URL.createObjectURL(blob);
@@ -904,18 +1005,18 @@ window.openAttachmentMulti = async function(attachmentId) {
 }
 
 // Delete attachment
-window.deleteAttachmentMulti = async function(attachmentId, invoiceId) {
+window.deleteAttachmentMulti = async function (attachmentId, invoiceId) {
     const confirmed = await customConfirm('Confirmation', 'Êtes-vous sûr de vouloir supprimer ce fichier ?', 'warning');
     if (!confirmed) {
         return;
     }
-    
+
     try {
         const result = await window.electron.dbMulti.deleteAttachment(attachmentId);
-        
+
         if (result.success) {
             window.notify.success('Supprimé', 'Fichier supprimé avec succès', 3000);
-            
+
             // Close modal and reopen to refresh
             const modalToClose = document.querySelector('.invoice-view-overlay');
             if (modalToClose) {
@@ -932,25 +1033,25 @@ window.deleteAttachmentMulti = async function(attachmentId, invoiceId) {
 }
 
 // Add new attachment
-window.addNewAttachmentMulti = async function(invoiceId) {
+window.addNewAttachmentMulti = async function (invoiceId) {
     // Create file input
     const input = document.createElement('input');
     input.type = 'file';
     input.accept = '.png,.jpg,.jpeg,.pdf';
     input.multiple = true;
-    
+
     input.onchange = async (e) => {
         const files = Array.from(e.target.files);
         if (files.length === 0) return;
-        
+
         const loadingNotif = window.notify.loading('Téléchargement en cours...', 'Veuillez patienter');
-        
+
         try {
             for (const file of files) {
                 // Read file as ArrayBuffer
                 const arrayBuffer = await file.arrayBuffer();
                 const uint8Array = new Uint8Array(arrayBuffer);
-                
+
                 // Add attachment
                 const result = await window.electron.dbMulti.addAttachment(
                     invoiceId,
@@ -958,62 +1059,62 @@ window.addNewAttachmentMulti = async function(invoiceId) {
                     file.type,
                     uint8Array
                 );
-                
+
                 if (result.success) {
                     console.log('✅ Attachment uploaded:', file.name);
                 } else {
                     throw new Error(result.error);
                 }
             }
-            
+
             window.notify.remove(loadingNotif);
             window.notify.success('Succès', `${files.length} fichier(s) ajouté(s) avec succès`, 3000);
-            
+
             // Close modal and reopen to refresh
             const modalToClose = document.querySelector('.invoice-view-overlay');
             if (modalToClose) {
                 modalToClose.remove();
             }
             setTimeout(() => viewInvoiceMulti(invoiceId), 300);
-            
+
         } catch (error) {
             window.notify.remove(loadingNotif);
             console.error('Error uploading attachments:', error);
             window.notify.error('Erreur', 'Erreur lors du téléchargement: ' + error.message, 4000);
         }
     };
-    
+
     input.click();
 }
 
 // Download Bon de travaux as PDF (without prices) - MULTI TRAVAUX TETOUAN Design
-window.downloadBonDeTravaux = async function(invoiceId) {
+window.downloadBonDeTravaux = async function (invoiceId) {
     try {
         console.log('📥 Generating Bon de travaux PDF for invoice:', invoiceId);
-        
+
         // Get invoice data
         const result = await window.electron.dbMulti.getInvoiceById(invoiceId);
-        
+
         if (!result.success || !result.data) {
             throw new Error('Document introuvable');
         }
-        
+
         const invoice = result.data;
-        
+
         // Check if there are products with zero quantity or price
-        const hasZeroProducts = invoice.products && invoice.products.some(p => 
+        const hasZeroProducts = invoice.products && invoice.products.some(p =>
             parseFloat(p.quantite) === 0 || parseFloat(p.prix_unitaire_ht) === 0
         );
-        
+
         let includeZeroProducts = true; // Default: include all products
-        
+
         if (hasZeroProducts) {
             includeZeroProducts = await new Promise((resolve) => {
                 const overlay = document.createElement('div');
                 overlay.className = 'custom-modal-overlay';
-                
+
                 overlay.innerHTML = `
-                    <div class="custom-modal">
+            < div class="custom-modal" >
                         <div class="custom-modal-header">
                             <span class="custom-modal-icon warning">⚠️</span>
                             <h3 class="custom-modal-title">Produits avec quantité ou prix zéro</h3>
@@ -1034,41 +1135,41 @@ window.downloadBonDeTravaux = async function(invoiceId) {
                                 ✅ Oui, afficher
                             </button>
                         </div>
-                    </div>
-                `;
-                
+                    </div >
+            `;
+
                 document.body.appendChild(overlay);
-                
+
                 const excludeBtn = document.getElementById('excludeZeroBtnBonTravaux');
                 const includeBtn = document.getElementById('includeZeroBtnBonTravaux');
-                
+
                 excludeBtn.addEventListener('click', () => {
                     overlay.remove();
                     resolve(false);
                 });
-                
+
                 includeBtn.addEventListener('click', () => {
                     overlay.remove();
                     resolve(true);
                 });
-                
+
                 overlay.addEventListener('click', (e) => {
                     if (e.target === overlay) {
                         overlay.remove();
                         resolve(true); // Default to include if user clicks outside
                     }
                 });
-                
+
                 setTimeout(() => includeBtn.focus(), 100);
             });
-            
+
             console.log('🔍 User choice for zero products in Bon de travaux:', includeZeroProducts ? 'Include' : 'Exclude');
         }
-        
+
         // Mark products with zero values for special display (don't remove them)
         const showZeroValues = includeZeroProducts;
         console.log('📊 Show zero values in Bon de travaux:', showZeroValues);
-        
+
         // Check if jsPDF is loaded
         if (typeof window.jspdf === 'undefined') {
             const script = document.createElement('script');
@@ -1077,16 +1178,16 @@ window.downloadBonDeTravaux = async function(invoiceId) {
             document.head.appendChild(script);
             return;
         }
-        
+
         const { jsPDF } = window.jspdf;
         const doc = new jsPDF();
-        
+
         // Colors - MULTI TRAVAUX TETOUAN theme
         const darkGrayColor = [96, 125, 139]; // #607D8B
         const lightGrayBg = [236, 239, 241]; // #ECEFF1
-        
+
         const dateStr = new Date(invoice.document_date).toLocaleDateString('fr-FR');
-        
+
         // Function to add header
         const addHeader = (isFirstPage = true) => {
             // Company Name - Left aligned, large
@@ -1094,50 +1195,50 @@ window.downloadBonDeTravaux = async function(invoiceId) {
             doc.setTextColor(96, 125, 139);
             doc.setFont(undefined, 'bold');
             doc.text('MULTI TRAVAUX TETOUAN', 15, 18);
-            
+
             // Document Type - Right aligned, underlined
             doc.setFontSize(18);
             doc.setFont(undefined, 'bold');
             doc.text('BON DE TRAVAUX', 195, 18, { align: 'right' });
             doc.setLineWidth(0.5);
             doc.line(195 - doc.getTextWidth('BON DE TRAVAUX'), 19, 195, 19);
-            
+
             // Date - Right side
             doc.setFontSize(9);
             doc.setFont(undefined, 'normal');
             doc.setTextColor(0, 0, 0);
-            doc.text(`Date : ${dateStr}`, 195, 26, { align: 'right' });
-            
+            doc.text(`Date: ${dateStr} `, 195, 26, { align: 'right' });
+
             // Email and Address - Left side with gray background
             doc.setFillColor(...darkGrayColor);
             doc.rect(15, 38, 80, 6, 'F');
             doc.setTextColor(255, 255, 255);
             doc.setFontSize(8);
             doc.text('Email: errbahiabderrahim@gmail.com', 17, 42);
-            
+
             doc.setFillColor(...lightGrayBg);
             doc.rect(15, 44, 80, 6, 'F');
             doc.setTextColor(0, 0, 0);
             doc.setFontSize(7);
             doc.text('AV 10 MAI IMM 04 APPART 01 A DROIT - TETOUAN , TETOUAN', 17, 48);
-            
+
             // Client Info - Right side with gray background
             doc.setFillColor(...darkGrayColor);
             doc.rect(115, 38, 80, 6, 'F');
             doc.setTextColor(255, 255, 255);
             doc.setFontSize(8);
-            doc.text(`BON DE TRAVAUX à : ${invoice.client_nom}`, 117, 42);
-            
+            doc.text(`BON DE TRAVAUX à: ${invoice.client_nom} `, 117, 42);
+
             // Only show ICE if it exists and is not "0"
             if (invoice.client_ice && invoice.client_ice !== '0') {
                 doc.setFillColor(...lightGrayBg);
                 doc.rect(115, 44, 80, 6, 'F');
                 doc.setTextColor(0, 0, 0);
                 doc.setFontSize(7);
-                doc.text(`ICE : ${invoice.client_ice}`, 117, 48);
+                doc.text(`ICE: ${invoice.client_ice} `, 117, 48);
             }
         };
-        
+
         // Function to add footer
         const addFooter = (pageNum, totalPages) => {
             // Company info at bottom
@@ -1146,24 +1247,24 @@ window.downloadBonDeTravaux = async function(invoiceId) {
             doc.setFont(undefined, 'normal');
             doc.text('NIF 68717422 | TP 51001343 | RC 38633 | CNSS 6446237', 105, 280, { align: 'center' });
             doc.text('ICE : 00380950500031', 105, 286, { align: 'center' });
-            
+
             // Add page numbering at bottom in gray
             doc.setTextColor(150, 150, 150); // Gray color
             doc.setFontSize(9);
             doc.setFont(undefined, 'normal');
             doc.text(`Page ${pageNum} / ${totalPages}`, 105, 292, { align: 'center' });
         };
-        
+
         // Add header to first page
         addHeader(true);
-        
+
         const startY = 60;
-        
+
         // Helper function to format numbers
         const formatNumberForPDF = (num) => {
             return parseFloat(num).toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ' ');
         };
-        
+
         // Table Header - Gray background (4 columns - same as invoice)
         doc.setFillColor(...darkGrayColor);
         doc.rect(15, startY, 180, 7, 'F');
@@ -1174,28 +1275,28 @@ window.downloadBonDeTravaux = async function(invoiceId) {
         doc.text('Quantité', 115, startY + 5, { align: 'center' });
         doc.text('Prix unitaire HT', 150, startY + 5, { align: 'right' });
         doc.text('Prix total HT', 188, startY + 5, { align: 'right' });
-        
+
         // Table Body
         let currentY = startY + 10;
         doc.setTextColor(0, 0, 0);
         doc.setFont(undefined, 'normal');
         doc.setFontSize(9);
-        
+
         let pageCount = 1;
         const pages = [];
-        
+
         invoice.products.forEach((product, index) => {
             const designation = product.designation || '';
             const lines = doc.splitTextToSize(designation, 75);
             const rowHeight = Math.max(8, (lines.length * 4.5) + 4);
-            
+
             // Check if we need a new page
             if (currentY + rowHeight > 220) {
                 pages.push(pageCount);
                 doc.addPage();
                 addHeader(false);
                 pageCount++;
-                
+
                 let newStartY = 60;
                 doc.setFillColor(...darkGrayColor);
                 doc.rect(15, newStartY, 180, 7, 'F');
@@ -1206,52 +1307,52 @@ window.downloadBonDeTravaux = async function(invoiceId) {
                 doc.text('Quantité', 115, newStartY + 5, { align: 'center' });
                 doc.text('Prix unitaire HT', 150, newStartY + 5, { align: 'right' });
                 doc.text('Prix total HT', 188, newStartY + 5, { align: 'right' });
-                
+
                 currentY = newStartY + 10;
                 doc.setTextColor(0, 0, 0);
                 doc.setFont(undefined, 'normal');
                 doc.setFontSize(9);
             }
-            
+
             // Alternate row colors
             if (index % 2 === 0) {
                 doc.setFillColor(245, 245, 245);
                 doc.rect(15, currentY - 3, 180, rowHeight, 'F');
             }
-            
+
             doc.setFontSize(7.5);
             lines.forEach((line, lineIndex) => {
                 doc.text(line, 18, currentY + 3 + (lineIndex * 4.5));
             });
-            
+
             const centerOffset = (lines.length > 1) ? ((lines.length - 1) * 2.25) : 0;
-            
+
             doc.setFontSize(8);
             // Show quantity only if it's not zero OR if user chose to show zero values
             const qty = parseFloat(product.quantite);
             if (showZeroValues || qty !== 0) {
                 doc.text(String(product.quantite || ''), 115, currentY + 3 + centerOffset, { align: 'center' });
             }
-            
+
             doc.setFontSize(7.5);
             // Show price only if it's not zero OR if user chose to show zero values
             const price = parseFloat(product.prix_unitaire_ht);
             if (showZeroValues || price !== 0) {
                 doc.text(`${formatNumberForPDF(product.prix_unitaire_ht)} DH`, 150, currentY + 3 + centerOffset, { align: 'right' });
             }
-            
+
             // Show total only if it's not zero OR if user chose to show zero values
             const total = parseFloat(product.total_ht);
             if (showZeroValues || total !== 0) {
                 doc.text(`${formatNumberForPDF(product.total_ht)} DH`, 188, currentY + 3 + centerOffset, { align: 'right' });
             }
-            
+
             currentY += rowHeight;
         });
-        
+
         // Fixed position for Remarques and Totals (always at same Y position)
         const fixedBottomY = 235;
-        
+
         // Remarques section - Left side
         doc.setFillColor(...darkGrayColor);
         doc.rect(15, fixedBottomY, 85, 6, 'F');
@@ -1259,7 +1360,7 @@ window.downloadBonDeTravaux = async function(invoiceId) {
         doc.setFontSize(8);
         doc.setFont(undefined, 'bold');
         doc.text('Remarques et instructions de paiement :', 17, fixedBottomY + 4);
-        
+
         doc.setFillColor(255, 255, 255);
         doc.rect(15, fixedBottomY + 6, 85, 12, 'F');
         doc.setDrawColor(200, 200, 200);
@@ -1270,7 +1371,7 @@ window.downloadBonDeTravaux = async function(invoiceId) {
         doc.setFontSize(8);
         doc.text('ATTIJARI WAFA BANQ', 17, fixedBottomY + 10);
         doc.text('RIB : 007 720 0005979000000953 03', 17, fixedBottomY + 15);
-        
+
         // Totals - Right side with gray background (same Y position)
         doc.setFillColor(...darkGrayColor);
         doc.rect(110, fixedBottomY, 85, 6, 'F');
@@ -1279,7 +1380,7 @@ window.downloadBonDeTravaux = async function(invoiceId) {
         doc.setFont(undefined, 'bold');
         doc.text('TOTALE HT', 113, fixedBottomY + 4);
         doc.text(`${formatNumberForPDF(invoice.total_ht)} DH`, 192, fixedBottomY + 4, { align: 'right' });
-        
+
         doc.setFillColor(255, 255, 255);
         doc.rect(110, fixedBottomY + 6, 85, 6, 'F');
         doc.setDrawColor(200, 200, 200);
@@ -1287,31 +1388,31 @@ window.downloadBonDeTravaux = async function(invoiceId) {
         doc.setTextColor(0, 0, 0);
         doc.text(`TVA ${invoice.tva_rate}%`, 113, fixedBottomY + 10);
         doc.text(`${formatNumberForPDF(invoice.montant_tva)} DH`, 192, fixedBottomY + 10, { align: 'right' });
-        
+
         doc.setFillColor(...darkGrayColor);
         doc.rect(110, fixedBottomY + 12, 85, 6, 'F');
         doc.setTextColor(255, 255, 255);
         doc.text('TOTALE TTC', 113, fixedBottomY + 16);
         doc.text(`${formatNumberForPDF(invoice.total_ttc)} DH`, 192, fixedBottomY + 16, { align: 'right' });
-        
+
         // Add page numbering to all pages
         pages.push(pageCount);
         const totalPages = pages.length;
-        
+
         for (let i = 0; i < totalPages; i++) {
             doc.setPage(i + 1);
             addFooter(i + 1, totalPages);
         }
-        
+
         // Save PDF
         const docNumero = invoice.document_numero || invoice.document_numero_devis || 'N';
         const selectedCompany = JSON.parse(localStorage.getItem('selectedCompany') || '{}');
         const companyName = selectedCompany.name ? selectedCompany.name.replace(' Company', '') : 'Unknown';
         const filename = `Bon_de_travaux_${docNumero}_${invoice.client_nom}_${companyName}.pdf`;
         doc.save(filename);
-        
+
         window.notify.success('Succès', 'Bon de travaux téléchargé avec succès', 3000);
-        
+
     } catch (error) {
         console.error('❌ Error generating Bon de travaux PDF:', error);
         window.notify.error('Erreur', 'Impossible de générer le PDF: ' + error.message, 4000);
@@ -1319,21 +1420,21 @@ window.downloadBonDeTravaux = async function(invoiceId) {
 }
 
 // Download invoice as PDF - MULTI TRAVAUX TETOUAN Design
-window.downloadInvoicePDFMulti = async function(invoiceId) {
+window.downloadInvoicePDFMulti = async function (invoiceId) {
     try {
         console.log('📥 Generating PDF for invoice:', invoiceId);
-        
+
         // Get invoice data
         const result = await window.electron.dbMulti.getInvoiceById(invoiceId);
         console.log('📋 Invoice data:', result.data);
         console.log('📋 document_numero_Order:', result.data?.document_numero_Order);
-        
+
         if (!result.success || !result.data) {
             throw new Error('Facture introuvable');
         }
-        
+
         const invoice = result.data;
-        
+
         // Check if jsPDF is loaded
         if (typeof window.jspdf === 'undefined') {
             const script = document.createElement('script');
@@ -1342,27 +1443,27 @@ window.downloadInvoicePDFMulti = async function(invoiceId) {
             document.head.appendChild(script);
             return;
         }
-        
+
         const { jsPDF } = window.jspdf;
         const doc = new jsPDF();
-        
+
         // Colors - New design
         const darkGrayColor = [96, 125, 139]; // #607D8B
         const lightGrayBg = [236, 239, 241]; // #ECEFF1
-        
+
         const dateStr = new Date(invoice.document_date).toLocaleDateString('fr-FR');
-        
+
         // Helper function to format numbers
         const formatNumberForPDF = (num) => {
             return parseFloat(num).toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ' ');
         };
-        
+
         // Function to add header to any page
         const addHeader = (isFirstPage = true) => {
             // Add company logo - Left side (synchronous approach)
             try {
-                const logoImg = document.querySelector('img[src*="multi.png"]') || 
-                               document.querySelector('img[alt="Multi Company"]');
+                const logoImg = document.querySelector('img[src*="multi.png"]') ||
+                    document.querySelector('img[alt="Multi Company"]');
                 if (logoImg && logoImg.src && logoImg.complete) {
                     // Image is already loaded
                     const canvas = document.createElement('canvas');
@@ -1376,13 +1477,13 @@ window.downloadInvoicePDFMulti = async function(invoiceId) {
             } catch (error) {
                 console.log('Logo not available:', error.message);
             }
-            
+
             // Company Name - Left aligned, large (moved right to make space for logo)
             doc.setFontSize(18);
             doc.setTextColor(96, 125, 139);
             doc.setFont(undefined, 'bold');
             doc.text('MULTI TRAVAUX TETOUAN', 40, 18);
-            
+
             // Document Type - Right aligned, underlined
             doc.setFontSize(18);
             doc.setFont(undefined, 'bold');
@@ -1390,7 +1491,7 @@ window.downloadInvoicePDFMulti = async function(invoiceId) {
             doc.text(docType, 195, 18, { align: 'right' });
             doc.setLineWidth(0.5);
             doc.line(195 - doc.getTextWidth(docType), 19, 195, 19);
-            
+
             // Document Number and Date - Right side, smaller
             doc.setFontSize(9);
             doc.setFont(undefined, 'normal');
@@ -1400,7 +1501,7 @@ window.downloadInvoicePDFMulti = async function(invoiceId) {
                 doc.text(`Date de devis : ${dateStr}`, 195, 31, { align: 'right' });
             } else {
                 doc.text(`Numéro de facture : ${invoice.document_numero || '-'}`, 195, 26, { align: 'right' });
-                
+
                 // Add Order number on new line below invoice number if exists
                 if (invoice.document_numero_Order && invoice.document_numero_Order.trim() !== '') {
                     doc.text(`N° Order : ${invoice.document_numero_Order}`, 195, 31, { align: 'right' });
@@ -1408,7 +1509,7 @@ window.downloadInvoicePDFMulti = async function(invoiceId) {
                 } else {
                     doc.text(`Date de facture : ${dateStr}`, 195, 31, { align: 'right' });
                 }
-                
+
                 // DEBUG: Log to verify Order number
                 if (invoice.document_numero_Order) {
                     console.log('✅ Order number exists in PDF generation:', invoice.document_numero_Order);
@@ -1416,20 +1517,20 @@ window.downloadInvoicePDFMulti = async function(invoiceId) {
                     console.log('❌ Order number is missing or null');
                 }
             }
-            
+
             // Email and Address - Left side with gray background (ONE BOX)
             doc.setFillColor(...darkGrayColor);
             doc.rect(15, 38, 80, 6, 'F');
             doc.setTextColor(255, 255, 255);
             doc.setFontSize(8);
             doc.text('Email: errbahiabderrahim@gmail.com', 17, 42);
-            
+
             doc.setFillColor(...lightGrayBg);
             doc.rect(15, 44, 80, 6, 'F');
             doc.setTextColor(0, 0, 0);
             doc.setFontSize(7);
             doc.text('AV 10 MAI IMM 04 APPART 01 A DROIT - TETOUAN , TETOUAN', 17, 48);
-            
+
             // Client Info - Right side with gray background (ONE BOX)
             doc.setFillColor(...darkGrayColor);
             doc.rect(115, 38, 80, 6, 'F');
@@ -1437,7 +1538,7 @@ window.downloadInvoicePDFMulti = async function(invoiceId) {
             doc.setFontSize(8);
             const devisLabel = invoice.document_type === 'devis' ? 'DEVIS à :' : 'FACTURE à :';
             doc.text(`${devisLabel} ${invoice.client_nom}`, 117, 42);
-            
+
             // Only show ICE if it exists and is not "0"
             if (invoice.client_ice && invoice.client_ice !== '0') {
                 doc.setFillColor(...lightGrayBg);
@@ -1447,7 +1548,7 @@ window.downloadInvoicePDFMulti = async function(invoiceId) {
                 doc.text(`ICE : ${invoice.client_ice}`, 117, 48);
             }
         };
-        
+
         // Function to add footer to any page
         const addFooter = (pageNum, totalPages) => {
             doc.setTextColor(0, 0, 0);
@@ -1455,26 +1556,26 @@ window.downloadInvoicePDFMulti = async function(invoiceId) {
             doc.setFont(undefined, 'normal');
             doc.text('NIF 68717422 | TP 51001343 | RC 38633 | CNSS 6446237', 105, 270, { align: 'center' });
             doc.text('ICE : 00380950500031', 105, 276, { align: 'center' });
-            
+
             // Add phone number
             doc.setTextColor(0, 0, 0);
             doc.setFontSize(8);
             doc.setFont(undefined, 'normal');
             doc.text('Tel: +212 661 307 323', 105, 282, { align: 'center' });
-            
+
             // Add page numbering at bottom in dark color
             doc.setTextColor(0, 0, 0);
             doc.setFontSize(9);
             doc.setFont(undefined, 'normal');
             doc.text(`Page ${pageNum} / ${totalPages}`, 105, 288, { align: 'center' });
         };
-        
+
         // Add header to first page
         addHeader(true);
-        
+
         // Products Table
         const startY = 60;
-        
+
         // Table Header - Gray background
         doc.setFillColor(...darkGrayColor);
         doc.rect(15, startY, 180, 7, 'F');
@@ -1485,34 +1586,34 @@ window.downloadInvoicePDFMulti = async function(invoiceId) {
         doc.text('Quantité', 115, startY + 5, { align: 'center' });
         doc.text('Prix unitaire HT', 150, startY + 5, { align: 'right' });
         doc.text('Prix total HT', 188, startY + 5, { align: 'right' });
-        
+
         // Table Body
         let currentY = startY + 10;
         doc.setTextColor(0, 0, 0);
         doc.setFont(undefined, 'normal');
         doc.setFontSize(9);
-        
+
         let pageCount = 1;
         const pages = [];
-        
+
         invoice.products.forEach((product, index) => {
             // Wrap long text - limit width to 75 for description column only
             const designation = product.designation || '';
             const lines = doc.splitTextToSize(designation, 75);
-            
+
             // Calculate row height based on text lines - more space per line
             const rowHeight = Math.max(8, (lines.length * 4.5) + 4);
-            
+
             // Check if we need a new page BEFORE drawing
             if (currentY + rowHeight > 220) {
                 pages.push(pageCount);
                 doc.addPage();
                 addHeader(false);
                 pageCount++;
-                
+
                 // Re-draw table header on new page
                 let newStartY = 60;
-                
+
                 doc.setFillColor(...darkGrayColor);
                 doc.rect(15, newStartY, 180, 7, 'F');
                 doc.setTextColor(255, 255, 255);
@@ -1522,42 +1623,42 @@ window.downloadInvoicePDFMulti = async function(invoiceId) {
                 doc.text('Quantité', 115, newStartY + 5, { align: 'center' });
                 doc.text('Prix unitaire HT', 150, newStartY + 5, { align: 'right' });
                 doc.text('Prix total HT', 188, newStartY + 5, { align: 'right' });
-                
+
                 currentY = newStartY + 10;
                 doc.setTextColor(0, 0, 0);
                 doc.setFont(undefined, 'normal');
                 doc.setFontSize(9);
             }
-            
+
             // Alternate row colors
             if (index % 2 === 0) {
                 doc.setFillColor(245, 245, 245);
                 doc.rect(15, currentY - 3, 180, rowHeight, 'F');
             }
-            
+
             doc.setFontSize(7.5);
             // Draw each line separately with proper spacing - show full text
             lines.forEach((line, lineIndex) => {
                 doc.text(line, 18, currentY + 3 + (lineIndex * 4.5));
             });
-            
+
             // Center vertically for multi-line products
             const centerOffset = (lines.length > 1) ? ((lines.length - 1) * 2.25) : 0;
-            
+
             doc.setFontSize(8);
             doc.text(String(product.quantite || ''), 115, currentY + 3 + centerOffset, { align: 'center' });
-            
+
             // Use smaller font for large numbers
             doc.setFontSize(7.5);
             doc.text(`${formatNumberForPDF(product.prix_unitaire_ht)} DH`, 150, currentY + 3 + centerOffset, { align: 'right' });
             doc.text(`${formatNumberForPDF(product.total_ht)} DH`, 188, currentY + 3 + centerOffset, { align: 'right' });
-            
+
             currentY += rowHeight;
         });
-        
+
         // Fixed position for Remarques and Totals (always at same Y position)
         const fixedBottomY = 235;
-        
+
         // Remarques section - Left side
         doc.setFillColor(...darkGrayColor);
         doc.rect(15, fixedBottomY, 85, 6, 'F');
@@ -1565,7 +1666,7 @@ window.downloadInvoicePDFMulti = async function(invoiceId) {
         doc.setFontSize(8);
         doc.setFont(undefined, 'bold');
         doc.text('Remarques et instructions de paiement :', 17, fixedBottomY + 4);
-        
+
         doc.setFillColor(255, 255, 255);
         doc.rect(15, fixedBottomY + 6, 85, 12, 'F');
         doc.setDrawColor(200, 200, 200);
@@ -1576,7 +1677,7 @@ window.downloadInvoicePDFMulti = async function(invoiceId) {
         doc.setFontSize(8);
         doc.text('ATTIJARI WAFA BANQ', 17, fixedBottomY + 10);
         doc.text('RIB : 007 720 0005979000000953 03', 17, fixedBottomY + 15);
-        
+
         // Totals - Right side with gray background (same Y position)
         doc.setFillColor(...darkGrayColor);
         doc.rect(110, fixedBottomY, 85, 6, 'F');
@@ -1585,7 +1686,7 @@ window.downloadInvoicePDFMulti = async function(invoiceId) {
         doc.setFont(undefined, 'bold');
         doc.text('TOTALE HT', 113, fixedBottomY + 4);
         doc.text(`${formatNumberForPDF(invoice.total_ht)} DH`, 192, fixedBottomY + 4, { align: 'right' });
-        
+
         doc.setFillColor(255, 255, 255);
         doc.rect(110, fixedBottomY + 6, 85, 6, 'F');
         doc.setDrawColor(200, 200, 200);
@@ -1593,31 +1694,31 @@ window.downloadInvoicePDFMulti = async function(invoiceId) {
         doc.setTextColor(0, 0, 0);
         doc.text(`TVA ${invoice.tva_rate}%`, 113, fixedBottomY + 10);
         doc.text(`${formatNumberForPDF(invoice.montant_tva)} DH`, 192, fixedBottomY + 10, { align: 'right' });
-        
+
         doc.setFillColor(...darkGrayColor);
         doc.rect(110, fixedBottomY + 12, 85, 6, 'F');
         doc.setTextColor(255, 255, 255);
         doc.text('TOTALE TTC', 113, fixedBottomY + 16);
         doc.text(`${formatNumberForPDF(invoice.total_ttc)} DH`, 192, fixedBottomY + 16, { align: 'right' });
-        
+
         // Add page numbering to all pages
         pages.push(pageCount);
         const totalPages = pages.length;
-        
+
         for (let i = 0; i < totalPages; i++) {
             doc.setPage(i + 1);
             addFooter(i + 1, totalPages);
         }
-        
+
         // Save PDF
         const docNumero = invoice.document_numero || invoice.document_numero_devis || 'N';
         const selectedCompany = JSON.parse(localStorage.getItem('selectedCompany') || '{}');
         const companyName = selectedCompany.name ? selectedCompany.name.replace(' Company', '') : 'Unknown';
         const filename = `${invoice.document_type === 'devis' ? 'Devis' : 'Facture'}_${docNumero}_${invoice.client_nom}_${companyName}.pdf`;
         doc.save(filename);
-        
+
         window.notify.success('Succès', 'PDF téléchargé avec succès', 3000);
-        
+
     } catch (error) {
         console.error('❌ Error generating PDF:', error);
         window.notify.error('Erreur', 'Impossible de générer le PDF: ' + error.message, 4000);
@@ -1625,14 +1726,14 @@ window.downloadInvoicePDFMulti = async function(invoiceId) {
 }
 
 // Initialize page
-window.initInvoicesListMultiPage = function() {
+window.initInvoicesListMultiPage = function () {
     console.log('🔄 [MULTI] Initializing invoices list page...');
-    
+
     // Get selected year from session or localStorage
     const sessionYear = sessionStorage.getItem('multi_current_year');
     const savedYear = localStorage.getItem('multi_selected_year');
     const rememberYear = localStorage.getItem('multi_remember_year');
-    
+
     // Use session year first, then saved year if remember is enabled
     let selectedYear = '';
     if (sessionYear) {
@@ -1640,7 +1741,7 @@ window.initInvoicesListMultiPage = function() {
     } else if (rememberYear === 'true' && savedYear) {
         selectedYear = savedYear;
     }
-    
+
     // Update year display button
     setTimeout(() => {
         const yearDisplay = document.getElementById('currentYearDisplayMulti');
@@ -1648,12 +1749,12 @@ window.initInvoicesListMultiPage = function() {
             yearDisplay.textContent = selectedYear ? `Année ${selectedYear}` : 'Toutes';
         }
     }, 100);
-    
+
     loadInvoicesMulti();
 };
 
 // Change year - clear saved preference and go to year selector
-window.changeYearMulti = function() {
+window.changeYearMulti = function () {
     // Clear both session and local storage to force showing the selection modal
     sessionStorage.removeItem('multi_current_year');
     localStorage.removeItem('multi_remember_year');
@@ -1666,9 +1767,9 @@ window.changeYearMulti = function() {
 let currentSortColumnMulti = null;
 let currentSortDirectionMulti = 'asc';
 
-window.sortTableMulti = function(column) {
+window.sortTableMulti = function (column) {
     console.log('🔄 [MULTI SORT] Sorting by:', column);
-    
+
     // Toggle sort direction if clicking same column
     if (currentSortColumnMulti === column) {
         currentSortDirectionMulti = currentSortDirectionMulti === 'asc' ? 'desc' : 'asc';
@@ -1676,30 +1777,30 @@ window.sortTableMulti = function(column) {
         currentSortColumnMulti = column;
         currentSortDirectionMulti = 'asc';
     }
-    
+
     // Update sort icons
     ['Numero', 'Date', 'HT', 'TTC'].forEach(col => {
         const icon = document.getElementById(`sortIcon${col}`);
         if (icon) icon.textContent = '⇅';
     });
-    
+
     const iconMap = {
         'numero': 'Numero',
         'date': 'Date',
         'total_ht': 'HT',
         'total_ttc': 'TTC'
     };
-    
+
     const currentIcon = document.getElementById(`sortIcon${iconMap[column]}`);
     if (currentIcon) {
         currentIcon.textContent = currentSortDirectionMulti === 'asc' ? '↑' : '↓';
     }
-    
+
     // Sort the filtered invoices
     filteredInvoicesMulti.sort((a, b) => {
         let valueA, valueB;
-        
-        switch(column) {
+
+        switch (column) {
             case 'numero':
                 // Extract number from document_numero or document_numero_devis
                 valueA = parseInt((a.document_numero || a.document_numero_devis || '0').replace(/\D/g, '')) || 0;
@@ -1720,17 +1821,17 @@ window.sortTableMulti = function(column) {
             default:
                 return 0;
         }
-        
+
         if (currentSortDirectionMulti === 'asc') {
             return valueA - valueB;
         } else {
             return valueB - valueA;
         }
     });
-    
+
     // Reset to first page and display
     currentPageMulti = 1;
     displayInvoicesMulti();
-    
+
     console.log('✅ [MULTI SORT] Sorted successfully:', column, currentSortDirectionMulti);
 };

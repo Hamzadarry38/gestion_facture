@@ -209,27 +209,47 @@ function InvoicesListChaimaePage() {
                         </button>
                     </div>
 
+                    <!-- Column Visibility Controls -->
+                    <div id="columnVisibilityControlsChaimae" style="display: flex; flex-wrap: wrap; gap: 0.5rem; margin-bottom: 1rem; padding: 0.75rem; background: #2d2d30; border: 1px solid #3e3e42; border-radius: 6px; align-items: center;">
+                        <span style="color: #cccccc; font-size: 0.9rem; font-weight: 600; margin-right: 0.5rem;">👁️ Afficher:</span>
+                        <button id="toggleColTypeChaimae" onclick="toggleColumnChaimae('type')" class="col-toggle-btn active" style="padding: 0.4rem 0.8rem; background: #4caf50; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 0.85rem; transition: all 0.2s;">
+                            📄 Type
+                        </button>
+                        <button id="toggleColIceChaimae" onclick="toggleColumnChaimae('ice')" class="col-toggle-btn active" style="padding: 0.4rem 0.8rem; background: #4caf50; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 0.85rem; transition: all 0.2s;">
+                            🏢 ICE
+                        </button>
+                        <button id="toggleColDateChaimae" onclick="toggleColumnChaimae('date')" class="col-toggle-btn active" style="padding: 0.4rem 0.8rem; background: #4caf50; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 0.85rem; transition: all 0.2s;">
+                            📅 Date
+                        </button>
+                        <button id="toggleColCreatedByChaimae" onclick="toggleColumnChaimae('createdBy')" class="col-toggle-btn active" style="padding: 0.4rem 0.8rem; background: #4caf50; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 0.85rem; transition: all 0.2s;">
+                            👤 Créé par
+                        </button>
+                        <button id="toggleColTotalHTChaimae" onclick="toggleColumnChaimae('totalHT')" class="col-toggle-btn active" style="padding: 0.4rem 0.8rem; background: #4caf50; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 0.85rem; transition: all 0.2s;">
+                            💵 Total HT
+                        </button>
+                    </div>
+
                     <!-- Invoices Table -->
                     <div class="table-container">
-                        <table class="invoices-table">
-                            <thead>
+                        <table class="invoices-table" id="invoicesTableChaimae">
+                            <thead id="invoicesTableHeadChaimae">
                                 <tr>
                                     <th style="width: 40px;">
                                         <input type="checkbox" id="selectAllChaimae" onchange="selectAllInvoicesChaimae()"
                                                style="width: 18px; height: 18px; cursor: pointer;"
                                                title="Sélectionner tout">
                                     </th>
-                                    <th>Type</th>
+                                    <th class="col-type-chaimae">Type</th>
                                     <th onclick="sortTableChaimae('numero')" style="cursor: pointer; user-select: none;" title="Cliquez pour trier">
                                         N° Document <span id="sortIconNumeroChaimae">⇅</span>
                                     </th>
                                     <th>Client</th>
-                                    <th>ICE</th>
-                                    <th onclick="sortTableChaimae('date')" style="cursor: pointer; user-select: none;" title="Cliquez pour trier">
+                                    <th class="col-ice-chaimae">ICE</th>
+                                    <th class="col-date-chaimae" onclick="sortTableChaimae('date')" style="cursor: pointer; user-select: none;" title="Cliquez pour trier">
                                         Date <span id="sortIconDateChaimae">⇅</span>
                                     </th>
-                                    <th>Créé par</th>
-                                    <th onclick="sortTableChaimae('total_ht')" style="cursor: pointer; user-select: none;" title="Cliquez pour trier">
+                                    <th class="col-createdBy-chaimae">Créé par</th>
+                                    <th class="col-totalHT-chaimae" onclick="sortTableChaimae('total_ht')" style="cursor: pointer; user-select: none;" title="Cliquez pour trier">
                                         Total HT <span id="sortIconTotalHTChaimae">⇅</span>
                                     </th>
                                     <th onclick="sortTableChaimae('total_ttc')" style="cursor: pointer; user-select: none;" title="Cliquez pour trier">
@@ -283,6 +303,84 @@ let filteredInvoicesChaimae = [];
 let currentPageChaimae = 1;
 let itemsPerPageChaimae = 10;
 
+// Column visibility state for Chaimae
+let columnVisibilityChaimae = {
+    type: true,
+    ice: true,
+    date: true,
+    createdBy: true,
+    totalHT: true
+};
+
+// Load column visibility from localStorage on page load
+function loadColumnVisibilityChaimae() {
+    const saved = localStorage.getItem('chaimae_column_visibility');
+    if (saved) {
+        try {
+            columnVisibilityChaimae = JSON.parse(saved);
+        } catch (e) {
+            console.error('Error loading column visibility:', e);
+        }
+    }
+    // Apply visibility on load
+    applyColumnVisibilityChaimae();
+}
+
+// Save column visibility to localStorage
+function saveColumnVisibilityChaimae() {
+    localStorage.setItem('chaimae_column_visibility', JSON.stringify(columnVisibilityChaimae));
+}
+
+// Toggle column visibility
+window.toggleColumnChaimae = function (column) {
+    columnVisibilityChaimae[column] = !columnVisibilityChaimae[column];
+    saveColumnVisibilityChaimae();
+    applyColumnVisibilityChaimae();
+
+    // Re-display invoices to update table body
+    displayInvoicesChaimae(filteredInvoicesChaimae);
+};
+
+// Apply column visibility to table and buttons
+function applyColumnVisibilityChaimae() {
+    const columnMap = {
+        type: { btnId: 'toggleColTypeChaimae', className: 'col-type-chaimae' },
+        ice: { btnId: 'toggleColIceChaimae', className: 'col-ice-chaimae' },
+        date: { btnId: 'toggleColDateChaimae', className: 'col-date-chaimae' },
+        createdBy: { btnId: 'toggleColCreatedByChaimae', className: 'col-createdBy-chaimae' },
+        totalHT: { btnId: 'toggleColTotalHTChaimae', className: 'col-totalHT-chaimae' }
+    };
+
+    Object.keys(columnMap).forEach(col => {
+        const isVisible = columnVisibilityChaimae[col];
+        const { btnId, className } = columnMap[col];
+
+        // Update button style
+        const btn = document.getElementById(btnId);
+        if (btn) {
+            if (isVisible) {
+                btn.style.background = '#4caf50';
+                btn.style.opacity = '1';
+            } else {
+                btn.style.background = '#f44336';
+                btn.style.opacity = '0.7';
+            }
+        }
+
+        // Update header visibility
+        const headerCells = document.querySelectorAll(`.${className}`);
+        headerCells.forEach(cell => {
+            cell.style.display = isVisible ? '' : 'none';
+        });
+
+        // Update body cells visibility
+        const bodyCells = document.querySelectorAll(`.${className}-body`);
+        bodyCells.forEach(cell => {
+            cell.style.display = isVisible ? '' : 'none';
+        });
+    });
+}
+
 // Format number for display with proper formatting
 function formatNumberChaimae(number) {
     const num = parseFloat(number) || 0;
@@ -295,6 +393,9 @@ function formatNumberChaimae(number) {
 
 // Load invoices from database
 window.loadInvoicesChaimae = async function () {
+    // Load column visibility preferences
+    loadColumnVisibilityChaimae();
+
     const loadingSpinner = document.getElementById('loadingSpinnerChaimae');
     const tableBody = document.getElementById('invoicesTableBodyChaimae');
     const emptyState = document.getElementById('emptyStateChaimae');
@@ -725,16 +826,16 @@ function displayInvoicesChaimae(invoices) {
                     <input type="checkbox" class="invoice-checkbox-chaimae" data-invoice-id="${invoice.id}" 
                            style="width: 18px; height: 18px; cursor: pointer;">
                 </td>
-                <td style="padding: 1rem 0.75rem; border-right: 1px solid #3e3e42;"><span class="badge ${typeBadge}">${typeLabel}</span></td>
+                <td class="col-type-chaimae-body" style="padding: 1rem 0.75rem; border-right: 1px solid #3e3e42; ${columnVisibilityChaimae.type ? '' : 'display: none;'}"><span class="badge ${typeBadge}">${typeLabel}</span></td>
                 <td style="padding: 1rem 0.75rem; border-right: 1px solid #3e3e42;">
                     <strong style="color: #2196f3;">${numero}</strong>
                     ${additionalInfo}
                 </td>
                 <td style="padding: 1rem 0.75rem; border-right: 1px solid #3e3e42; color: #cccccc;">${invoice.client_nom}</td>
-                <td style="padding: 1rem 0.75rem; border-right: 1px solid #3e3e42;"><small style="color: #999;">${invoice.client_ice || '-'}</small></td>
-                <td style="padding: 1rem 0.75rem; border-right: 1px solid #3e3e42; color: #cccccc;">${date}</td>
-                <td style="padding: 1rem 0.75rem; border-right: 1px solid #3e3e42;"><small style="color: #2196f3;">${invoice.created_by_user_name || '-'}</small></td>
-                <td style="text-align: left; padding: 1rem 0.75rem; border-right: 1px solid #3e3e42;"><strong style="color: #cccccc;">${totalHT} DH</strong></td>
+                <td class="col-ice-chaimae-body" style="padding: 1rem 0.75rem; border-right: 1px solid #3e3e42; ${columnVisibilityChaimae.ice ? '' : 'display: none;'}"><small style="color: #999;">${invoice.client_ice || '-'}</small></td>
+                <td class="col-date-chaimae-body" style="padding: 1rem 0.75rem; border-right: 1px solid #3e3e42; color: #cccccc; ${columnVisibilityChaimae.date ? '' : 'display: none;'}">${date}</td>
+                <td class="col-createdBy-chaimae-body" style="padding: 1rem 0.75rem; border-right: 1px solid #3e3e42; ${columnVisibilityChaimae.createdBy ? '' : 'display: none;'}"><small style="color: #2196f3;">${invoice.created_by_user_name || '-'}</small></td>
+                <td class="col-totalHT-chaimae-body" style="text-align: left; padding: 1rem 0.75rem; border-right: 1px solid #3e3e42; ${columnVisibilityChaimae.totalHT ? '' : 'display: none;'}"><strong style="color: #cccccc;">${totalHT} DH</strong></td>
                 <td style="text-align: left; padding: 1rem 0.75rem; border-right: 1px solid #3e3e42;"><strong style="color: #4caf50;">${totalTTC} DH</strong></td>
                 <td style="padding: 1rem 0.75rem;">
                     <div style="display: flex; gap: 0.5rem; justify-content: center;">
