@@ -535,16 +535,16 @@ function displayInvoicesMulti() {
                        style="width: 18px; height: 18px; cursor: pointer;"
                        onchange="updateSelectedCountMulti()">
             </td>
-            <td class="col-type-multi-body" style="${columnVisibilityMulti.type ? '' : 'display: none;'}"><span class="badge badge-${invoice.document_type}">${typeLabel}</span></td>
+            <td><span class="badge badge-${invoice.document_type}">${typeLabel}</span></td>
             <td>
                 <strong>${docNumber || 'N/A'}</strong>
                 ${invoice.document_numero_Order ? `<div style="font-size:0.75rem;color:#999;margin-top:0.25rem;">Order: ${invoice.document_numero_Order}</div>` : ''}
             </td>
             <td>${invoice.client_nom}</td>
             <td class="col-ice-multi-body" style="${columnVisibilityMulti.ice ? '' : 'display: none;'}">${invoice.client_ice}</td>
-            <td class="col-date-multi-body" style="${columnVisibilityMulti.date ? '' : 'display: none;'}">${date}</td>
-            <td class="col-createdBy-multi-body" style="${columnVisibilityMulti.createdBy ? '' : 'display: none;'}"><small style="color: #2196f3;">${invoice.created_by_user_name || '-'}</small></td>
-            <td class="col-totalHT-multi-body" style="${columnVisibilityMulti.totalHT ? '' : 'display: none;'}">${invoice.total_ht.toFixed(2)} DH</td>
+            <td>${date}</td>
+            <td><small style="color: #2196f3;">${invoice.created_by_user_name || '-'}</small></td>
+            <td>${invoice.total_ht.toFixed(2)} DH</td>
             <td><strong>${invoice.total_ttc.toFixed(2)} DH</strong></td>
             <td>
                 <div class="action-buttons">
