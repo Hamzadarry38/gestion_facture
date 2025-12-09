@@ -1,6 +1,6 @@
 {
   "name": "gestion-factures",
-  "version": "1.1.45",
+  "version": "1.1.46",
   "description": "Application de gestion des factures",
   "main": "main.js",
   "scripts": {
