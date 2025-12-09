@@ -799,16 +799,16 @@ function displayInvoicesChaimae(invoices) {
                     <input type="checkbox" class="invoice-checkbox-chaimae" data-invoice-id="${invoice.id}" 
                            style="width: 18px; height: 18px; cursor: pointer;">
                 </td>
-                <td class="col-type-chaimae-body" style="padding: 1rem 0.75rem; border-right: 1px solid #3e3e42; ${columnVisibilityChaimae.type ? '' : 'display: none;'}"><span class="badge ${typeBadge}">${typeLabel}</span></td>
+                <td style="padding: 1rem 0.75rem; border-right: 1px solid #3e3e42;"><span class="badge ${typeBadge}">${typeLabel}</span></td>
                 <td style="padding: 1rem 0.75rem; border-right: 1px solid #3e3e42;">
                     <strong style="color: #2196f3;">${numero}</strong>
                     ${additionalInfo}
                 </td>
                 <td style="padding: 1rem 0.75rem; border-right: 1px solid #3e3e42; color: #cccccc;">${invoice.client_nom}</td>
                 <td class="col-ice-chaimae-body" style="padding: 1rem 0.75rem; border-right: 1px solid #3e3e42; ${columnVisibilityChaimae.ice ? '' : 'display: none;'}"><small style="color: #999;">${invoice.client_ice || '-'}</small></td>
-                <td class="col-date-chaimae-body" style="padding: 1rem 0.75rem; border-right: 1px solid #3e3e42; color: #cccccc; ${columnVisibilityChaimae.date ? '' : 'display: none;'}">${date}</td>
-                <td class="col-createdBy-chaimae-body" style="padding: 1rem 0.75rem; border-right: 1px solid #3e3e42; ${columnVisibilityChaimae.createdBy ? '' : 'display: none;'}"><small style="color: #2196f3;">${invoice.created_by_user_name || '-'}</small></td>
-                <td class="col-totalHT-chaimae-body" style="text-align: left; padding: 1rem 0.75rem; border-right: 1px solid #3e3e42; ${columnVisibilityChaimae.totalHT ? '' : 'display: none;'}"><strong style="color: #cccccc;">${totalHT} DH</strong></td>
+                <td style="padding: 1rem 0.75rem; border-right: 1px solid #3e3e42; color: #cccccc;">${date}</td>
+                <td style="padding: 1rem 0.75rem; border-right: 1px solid #3e3e42;"><small style="color: #2196f3;">${invoice.created_by_user_name || '-'}</small></td>
+                <td style="text-align: left; padding: 1rem 0.75rem; border-right: 1px solid #3e3e42;"><strong style="color: #cccccc;">${totalHT} DH</strong></td>
                 <td style="text-align: left; padding: 1rem 0.75rem; border-right: 1px solid #3e3e42;"><strong style="color: #4caf50;">${totalTTC} DH</strong></td>
                 <td style="padding: 1rem 0.75rem;">
                     <div style="display: flex; gap: 0.5rem; justify-content: center;">
