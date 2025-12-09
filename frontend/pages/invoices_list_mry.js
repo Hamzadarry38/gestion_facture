@@ -497,13 +497,13 @@ function displayInvoices(invoices) {
                     <input type="checkbox" class="invoice-checkbox" data-invoice-id="${invoice.id}" 
                            style="width: 18px; height: 18px; cursor: pointer;">
                 </td>
-                <td class="col-type-mry-body" style="${columnVisibilityMRY.type ? '' : 'display: none;'}"><span class="badge ${typeBadge}">${typeLabel}</span></td>
+                <td><span class="badge ${typeBadge}">${typeLabel}</span></td>
                 <td>${documentDisplay}</td>
                 <td>${invoice.client_nom}</td>
                 <td class="col-ice-mry-body" style="${columnVisibilityMRY.ice ? '' : 'display: none;'}">${invoice.client_ice}</td>
-                <td class="col-date-mry-body" style="${columnVisibilityMRY.date ? '' : 'display: none;'}">${date}</td>
-                <td class="col-createdBy-mry-body" style="${columnVisibilityMRY.createdBy ? '' : 'display: none;'}"><small style="color: #2196f3;">${invoice.created_by_user_name || '-'}</small></td>
-                <td class="col-totalHT-mry-body" style="${columnVisibilityMRY.totalHT ? '' : 'display: none;'}">${formatNumber(invoice.total_ht)} DH</td>
+                <td>${date}</td>
+                <td><small style="color: #2196f3;">${invoice.created_by_user_name || '-'}</small></td>
+                <td>${formatNumber(invoice.total_ht)} DH</td>
                 <td><strong>${formatNumber(invoice.total_ttc)} DH</strong></td>
                 <td>
                     <div class="action-buttons">
