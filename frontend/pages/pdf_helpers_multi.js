@@ -661,7 +661,7 @@ window.downloadInvoicePDFMulti = async function(invoiceId) {
         
         // Save PDF
         const docNumero = invoice.document_numero || invoice.document_numero_devis || 'N';
-        const filename = `${invoice.document_type === 'devis' ? 'Devis' : 'Facture'}_${docNumero}_${invoice.client_nom}.pdf`;
+        const filename = `${invoice.document_type === 'devis' ? 'Devis' : 'Facture'}_${docNumero}_${invoice.client_nom}-MULTI.pdf`;
         doc.save(filename);
         
         window.notify.success('Succès', 'PDF téléchargé avec succès', 3000);

@@ -154,8 +154,9 @@ window.downloadSAAISSDevisPDF = async function(invoiceId) {
         // Generate SAAISS PDF with special design
         await generateSAAISSPDF(doc, customizedInvoice, includeZeroProducts);
         
-        // Save the PDF
-        const fileName = `SAAISS_Devis_${customizedInvoice.document_numero_devis}_${new Date().toISOString().slice(0, 10)}.pdf`;
+        // Save the PDF with new format: SAAISS_TYPE_ClientName
+        const docType = customizedInvoice.document_type === 'devis' ? 'Devis' : 'Facture';
+        const fileName = `SAAISS_${docType}_${customizedInvoice.client_nom}.pdf`;
         
         // Get PDF as blob and save to disk
         const pdfBlob = doc.output('blob');

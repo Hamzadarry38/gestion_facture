@@ -163,10 +163,10 @@ window.downloadSKMDevisPDF = async function(invoiceId) {
         // Get the company that created this PDF
         const selectedCompany = JSON.parse(localStorage.getItem('selectedCompany') || '{}');
         const createdBy = selectedCompany.code || selectedCompany.name || 'Unknown';
-        const companyName = selectedCompany.name ? selectedCompany.name.replace(' Company', '') : 'Unknown';
         
-        // Save the PDF
-        const fileName = `SKM_Devis_${customizedInvoice.document_numero_devis}_${new Date().toISOString().slice(0, 10)}_${companyName}.pdf`;
+        // Save the PDF with new format: CONSAZIZ_TYPE_ClientName
+        const docType = customizedInvoice.document_type === 'devis' ? 'Devis' : 'Facture';
+        const fileName = `CONSAZIZ_${docType}_${customizedInvoice.client_nom}.pdf`;
         
         // Get PDF as blob and save to disk
         const pdfBlob = doc.output('blob');
