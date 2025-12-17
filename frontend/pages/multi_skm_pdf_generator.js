@@ -161,9 +161,10 @@ window.downloadMultiSKMDevisPDF = async function(invoiceId) {
         const selectedCompany = JSON.parse(localStorage.getItem('selectedCompany') || '{}');
         const createdBy = selectedCompany.code || selectedCompany.name || 'Unknown';
         
-        // Save the PDF with new format: CONSAZIZ_TYPE_ClientName
+        // Save the PDF with new format: CONSAZIZ_TYPE_ClientName_InvoiceNumber
         const docType = customizedInvoice.document_type === 'devis' ? 'Devis' : 'Facture';
-        const fileName = `CONSAZIZ_${docType}_${customizedInvoice.client_nom}.pdf`;
+        const invoiceNumber = customizedInvoice.document_numero_devis || customizedInvoice.document_numero || 'N-A';
+        const fileName = `CONSAZIZ_${docType}_${customizedInvoice.client_nom}_${invoiceNumber}.pdf`;
         
         // Get PDF as blob and save to disk
         const pdfBlob = doc.output('blob');

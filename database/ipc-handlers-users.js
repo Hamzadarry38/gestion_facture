@@ -1,5 +1,5 @@
 const { ipcMain } = require('electron');
-const { initializeDatabase, createUser, verifyUser, hasUsers, getAllUsers, updatePassword } = require('./db_users');
+const { initializeDatabase, createUser, verifyUser, hasUsers, getAllUsers, getUsersCount, updatePassword } = require('./db_users');
 
 async function registerUsersHandlers() {
     // console.log('📝 Registering Users IPC handlers...');
@@ -51,6 +51,17 @@ async function registerUsersHandlers() {
             return { success: true, users };
         } catch (error) {
             console.error('Error getting users:', error);
+            return { success: false, error: error.message };
+        }
+    });
+
+    // Get users count
+    ipcMain.handle('users:count', async () => {
+        try {
+            const count = await getUsersCount();
+            return { success: true, count };
+        } catch (error) {
+            console.error('Error counting users:', error);
             return { success: false, error: error.message };
         }
     });

@@ -123,8 +123,31 @@ function setupIpcHandlers() {
     }
   });
 
-  ipcMain.on('window-close', () => {
-    if (mainWindow) mainWindow.close();
+  ipcMain.on('window-close', async () => {
+    if (mainWindow) {
+      // Check if we should clear authentication on close
+      const shouldClear = await mainWindow.webContents.executeJavaScript(`
+        (async () => {
+          try {
+            const result = await window.electron.users.count();
+            return result.success && result.count > 1;
+          } catch (e) {
+            return false;
+          }
+        })()
+      `);
+      
+      if (shouldClear) {
+        // Clear authentication data if multiple users exist
+        await mainWindow.webContents.executeJavaScript(`
+          localStorage.removeItem('isAuthenticated');
+          localStorage.removeItem('user');
+          localStorage.removeItem('selectedCompany');
+        `);
+      }
+      
+      mainWindow.close();
+    }
   });
 
   // Handle loading assets (images)

@@ -166,6 +166,25 @@ function getAllUsers() {
     });
 }
 
+// Get users count
+function getUsersCount() {
+    return new Promise((resolve, reject) => {
+        try {
+            const stmt = db.prepare('SELECT COUNT(*) as count FROM users');
+            if (stmt.step()) {
+                const result = stmt.getAsObject();
+                stmt.free();
+                resolve(result.count);
+            } else {
+                stmt.free();
+                resolve(0);
+            }
+        } catch (error) {
+            reject(error);
+        }
+    });
+}
+
 // Update user password
 function updatePassword(email, oldPassword, newPassword) {
     return new Promise((resolve, reject) => {
@@ -211,5 +230,6 @@ module.exports = {
     verifyUser,
     hasUsers,
     getAllUsers,
+    getUsersCount,
     updatePassword
 };

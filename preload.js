@@ -64,6 +64,7 @@ contextBridge.exposeInMainWorld('electron', {
     login: (email, password) => ipcRenderer.invoke('users:login', { email, password }),
     hasUsers: () => ipcRenderer.invoke('users:hasUsers'),
     getAll: () => ipcRenderer.invoke('users:getAll'),
+    count: () => ipcRenderer.invoke('users:count'),
     updatePassword: (email, oldPassword, newPassword) => ipcRenderer.invoke('users:updatePassword', { email, oldPassword, newPassword })
   },
   
