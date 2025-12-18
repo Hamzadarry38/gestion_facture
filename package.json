@@ -8,7 +8,7 @@
     "dev": "electron . --dev",
     "build": "electron-builder",
     "build:win": "electron-builder --win",
-    "build:publish": "node publish.js",
+    "deploy": "node publish.js",
     "test:add-years": "node test_add_invoices_multiple_years.js"
   },
   "keywords": [
