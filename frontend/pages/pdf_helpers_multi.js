@@ -13,12 +13,12 @@ function numberToFrenchWords(number) {
     const units = ['', 'un', 'deux', 'trois', 'quatre', 'cinq', 'six', 'sept', 'huit', 'neuf'];
     const teens = ['dix', 'onze', 'douze', 'treize', 'quatorze', 'quinze', 'seize', 'dix-sept', 'dix-huit', 'dix-neuf'];
     const tens = ['', '', 'vingt', 'trente', 'quarante', 'cinquante', 'soixante', 'soixante', 'quatre-vingt', 'quatre-vingt'];
-    
+
     function convertLessThanThousand(n) {
         if (n === 0) return '';
-        
+
         let result = '';
-        
+
         // Hundreds
         const hundreds = Math.floor(n / 100);
         if (hundreds > 0) {
@@ -30,16 +30,16 @@ function numberToFrenchWords(number) {
             if (n % 100 !== 0) result += ' ';
             else if (hundreds > 1) result += 's';
         }
-        
+
         n %= 100;
-        
+
         // Tens and units
         if (n >= 10 && n < 20) {
             result += teens[n - 10];
         } else if (n >= 20) {
             const tensDigit = Math.floor(n / 10);
             const unitsDigit = n % 10;
-            
+
             if (tensDigit === 7 || tensDigit === 9) {
                 result += tens[tensDigit];
                 if (tensDigit === 7) {
@@ -60,15 +60,15 @@ function numberToFrenchWords(number) {
         } else if (n > 0) {
             result += units[n];
         }
-        
+
         return result;
     }
-    
+
     const integerPart = Math.floor(number);
     const decimalPart = Math.round((number - integerPart) * 100);
-    
+
     let result = '';
-    
+
     if (integerPart === 0) {
         result = 'zéro dirham';
     } else {
@@ -81,7 +81,7 @@ function numberToFrenchWords(number) {
                 result += convertLessThanThousand(billions) + ' milliards';
             }
         }
-        
+
         // Millions
         const millions = Math.floor((integerPart % 1000000000) / 1000000);
         if (millions > 0) {
@@ -92,7 +92,7 @@ function numberToFrenchWords(number) {
                 result += convertLessThanThousand(millions) + ' millions';
             }
         }
-        
+
         // Thousands
         const thousands = Math.floor((integerPart % 1000000) / 1000);
         if (thousands > 0) {
@@ -103,24 +103,24 @@ function numberToFrenchWords(number) {
                 result += convertLessThanThousand(thousands) + ' mille';
             }
         }
-        
+
         // Remaining
         const remainder = integerPart % 1000;
         if (remainder > 0) {
             if (result) result += ' ';
             result += convertLessThanThousand(remainder);
         }
-        
+
         result += integerPart > 1 ? ' dirhams' : ' dirham';
     }
-    
+
     if (decimalPart > 0) {
         result += ' et ' + convertLessThanThousand(decimalPart) + ' centime';
         if (decimalPart > 1) result += 's';
     } else {
         result += ' et zéro centime';
     }
-    
+
     return result.charAt(0).toUpperCase() + result.slice(1);
 }
 
@@ -131,7 +131,7 @@ async function loadJsPDF() {
             resolve();
             return;
         }
-        
+
         const script = document.createElement('script');
         script.src = 'https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js';
         script.onload = () => {
@@ -147,28 +147,28 @@ async function loadJsPDF() {
 }
 
 // Download invoice as PDF - MULTI TRAVAUX TETOUAN Design
-window.downloadInvoicePDFMulti = async function(invoiceId) {
+window.downloadInvoicePDFMulti = async function (invoiceId) {
     try {
         console.log('📥 Generating PDF for invoice:', invoiceId);
-        
+
         // Get invoice data
         const result = await window.electron.dbMulti.getInvoiceById(invoiceId);
-        
+
         if (!result.success || !result.data) {
             throw new Error('Facture introuvable');
         }
-        
+
         const invoice = result.data;
-        
+
         console.log('🔍 Invoice type:', invoice.document_type);
         console.log('🔍 Current Order number:', invoice.document_numero_Order);
-        
+
         // Show dialog with checkbox for FACTURE type (only if Order exists)
         if (invoice.document_type === 'facture' && invoice.document_numero_Order && invoice.document_numero_Order.trim() !== '') {
             const includeOrder = await new Promise((resolve) => {
                 const overlay = document.createElement('div');
                 overlay.className = 'custom-modal-overlay';
-                
+
                 overlay.innerHTML = `
                     <div class="custom-modal">
                         <div class="custom-modal-header">
@@ -189,18 +189,18 @@ window.downloadInvoicePDFMulti = async function(invoiceId) {
                         </div>
                     </div>
                 `;
-                
+
                 document.body.appendChild(overlay);
-                
+
                 const checkbox = overlay.querySelector('#includeOrderCheckbox');
                 const continueBtn = overlay.querySelector('#continueBtn');
-                
+
                 continueBtn.addEventListener('click', () => {
                     const include = checkbox.checked;
                     overlay.remove();
                     resolve(include);
                 });
-                
+
                 overlay.addEventListener('click', (e) => {
                     if (e.target === overlay) {
                         const include = checkbox.checked;
@@ -208,10 +208,10 @@ window.downloadInvoicePDFMulti = async function(invoiceId) {
                         resolve(include);
                     }
                 });
-                
+
                 setTimeout(() => continueBtn.focus(), 100);
             });
-            
+
             // Temporarily remove Order number if user doesn't want it in PDF
             if (!includeOrder) {
                 console.log('⚠️ User chose not to include Order number in PDF');
@@ -220,21 +220,21 @@ window.downloadInvoicePDFMulti = async function(invoiceId) {
                 console.log('✅ Including Order number in PDF:', invoice.document_numero_Order);
             }
         }
-        
+
         console.log('📄 Continuing with PDF generation...');
-        
+
         // Check if there are products with zero quantity or price
-        const hasZeroProducts = invoice.products && invoice.products.some(p => 
+        const hasZeroProducts = invoice.products && invoice.products.some(p =>
             parseFloat(p.quantite) === 0 || parseFloat(p.prix_unitaire_ht) === 0
         );
-        
+
         let includeZeroProducts = true; // Default: include all products
-        
+
         if (hasZeroProducts) {
             includeZeroProducts = await new Promise((resolve) => {
                 const overlay = document.createElement('div');
                 overlay.className = 'custom-modal-overlay';
-                
+
                 overlay.innerHTML = `
                     <div class="custom-modal">
                         <div class="custom-modal-header">
@@ -259,59 +259,59 @@ window.downloadInvoicePDFMulti = async function(invoiceId) {
                         </div>
                     </div>
                 `;
-                
+
                 document.body.appendChild(overlay);
-                
+
                 const excludeBtn = document.getElementById('excludeZeroBtn');
                 const includeBtn = document.getElementById('includeZeroBtn');
-                
+
                 excludeBtn.addEventListener('click', () => {
                     overlay.remove();
                     resolve(false);
                 });
-                
+
                 includeBtn.addEventListener('click', () => {
                     overlay.remove();
                     resolve(true);
                 });
-                
+
                 overlay.addEventListener('click', (e) => {
                     if (e.target === overlay) {
                         overlay.remove();
                         resolve(true); // Default to include if user clicks outside
                     }
                 });
-                
+
                 setTimeout(() => includeBtn.focus(), 100);
             });
-            
+
             console.log('🔍 User choice for zero products:', includeZeroProducts ? 'Include' : 'Exclude');
         }
-        
+
         // Mark products with zero values for special display (don't remove them)
         const showZeroValues = includeZeroProducts;
         console.log('📊 Show zero values in PDF:', showZeroValues);
-        
+
         // Check if jsPDF is loaded
         if (typeof window.jspdf === 'undefined') {
             await loadJsPDF();
         }
-        
+
         const { jsPDF } = window.jspdf;
         const doc = new jsPDF();
-        
+
         // Colors - New design
         const darkGrayColor = [96, 125, 139]; // #607D8B
         const lightGrayBg = [236, 239, 241]; // #ECEFF1
-        
+
         const dateStr = new Date(invoice.document_date).toLocaleDateString('fr-FR');
-        
+
         // Function to add header to any page
         const addHeader = (isFirstPage = true) => {
             // Add company logo - Left side (synchronous approach)
             try {
-                const logoImg = document.querySelector('img[src*="multi.png"]') || 
-                               document.querySelector('img[alt="Multi Company"]');
+                const logoImg = document.querySelector('img[src*="multi.png"]') ||
+                    document.querySelector('img[alt="Multi Company"]');
                 if (logoImg && logoImg.src && logoImg.complete) {
                     // Image is already loaded
                     const canvas = document.createElement('canvas');
@@ -325,13 +325,13 @@ window.downloadInvoicePDFMulti = async function(invoiceId) {
             } catch (error) {
                 console.log('Logo not available:', error.message);
             }
-            
+
             // Company Name - Left aligned, large (moved right to make space for logo)
             doc.setFontSize(18);
             doc.setTextColor(96, 125, 139);
             doc.setFont(undefined, 'bold');
             doc.text('MULTI TRAVAUX TETOUAN', 40, 18);
-            
+
             // Document Type - Right aligned, underlined
             doc.setFontSize(18);
             doc.setFont(undefined, 'bold');
@@ -339,7 +339,7 @@ window.downloadInvoicePDFMulti = async function(invoiceId) {
             doc.text(docType, 195, 18, { align: 'right' });
             doc.setLineWidth(0.5);
             doc.line(195 - doc.getTextWidth(docType), 19, 195, 19);
-            
+
             // Document Number and Date - Right side, smaller
             doc.setFontSize(9);
             doc.setFont(undefined, 'normal');
@@ -349,7 +349,7 @@ window.downloadInvoicePDFMulti = async function(invoiceId) {
                 doc.text(`Date de devis : ${dateStr}`, 195, 31, { align: 'right' });
             } else {
                 doc.text(`Numéro de facture : ${invoice.document_numero || '-'}`, 195, 26, { align: 'right' });
-                
+
                 // Add Order number on new line below invoice number if exists
                 if (invoice.document_numero_Order && invoice.document_numero_Order.trim() !== '') {
                     doc.text(`N° Order : ${invoice.document_numero_Order}`, 195, 31, { align: 'right' });
@@ -358,20 +358,20 @@ window.downloadInvoicePDFMulti = async function(invoiceId) {
                     doc.text(`Date de facture : ${dateStr}`, 195, 31, { align: 'right' });
                 }
             }
-            
+
             // Email and Address - Left side with gray background (ONE BOX)
             doc.setFillColor(...darkGrayColor);
             doc.rect(15, 38, 80, 6, 'F');
             doc.setTextColor(255, 255, 255);
             doc.setFontSize(8);
             doc.text('Email: errbahiabderrahim@gmail.com', 17, 42);
-            
+
             doc.setFillColor(...lightGrayBg);
             doc.rect(15, 44, 80, 6, 'F');
             doc.setTextColor(0, 0, 0);
             doc.setFontSize(7);
             doc.text('AV 10 MAI IMM 04 APPART 01 A DROIT - TETOUAN , TETOUAN', 17, 48);
-            
+
             // Client Info - Right side with gray background (ONE BOX)
             doc.setFillColor(...darkGrayColor);
             doc.rect(115, 38, 80, 6, 'F');
@@ -379,7 +379,7 @@ window.downloadInvoicePDFMulti = async function(invoiceId) {
             doc.setFontSize(8);
             const devisLabel = invoice.document_type === 'devis' ? 'DEVIS à :' : 'FACTURE à :';
             doc.text(`${devisLabel} ${invoice.client_nom}`, 117, 42);
-            
+
             // Only show ICE if it exists and is not "0"
             if (invoice.client_ice && invoice.client_ice !== '0') {
                 doc.setFillColor(...lightGrayBg);
@@ -389,35 +389,35 @@ window.downloadInvoicePDFMulti = async function(invoiceId) {
                 doc.text(`ICE : ${invoice.client_ice}`, 117, 48);
             }
         };
-        
+
         // Function to add footer to any page
         const addFooter = (pageNum, totalPages) => {
             // Company info at bottom
             doc.setTextColor(0, 0, 0);
             doc.setFontSize(9);
             doc.setFont(undefined, 'normal');
-            doc.text('NIF 68717422 | TP 51001343 | RC 38633 | CNSS 6446237', 105, 270, { align: 'center' });
-            doc.text('ICE : 00380950500031', 105, 276, { align: 'center' });
-            
+            doc.text('NIF 68717422 | TP 51001343 | RC 38633 | CNSS 6446237', 105, 275, { align: 'center' });
+            doc.text('ICE : 00380950500031', 105, 279, { align: 'center' });
+
             // Add phone number
             doc.setTextColor(0, 0, 0);
             doc.setFontSize(8);
             doc.setFont(undefined, 'normal');
-            doc.text('Tel: +212 661 307 323', 105, 282, { align: 'center' });
-            
+            doc.text('Tel: +212 661 307 323', 105, 283, { align: 'center' });
+
             // Add page numbering at bottom in dark color
             doc.setTextColor(0, 0, 0);
             doc.setFontSize(9);
             doc.setFont(undefined, 'normal');
-            doc.text(`Page ${pageNum} / ${totalPages}`, 105, 288, { align: 'center' });
+            doc.text(`Page ${pageNum} / ${totalPages}`, 105, 287, { align: 'center' });
         };
-        
+
         // Add header to first page
         addHeader(true);
-        
+
         // Products Table
         const startY = 60;
-        
+
         // Table Header - Gray background
         doc.setFillColor(...darkGrayColor);
         doc.rect(15, startY, 180, 7, 'F');
@@ -428,40 +428,40 @@ window.downloadInvoicePDFMulti = async function(invoiceId) {
         doc.text('Quantité', 115, startY + 5, { align: 'center' });
         doc.text('Prix unitaire HT', 150, startY + 5, { align: 'right' });
         doc.text('Prix total HT', 188, startY + 5, { align: 'right' });
-        
+
         // Table Body
         let currentY = startY + 10;
         doc.setTextColor(0, 0, 0);
         doc.setFont(undefined, 'normal');
         doc.setFontSize(9);
-        
+
         let pageCount = 1;
         const pages = [];
-        
+
         invoice.products.forEach((product, index) => {
             // Wrap long text - limit width to 75 for description column only
             const designation = product.designation || '';
             const lines = doc.splitTextToSize(designation, 75);
-            
+
             // Calculate row height based on text lines - more space per line
             const rowHeight = Math.max(8, (lines.length * 4.5) + 4);
-            
+
             // Split very long products across multiple pages if needed
             let remainingLines = [...lines];
             let isFirstPart = true;
-            
+
             while (remainingLines.length > 0) {
                 const availableSpace = 220 - currentY;
-                
+
                 // If not enough space for even one line, create new page first
                 if (availableSpace < 15) {
                     pages.push(pageCount);
                     doc.addPage();
                     addHeader(false);
                     pageCount++;
-                    
+
                     let newStartY = 60;
-                    
+
                     doc.setFillColor(...darkGrayColor);
                     doc.rect(15, newStartY, 180, 7, 'F');
                     doc.setTextColor(255, 255, 255);
@@ -471,64 +471,64 @@ window.downloadInvoicePDFMulti = async function(invoiceId) {
                     doc.text('Quantité', 115, newStartY + 5, { align: 'center' });
                     doc.text('Prix unitaire HT', 150, newStartY + 5, { align: 'right' });
                     doc.text('Prix total HT', 188, newStartY + 5, { align: 'right' });
-                    
+
                     currentY = newStartY + 10;
                     doc.setTextColor(0, 0, 0);
                     doc.setFont(undefined, 'normal');
                     doc.setFontSize(9);
                     continue;
                 }
-                
+
                 const maxLinesPerPage = Math.floor((availableSpace - 10) / 4.5);
                 const linesToDraw = remainingLines.splice(0, Math.max(1, maxLinesPerPage));
                 const partialRowHeight = Math.max(8, (linesToDraw.length * 4.5) + 4);
-                
+
                 // Alternate row colors (only for first part)
                 if (isFirstPart && index % 2 === 0) {
                     doc.setFillColor(245, 245, 245);
                     doc.rect(15, currentY - 3, 180, partialRowHeight, 'F');
                 }
-                
+
                 doc.setFontSize(7.5);
                 // Draw lines
                 linesToDraw.forEach((line, lineIndex) => {
                     doc.text(line, 18, currentY + 3 + (lineIndex * 4.5));
                 });
-                
+
                 // Only show quantity, price, and total on the first part
                 if (isFirstPart) {
                     const centerOffset = (linesToDraw.length > 1) ? ((linesToDraw.length - 1) * 2.25) : 0;
-                    
+
                     doc.setFontSize(8);
                     const qty = parseFloat(product.quantite);
                     if (showZeroValues || qty !== 0) {
                         doc.text(String(product.quantite || ''), 115, currentY + 3 + centerOffset, { align: 'center' });
                     }
-                    
+
                     doc.setFontSize(7.5);
                     const price = parseFloat(product.prix_unitaire_ht);
                     if (showZeroValues || price !== 0) {
                         doc.text(`${formatNumberForPDF(product.prix_unitaire_ht)} DH`, 150, currentY + 3 + centerOffset, { align: 'right' });
                     }
-                    
+
                     const total = parseFloat(product.total_ht);
                     if (showZeroValues || total !== 0) {
                         doc.text(`${formatNumberForPDF(product.total_ht)} DH`, 188, currentY + 3 + centerOffset, { align: 'right' });
                     }
                 }
-                
+
                 currentY += partialRowHeight;
                 isFirstPart = false;
-                
+
                 // If there are more lines and we're near the bottom, create new page
                 if (remainingLines.length > 0 && currentY > 200) {
                     pages.push(pageCount);
                     doc.addPage();
                     addHeader(false);
                     pageCount++;
-                    
+
                     let newStartY = 60;
-                    
+
                     doc.setFillColor(...darkGrayColor);
                     doc.rect(15, newStartY, 180, 7, 'F');
                     doc.setTextColor(255, 255, 255);
@@ -538,7 +538,7 @@ window.downloadInvoicePDFMulti = async function(invoiceId) {
                     doc.text('Quantité', 115, newStartY + 5, { align: 'center' });
                     doc.text('Prix unitaire HT', 150, newStartY + 5, { align: 'right' });
                     doc.text('Prix total HT', 188, newStartY + 5, { align: 'right' });
-                    
+
                     currentY = newStartY + 10;
                     doc.setTextColor(0, 0, 0);
                     doc.setFont(undefined, 'normal');
@@ -546,10 +546,10 @@ window.downloadInvoicePDFMulti = async function(invoiceId) {
                 }
             }
         });
-        
+
         // Fixed position for Remarques and Totals (always at same Y position)
         const fixedBottomY = 220; // Moved up to give more space for notes
-        
+
         // Remarques section - Left side
         doc.setFillColor(...darkGrayColor);
         doc.rect(15, fixedBottomY, 85, 6, 'F');
@@ -557,7 +557,7 @@ window.downloadInvoicePDFMulti = async function(invoiceId) {
         doc.setFontSize(8);
         doc.setFont(undefined, 'bold');
         doc.text('Remarques et instructions de paiement :', 17, fixedBottomY + 4);
-        
+
         doc.setFillColor(255, 255, 255);
         doc.rect(15, fixedBottomY + 6, 85, 12, 'F');
         doc.setDrawColor(200, 200, 200);
@@ -568,7 +568,7 @@ window.downloadInvoicePDFMulti = async function(invoiceId) {
         doc.setFontSize(8);
         doc.text('ATTIJARI WAFA BANQ', 17, fixedBottomY + 10);
         doc.text('RIB : 007 720 0005979000000953 03', 17, fixedBottomY + 15);
-        
+
         // Totals - Right side with gray background (same Y position)
         doc.setFillColor(...darkGrayColor);
         doc.rect(110, fixedBottomY, 85, 6, 'F');
@@ -577,7 +577,7 @@ window.downloadInvoicePDFMulti = async function(invoiceId) {
         doc.setFont(undefined, 'bold');
         doc.text('TOTALE HT', 113, fixedBottomY + 4);
         doc.text(`${formatNumberForPDF(invoice.total_ht)} DH`, 192, fixedBottomY + 4, { align: 'right' });
-        
+
         doc.setFillColor(255, 255, 255);
         doc.rect(110, fixedBottomY + 6, 85, 6, 'F');
         doc.setDrawColor(200, 200, 200);
@@ -585,13 +585,13 @@ window.downloadInvoicePDFMulti = async function(invoiceId) {
         doc.setTextColor(0, 0, 0);
         doc.text(`TVA ${invoice.tva_rate}%`, 113, fixedBottomY + 10);
         doc.text(`${formatNumberForPDF(invoice.montant_tva)} DH`, 192, fixedBottomY + 10, { align: 'right' });
-        
+
         doc.setFillColor(...darkGrayColor);
         doc.rect(110, fixedBottomY + 12, 85, 6, 'F');
         doc.setTextColor(255, 255, 255);
         doc.text('TOTALE TTC', 113, fixedBottomY + 16);
         doc.text(`${formatNumberForPDF(invoice.total_ttc)} DH`, 192, fixedBottomY + 16, { align: 'right' });
-        
+
         // Amount in words - below both sections
         const amountWordsY = fixedBottomY + 25;
         doc.setTextColor(0, 0, 0);
@@ -600,7 +600,7 @@ window.downloadInvoicePDFMulti = async function(invoiceId) {
         const amountInWords = numberToFrenchWords(invoice.total_ttc);
         const docTypeText = invoice.document_type === 'devis' ? 'devis' : 'facture';
         doc.text(`La Présente ${docTypeText} est Arréte à la somme de : ${amountInWords}`, 15, amountWordsY, { maxWidth: 180 });
-        
+
         // Add notes if any
         const noteResult = await window.electron.dbMulti.getNote(invoiceId);
         if (noteResult.success && noteResult.data) {
@@ -649,23 +649,23 @@ window.downloadInvoicePDFMulti = async function(invoiceId) {
                 lineY += lineStep;
             }
         }
-        
+
         // Add page numbering to all pages
         pages.push(pageCount);
         const totalPages = pages.length;
-        
+
         for (let i = 0; i < totalPages; i++) {
             doc.setPage(i + 1);
             addFooter(i + 1, totalPages);
         }
-        
+
         // Save PDF
         const docNumero = invoice.document_numero || invoice.document_numero_devis || 'N';
         const filename = `${invoice.document_type === 'devis' ? 'Devis' : 'Facture'}_${docNumero}_${invoice.client_nom}-MULTI.pdf`;
         doc.save(filename);
-        
+
         window.notify.success('Succès', 'PDF téléchargé avec succès', 3000);
-        
+
     } catch (error) {
         console.error('❌ Error generating PDF:', error);
         window.notify.error('Erreur', 'Impossible de générer le PDF: ' + error.message, 4000);

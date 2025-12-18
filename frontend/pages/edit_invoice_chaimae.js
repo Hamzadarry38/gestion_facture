@@ -141,7 +141,7 @@ window.EditInvoiceChaimaePage = function () {
                                 <div class="summary-row">
                                     <span>TVA:</span>
                                     <div class="tva-input">
-                                        <input type="number" id="editTvaRateChaimae" value="20" min="0" max="100" onchange="calculateTotalsEditChaimae()">
+                                        <input type="number" id="editTvaRateChaimae" value="20" min="0" max="100" oninput="calculateTotalsEditChaimae()">
                                         <span>%</span>
                                     </div>
                                 </div>
@@ -562,7 +562,7 @@ window.handleEditInvoiceSubmitChaimae = async function (e) {
             products: [],
             totals: {
                 total_ht: parseFloat(document.getElementById('editTotalHTChaimae').textContent.replace(/\s/g, '').replace('DH', '').replace(',', '.')) || 0,
-                tva_rate: parseFloat(document.getElementById('editTvaRateChaimae').value) || 20,
+                tva_rate: isNaN(parseFloat(document.getElementById('editTvaRateChaimae').value)) ? 20 : parseFloat(document.getElementById('editTvaRateChaimae').value),
                 montant_tva: parseFloat(document.getElementById('editMontantTVAChaimae').textContent.replace(/\s/g, '').replace('DH', '').replace(',', '.')) || 0,
                 total_ttc: parseFloat(document.getElementById('editTotalTTCChaimae').textContent.replace(/\s/g, '').replace('DH', '').replace(',', '.')) || 0
             }
@@ -644,9 +644,10 @@ window.handleEditInvoiceSubmitChaimae = async function (e) {
         const result = await window.electron.dbChaimae.updateInvoice(currentInvoiceIdChaimae, formData);
 
         if (result.success) {
-            const noteText = document.getElementById('editInvoiceNotesChaimae')?.value?.trim();
-            if (noteText) {
-                await window.electron.dbChaimae.saveNote(currentInvoiceIdChaimae, noteText);
+            // Save notes (even if empty to allow deletion)
+            const noteTextarea = document.getElementById('editInvoiceNotesChaimae');
+            if (noteTextarea) {
+                await window.electron.dbChaimae.saveNote(currentInvoiceIdChaimae, noteTextarea.value.trim());
             }
 
             const user = JSON.parse(localStorage.getItem('user'));
@@ -768,8 +769,15 @@ window.showConvertDocumentTypeModalChaimae = async function () {
         console.log('🔄 [CONVERT] Current numero:', currentNumero);
         console.log('🔄 [CONVERT] New type:', selectedNewType);
 
-        // Get existing order number from facture (to prefill when converting to bon_livraison)
-        const existingOrderNumber = invoice.document_numero_Order || '';
+        // Get existing order number based on current type
+        let existingOrderNumber = '';
+        if (currentType === 'facture') {
+            existingOrderNumber = invoice.document_numero_Order || '';
+        } else if (currentType === 'bon_livraison') {
+            existingOrderNumber = invoice.document_numero_commande || '';
+        } else {
+            existingOrderNumber = invoice.document_order_devis || '';
+        }
 
         // Get existing BL number (to prefill when converting from BL to facture)
         // If converting FROM bon_livraison, use the BL number for the "Bon de livraison" field in facture

@@ -127,7 +127,7 @@ function EditInvoiceSimpleMRYPage() {
                                 <div class="summary-row">
                                     <span>TVA:</span>
                                     <div class="tva-input">
-                                        <input type="number" id="editTvaRateSimpleMRY" value="20" min="0" max="100" onchange="calculateTotalsEditSimpleMRY()">
+                                        <input type="number" id="editTvaRateSimpleMRY" value="20" min="0" max="100" oninput="calculateTotalsEditSimpleMRY()">
                                         <span>%</span>
                                     </div>
                                 </div>
@@ -172,33 +172,33 @@ let currentNumeroOrderSimpleMRY = null;
 async function loadInvoiceDataSimpleMRY(invoiceId) {
     try {
         const result = await window.electron.db.getInvoiceById(invoiceId);
-        
+
         if (!result.success || !result.data) {
             throw new Error('Facture introuvable');
         }
-        
+
         const invoice = result.data;
-        
+
         // Store current document type and N° Order
         currentDocumentTypeSimpleMRY = invoice.document_type;
         currentNumeroOrderSimpleMRY = invoice.document_numero_Order?.trim() || null;
-        
+
         // Fill client info
         document.getElementById('editClientNomSimpleMRY').value = invoice.client_nom;
         document.getElementById('editClientICESimpleMRY').value = invoice.client_ice;
-        
+
         // Fill document info
         const docTypeDisplay = invoice.document_type === 'facture' ? 'Facture' : 'Devis';
         document.getElementById('editDocumentTypeSimpleMRY').value = docTypeDisplay;
         document.getElementById('editDocumentDateSimpleMRY').value = invoice.document_date;
-        
+
         // Fill document number
         const docNumero = invoice.document_type === 'facture' ? invoice.document_numero : invoice.document_numero_devis;
         document.getElementById('editDocumentNumeroSimpleMRY').value = docNumero || '';
-        
+
         const label = invoice.document_type === 'facture' ? 'N° Facture' : 'N° Devis';
         document.getElementById('editDocumentNumeroLabelSimpleMRY').innerHTML = `${label} <span class="required">*</span>`;
-        
+
         // Show Order field if facture
         if (invoice.document_type === 'facture') {
             document.getElementById('editFieldOrderSimpleMRY').style.display = 'block';
@@ -206,22 +206,22 @@ async function loadInvoiceDataSimpleMRY(invoiceId) {
         } else {
             document.getElementById('editFieldOrderSimpleMRY').style.display = 'none';
         }
-        
+
         // Fill TVA
         document.getElementById('editTvaRateSimpleMRY').value = invoice.tva_rate;
-        
+
         // Load products
         const tbody = document.getElementById('editProductsTableBodySimpleMRY');
         tbody.innerHTML = '';
-        
+
         if (invoice.products && invoice.products.length > 0) {
             invoice.products.forEach(product => {
                 addProductRowEditSimpleMRY(product);
             });
         }
-        
+
         calculateTotalsEditSimpleMRY();
-        
+
     } catch (error) {
         console.error('[MRY] Error loading invoice:', error);
         window.notify.error('Erreur', 'Impossible de charger la facture', 3000);
@@ -230,10 +230,10 @@ async function loadInvoiceDataSimpleMRY(invoiceId) {
 }
 
 // Add product row
-window.addProductRowEditSimpleMRY = function(productData = null) {
+window.addProductRowEditSimpleMRY = function (productData = null) {
     const tbody = document.getElementById('editProductsTableBodySimpleMRY');
     const rowId = `edit-product-simple-mry-${productRowCounterEditSimpleMRY++}`;
-    
+
     const row = document.createElement('tr');
     row.id = rowId;
     row.innerHTML = `
@@ -262,76 +262,76 @@ window.addProductRowEditSimpleMRY = function(productData = null) {
             </button>
         </td>
     `;
-    
+
     tbody.appendChild(row);
-    
+
     if (productData) {
         calculateRowTotalEditSimpleMRY(rowId);
     }
 }
 
 // Calculate row total
-window.calculateRowTotalEditSimpleMRY = function(rowId) {
+window.calculateRowTotalEditSimpleMRY = function (rowId) {
     const row = document.getElementById(rowId);
     const quantityInput = row.querySelector('.product-quantity');
     const priceInput = row.querySelector('.product-price');
-    
+
     let quantityText = quantityInput.value.trim();
-    
+
     if (quantityText.toUpperCase() === 'F') {
         quantityText = '1';
     }
-    
+
     const quantity = quantityText.replace(/[^0-9.]/g, '');
     let price = parseFloat(priceInput.value) || 0;
     let qty = parseFloat(quantity) || 0;
     const total = qty * price;
-    
+
     row.querySelector('.product-total').textContent = total.toFixed(2) + ' DH';
     calculateTotalsEditSimpleMRY();
 }
 
 // Delete product row
-window.deleteProductRowEditSimpleMRY = function(rowId) {
+window.deleteProductRowEditSimpleMRY = function (rowId) {
     document.getElementById(rowId).remove();
     calculateTotalsEditSimpleMRY();
 }
 
 // Calculate totals
-window.calculateTotalsEditSimpleMRY = function() {
+window.calculateTotalsEditSimpleMRY = function () {
     const rows = document.querySelectorAll('#editProductsTableBodySimpleMRY tr');
     let totalHT = 0;
-    
+
     rows.forEach(row => {
         const totalText = row.querySelector('.product-total').textContent;
         const cleanText = totalText.replace(/\s/g, '').replace(/,/g, '.').replace('DH', '').trim();
         const total = parseFloat(cleanText) || 0;
         totalHT += total;
     });
-    
+
     const tvaRate = parseFloat(document.getElementById('editTvaRateSimpleMRY').value) || 0;
     const montantTVA = totalHT * (tvaRate / 100);
     const totalTTC = totalHT + montantTVA;
-    
+
     document.getElementById('editTotalHTSimpleMRY').textContent = totalHT.toFixed(2) + ' DH';
     document.getElementById('editMontantTVASimpleMRY').textContent = montantTVA.toFixed(2) + ' DH';
     document.getElementById('editTotalTTCSimpleMRY').textContent = totalTTC.toFixed(2) + ' DH';
 }
 
 // Arrow key navigation
-window.handleArrowNavigationEditSimpleMRY = function(event, currentRowId, currentCellIndex) {
+window.handleArrowNavigationEditSimpleMRY = function (event, currentRowId, currentCellIndex) {
     if (!['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(event.key)) {
         return;
     }
-    
+
     const currentRow = document.getElementById(currentRowId);
     const tbody = document.getElementById('editProductsTableBodySimpleMRY');
     const allRows = Array.from(tbody.querySelectorAll('tr'));
     const currentRowIndex = allRows.indexOf(currentRow);
-    
+
     let targetRow = null;
     let targetCellIndex = currentCellIndex;
-    
+
     if (event.key === 'ArrowUp') {
         if (currentRowIndex > 0) {
             targetRow = allRows[currentRowIndex - 1];
@@ -364,7 +364,7 @@ window.handleArrowNavigationEditSimpleMRY = function(event, currentRowId, curren
             event.preventDefault();
         }
     }
-    
+
     if (targetRow) {
         focusCellEditSimpleMRY(targetRow, targetCellIndex);
     }
@@ -399,16 +399,16 @@ async function loadAllClientsEditSimpleMRY() {
     }
 }
 
-window.searchClientsEditSimpleMRY = function(query) {
+window.searchClientsEditSimpleMRY = function (query) {
     const dropdown = document.getElementById('clientsDropdownEditSimpleMRY');
     if (!dropdown) return;
-    
+
     if (!query || query.trim().length === 0) {
         filteredClientsEditSimpleMRY = allClientsEditSimpleMRY;
     } else {
         const searchTerm = query.toLowerCase().trim();
-        filteredClientsEditSimpleMRY = allClientsEditSimpleMRY.filter(client => 
-            client.nom.toLowerCase().includes(searchTerm) || 
+        filteredClientsEditSimpleMRY = allClientsEditSimpleMRY.filter(client =>
+            client.nom.toLowerCase().includes(searchTerm) ||
             client.ice.toLowerCase().includes(searchTerm)
         );
     }
@@ -418,13 +418,13 @@ window.searchClientsEditSimpleMRY = function(query) {
 function displayClientsListEditSimpleMRY() {
     const dropdown = document.getElementById('clientsDropdownEditSimpleMRY');
     if (!dropdown) return;
-    
+
     if (filteredClientsEditSimpleMRY.length === 0) {
         dropdown.innerHTML = '<div class="dropdown-item no-results">Aucun client trouvé</div>';
         dropdown.style.display = 'block';
         return;
     }
-    
+
     dropdown.innerHTML = filteredClientsEditSimpleMRY.slice(0, 10).map(client => `
         <div class="dropdown-item" style="display: flex; justify-content: space-between; align-items: center;">
             <div style="flex: 1;" onmousedown="selectClientEditSimpleMRY('${client.nom.replace(/'/g, "\\'")}', '${client.ice}')">
@@ -436,21 +436,21 @@ function displayClientsListEditSimpleMRY() {
     dropdown.style.display = 'block';
 }
 
-window.showClientsListEditSimpleMRY = function() {
+window.showClientsListEditSimpleMRY = function () {
     if (allClientsEditSimpleMRY.length > 0) {
         filteredClientsEditSimpleMRY = allClientsEditSimpleMRY;
         displayClientsListEditSimpleMRY();
     }
 }
 
-window.hideClientsListEditSimpleMRY = function() {
+window.hideClientsListEditSimpleMRY = function () {
     setTimeout(() => {
         const dropdown = document.getElementById('clientsDropdownEditSimpleMRY');
         if (dropdown) dropdown.style.display = 'none';
     }, 200);
 }
 
-window.selectClientEditSimpleMRY = function(nom, ice) {
+window.selectClientEditSimpleMRY = function (nom, ice) {
     document.getElementById('editClientNomSimpleMRY').value = nom;
     document.getElementById('editClientICESimpleMRY').value = ice;
     const dropdown = document.getElementById('clientsDropdownEditSimpleMRY');
@@ -460,17 +460,17 @@ window.selectClientEditSimpleMRY = function(nom, ice) {
 // Handle form submission
 async function handleEditInvoiceSubmitSimpleMRY(e) {
     e.preventDefault();
-    
+
     const loadingNotif = window.notify.loading('Mise à jour en cours...', 'Veuillez patienter');
-    
+
     const submitBtn = e.target.querySelector('button[type="submit"]');
     const originalText = submitBtn.innerHTML;
     submitBtn.innerHTML = '<span>⏳ Enregistrement...</span>';
     submitBtn.disabled = true;
-    
+
     try {
         const documentNumeroValue = document.getElementById('editDocumentNumeroSimpleMRY').value;
-        
+
         const formData = {
             client: {
                 nom: document.getElementById('editClientNomSimpleMRY').value,
@@ -483,12 +483,12 @@ async function handleEditInvoiceSubmitSimpleMRY(e) {
             products: [],
             totals: {
                 total_ht: parseFloat(document.getElementById('editTotalHTSimpleMRY').textContent.replace(/\s/g, '').replace('DH', '').replace(',', '.')) || 0,
-                tva_rate: parseFloat(document.getElementById('editTvaRateSimpleMRY').value) || 20,
+                tva_rate: isNaN(parseFloat(document.getElementById('editTvaRateSimpleMRY').value)) ? 20 : parseFloat(document.getElementById('editTvaRateSimpleMRY').value),
                 montant_tva: parseFloat(document.getElementById('editMontantTVASimpleMRY').textContent.replace(/\s/g, '').replace('DH', '').replace(',', '.')) || 0,
                 total_ttc: parseFloat(document.getElementById('editTotalTTCSimpleMRY').textContent.replace(/\s/g, '').replace('DH', '').replace(',', '.')) || 0
             }
         };
-        
+
         // Set document number
         if (currentDocumentTypeSimpleMRY === 'facture') {
             formData.document.numero = documentNumeroValue;
@@ -497,29 +497,29 @@ async function handleEditInvoiceSubmitSimpleMRY(e) {
             formData.document.numero_devis = documentNumeroValue;
             formData.document.numero = null;
         }
-        
+
         const numeroOrder = document.getElementById('editDocumentNumeroOrderSimpleMRY');
         if (numeroOrder && numeroOrder.value) {
             formData.document.numero_Order = numeroOrder.value;
         } else {
             formData.document.numero_Order = null;
         }
-        
+
         // Collect products
         const rows = document.querySelectorAll('#editProductsTableBodySimpleMRY tr');
         rows.forEach(row => {
             const designation = row.querySelector('.product-designation').value.trim();
             const quantityOriginal = row.querySelector('.product-quantity').value.trim();
             const price = parseFloat(row.querySelector('.product-price').value) || 0;
-            
+
             let quantityForCalc = quantityOriginal;
             if (quantityForCalc.toUpperCase() === 'F') {
                 quantityForCalc = '1';
             }
-            
+
             const qty = parseFloat(quantityForCalc) || 0;
             const total_ht = qty * price;
-            
+
             if (designation) {
                 formData.products.push({
                     designation,
@@ -529,43 +529,43 @@ async function handleEditInvoiceSubmitSimpleMRY(e) {
                 });
             }
         });
-        
+
         // Check for duplicates
         const currentInvoiceResult = await window.electron.db.getInvoiceById(currentInvoiceIdSimpleMRY);
         if (!currentInvoiceResult.success) {
             throw new Error('Impossible de charger les données actuelles de la facture');
         }
         const currentInvoice = currentInvoiceResult.data;
-        
-        const currentNumero = currentDocumentTypeSimpleMRY === 'facture' 
-            ? currentInvoice.document_numero 
+
+        const currentNumero = currentDocumentTypeSimpleMRY === 'facture'
+            ? currentInvoice.document_numero
             : currentInvoice.document_numero_devis;
-        
+
         const newNumero = currentDocumentTypeSimpleMRY === 'facture'
             ? formData.document.numero
             : formData.document.numero_devis;
-        
+
         if (newNumero !== currentNumero) {
             const allInvoicesResult = await window.electron.db.getAllInvoices();
             if (allInvoicesResult.success) {
-                const duplicateNumero = allInvoicesResult.data.find(inv => 
-                    inv.id !== currentInvoiceIdSimpleMRY && 
+                const duplicateNumero = allInvoicesResult.data.find(inv =>
+                    inv.id !== currentInvoiceIdSimpleMRY &&
                     inv.document_type === currentDocumentTypeSimpleMRY &&
-                    (currentDocumentTypeSimpleMRY === 'facture' 
+                    (currentDocumentTypeSimpleMRY === 'facture'
                         ? inv.document_numero === newNumero
                         : inv.document_numero_devis === newNumero)
                 );
-                
+
                 if (duplicateNumero) {
                     const docLabel = currentDocumentTypeSimpleMRY === 'facture' ? 'Facture' : 'Devis';
                     throw new Error(`Le N° ${docLabel} "${newNumero}" existe déjà pour ${docLabel.toLowerCase()} #${duplicateNumero.id}!`);
                 }
             }
         }
-        
+
         // Update invoice
         const result = await window.electron.db.updateInvoice(currentInvoiceIdSimpleMRY, formData);
-        
+
         if (result.success) {
             // Add audit log entry for the update
             const user = JSON.parse(localStorage.getItem('user'));
@@ -589,10 +589,10 @@ async function handleEditInvoiceSubmitSimpleMRY(e) {
                     console.error('❌ [AUDIT LOG MRY] Error adding audit log:', auditError);
                 }
             }
-            
+
             window.notify.remove(loadingNotif);
             window.notify.success('Succès', 'Facture mise à jour avec succès!', 3000);
-            
+
             setTimeout(() => {
                 router.navigate('/invoices-list-mry');
             }, 1000);
@@ -609,27 +609,27 @@ async function handleEditInvoiceSubmitSimpleMRY(e) {
 }
 
 // Format invoice number
-window.formatEditInvoiceNumberSimpleMRY = function(input) {
+window.formatEditInvoiceNumberSimpleMRY = function (input) {
     let value = input.value.trim();
-    
+
     // If empty, do nothing
     if (!value) return;
-    
+
     // If already has slash, do nothing
     if (value.includes('/')) return;
-    
+
     // Extract only numbers
     let numbers = value.replace(/[^0-9]/g, '');
-    
+
     if (numbers) {
         const dateInput = document.getElementById('editDocumentDateSimpleMRY');
         let year = new Date().getFullYear();
-        
+
         if (dateInput && dateInput.value) {
             const selectedDate = new Date(dateInput.value);
             year = selectedDate.getFullYear();
         }
-        
+
         // Format: numbers/year (e.g., 123/2025) - NO MTT prefix
         input.value = `${numbers}/${year}`;
         input.style.color = '#4caf50';
@@ -638,23 +638,23 @@ window.formatEditInvoiceNumberSimpleMRY = function(input) {
 }
 
 // Initialize page
-window.initEditInvoiceSimpleMRYPage = function() {
+window.initEditInvoiceSimpleMRYPage = function () {
     console.log('🔄 [MRY] Initializing simple edit invoice page...');
-    
+
     currentInvoiceIdSimpleMRY = localStorage.getItem('editInvoiceIdMRY');
-    
+
     if (!currentInvoiceIdSimpleMRY) {
         window.notify.error('Erreur', 'Aucune facture sélectionnée', 3000);
         router.navigate('/invoices-list-mry');
         return;
     }
-    
+
     setTimeout(() => {
         const form = document.getElementById('editInvoiceFormSimpleMRY');
         if (form) {
             form.addEventListener('submit', handleEditInvoiceSubmitSimpleMRY);
         }
-        
+
         loadAllClientsEditSimpleMRY();
         loadInvoiceDataSimpleMRY(parseInt(currentInvoiceIdSimpleMRY));
     }, 100);

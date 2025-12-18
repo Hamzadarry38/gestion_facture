@@ -127,7 +127,7 @@ function EditInvoiceMRYPage() {
                                 <div class="summary-row">
                                     <span>TVA:</span>
                                     <div class="tva-input">
-                                        <input type="number" id="editTvaRateMRY" value="20" min="0" max="100" onchange="calculateTotalsEditMRY()">
+                                        <input type="number" id="editTvaRateMRY" value="20" min="0" max="100" oninput="calculateTotalsEditMRY()">
                                         <span>%</span>
                                     </div>
                                 </div>
@@ -193,40 +193,40 @@ let currentNumeroOrderMRY = null;
 async function loadInvoiceDataMRY(invoiceId) {
     try {
         const result = await window.electron.db.getInvoiceById(invoiceId);
-        
+
         if (!result.success || !result.data) {
             throw new Error('Facture introuvable');
         }
-        
+
         const invoice = result.data;
-        
+
         // Store current document type and N° Order
         currentDocumentTypeMRY = invoice.document_type;
         currentNumeroOrderMRY = invoice.document_numero_Order?.trim() || null;
-        
+
         // Fill client info
         document.getElementById('editClientNomMRY').value = invoice.client_nom;
         document.getElementById('editClientICEMRY').value = invoice.client_ice;
-        
+
         // Fill document info
         const docTypeDisplay = invoice.document_type === 'facture' ? 'Facture' : 'Devis';
         document.getElementById('editDocumentTypeMRY').value = docTypeDisplay;
         document.getElementById('editDocumentDateMRY').value = invoice.document_date;
-        
+
         // Update convert button text
         const convertBtnText = invoice.document_type === 'facture' ? 'Convertir en Devis' : 'Convertir en Facture';
         const convertBtn = document.getElementById('convertButtonTextMRY');
         if (convertBtn) {
             convertBtn.textContent = convertBtnText;
         }
-        
+
         // Fill document number
         const docNumero = invoice.document_type === 'facture' ? invoice.document_numero : invoice.document_numero_devis;
         document.getElementById('editDocumentNumeroMRY').value = docNumero || '';
-        
+
         const label = invoice.document_type === 'facture' ? 'N° Facture' : 'N° Devis';
         document.getElementById('editDocumentNumeroLabelMRY').innerHTML = `${label} <span class="required">*</span>`;
-        
+
         // Show Order field if facture
         if (invoice.document_type === 'facture') {
             document.getElementById('editFieldOrderMRY').style.display = 'block';
@@ -234,22 +234,22 @@ async function loadInvoiceDataMRY(invoiceId) {
         } else {
             document.getElementById('editFieldOrderMRY').style.display = 'none';
         }
-        
+
         // Fill TVA
         document.getElementById('editTvaRateMRY').value = invoice.tva_rate;
-        
+
         // Load products
         const tbody = document.getElementById('editProductsTableBodyMRY');
         tbody.innerHTML = '';
-        
+
         if (invoice.products && invoice.products.length > 0) {
             invoice.products.forEach(product => {
                 addProductRowEditMRY(product);
             });
         }
-        
+
         calculateTotalsEditMRY();
-        
+
         // Load notes if any
         const noteResult = await window.electron.db.getNote(invoiceId);
         if (noteResult.success && noteResult.data) {
@@ -258,7 +258,7 @@ async function loadInvoiceDataMRY(invoiceId) {
                 noteTextarea.value = noteResult.data;
             }
         }
-        
+
     } catch (error) {
         console.error('[MRY] Error loading invoice:', error);
         window.notify.error('Erreur', 'Impossible de charger la facture', 3000);
@@ -267,10 +267,10 @@ async function loadInvoiceDataMRY(invoiceId) {
 }
 
 // Add product row
-window.addProductRowEditMRY = function(productData = null) {
+window.addProductRowEditMRY = function (productData = null) {
     const tbody = document.getElementById('editProductsTableBodyMRY');
     const rowId = `edit-product-mry-${productRowCounterEditMRY++}`;
-    
+
     const row = document.createElement('tr');
     row.id = rowId;
     row.innerHTML = `
@@ -299,76 +299,76 @@ window.addProductRowEditMRY = function(productData = null) {
             </button>
         </td>
     `;
-    
+
     tbody.appendChild(row);
-    
+
     if (productData) {
         calculateRowTotalEditMRY(rowId);
     }
 }
 
 // Calculate row total
-window.calculateRowTotalEditMRY = function(rowId) {
+window.calculateRowTotalEditMRY = function (rowId) {
     const row = document.getElementById(rowId);
     const quantityInput = row.querySelector('.product-quantity');
     const priceInput = row.querySelector('.product-price');
-    
+
     let quantityText = quantityInput.value.trim();
-    
+
     if (quantityText.toUpperCase() === 'F') {
         quantityText = '1';
     }
-    
+
     const quantity = quantityText.replace(/[^0-9.]/g, '');
     let price = parseFloat(priceInput.value) || 0;
     let qty = parseFloat(quantity) || 0;
     const total = qty * price;
-    
+
     row.querySelector('.product-total').textContent = total.toFixed(2) + ' DH';
     calculateTotalsEditMRY();
 }
 
 // Delete product row
-window.deleteProductRowEditMRY = function(rowId) {
+window.deleteProductRowEditMRY = function (rowId) {
     document.getElementById(rowId).remove();
     calculateTotalsEditMRY();
 }
 
 // Calculate totals
-window.calculateTotalsEditMRY = function() {
+window.calculateTotalsEditMRY = function () {
     const rows = document.querySelectorAll('#editProductsTableBodyMRY tr');
     let totalHT = 0;
-    
+
     rows.forEach(row => {
         const totalText = row.querySelector('.product-total').textContent;
         const cleanText = totalText.replace(/\s/g, '').replace(/,/g, '.').replace('DH', '').trim();
         const total = parseFloat(cleanText) || 0;
         totalHT += total;
     });
-    
+
     const tvaRate = parseFloat(document.getElementById('editTvaRateMRY').value) || 0;
     const montantTVA = totalHT * (tvaRate / 100);
     const totalTTC = totalHT + montantTVA;
-    
+
     document.getElementById('editTotalHTMRY').textContent = totalHT.toFixed(2) + ' DH';
     document.getElementById('editMontantTVAMRY').textContent = montantTVA.toFixed(2) + ' DH';
     document.getElementById('editTotalTTCMRY').textContent = totalTTC.toFixed(2) + ' DH';
 }
 
 // Arrow key navigation
-window.handleArrowNavigationEditMRY = function(event, currentRowId, currentCellIndex) {
+window.handleArrowNavigationEditMRY = function (event, currentRowId, currentCellIndex) {
     if (!['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(event.key)) {
         return;
     }
-    
+
     const currentRow = document.getElementById(currentRowId);
     const tbody = document.getElementById('editProductsTableBodyMRY');
     const allRows = Array.from(tbody.querySelectorAll('tr'));
     const currentRowIndex = allRows.indexOf(currentRow);
-    
+
     let targetRow = null;
     let targetCellIndex = currentCellIndex;
-    
+
     if (event.key === 'ArrowUp') {
         if (currentRowIndex > 0) {
             targetRow = allRows[currentRowIndex - 1];
@@ -401,7 +401,7 @@ window.handleArrowNavigationEditMRY = function(event, currentRowId, currentCellI
             event.preventDefault();
         }
     }
-    
+
     if (targetRow) {
         focusCellEditMRY(targetRow, targetCellIndex);
     }
@@ -436,16 +436,16 @@ async function loadAllClientsEditMRY() {
     }
 }
 
-window.searchClientsEditMRY = function(query) {
+window.searchClientsEditMRY = function (query) {
     const dropdown = document.getElementById('clientsDropdownEditMRY');
     if (!dropdown) return;
-    
+
     if (!query || query.trim().length === 0) {
         filteredClientsEditMRY = allClientsEditMRY;
     } else {
         const searchTerm = query.toLowerCase().trim();
-        filteredClientsEditMRY = allClientsEditMRY.filter(client => 
-            client.nom.toLowerCase().includes(searchTerm) || 
+        filteredClientsEditMRY = allClientsEditMRY.filter(client =>
+            client.nom.toLowerCase().includes(searchTerm) ||
             client.ice.toLowerCase().includes(searchTerm)
         );
     }
@@ -455,13 +455,13 @@ window.searchClientsEditMRY = function(query) {
 function displayClientsListEditMRY() {
     const dropdown = document.getElementById('clientsDropdownEditMRY');
     if (!dropdown) return;
-    
+
     if (filteredClientsEditMRY.length === 0) {
         dropdown.innerHTML = '<div class="dropdown-item no-results">Aucun client trouvé</div>';
         dropdown.style.display = 'block';
         return;
     }
-    
+
     dropdown.innerHTML = filteredClientsEditMRY.slice(0, 10).map(client => `
         <div class="dropdown-item" style="display: flex; justify-content: space-between; align-items: center;">
             <div style="flex: 1;" onmousedown="selectClientEditMRY('${client.nom.replace(/'/g, "\\'")}', '${client.ice}')">
@@ -473,21 +473,21 @@ function displayClientsListEditMRY() {
     dropdown.style.display = 'block';
 }
 
-window.showClientsListEditMRY = function() {
+window.showClientsListEditMRY = function () {
     if (allClientsEditMRY.length > 0) {
         filteredClientsEditMRY = allClientsEditMRY;
         displayClientsListEditMRY();
     }
 }
 
-window.hideClientsListEditMRY = function() {
+window.hideClientsListEditMRY = function () {
     setTimeout(() => {
         const dropdown = document.getElementById('clientsDropdownEditMRY');
         if (dropdown) dropdown.style.display = 'none';
     }, 200);
 }
 
-window.selectClientEditMRY = function(nom, ice) {
+window.selectClientEditMRY = function (nom, ice) {
     document.getElementById('editClientNomMRY').value = nom;
     document.getElementById('editClientICEMRY').value = ice;
     const dropdown = document.getElementById('clientsDropdownEditMRY');
@@ -497,17 +497,17 @@ window.selectClientEditMRY = function(nom, ice) {
 // Handle form submission
 async function handleEditInvoiceSubmitMRY(e) {
     e.preventDefault();
-    
+
     const loadingNotif = window.notify.loading('Mise à jour en cours...', 'Veuillez patienter');
-    
+
     const submitBtn = e.target.querySelector('button[type="submit"]');
     const originalText = submitBtn.innerHTML;
     submitBtn.innerHTML = '<span>⏳ Enregistrement...</span>';
     submitBtn.disabled = true;
-    
+
     try {
         const documentNumeroValue = document.getElementById('editDocumentNumeroMRY').value;
-        
+
         const formData = {
             client: {
                 nom: document.getElementById('editClientNomMRY').value,
@@ -520,12 +520,12 @@ async function handleEditInvoiceSubmitMRY(e) {
             products: [],
             totals: {
                 total_ht: parseFloat(document.getElementById('editTotalHTMRY').textContent.replace(/\s/g, '').replace('DH', '').replace(',', '.')) || 0,
-                tva_rate: parseFloat(document.getElementById('editTvaRateMRY').value) || 20,
+                tva_rate: isNaN(parseFloat(document.getElementById('editTvaRateMRY').value)) ? 20 : parseFloat(document.getElementById('editTvaRateMRY').value),
                 montant_tva: parseFloat(document.getElementById('editMontantTVAMRY').textContent.replace(/\s/g, '').replace('DH', '').replace(',', '.')) || 0,
                 total_ttc: parseFloat(document.getElementById('editTotalTTCMRY').textContent.replace(/\s/g, '').replace('DH', '').replace(',', '.')) || 0
             }
         };
-        
+
         // Set document number
         if (currentDocumentTypeMRY === 'facture') {
             formData.document.numero = documentNumeroValue;
@@ -534,29 +534,29 @@ async function handleEditInvoiceSubmitMRY(e) {
             formData.document.numero_devis = documentNumeroValue;
             formData.document.numero = null;
         }
-        
+
         const numeroOrder = document.getElementById('editDocumentNumeroOrderMRY');
         if (numeroOrder && numeroOrder.value) {
             formData.document.numero_Order = numeroOrder.value;
         } else {
             formData.document.numero_Order = null;
         }
-        
+
         // Collect products
         const rows = document.querySelectorAll('#editProductsTableBodyMRY tr');
         rows.forEach(row => {
             const designation = row.querySelector('.product-designation').value.trim();
             const quantityOriginal = row.querySelector('.product-quantity').value.trim();
             const price = parseFloat(row.querySelector('.product-price').value) || 0;
-            
+
             let quantityForCalc = quantityOriginal;
             if (quantityForCalc.toUpperCase() === 'F') {
                 quantityForCalc = '1';
             }
-            
+
             const qty = parseFloat(quantityForCalc) || 0;
             const total_ht = qty * price;
-            
+
             if (designation) {
                 formData.products.push({
                     designation,
@@ -566,50 +566,50 @@ async function handleEditInvoiceSubmitMRY(e) {
                 });
             }
         });
-        
+
         // Check for duplicates
         const currentInvoiceResult = await window.electron.db.getInvoiceById(currentInvoiceIdMRY);
         if (!currentInvoiceResult.success) {
             throw new Error('Impossible de charger les données actuelles de la facture');
         }
         const currentInvoice = currentInvoiceResult.data;
-        
-        const currentNumero = currentDocumentTypeMRY === 'facture' 
-            ? currentInvoice.document_numero 
+
+        const currentNumero = currentDocumentTypeMRY === 'facture'
+            ? currentInvoice.document_numero
             : currentInvoice.document_numero_devis;
-        
+
         const newNumero = currentDocumentTypeMRY === 'facture'
             ? formData.document.numero
             : formData.document.numero_devis;
-        
+
         if (newNumero !== currentNumero) {
             const allInvoicesResult = await window.electron.db.getAllInvoices();
             if (allInvoicesResult.success) {
-                const duplicateNumero = allInvoicesResult.data.find(inv => 
-                    inv.id !== currentInvoiceIdMRY && 
+                const duplicateNumero = allInvoicesResult.data.find(inv =>
+                    inv.id !== currentInvoiceIdMRY &&
                     inv.document_type === currentDocumentTypeMRY &&
-                    (currentDocumentTypeMRY === 'facture' 
+                    (currentDocumentTypeMRY === 'facture'
                         ? inv.document_numero === newNumero
                         : inv.document_numero_devis === newNumero)
                 );
-                
+
                 if (duplicateNumero) {
                     const docLabel = currentDocumentTypeMRY === 'facture' ? 'Facture' : 'Devis';
                     throw new Error(`Le N° ${docLabel} "${newNumero}" existe déjà pour ${docLabel.toLowerCase()} #${duplicateNumero.id}!`);
                 }
             }
         }
-        
+
         // Update invoice
         const result = await window.electron.db.updateInvoice(currentInvoiceIdMRY, formData);
-        
+
         if (result.success) {
-            // Save notes
-            const noteText = document.getElementById('editInvoiceNotesMRY')?.value?.trim();
-            if (noteText) {
-                await window.electron.db.saveNote(currentInvoiceIdMRY, noteText);
+            // Save notes (even if empty to allow deletion)
+            const noteTextarea = document.getElementById('editInvoiceNotesMRY');
+            if (noteTextarea) {
+                await window.electron.db.saveNote(currentInvoiceIdMRY, noteTextarea.value.trim());
             }
-            
+
             // Add audit log entry for the update
             const user = JSON.parse(localStorage.getItem('user'));
             if (user && window.electron.db.addAuditLog) {
@@ -632,10 +632,10 @@ async function handleEditInvoiceSubmitMRY(e) {
                     console.error('❌ [AUDIT LOG MRY] Error adding audit log:', auditError);
                 }
             }
-            
+
             window.notify.remove(loadingNotif);
             window.notify.success('Succès', 'Facture mise à jour avec succès!', 3000);
-            
+
             setTimeout(() => {
                 router.navigate('/invoices-list-mry');
             }, 1000);
@@ -652,27 +652,27 @@ async function handleEditInvoiceSubmitMRY(e) {
 }
 
 // Format invoice number
-window.formatEditInvoiceNumberMRY = function(input) {
+window.formatEditInvoiceNumberMRY = function (input) {
     let value = input.value.trim();
-    
+
     // If empty, do nothing
     if (!value) return;
-    
+
     // If already has slash, do nothing
     if (value.includes('/')) return;
-    
+
     // Extract only numbers
     let numbers = value.replace(/[^0-9]/g, '');
-    
+
     if (numbers) {
         const dateInput = document.getElementById('editDocumentDateMRY');
         let year = new Date().getFullYear();
-        
+
         if (dateInput && dateInput.value) {
             const selectedDate = new Date(dateInput.value);
             year = selectedDate.getFullYear();
         }
-        
+
         // Format: numbers/year (e.g., 123/2025) - NO MTT prefix
         input.value = `${numbers}/${year}`;
         input.style.color = '#4caf50';
@@ -681,36 +681,36 @@ window.formatEditInvoiceNumberMRY = function(input) {
 }
 
 // Convert document type
-window.showConvertDocumentTypeModalMRY = async function() {
+window.showConvertDocumentTypeModalMRY = async function () {
     const currentType = currentDocumentTypeMRY;
     const newType = currentType === 'facture' ? 'devis' : 'facture';
     const currentTypeText = currentType === 'facture' ? 'Facture' : 'Devis';
     const newTypeText = newType === 'facture' ? 'Facture' : 'Devis';
-    
+
     const confirmMsg = `Voulez-vous vraiment convertir ce ${currentTypeText} en ${newTypeText} ?<br><br>Cela créera un nouveau document avec les mêmes produits.`;
     const confirmed = await showConfirmDialogMRY(confirmMsg);
-    
+
     if (!confirmed) return;
-    
+
     try {
         const result = await window.electron.db.getInvoiceById(currentInvoiceIdMRY);
         if (!result.success || !result.data) {
             throw new Error('Document introuvable');
         }
-        
+
         const invoice = result.data;
         let currentNumero = currentType === 'facture' ? invoice.document_numero : invoice.document_numero_devis;
-        
+
         // Use current number as prefill (user can modify if needed)
         const inputData = await showConvertInputModalMRY(newType, newTypeText, currentNumero);
-        
+
         if (!inputData) {
             window.notify.warning('Annulé', 'Conversion annulée', 3000);
             return;
         }
-        
+
         const { newNumero, newNumeroOrder } = inputData;
-        
+
         // Check uniqueness
         const allInvoicesResult = await window.electron.db.getAllInvoices('MRY');
         if (allInvoicesResult.success) {
@@ -721,16 +721,16 @@ window.showConvertDocumentTypeModalMRY = async function() {
                     return inv.document_type === 'devis' && inv.document_numero_devis === newNumero;
                 }
             });
-            
+
             if (duplicateNumero) {
                 const label = newType === 'facture' ? 'N° Facture' : 'N° Devis';
                 window.notify.error('Erreur', `Ce ${label} existe déjà`, 5000);
                 return;
             }
         }
-        
+
         const user = JSON.parse(localStorage.getItem('user'));
-        
+
         const newInvoiceData = {
             company_code: 'MRY',
             client: {
@@ -760,23 +760,23 @@ window.showConvertDocumentTypeModalMRY = async function() {
                 total_ttc: invoice.total_ttc || 0
             }
         };
-        
+
         const createResult = await window.electron.db.createInvoice(newInvoiceData, 'MRY');
-        
+
         if (createResult.success) {
             window.notify.success(
                 'Succès',
                 `${newTypeText} créé(e) avec succès à partir du ${currentTypeText}`,
                 4000
             );
-            
+
             setTimeout(() => {
                 router.navigate('/invoices-list-mry');
             }, 1500);
         } else {
             throw new Error(createResult.error || 'Erreur lors de la création du document');
         }
-        
+
     } catch (error) {
         console.error('[MRY] Error converting invoice:', error);
         window.notify.error('Erreur', 'Erreur lors de la conversion: ' + error.message, 5000);
@@ -788,10 +788,10 @@ function showConfirmDialogMRY(message) {
     return new Promise((resolve) => {
         const overlay = document.createElement('div');
         overlay.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.9);z-index:999998;display:flex;align-items:center;justify-content:center;';
-        
+
         const dialog = document.createElement('div');
         dialog.style.cssText = 'background:#1e1e1e;border-radius:12px;padding:2rem;max-width:500px;width:90%;box-shadow:0 20px 60px rgba(0,0,0,0.8);';
-        
+
         dialog.innerHTML = `
             <div style="text-align:center;margin-bottom:1.5rem;">
                 <div style="font-size:3rem;margin-bottom:0.5rem;">⚠️</div>
@@ -807,15 +807,15 @@ function showConfirmDialogMRY(message) {
                 </button>
             </div>
         `;
-        
+
         overlay.appendChild(dialog);
         document.body.appendChild(overlay);
-        
+
         document.getElementById('confirmYes').onclick = () => {
             overlay.remove();
             resolve(true);
         };
-        
+
         document.getElementById('confirmNo').onclick = () => {
             overlay.remove();
             resolve(false);
@@ -831,7 +831,7 @@ function showConvertInputModalMRY(newType, newTypeLabel, prefillNumero = '') {
             const invoicesResult = await window.electron.db.getAllInvoices();
             if (invoicesResult.success && invoicesResult.data && invoicesResult.data.length > 0) {
                 const invoices = invoicesResult.data;
-                
+
                 const extractNumber = (docNumber) => {
                     if (!docNumber) return 0;
                     const match = docNumber.toString().match(/\d+/);
@@ -859,10 +859,10 @@ function showConvertInputModalMRY(newType, newTypeLabel, prefillNumero = '') {
         const overlay = document.createElement('div');
         overlay.className = 'modal-overlay';
         overlay.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.85);display:flex;align-items:center;justify-content:center;z-index:10000;';
-        
+
         const container = document.createElement('div');
         container.style.cssText = 'background:#1e1e1e;border-radius:12px;padding:2.5rem;max-width:500px;width:90%;box-shadow:0 10px 40px rgba(0,0,0,0.5);';
-        
+
         container.innerHTML = `
             <div style="text-align:center;margin-bottom:2rem;">
                 <div style="font-size:3rem;margin-bottom:0.5rem;">🔄</div>
@@ -894,30 +894,30 @@ function showConvertInputModalMRY(newType, newTypeLabel, prefillNumero = '') {
                 </button>
             </div>
         `;
-        
+
         overlay.appendChild(container);
         document.body.appendChild(overlay);
-        
+
         const input1 = document.getElementById('convertInputMRY1');
         const input2 = document.getElementById('convertInputMRY2');
         const btnConfirm = document.getElementById('convertBtnConfirmMRY');
         const btnCancel = document.getElementById('convertBtnCancelMRY');
-        
+
         setTimeout(() => input1?.focus(), 100);
-        
+
         btnConfirm.onclick = () => {
             const newNumero = input1.value.trim();
             const newNumeroOrder = input2?.value.trim() || null;
-            
+
             if (!newNumero) {
                 window.notify.error('Erreur', 'Veuillez saisir un numéro de document', 3000);
                 return;
             }
-            
+
             overlay.remove();
             resolve({ newNumero, newNumeroOrder });
         };
-        
+
         btnCancel.onclick = () => {
             overlay.remove();
             resolve(null);
@@ -926,23 +926,23 @@ function showConvertInputModalMRY(newType, newTypeLabel, prefillNumero = '') {
 }
 
 // Initialize page
-window.initEditInvoiceMRYPage = function() {
+window.initEditInvoiceMRYPage = function () {
     console.log('🔄 [MRY] Initializing edit invoice page...');
-    
+
     currentInvoiceIdMRY = localStorage.getItem('editInvoiceIdMRY');
-    
+
     if (!currentInvoiceIdMRY) {
         window.notify.error('Erreur', 'Aucune facture sélectionnée', 3000);
         router.navigate('/invoices-list-mry');
         return;
     }
-    
+
     setTimeout(() => {
         const form = document.getElementById('editInvoiceFormMRY');
         if (form) {
             form.addEventListener('submit', handleEditInvoiceSubmitMRY);
         }
-        
+
         loadAllClientsEditMRY();
         loadInvoiceDataMRY(parseInt(currentInvoiceIdMRY));
     }, 100);

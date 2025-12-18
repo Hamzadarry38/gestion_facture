@@ -1,11 +1,11 @@
 // Multi Company Invoices List - Helper Functions for Bulk Operations
 
 // Setup select all checkbox
-window.setupSelectAllMulti = function() {
+window.setupSelectAllMulti = function () {
     const selectAllCheckbox = document.getElementById('selectAllInvoicesMulti');
     if (!selectAllCheckbox) return;
-    
-    selectAllCheckbox.onchange = function() {
+
+    selectAllCheckbox.onchange = function () {
         const checkboxes = document.querySelectorAll('.invoice-checkbox-multi');
         checkboxes.forEach(cb => cb.checked = this.checked);
         updateSelectedCountMulti();
@@ -13,20 +13,20 @@ window.setupSelectAllMulti = function() {
 };
 
 // Update selected count
-window.updateSelectedCountMulti = function() {
+window.updateSelectedCountMulti = function () {
     const checkedBoxes = document.querySelectorAll('.invoice-checkbox-multi:checked');
     const selectAllCheckbox = document.getElementById('selectAllInvoicesMulti');
     const allCheckboxes = document.querySelectorAll('.invoice-checkbox-multi');
-    
+
     if (selectAllCheckbox) {
         selectAllCheckbox.checked = checkedBoxes.length === allCheckboxes.length && allCheckboxes.length > 0;
     }
-    
+
     // Update button text with count
     const count = checkedBoxes.length;
     const deleteBtn = document.getElementById('bulkDeleteTextMulti');
     const downloadBtn = document.getElementById('bulkDownloadTextMulti');
-    
+
     if (deleteBtn) {
         deleteBtn.textContent = count > 0 ? `Supprimer (${count})` : 'Supprimer';
     }
@@ -36,10 +36,10 @@ window.updateSelectedCountMulti = function() {
 };
 
 // Change items per page
-window.changeItemsPerPageMulti = function() {
+window.changeItemsPerPageMulti = function () {
     const select = document.getElementById('itemsPerPageMulti');
     if (!select) return;
-    
+
     const value = select.value;
     itemsPerPageMulti = value === 'all' ? 'all' : parseInt(value);
     currentPageMulti = 1;
@@ -51,15 +51,15 @@ function updatePaginationMulti(totalPages) {
     const pageNumbers = document.getElementById('pageNumbersMulti');
     const prevBtn = document.getElementById('prevPageMulti');
     const nextBtn = document.getElementById('nextPageMulti');
-    
+
     if (!pageNumbers) return;
-    
+
     pageNumbers.innerHTML = '';
-    
+
     // Disable/enable prev/next buttons
     if (prevBtn) prevBtn.disabled = currentPageMulti === 1;
     if (nextBtn) nextBtn.disabled = currentPageMulti === totalPages;
-    
+
     // Show page numbers
     for (let i = 1; i <= totalPages; i++) {
         if (i === 1 || i === totalPages || (i >= currentPageMulti - 2 && i <= currentPageMulti + 2)) {
@@ -81,7 +81,7 @@ function updatePaginationMulti(totalPages) {
 }
 
 // Change pagination page
-window.changePaginationPageMulti = function(direction) {
+window.changePaginationPageMulti = function (direction) {
     if (direction === 'prev' && currentPageMulti > 1) {
         currentPageMulti--;
     } else if (direction === 'next') {
@@ -94,31 +94,31 @@ window.changePaginationPageMulti = function(direction) {
 };
 
 // Handle bulk delete
-window.handleBulkDeleteMulti = async function() {
+window.handleBulkDeleteMulti = async function () {
     const checkedBoxes = document.querySelectorAll('.invoice-checkbox-multi:checked');
-    
+
     if (checkedBoxes.length === 0) {
         window.notify.error('Erreur', 'Veuillez sélectionner au moins une facture', 3000);
         return;
     }
-    
+
     const confirmed = await customConfirm(
         'Confirmation',
         `Êtes-vous sûr de vouloir supprimer ${checkedBoxes.length} facture(s) ?`,
         'warning'
     );
-    
+
     if (!confirmed) return;
-    
+
     try {
         const selectedInvoices = Array.from(checkedBoxes).map(cb => ({
             id: cb.dataset.invoiceId
         }));
-        
+
         // Create progress modal
         const progressOverlay = document.createElement('div');
         progressOverlay.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.9);z-index:999999;display:flex;align-items:center;justify-content:center;';
-        
+
         progressOverlay.innerHTML = `
             <div style="background:#2d2d30;border-radius:12px;padding:2rem;max-width:400px;width:90%;text-align:center;">
                 <h3 style="color:#fff;margin:0 0 1rem 0;">Suppression en cours...</h3>
@@ -129,21 +129,21 @@ window.handleBulkDeleteMulti = async function() {
                 <button id="cancelBulkDeleteMulti" style="margin-top:1rem;padding:0.5rem 1rem;background:#3e3e42;color:#fff;border:none;border-radius:6px;cursor:pointer;">Annuler</button>
             </div>
         `;
-        
+
         document.body.appendChild(progressOverlay);
-        
+
         const progressBar = document.getElementById('progressBarMulti');
         const progressText = document.getElementById('progressTextMulti');
         let cancelRequested = false;
-        
+
         document.getElementById('cancelBulkDeleteMulti').onclick = () => {
             cancelRequested = true;
         };
-        
+
         const total = selectedInvoices.length;
         let successCount = 0;
         let errorCount = 0;
-        
+
         // Delete each invoice
         for (let i = 0; i < selectedInvoices.length; i++) {
             if (cancelRequested) {
@@ -151,12 +151,12 @@ window.handleBulkDeleteMulti = async function() {
                 await new Promise(resolve => setTimeout(resolve, 1500));
                 break;
             }
-            
+
             const invoice = selectedInvoices[i];
-            
+
             try {
                 const result = await window.electron.dbMulti.deleteInvoice(invoice.id);
-                
+
                 if (result.success) {
                     successCount++;
                 } else {
@@ -166,29 +166,29 @@ window.handleBulkDeleteMulti = async function() {
                 console.error(`Error deleting invoice ${invoice.id}:`, error);
                 errorCount++;
             }
-            
+
             // Update progress
             const progress = Math.round(((i + 1) / total) * 100);
             progressBar.style.width = progress + '%';
             progressBar.textContent = progress + '%';
             progressText.textContent = `Suppression: ${i + 1} / ${total}`;
-            
+
             await new Promise(resolve => setTimeout(resolve, 10));
         }
-        
+
         // Remove progress modal
         document.body.removeChild(progressOverlay);
-        
+
         // Show result
         if (successCount > 0) {
             window.notify.success('Succès', `${successCount} facture(s) supprimée(s) avec succès`, 3000);
             loadInvoicesMulti();
         }
-        
+
         if (errorCount > 0) {
             window.notify.error('Erreur', `${errorCount} facture(s) n'ont pas pu être supprimées`, 3000);
         }
-        
+
     } catch (error) {
         console.error('Error in bulk delete:', error);
         window.notify.error('Erreur', 'Une erreur est survenue lors de la suppression', 3000);
@@ -196,31 +196,31 @@ window.handleBulkDeleteMulti = async function() {
 };
 
 // Handle bulk download
-window.handleBulkDownloadMulti = function() {
+window.handleBulkDownloadMulti = function () {
     const checkedBoxes = document.querySelectorAll('.invoice-checkbox-multi:checked');
-    
+
     if (checkedBoxes.length === 0) {
         window.notify.error('Erreur', 'Veuillez sélectionner au moins une facture', 3000);
         return;
     }
-    
+
     showBulkDownloadModalMulti();
 };
 
 // Show bulk download modal with organization options
-window.showBulkDownloadModalMulti = function() {
+window.showBulkDownloadModalMulti = function () {
     const checkedBoxes = document.querySelectorAll('.invoice-checkbox-multi:checked');
     const selectedIds = Array.from(checkedBoxes).map(cb => cb.dataset.invoiceId);
-    
+
     if (selectedIds.length === 0) {
         window.notify.warning('Attention', 'Veuillez sélectionner au moins une facture', 3000);
         return;
     }
-    
+
     const overlay = document.createElement('div');
     overlay.className = 'modal-overlay';
     overlay.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.85);z-index:9999;display:flex;align-items:center;justify-content:center;animation:fadeIn 0.3s;';
-    
+
     overlay.innerHTML = `
         <div style="background:#2d2d30;border-radius:12px;padding:2rem;max-width:500px;width:90%;max-height:70vh;display:flex;flex-direction:column;box-shadow:0 20px 60px rgba(0,0,0,0.9);animation:slideIn 0.3s;">
             <style>
@@ -332,12 +332,12 @@ window.showBulkDownloadModalMulti = function() {
             </div>
         </div>
     `;
-    
+
     document.body.appendChild(overlay);
-    
+
     // Auto-select default option
     document.querySelector('.org-option input[checked]').closest('.org-option').classList.add('selected');
-    
+
     // Add click event to confirm button
     document.getElementById('bulkDownloadConfirmBtnMulti').onclick = () => {
         const organizationType = document.querySelector('input[name="organization"]:checked').value;
@@ -347,18 +347,18 @@ window.showBulkDownloadModalMulti = function() {
 };
 
 // Select organization option
-window.selectOrganizationMulti = function(element, value) {
+window.selectOrganizationMulti = function (element, value) {
     document.querySelectorAll('.org-option').forEach(opt => opt.classList.remove('selected'));
     element.classList.add('selected');
     element.querySelector('input').checked = true;
 };
 
 // Show Order selection modal before download
-window.showOrderSelectionModalBeforeDownloadMulti = function(selectedIds, organizationType) {
+window.showOrderSelectionModalBeforeDownloadMulti = function (selectedIds, organizationType) {
     const selectionOverlay = document.createElement('div');
     selectionOverlay.className = 'custom-modal-overlay';
     selectionOverlay.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.95);z-index:10000;display:flex;align-items:center;justify-content:center;';
-    
+
     selectionOverlay.innerHTML = `
         <div class="custom-modal">
             <div class="custom-modal-header">
@@ -379,22 +379,22 @@ window.showOrderSelectionModalBeforeDownloadMulti = function(selectedIds, organi
             </div>
         </div>
     `;
-    
+
     document.body.appendChild(selectionOverlay);
-    
+
     const orderCheckbox = selectionOverlay.querySelector('#includeOrderCheckboxDownloadMulti');
     const continueBtn = selectionOverlay.querySelector('#continueBtnDownloadMulti');
-    
+
     continueBtn.addEventListener('click', async () => {
         const includeOrder = orderCheckbox.checked;
-        
+
         console.log('✅ [MULTI DOWNLOAD] Include Order:', includeOrder);
-        
+
         selectionOverlay.remove();
-        
+
         await startBulkDownloadMulti(selectedIds, organizationType, includeOrder);
     });
-    
+
     selectionOverlay.addEventListener('click', (e) => {
         if (e.target === selectionOverlay) {
             const includeOrder = orderCheckbox.checked;
@@ -402,7 +402,7 @@ window.showOrderSelectionModalBeforeDownloadMulti = function(selectedIds, organi
             startBulkDownloadMulti(selectedIds, organizationType, includeOrder);
         }
     });
-    
+
     setTimeout(() => continueBtn.focus(), 100);
 };
 
@@ -413,7 +413,7 @@ async function loadJSZipMulti() {
             resolve();
             return;
         }
-        
+
         const script = document.createElement('script');
         script.src = 'https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js';
         script.onload = () => {
@@ -426,44 +426,44 @@ async function loadJSZipMulti() {
 }
 
 // Start bulk download
-window.startBulkDownloadMulti = async function(selectedIds, organizationType, includeOrder = true) {
+window.startBulkDownloadMulti = async function (selectedIds, organizationType, includeOrder = true) {
     try {
         window.notify.info('Téléchargement', 'Préparation du téléchargement...', 2000);
-        
+
         // Load JSZip if not already loaded
         await loadJSZipMulti();
-        
+
         const zip = new JSZip();
         const folderName = `Factures_Multi_${new Date().toISOString().split('T')[0]}`;
-        
+
         let successCount = 0;
-        
+
         for (const id of selectedIds) {
             try {
                 const result = await window.electron.dbMulti.getInvoiceById(id);
-                
+
                 if (!result.success || !result.data) continue;
-                
+
                 const invoice = result.data;
-                
+
                 // Generate PDF using existing function with includeOrder parameter
                 const pdfBlob = await generatePDFBlobMulti(invoice, includeOrder);
-                
+
                 // Organize files
                 const date = new Date(invoice.document_date);
                 const yearMonth = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
                 const clientName = invoice.client_nom.replace(/[^a-z0-9]/gi, '_');
                 const numero = (invoice.document_numero || invoice.document_numero_devis || 'N').replace(/[^a-z0-9]/gi, '_');
-                
+
                 let docType = 'Factures';
                 let docPrefix = 'Facture';
                 if (invoice.document_type === 'devis') {
                     docType = 'Devis';
                     docPrefix = 'Devis';
                 }
-                
+
                 const filename = `${docPrefix}_${numero}_${clientName}.pdf`;
-                
+
                 let zipPath = '';
                 if (organizationType === 'client-month-type') {
                     zipPath = `${clientName}/${yearMonth}/${docType}/${filename}`;
@@ -480,33 +480,33 @@ window.startBulkDownloadMulti = async function(selectedIds, organizationType, in
                 } else {
                     zipPath = `${docType}/${filename}`;
                 }
-                
+
                 zip.file(zipPath, pdfBlob);
                 successCount++;
             } catch (error) {
                 console.error(`Error generating PDF for invoice ${id}:`, error);
             }
         }
-        
+
         // Generate and download ZIP
         window.notify.info('Téléchargement', 'Création du fichier ZIP...', 3000);
         const zipBlob = await zip.generateAsync({ type: 'blob' });
-        
+
         // Download ZIP file
         const link = document.createElement('a');
         link.href = URL.createObjectURL(zipBlob);
         link.download = `${folderName}.zip`;
         link.click();
         URL.revokeObjectURL(link.href);
-        
+
         window.notify.success('Succès', `${successCount} PDF(s) téléchargé(s) dans ${folderName}.zip`, 4000);
-        
+
         // Uncheck all checkboxes
         document.querySelectorAll('.invoice-checkbox-multi').forEach(cb => cb.checked = false);
         const selectAllCheckbox = document.getElementById('selectAllInvoicesMulti');
         if (selectAllCheckbox) selectAllCheckbox.checked = false;
         updateSelectedCountMulti();
-        
+
     } catch (error) {
         console.error('Error in bulk download:', error);
         window.notify.error('Erreur', 'Erreur lors du téléchargement: ' + error.message, 5000);
@@ -514,11 +514,11 @@ window.startBulkDownloadMulti = async function(selectedIds, organizationType, in
 };
 
 // Export database for MULTI
-window.exportDatabaseMulti = async function() {
+window.exportDatabaseMulti = async function () {
     try {
         window.notify.info('Export', 'Exportation en cours...', 2000);
         const result = await window.electron.dbMulti.exportDatabase();
-        
+
         if (result.success) {
             window.notify.success('Succès', 'Base de données exportée avec succès!', 3000);
         } else if (result.canceled) {
@@ -533,15 +533,15 @@ window.exportDatabaseMulti = async function() {
 }
 
 // Import database for MULTI
-window.importDatabaseMulti = async function() {
+window.importDatabaseMulti = async function () {
     const confirmed = await customConfirm('Attention', '⚠️ ATTENTION: L\'importation remplacera toutes les données actuelles.\n\nUne sauvegarde automatique sera créée.\n\nVoulez-vous continuer?', 'warning');
-    
+
     if (!confirmed) return;
-    
+
     try {
         window.notify.info('Import', 'Importation en cours...', 2000);
         const result = await window.electron.dbMulti.importDatabase();
-        
+
         if (result.success) {
             window.notify.success('Succès', 'Base de données importée! Rechargement...', 3000);
             setTimeout(() => {
@@ -563,7 +563,7 @@ function numberToFrenchWordsMultiHelper(number) {
     const units = ['', 'un', 'deux', 'trois', 'quatre', 'cinq', 'six', 'sept', 'huit', 'neuf'];
     const teens = ['dix', 'onze', 'douze', 'treize', 'quatorze', 'quinze', 'seize', 'dix-sept', 'dix-huit', 'dix-neuf'];
     const tens = ['', '', 'vingt', 'trente', 'quarante', 'cinquante', 'soixante', 'soixante', 'quatre-vingt', 'quatre-vingt'];
-    
+
     function convertLessThanThousand(n) {
         if (n === 0) return '';
         if (n < 10) return units[n];
@@ -587,7 +587,7 @@ function numberToFrenchWordsMultiHelper(number) {
             if (remainder < 10) return 'quatre-vingt-' + units[remainder];
             return 'quatre-vingt-' + teens[remainder - 10];
         }
-        
+
         const hundred = Math.floor(n / 100);
         const remainder = n % 100;
         let result = hundred === 1 ? 'cent' : units[hundred] + ' cent';
@@ -595,11 +595,11 @@ function numberToFrenchWordsMultiHelper(number) {
         if (remainder > 0) result += ' ' + convertLessThanThousand(remainder);
         return result;
     }
-    
+
     function convertNumber(n) {
         if (n === 0) return 'zéro';
         if (n < 1000) return convertLessThanThousand(n);
-        
+
         if (n >= 1000000000) {
             const billion = Math.floor(n / 1000000000);
             const remainder = n % 1000000000;
@@ -607,7 +607,7 @@ function numberToFrenchWordsMultiHelper(number) {
             if (remainder > 0) result += ' ' + convertNumber(remainder);
             return result;
         }
-        
+
         if (n >= 1000000) {
             const million = Math.floor(n / 1000000);
             const remainder = n % 1000000;
@@ -615,28 +615,28 @@ function numberToFrenchWordsMultiHelper(number) {
             if (remainder > 0) result += ' ' + convertNumber(remainder);
             return result;
         }
-        
+
         const thousand = Math.floor(n / 1000);
         const remainder = n % 1000;
         let result = thousand === 1 ? 'mille' : convertLessThanThousand(thousand) + ' mille';
         if (remainder > 0) result += ' ' + convertLessThanThousand(remainder);
         return result;
     }
-    
+
     const parts = number.toFixed(2).split('.');
     const dirhams = parseInt(parts[0]);
     const centimes = parseInt(parts[1]);
-    
+
     let result = convertNumber(dirhams) + ' dirham';
     if (dirhams > 1) result += 's';
-    
+
     if (centimes > 0) {
         result += ' et ' + convertNumber(centimes) + ' centime';
         if (centimes > 1) result += 's';
     } else {
         result += ' et zéro centime';
     }
-    
+
     return result.charAt(0).toUpperCase() + result.slice(1);
 }
 
@@ -652,34 +652,34 @@ async function generatePDFBlobMulti(invoice, includeOrder = true) {
             document.head.appendChild(script);
         });
     }
-    
+
     const { jsPDF } = window.jspdf;
     const doc = new jsPDF();
-    
+
     // Colors - MULTI TRAVAUX TETOUAN design
     const darkGrayColor = [96, 125, 139];
     const lightGrayBg = [236, 239, 241];
     const dateStr = new Date(invoice.document_date).toLocaleDateString('fr-FR');
-    
+
     // Helper function to format numbers
     const formatNumberForPDF = (num) => {
         return parseFloat(num).toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ' ');
     };
-    
+
     // Function to add header
     const addHeader = (isFirstPage = true) => {
         doc.setFontSize(18);
         doc.setTextColor(96, 125, 139);
         doc.setFont(undefined, 'bold');
         doc.text('MULTI TRAVAUX TETOUAN', 15, 18);
-        
+
         doc.setFontSize(18);
         doc.setFont(undefined, 'bold');
         const docType = invoice.document_type === 'devis' ? 'DEVIS' : 'FACTURE';
         doc.text(docType, 195, 18, { align: 'right' });
         doc.setLineWidth(0.5);
         doc.line(195 - doc.getTextWidth(docType), 19, 195, 19);
-        
+
         doc.setFontSize(9);
         doc.setFont(undefined, 'normal');
         doc.setTextColor(0, 0, 0);
@@ -688,7 +688,7 @@ async function generatePDFBlobMulti(invoice, includeOrder = true) {
             doc.text(`Date de devis : ${dateStr}`, 195, 31, { align: 'right' });
         } else {
             doc.text(`Numéro de facture : ${invoice.document_numero || '-'}`, 195, 26, { align: 'right' });
-            
+
             // Add Order number on new line below invoice number if exists and includeOrder is true
             if (includeOrder && invoice.document_numero_Order && invoice.document_numero_Order.trim() !== '') {
                 doc.text(`N° Order : ${invoice.document_numero_Order}`, 195, 31, { align: 'right' });
@@ -697,26 +697,26 @@ async function generatePDFBlobMulti(invoice, includeOrder = true) {
                 doc.text(`Date de facture : ${dateStr}`, 195, 31, { align: 'right' });
             }
         }
-        
+
         doc.setFillColor(...darkGrayColor);
         doc.rect(15, 38, 80, 6, 'F');
         doc.setTextColor(255, 255, 255);
         doc.setFontSize(8);
         doc.text('Email: errbahiabderrahim@gmail.com', 17, 42);
-        
+
         doc.setFillColor(...lightGrayBg);
         doc.rect(15, 44, 80, 6, 'F');
         doc.setTextColor(0, 0, 0);
         doc.setFontSize(7);
         doc.text('AV 10 MAI IMM 04 APPART 01 A DROIT - TETOUAN , TETOUAN', 17, 48);
-        
+
         doc.setFillColor(...darkGrayColor);
         doc.rect(115, 38, 80, 6, 'F');
         doc.setTextColor(255, 255, 255);
         doc.setFontSize(8);
         const devisLabel = invoice.document_type === 'devis' ? 'DEVIS à :' : 'FACTURE à :';
         doc.text(`${devisLabel} ${invoice.client_nom}`, 117, 42);
-        
+
         // Only show ICE if it exists and is not "0"
         if (invoice.client_ice && invoice.client_ice !== '0') {
             doc.setFillColor(...lightGrayBg);
@@ -726,21 +726,22 @@ async function generatePDFBlobMulti(invoice, includeOrder = true) {
             doc.text(`ICE : ${invoice.client_ice}`, 117, 48);
         }
     };
-    
+
     // Function to add footer
     const addFooter = (pageNum, totalPages) => {
         doc.setTextColor(0, 0, 0);
         doc.setFontSize(9);
         doc.setFont(undefined, 'normal');
-        doc.text('NIF 68717422 | TP 51001343 | RC 38633 | CNSS 6446237', 105, 280, { align: 'center' });
-        doc.text('ICE : 00380950500031', 105, 286, { align: 'center' });
+        doc.text('NIF 68717422 | TP 51001343 | RC 38633 | CNSS 6446237', 105, 275, { align: 'center' });
+        doc.text('ICE : 00380950500031', 105, 279, { align: 'center' });
+        doc.text('Tel : 06 61 23 45 67', 105, 283, { align: 'center' }); // Added Tel line
     };
-    
+
     // Add header to first page
     addHeader(true);
-    
+
     const startY = 60;
-    
+
     // Table Header
     doc.setFillColor(...darkGrayColor);
     doc.rect(15, startY, 180, 7, 'F');
@@ -751,27 +752,27 @@ async function generatePDFBlobMulti(invoice, includeOrder = true) {
     doc.text('Quantité', 125, startY + 5, { align: 'center' });
     doc.text('Prix unitaire HT', 160, startY + 5, { align: 'right' });
     doc.text('Prix total HT', 188, startY + 5, { align: 'right' });
-    
+
     // Table Body
     let currentY = startY + 10;
     doc.setTextColor(0, 0, 0);
     doc.setFont(undefined, 'normal');
     doc.setFontSize(9);
-    
+
     let pageCount = 1;
     const pages = [];
-    
+
     invoice.products.forEach((product, index) => {
         const designation = product.designation || '';
         const lines = doc.splitTextToSize(designation, 75);
         const rowHeight = Math.max(8, (lines.length * 4.5) + 4);
-        
+
         if (currentY + rowHeight > 220) {
             pages.push(pageCount);
             doc.addPage();
             addHeader(false);
             pageCount++;
-            
+
             let newStartY = 60;
             doc.setFillColor(...darkGrayColor);
             doc.rect(15, newStartY, 180, 7, 'F');
@@ -782,45 +783,45 @@ async function generatePDFBlobMulti(invoice, includeOrder = true) {
             doc.text('Quantité', 115, newStartY + 5, { align: 'center' });
             doc.text('Prix unitaire HT', 150, newStartY + 5, { align: 'right' });
             doc.text('Prix total HT', 188, newStartY + 5, { align: 'right' });
-            
+
             currentY = newStartY + 10;
             doc.setTextColor(0, 0, 0);
             doc.setFont(undefined, 'normal');
             doc.setFontSize(9);
         }
-        
+
         if (index % 2 === 0) {
             doc.setFillColor(245, 245, 245);
             doc.rect(15, currentY - 3, 180, rowHeight, 'F');
         }
-        
+
         doc.setFontSize(7.5);
         lines.forEach((line, lineIndex) => {
             doc.text(line, 18, currentY + 3 + (lineIndex * 4.5));
         });
-        
+
         const centerOffset = (lines.length > 1) ? ((lines.length - 1) * 2.25) : 0;
-        
+
         doc.setFontSize(8);
         doc.text(String(product.quantite || ''), 125, currentY + 3 + centerOffset, { align: 'center' });
-        
+
         doc.setFontSize(7.5);
         doc.text(`${formatNumberForPDF(product.prix_unitaire_ht)} DH`, 160, currentY + 3 + centerOffset, { align: 'right' });
         doc.text(`${formatNumberForPDF(product.total_ht)} DH`, 188, currentY + 3 + centerOffset, { align: 'right' });
-        
+
         currentY += rowHeight;
     });
-    
+
     // Fixed position for Remarques and Totals
     const fixedBottomY = 235;
-    
+
     doc.setFillColor(...darkGrayColor);
     doc.rect(15, fixedBottomY, 85, 6, 'F');
     doc.setTextColor(255, 255, 255);
     doc.setFontSize(8);
     doc.setFont(undefined, 'bold');
     doc.text('Remarques et instructions de paiement :', 17, fixedBottomY + 4);
-    
+
     doc.setFillColor(255, 255, 255);
     doc.rect(15, fixedBottomY + 6, 85, 12, 'F');
     doc.setDrawColor(200, 200, 200);
@@ -831,7 +832,7 @@ async function generatePDFBlobMulti(invoice, includeOrder = true) {
     doc.setFontSize(8);
     doc.text('ATTIJARI WAFA BANQ', 17, fixedBottomY + 10);
     doc.text('RIB : 007 720 0005979000000953 03', 17, fixedBottomY + 15);
-    
+
     doc.setFillColor(...darkGrayColor);
     doc.rect(110, fixedBottomY, 85, 6, 'F');
     doc.setTextColor(255, 255, 255);
@@ -839,7 +840,7 @@ async function generatePDFBlobMulti(invoice, includeOrder = true) {
     doc.setFont(undefined, 'bold');
     doc.text('TOTALE HT', 113, fixedBottomY + 4);
     doc.text(`${formatNumberForPDF(invoice.total_ht)} DH`, 192, fixedBottomY + 4, { align: 'right' });
-    
+
     doc.setFillColor(255, 255, 255);
     doc.rect(110, fixedBottomY + 6, 85, 6, 'F');
     doc.setDrawColor(200, 200, 200);
@@ -847,40 +848,40 @@ async function generatePDFBlobMulti(invoice, includeOrder = true) {
     doc.setTextColor(0, 0, 0);
     doc.text(`TVA ${invoice.tva_rate}%`, 113, fixedBottomY + 10);
     doc.text(`${formatNumberForPDF(invoice.montant_tva)} DH`, 192, fixedBottomY + 10, { align: 'right' });
-    
+
     doc.setFillColor(...darkGrayColor);
     doc.rect(110, fixedBottomY + 12, 85, 6, 'F');
     doc.setTextColor(255, 255, 255);
     doc.text('TOTALE TTC', 113, fixedBottomY + 16);
     doc.text(`${formatNumberForPDF(invoice.total_ttc)} DH`, 192, fixedBottomY + 16, { align: 'right' });
-    
+
     // Amount in words
     const amountInWords = numberToFrenchWordsMultiHelper(invoice.total_ttc);
-    
+
     // Determine document type
     let documentLabel = 'Facture';
     let genderPrefix = 'La Présente';
     let genderSuffix = 'Arrêtée';
-    
+
     if (invoice.document_type === 'devis') {
         documentLabel = 'Devis';
         genderPrefix = 'Le Présent';
         genderSuffix = 'Arrêté';
     }
-    
+
     doc.setTextColor(0, 0, 0);
     doc.setFontSize(9);
     doc.setFont(undefined, 'italic');
     doc.text(`${genderPrefix} ${documentLabel} est ${genderSuffix} à la somme de : ${amountInWords}`, 15, fixedBottomY + 25, { maxWidth: 180 });
-    
+
     // Add page numbering
     pages.push(pageCount);
     const totalPages = pages.length;
-    
+
     for (let i = 0; i < totalPages; i++) {
         doc.setPage(i + 1);
         addFooter(i + 1, totalPages);
     }
-    
+
     return doc.output('blob');
 }
