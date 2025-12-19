@@ -835,6 +835,20 @@ function displayInvoicesChaimae(invoices) {
                                 <path fill-rule="evenodd" d="M14.5 3a1 1 0 0 1-1 1H13v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V4h-.5a1 1 0 0 1-1-1V2a1 1 0 0 1 1-1H6a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1h3.5a1 1 0 0 1 1 1v1zM4.118 4 4 4.059V13a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1V4.059L11.882 4H4.118zM2.5 3V2h11v1h-11z"/>
                             </svg>
                         </button>
+                        ${invoice.document_type === 'devis' ? `
+                        <button class="btn-icon btn-skm" onclick="downloadChaimaeSKMDevisPDF(${invoice.id})" title="PDF SKM" style="background:#FF9800;color:white;">
+                            <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+                                <path d="M.5 9.9a.5.5 0 0 1 .5.5v2.5a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-2.5a.5.5 0 0 1 1 0v2.5a2 2 0 0 1-2 2H2a2 2 0 0 1-2-2v-2.5a.5.5 0 0 1 .5-.5z"/>
+                                <path d="M7.646 11.854a.5.5 0 0 0 .708 0l3-3a.5.5 0 0 0-.708-.708L8.5 10.293V1.5a.5.5 0 0 0-1 0v8.793L5.354 8.146a.5.5 0 1 0-.708.708l3 3z"/>
+                            </svg>
+                        </button>
+                        <button class="btn-icon btn-saaiss" onclick="downloadChaimaeSAAISSDevisPDF(${invoice.id})" title="PDF SAAISS" style="background:#9C27B0;color:white;">
+                            <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+                                <path d="M.5 9.9a.5.5 0 0 1 .5.5v2.5a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-2.5a.5.5 0 0 1 1 0v2.5a2 2 0 0 1-2 2H2a2 2 0 0 1-2-2v-2.5a.5.5 0 0 1 .5-.5z"/>
+                                <path d="M7.646 11.854a.5.5 0 0 0 .708 0l3-3a.5.5 0 0 0-.708-.708L8.5 10.293V1.5a.5.5 0 0 0-1 0v8.793L5.354 8.146a.5.5 0 1 0-.708.708l3 3z"/>
+                            </svg>
+                        </button>
+                        ` : ''}
                     </div>
                 </td>
             </tr>
@@ -6284,5 +6298,124 @@ window.formatBonNumeroWithPrefixConvert = function (input) {
     if (numbers) {
         const year = new Date().getFullYear();
         input.value = `${numbers}/${year}`;
+    }
+}
+
+// Download Chaimae Devis as SKM PDF (uses SKM PDF generator)
+window.downloadChaimaeSKMDevisPDF = async function (invoiceId) {
+    try {
+        console.log('📥 Generating SKM PDF for Chaimae devis:', invoiceId);
+
+        // Get invoice data from Chaimae database
+        const result = await window.electron.dbChaimae.getInvoiceById(invoiceId);
+
+        if (!result.success || !result.data) {
+            throw new Error('Devis introuvable');
+        }
+
+        const invoice = result.data;
+
+        // Only allow for devis type
+        if (invoice.document_type !== 'devis') {
+            window.notify.warning('Type incorrect', 'Cette fonction est disponible uniquement pour les devis.');
+            return;
+        }
+
+        // Check if SKM generator exists
+        if (typeof window.generateSKMPDFFromInvoice === 'function') {
+            // Use existing SKM generator
+            await window.generateSKMPDFFromInvoice(invoice, 'chaimae');
+        } else if (typeof window.downloadMultiSKMDevisPDF === 'function') {
+            // Fallback: Call Multi SKM generator with Chaimae invoice
+            // We need to call the personalization modal and PDF generation
+            await generateSKMPDFForChaimae(invoice);
+        } else {
+            window.notify.error('Erreur', 'Le générateur SKM n\'est pas disponible');
+        }
+
+    } catch (error) {
+        console.error('❌ Error generating SKM PDF:', error);
+        window.notify.error('Erreur', 'Impossible de générer le PDF SKM: ' + error.message);
+    }
+}
+
+// Download Chaimae Devis as SAAISS PDF (uses SAAISS PDF generator)
+window.downloadChaimaeSAAISSDevisPDF = async function (invoiceId) {
+    try {
+        console.log('📥 Generating SAAISS PDF for Chaimae devis:', invoiceId);
+
+        // Get invoice data from Chaimae database
+        const result = await window.electron.dbChaimae.getInvoiceById(invoiceId);
+
+        if (!result.success || !result.data) {
+            throw new Error('Devis introuvable');
+        }
+
+        const invoice = result.data;
+
+        // Only allow for devis type
+        if (invoice.document_type !== 'devis') {
+            window.notify.warning('Type incorrect', 'Cette fonction est disponible uniquement pour les devis.');
+            return;
+        }
+
+        // Check if SAAISS generator exists
+        if (typeof window.generateSAAISSPDFFromInvoice === 'function') {
+            // Use existing SAAISS generator
+            await window.generateSAAISSPDFFromInvoice(invoice, 'chaimae');
+        } else if (typeof window.downloadMultiSAAISSDevisPDF === 'function') {
+            // Fallback: Call Multi SAAISS generator with Chaimae invoice
+            await generateSAAISSPDFForChaimae(invoice);
+        } else {
+            window.notify.error('Erreur', 'Le générateur SAAISS n\'est pas disponible');
+        }
+
+    } catch (error) {
+        console.error('❌ Error generating SAAISS PDF:', error);
+        window.notify.error('Erreur', 'Impossible de générer le PDF SAAISS: ' + error.message);
+    }
+}
+
+// Internal function to generate SKM PDF for Chaimae invoice
+async function generateSKMPDFForChaimae(invoice) {
+    // This calls the showSimpleSKMModal from multi_skm_pdf_generator.js
+    // which handles the personalization and PDF generation
+    if (typeof window.showSimpleSKMModal === 'function') {
+        const customizationData = await window.showSimpleSKMModal(invoice);
+        if (!customizationData) {
+            console.log('❌ User cancelled SKM PDF generation');
+            return;
+        }
+
+        // Apply customizations and generate PDF using existing generator logic
+        if (typeof window.generateSKMPDFWithCustomization === 'function') {
+            await window.generateSKMPDFWithCustomization(invoice, customizationData, 'chaimae');
+        } else {
+            window.notify.warning('Avertissement', 'La génération SKM personnalisée n\'est pas disponible');
+        }
+    } else {
+        window.notify.error('Erreur', 'Le modal de personnalisation SKM n\'est pas disponible');
+    }
+}
+
+// Internal function to generate SAAISS PDF for Chaimae invoice
+async function generateSAAISSPDFForChaimae(invoice) {
+    // This calls the showSimpleSAAISSModal from multi_saaiss_pdf_generator.js
+    // which handles the personalization and PDF generation
+    if (typeof window.showSimpleSAAISSModal === 'function') {
+        const customizationData = await window.showSimpleSAAISSModal(invoice);
+        if (!customizationData) {
+            console.log('❌ User cancelled SAAISS PDF generation');
+            return;
+        }
+
+        // Apply customizations and generate PDF using existing generator logic
+        if (typeof window.generateSAAISSPDFWithCustomization === 'function') {
+            await window.generateSAAISSPDFWithCustomization(invoice, customizationData, 'chaimae');
+        } else {
+            window.notify.warning('Avertissement', 'La génération SAAISS personnalisée n\'est pas disponible');
+        }
+    } else {
+        window.notify.error('Erreur', 'Le modal de personnalisation SAAISS n\'est pas disponible');
     }
 }

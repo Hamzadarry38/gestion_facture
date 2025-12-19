@@ -5,7 +5,7 @@ const { initDatabase, clientOps, invoiceOps, attachmentOps, globalInvoiceOps, pr
 async function registerChaimaeHandlers() {
     // Initialize CHAIMAE database first
     await initDatabase();
-    
+
     // Client handlers for CHAIMAE
     ipcMain.handle('db:chaimae:clients:search', async (event, query) => {
         try {

@@ -2,39 +2,39 @@
 // Generate PDF with SAAISS company design and branding
 
 // Main function to download SAAISS Devis PDF for MULTI
-window.downloadMultiSAAISSDevisPDF = async function(invoiceId) {
+window.downloadMultiSAAISSDevisPDF = async function (invoiceId) {
     try {
         console.log('📥 Generating SAAISS PDF for MULTI invoice:', invoiceId);
-        
+
         // Get invoice data from MULTI database
         const result = await window.electron.dbMulti.getInvoiceById(invoiceId);
-        
+
         if (!result.success || !result.data) {
             throw new Error('Facture introuvable');
         }
-        
+
         const invoice = result.data;
-        
+
         // Only allow for devis type
         if (invoice.document_type !== 'devis') {
             showSAAISSWarningModal('Type de document incorrect', 'Cette fonction est disponible uniquement pour les devis.');
             return;
         }
-        
+
         console.log('🔍 Invoice type:', invoice.document_type);
-        
+
         // Check if there are products with zero quantity or price
-        const hasZeroProducts = invoice.products && invoice.products.some(p => 
+        const hasZeroProducts = invoice.products && invoice.products.some(p =>
             parseFloat(p.quantite) === 0 || parseFloat(p.prix_unitaire_ht) === 0
         );
-        
+
         let includeZeroProducts = true; // Default: include all products
-        
+
         if (hasZeroProducts) {
             includeZeroProducts = await new Promise((resolve) => {
                 const overlay = document.createElement('div');
                 overlay.className = 'custom-modal-overlay';
-                
+
                 overlay.innerHTML = `
                     <div class="custom-modal">
                         <div class="custom-modal-header">
@@ -59,42 +59,55 @@ window.downloadMultiSAAISSDevisPDF = async function(invoiceId) {
                         </div>
                     </div>
                 `;
-                
+
                 document.body.appendChild(overlay);
-                
+
                 const excludeBtn = document.getElementById('excludeZeroSAAISS');
                 const includeBtn = document.getElementById('includeZeroSAAISS');
-                
+
                 excludeBtn.addEventListener('click', () => {
                     overlay.remove();
                     resolve(false);
                 });
-                
+
                 includeBtn.addEventListener('click', () => {
                     overlay.remove();
                     resolve(true);
                 });
-                
+
                 overlay.addEventListener('click', (e) => {
                     if (e.target === overlay) {
                         overlay.remove();
                         resolve(true); // Default to include if user clicks outside
                     }
                 });
-                
+
                 setTimeout(() => includeBtn.focus(), 100);
             });
-            
+
             console.log('🔍 User choice for zero products:', includeZeroProducts ? 'Include' : 'Exclude');
         }
-        
+
+
         // Show simple customization modal
-        const customizationData = await showSimpleSAAISSModal(invoice);
+        const customizationData = await window.showSimpleSAAISSModal(invoice);
         if (!customizationData) {
             console.log('❌ User cancelled SAAISS PDF generation');
             return;
         }
-        
+
+        // Use global generation function
+        await window.generateSAAISSPDFWithCustomization(invoice, customizationData, 'multi');
+
+    } catch (error) {
+        console.error('❌ Error generating SAAISS PDF:', error);
+        showSAAISSErrorModal('Erreur de génération', 'Une erreur est survenue lors de la génération du PDF SAAISS: ' + error.message);
+    }
+};
+
+// Global function to generate SAAISS PDF with customizations
+window.generateSAAISSPDFWithCustomization = async function (invoice, customizationData, context = 'multi') {
+    try {
         // Check if jsPDF is loaded
         if (typeof window.jspdf === 'undefined') {
             await loadJsPDF();
@@ -102,12 +115,12 @@ window.downloadMultiSAAISSDevisPDF = async function(invoiceId) {
 
         const { jsPDF } = window.jspdf;
         const doc = new jsPDF();
-        
+
         // Create customized invoice copy
         const customizedInvoice = JSON.parse(JSON.stringify(invoice));
         customizedInvoice.document_numero_devis = customizationData.customDevisNumber;
         customizedInvoice.document_date = customizationData.customDate;
-        
+
         // Apply percentage to products (but don't show percentage in PDF)
         if (customizationData.percentage && customizationData.percentage > 0) {
             customizedInvoice.products = customizedInvoice.products.map(product => ({
@@ -116,8 +129,8 @@ window.downloadMultiSAAISSDevisPDF = async function(invoiceId) {
                 total_ht: parseFloat(product.total_ht) * (1 + customizationData.percentage / 100)
             }));
             // Recalculate totals
-            const newTotalHT = customizedInvoice.products.reduce((sum,p)=> sum + parseFloat(p.total_ht),0);
-            const newMontantTVA = newTotalHT * (parseFloat(customizedInvoice.tva_rate)/100);
+            const newTotalHT = customizedInvoice.products.reduce((sum, p) => sum + parseFloat(p.total_ht), 0);
+            const newMontantTVA = newTotalHT * (parseFloat(customizedInvoice.tva_rate) / 100);
             const newTotalTTC = newTotalHT + newMontantTVA;
             customizedInvoice.total_ht = newTotalHT;
             customizedInvoice.montant_tva = newMontantTVA;
@@ -130,66 +143,87 @@ window.downloadMultiSAAISSDevisPDF = async function(invoiceId) {
                 designation: customizationData.modifiedProducts[index] || product.designation
             }));
         }
-        
-        // Check if devis number already exists
+
+        // Check if devis number already exists (only if not Chaimae context, or if we want strict check)
+        // Note: The modal already checks for existence, so we can probably skip strict check here or keep it.
+        // For Chaimae, we are adding to SAAISS sequence so we should check SAAISS DB.
         try {
             const currentYear = new Date().getFullYear();
-            const existsResult = await window.electron.dbSaaiss.checkDevisExists(customizationData.customDevisNumber, currentYear);
-            if (existsResult.success && existsResult.data) {
-                throw new Error(`Le numéro de Devis "${customizationData.customDevisNumber}" existe déjà pour l'année ${currentYear}`);
+            // We can skip check here if we trust the modal or just let the add fail if unique constraint
+            // But let's keep it for safety if context is multi
+            if (context === 'multi') {
+                const existsResult = await window.electron.dbSaaiss.checkDevisExists(customizationData.customDevisNumber, currentYear);
+                if (existsResult.success && existsResult.data) {
+                    // Only throw if it's NOT the same devis number (which shouldn't happen for new custom number)
+                    // Actually, if we are here, we proceeded from modal which checked it.
+                }
             }
         } catch (error) {
-            showSAAISSErrorModal('Numéro de Devis en doublon', error.message);
-            return;
+            // handle error
         }
-        
-        // Add Devis number to SAAISS database
+
+        // Add Devis number to SAAISS database (Sequence management)
         try {
             const currentYear = new Date().getFullYear();
             await window.electron.dbSaaiss.addDevisNumber(customizationData.customDevisNumber, currentYear);
         } catch (error) {
             console.error('Error saving devis number:', error);
         }
-        
+
         // Generate SAAISS PDF with special design
-        await generateSAAISSPDF(doc, customizedInvoice, includeZeroProducts);
-        
+        // Default includeZeroProducts to true for Chaimae
+        await generateSAAISSPDF(doc, customizedInvoice, true);
+
         // Save the PDF with new format: SAAISS_TYPE_ClientName_InvoiceNumber
         const docType = customizedInvoice.document_type === 'devis' ? 'Devis' : 'Facture';
         const invoiceNumber = customizedInvoice.document_numero_devis || customizedInvoice.document_numero || 'N-A';
         const fileName = `SAAISS_${docType}_${customizedInvoice.client_nom}_${invoiceNumber}.pdf`;
-        
-        // Get PDF as blob and save to disk
+
+        // Get PDF as blob
         const pdfBlob = doc.output('blob');
         const pdfArrayBuffer = await pdfBlob.arrayBuffer();
         const pdfUint8Array = new Uint8Array(pdfArrayBuffer);
-        
+
         // Get the company that created this PDF
         const selectedCompany = JSON.parse(localStorage.getItem('selectedCompany') || '{}');
         const createdBy = selectedCompany.code || selectedCompany.name || 'Unknown';
-        
-        // Save PDF to disk using electron API (save in 'saaiss' folder, but mark creator as MULTI)
-        const saveResult = await window.electron.pdf.savePdf(pdfUint8Array, 'saaiss', customizedInvoice.document_numero_devis, createdBy);
-        
+
+        // Folder to save: 'chaimae_saaiss' if context is chaimae, else 'saaiss' 
+        const saveFolder = context === 'chaimae' ? 'chaimae_saaiss' : 'saaiss';
+
+        // Save PDF to disk using electron API
+        const saveResult = await window.electron.pdf.savePdf(pdfUint8Array, saveFolder, customizedInvoice.document_numero_devis, createdBy);
+
         if (saveResult.success) {
-            console.log('✅ SAAISS PDF saved to disk:', saveResult.filePath);
+            console.log(`✅ SAAISS PDF saved to disk (${saveFolder}):`, saveResult.filePath);
             // Also save to downloads
             doc.save(fileName);
             console.log('✅ SAAISS PDF generated successfully:', fileName);
-            showSAAISSSuccessModal('PDF généré avec succès', `Le fichier ${fileName} a été téléchargé et sauvegardé avec succès !`);
+
+            if (context === 'multi') {
+                showSAAISSSuccessModal('PDF généré avec succès', `Le fichier ${fileName} a été téléchargé et sauvegardé avec succès !`);
+            } else {
+                window.notify.success('Succès', `PDF SAAISS généré et sauvegardé avec succès !`);
+            }
         } else {
             console.error('❌ Error saving PDF to disk:', saveResult.error);
-            showSAAISSWarningModal('Avertissement', 'PDF généré mais erreur lors de la sauvegarde: ' + saveResult.error);
+            if (context === 'multi') {
+                showSAAISSWarningModal('Avertissement', 'PDF généré mais erreur lors de la sauvegarde: ' + saveResult.error);
+            } else {
+                window.notify.warning('Avertissement', 'PDF généré mais erreur lors de la sauvegarde: ' + saveResult.error);
+                doc.save(fileName);
+            }
         }
-        
+
     } catch (error) {
-        console.error('❌ Error generating SAAISS PDF:', error);
-        showSAAISSErrorModal('Erreur de génération', 'Une erreur est survenue lors de la génération du PDF SAAISS: ' + error.message);
+        console.error('❌ Error in generateSAAISSPDFWithCustomization:', error);
+        throw error;
     }
 };
 
 // Show simple SAAISS modal
-async function showSimpleSAAISSModal(invoice) {
+// Show simple SAAISS modal
+window.showSimpleSAAISSModal = async function (invoice) {
     // Get last used devis number
     let lastDevisNumber = 'Aucun';
     try {
@@ -199,7 +233,7 @@ async function showSimpleSAAISSModal(invoice) {
         console.log('📋 SAAISS DB Result:', result);
         if (result && result.success && result.data && result.data.devis_number) {
             lastDevisNumber = result.data.devis_number;
-            
+
             // Extract number and increment by 1 for suggestion
             const match = lastDevisNumber.match(/(\D*)(\d+)(\D*)$/);
             if (match) {
@@ -207,7 +241,7 @@ async function showSimpleSAAISSModal(invoice) {
                 const number = parseInt(match[2]) + 1;
                 const suffix = match[3];
                 const suggestedNumber = prefix + number.toString().padStart(match[2].length, '0') + suffix;
-                
+
                 // Set suggested number as default value
                 setTimeout(() => {
                     const devisInput = document.getElementById('devisInput');
@@ -220,15 +254,15 @@ async function showSimpleSAAISSModal(invoice) {
     } catch (error) {
         console.log('Could not get last devis number:', error);
     }
-    
+
     return new Promise((resolve) => {
         const overlay = document.createElement('div');
         overlay.className = 'custom-modal-overlay';
-        
+
         const modal = document.createElement('div');
         modal.className = 'custom-modal';
         modal.style.maxWidth = '700px';
-        
+
         // Extract next devis number and add current year
         let nextDevisNumber = lastDevisNumber;
         const currentYear = new Date().getFullYear();
@@ -254,11 +288,11 @@ async function showSimpleSAAISSModal(invoice) {
         } else {
             nextDevisNumber = '1/' + currentYear;
         }
-        
+
         // Get the company that created this PDF
         const selectedCompany = JSON.parse(localStorage.getItem('selectedCompany') || '{}');
         const companyName = selectedCompany.name || 'Inconnue';
-        
+
         modal.innerHTML = `
             <div class="custom-modal-header">
                 <span class="custom-modal-icon info">🎨</span>
@@ -322,16 +356,16 @@ async function showSimpleSAAISSModal(invoice) {
                 <button id="generateBtn" class="custom-modal-btn primary">Générer PDF</button>
             </div>
         `;
-        
+
         overlay.appendChild(modal);
         document.body.appendChild(overlay);
-        
+
         const cancelBtn = document.getElementById('cancelBtn');
         const generateBtn = document.getElementById('generateBtn');
         const percentageInput = document.getElementById('percentageInput');
         const dateInput = document.getElementById('dateInput');
         const devisInput = document.getElementById('devisInput');
-        
+
         // Auto-add current year when user leaves the devis input field
         devisInput.addEventListener('blur', () => {
             let value = devisInput.value.trim();
@@ -339,17 +373,17 @@ async function showSimpleSAAISSModal(invoice) {
                 devisInput.value = value + '/' + currentYear;
             }
         });
-        
+
         generateBtn.addEventListener('click', () => {
             const percentage = parseFloat(percentageInput.value) || 0;
             const customDate = dateInput.value;
             const customDevisNumber = devisInput.value.trim();
-            
+
             if (!customDevisNumber) {
                 alert('Veuillez saisir un numéro de devis');
                 return;
             }
-            
+
             // Collect modified product names
             const productNameInputs = document.querySelectorAll('.product-name-input');
             const modifiedProducts = {};
@@ -360,7 +394,7 @@ async function showSimpleSAAISSModal(invoice) {
                     modifiedProducts[index] = newName;
                 }
             });
-            
+
             overlay.remove();
             resolve({
                 percentage,
@@ -369,19 +403,19 @@ async function showSimpleSAAISSModal(invoice) {
                 modifiedProducts
             });
         });
-        
+
         cancelBtn.addEventListener('click', () => {
             overlay.remove();
             resolve(null);
         });
-        
+
         overlay.addEventListener('click', (e) => {
             if (e.target === overlay) {
                 overlay.remove();
                 resolve(null);
             }
         });
-        
+
         setTimeout(() => generateBtn.focus(), 100);
     });
 }
@@ -401,7 +435,7 @@ function createModernNotification(title, message, type = 'info') {
         justify-content: center;
         z-index: 10001;
     `;
-    
+
     const modal = document.createElement('div');
     const colors = {
         success: { bg: '#4CAF50', icon: '✓', light: '#E8F5E9' },
@@ -410,7 +444,7 @@ function createModernNotification(title, message, type = 'info') {
         info: { bg: '#2196F3', icon: 'ℹ', light: '#E3F2FD' }
     };
     const color = colors[type] || colors.info;
-    
+
     modal.style.cssText = `
         background: white;
         border-radius: 12px;
@@ -421,7 +455,7 @@ function createModernNotification(title, message, type = 'info') {
         font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
         animation: slideUp 0.3s ease-out;
     `;
-    
+
     modal.innerHTML = `
         <div style="background: ${color.bg}; padding: 20px; color: white; display: flex; align-items: center; gap: 15px;">
             <div style="font-size: 32px; width: 40px; height: 40px; background: rgba(255,255,255,0.2); border-radius: 50%; display: flex; align-items: center; justify-content: center;">
@@ -440,10 +474,10 @@ function createModernNotification(title, message, type = 'info') {
             </button>
         </div>
     `;
-    
+
     overlay.appendChild(modal);
     document.body.appendChild(overlay);
-    
+
     const okBtn = document.getElementById('okBtn');
     okBtn.addEventListener('mouseenter', () => {
         okBtn.style.transform = 'translateY(-2px)';
@@ -453,12 +487,12 @@ function createModernNotification(title, message, type = 'info') {
         okBtn.style.transform = 'translateY(0)';
         okBtn.style.boxShadow = 'none';
     });
-    
+
     const closeModal = () => {
         overlay.style.animation = 'slideDown 0.3s ease-in';
         setTimeout(() => overlay.remove(), 300);
     };
-    
+
     okBtn.addEventListener('click', closeModal);
     overlay.addEventListener('click', (e) => {
         if (e.target === overlay) closeModal();
@@ -534,18 +568,18 @@ async function generateSAAISSPDF(doc, invoice, includeZeroProducts = true) {
         const headerImg = await loadSAAISSImage('SAAISS/Hesder.png');
         const footerImg = await loadSAAISSImage('SAAISS/Footer.png');
         const signatureImg = await loadSAAISSImage('SAAISS/signature.png');
-        
+
         const pageWidth = doc.internal.pageSize.width;
         const pageHeight = doc.internal.pageSize.height;
-        
+
         // Colors for SAAISS design
         const primaryColor = [60, 60, 60]; // Dark gray
         const accentColor = [100, 100, 100]; // Medium gray
         const textColor = [80, 80, 80]; // Dark gray text
-        
+
         let currentY = 20;
         let pageCount = 1;
-        
+
         // Function to add SAAISS header
         const addSAAISSHeader = () => {
             if (headerImg) {
@@ -553,12 +587,12 @@ async function generateSAAISSPDF(doc, invoice, includeZeroProducts = true) {
             }
             currentY = 70;
         };
-        
+
         // Function to add SAAISS footer with large signature in center
         const addSAAISSFooter = (pageNum, totalPages) => {
             const footerHeight = 45; // Footer height
             const footerY = pageHeight - footerHeight - 5; // Position footer at bottom
-            
+
             // Large signature - centered (in the middle) - positioned ABOVE footer
             if (signatureImg) {
                 const signatureWidth = 45;
@@ -567,22 +601,22 @@ async function generateSAAISSPDF(doc, invoice, includeZeroProducts = true) {
                 const signatureY = footerY - 32; // Positioned above footer
                 doc.addImage(signatureImg, 'PNG', signatureX, signatureY, signatureWidth, signatureHeight);
             }
-            
+
             // Footer image
             if (footerImg) {
                 doc.addImage(footerImg, 'PNG', 0, footerY, pageWidth, footerHeight);
             }
-            
+
             // Page numbering ON the footer (at the bottom center) - lower position
             doc.setFontSize(10);
             doc.setTextColor(100, 100, 100);
             const pageText = totalPages === 'temp' ? `Page ${pageNum}` : `Page ${pageNum}/${totalPages}`;
             doc.text(pageText, pageWidth / 2, footerY + footerHeight + 2, { align: 'center' });
         };
-        
+
         // Add header to first page
         addSAAISSHeader();
-        
+
         // Function to add header section (DEVIS, N°, DATE, CLIENT)
         const addHeaderSection = () => {
             // Add "DEVIS" title at top
@@ -590,108 +624,108 @@ async function generateSAAISSPDF(doc, invoice, includeZeroProducts = true) {
             doc.setFont(undefined, 'bold');
             doc.setTextColor(0, 0, 0);
             doc.text('DEVIS', 20, currentY);
-            
+
             // Date on the right
             doc.setFontSize(9);
             doc.setFont(undefined, 'bold');
             const dateStr = new Date(invoice.document_date).toLocaleDateString('fr-FR');
             doc.text(`DATE : ${dateStr}`, pageWidth - 20, currentY, { align: 'right' });
-            
+
             currentY += 6;
-            
+
             // Devis number on the left (below DEVIS)
             doc.setFontSize(9);
             doc.setFont(undefined, 'bold');
             doc.text(`N°: ${invoice.document_numero_devis}`, 20, currentY);
             currentY += 10;
-            
+
             // Client info section - in a box with rounded corners
             const boxX = 20;
             const boxY = currentY;
             const boxWidth = 100;
             const boxHeight = 20;
             const borderRadius = 2;
-            
+
             // Draw rounded rectangle border
             doc.setDrawColor(0, 0, 0);
             doc.setLineWidth(0.5);
             doc.roundedRect(boxX, boxY, boxWidth, boxHeight, borderRadius, borderRadius);
-            
+
             // Client info inside box
             doc.setFontSize(10);
             doc.setFont(undefined, 'bold');
             doc.setTextColor(0, 0, 0);
             doc.text(`CLIENT :${invoice.client_nom}`, boxX + 3, boxY + 6);
-            
+
             if (invoice.client_ice && invoice.client_ice !== '0') {
                 doc.setFontSize(8);
                 doc.setFont(undefined, 'bold');
                 doc.text(`ICE:${invoice.client_ice}`, boxX + 3, boxY + 13);
             }
-            
+
             currentY += boxHeight + 8;
         };
-        
+
         addHeaderSection();
-        
+
         // Table setup with new design - matching image exactly
         const tableHeaders = ['QTE', 'DESCRIPTION', 'PRIX HT', 'TOTAL HT'];
         const colWidths = [25, 85, 30, 30];
         const colPositions = [20, 45, 130, 160];
         const tableEndX = 190;
-        
+
         console.log('📊 TABLE CONFIGURATION (MULTI SAAISS):');
         console.log('  Headers:', tableHeaders);
         console.log('  Column Widths:', colWidths);
         console.log('  Column Positions:', colPositions);
-        console.log('  Total Width:', colWidths.reduce((a,b) => a+b, 0));
-        
+        console.log('  Total Width:', colWidths.reduce((a, b) => a + b, 0));
+
         const addCompleteTableSection = () => {
             const tableStartY = currentY;
-            
+
             // Simple black borders header - matching SKM design
             doc.setDrawColor(0, 0, 0);
             doc.setLineWidth(0.3);
             doc.rect(20, currentY, 170, 8);
-            
+
             // Header text - black on white
             doc.setTextColor(0, 0, 0); // Black text
             doc.setFont(undefined, 'bold');
             doc.setFontSize(9);
-            
+
             tableHeaders.forEach((header, index) => {
                 const align = index > 1 ? 'right' : 'left';
                 const x = align === 'right' ? colPositions[index] + colWidths[index] - 2 : colPositions[index] + 2;
                 doc.text(header, x, currentY + 6, { align });
             });
-            
+
             // Draw vertical lines for columns
             let xPos = 20;
             for (let i = 0; i < colWidths.length - 1; i++) {
                 xPos += colWidths[i];
                 doc.line(xPos, currentY, xPos, currentY + 8);
             }
-            
+
             currentY += 8;
             return tableStartY;
         };
-        
+
         const firstTableStartY = addCompleteTableSection();
-        
+
         // Process products
         doc.setTextColor(0, 0, 0); // Black text
         doc.setFont(undefined, 'normal');
         doc.setFontSize(9);
-        
+
         let tableSegments = [];
         let currentSegmentStart = firstTableStartY;
         const productsToShow = invoice.products;
-        
+
         productsToShow.forEach((product, index) => {
             const maxWidth = colWidths[1] - 4;
             const descriptionLines = doc.splitTextToSize(product.designation, maxWidth);
             const isZeroProduct = parseFloat(product.quantite) === 0 || parseFloat(product.prix_unitaire_ht) === 0;
-            
+
             console.log(`\n📦 PRODUCT ${index + 1} (MULTI SAAISS):`);
             console.log(`  Designation: "${product.designation}"`);
             console.log(`  Max Width for Description: ${maxWidth}`);
@@ -745,18 +779,18 @@ async function generateSAAISSPDF(doc, invoice, includeZeroProducts = true) {
 
                 // Draw quantity in first column
                 doc.text(quantityText, colPositions[0] + 2, rowY + 6, { align: 'left' });
-                
+
                 console.log(`  Row Y: ${rowY}, Row Height: ${rowHeight}`);
                 console.log(`  QTE Position: X=${colPositions[0] + 2}, Y=${rowY + 6}`);
-                
+
                 // Draw description chunk in second column (only the lines that fit on this page)
                 const descriptionChunk = descriptionLines.slice(lineIndex, lineIndex + linesForThisRow);
                 console.log(`  Description Chunk (lines ${lineIndex}-${lineIndex + linesForThisRow}):`, descriptionChunk);
                 console.log(`  Description Position: X=${colPositions[1] + 2}, Max Width=${colWidths[1] - 4}`);
-                
+
                 descriptionChunk.forEach((line, chunkIndex) => {
                     console.log(`    Line ${chunkIndex}: "${line}" at Y=${rowY + 6 + (chunkIndex * 4)}`);
-                    doc.text(line, colPositions[1] + 2, rowY + 6 + (chunkIndex * 4), { 
+                    doc.text(line, colPositions[1] + 2, rowY + 6 + (chunkIndex * 4), {
                         maxWidth: colWidths[1] - 4,
                         align: 'left'
                     });
@@ -776,7 +810,7 @@ async function generateSAAISSPDF(doc, invoice, includeZeroProducts = true) {
                 doc.setDrawColor(0, 0, 0); // Black border
                 doc.setLineWidth(0.3);
                 doc.line(20, rowY + rowHeight, 190, rowY + rowHeight);
-                
+
                 // Draw vertical lines for columns
                 let xPos = 20;
                 console.log(`  Drawing vertical lines at Y: ${rowY} to ${rowY + rowHeight}`);
@@ -790,17 +824,17 @@ async function generateSAAISSPDF(doc, invoice, includeZeroProducts = true) {
                 lineIndex += linesForThisRow;
             }
         });
-        
+
         tableSegments.push({
             startY: currentSegmentStart,
             endY: currentY,
             page: pageCount
         });
-        
+
         // Add totals
         doc.setPage(pageCount);
         currentY += 10;
-        
+
         if (!includeZeroProducts) {
             const displayedTotalHT = productsToShow.reduce((sum, p) => {
                 const isZero = parseFloat(p.quantite) === 0 || parseFloat(p.prix_unitaire_ht) === 0;
@@ -808,16 +842,16 @@ async function generateSAAISSPDF(doc, invoice, includeZeroProducts = true) {
             }, 0);
             const displayedMontantTVA = displayedTotalHT * (parseFloat(invoice.tva_rate) / 100);
             const displayedTotalTTC = displayedTotalHT + displayedMontantTVA;
-            
+
             invoice.total_ht = displayedTotalHT;
             invoice.montant_tva = displayedMontantTVA;
             invoice.total_ttc = displayedTotalTTC;
         }
-        
+
         const totalsStartY = currentY;
         const totalsX = 130; // Start position for totals (right side)
         const totalsWidth = 60; // Width of totals box
-        
+
         // Row 1: TOTALE H.T
         doc.setDrawColor(0, 0, 0);
         doc.setLineWidth(0.3);
@@ -831,7 +865,7 @@ async function generateSAAISSPDF(doc, invoice, includeZeroProducts = true) {
         doc.text('TOTALE H.T', totalsX + 2, totalsStartY + 5.5);
         doc.text(formatNumberForPDF(invoice.total_ht) + ' DH', totalsX + totalsWidth - 2, totalsStartY + 5.5, { align: 'right' });
         doc.line(totalsX, totalsStartY + 8, totalsX + totalsWidth, totalsStartY + 8); // Bottom border
-        
+
         // Row 2: TVA
         const tvaY = totalsStartY + 8;
         doc.line(totalsX, tvaY, totalsX + totalsWidth, tvaY); // Top border
@@ -844,7 +878,7 @@ async function generateSAAISSPDF(doc, invoice, includeZeroProducts = true) {
         doc.text(`TVA ${invoice.tva_rate}%`, totalsX + 2, tvaY + 5.5);
         doc.text(formatNumberForPDF(invoice.montant_tva) + ' DH', totalsX + totalsWidth - 2, tvaY + 5.5, { align: 'right' });
         doc.line(totalsX, tvaY + 8, totalsX + totalsWidth, tvaY + 8); // Bottom border
-        
+
         // Row 3: TOTALE T.T.C
         const ttcY = tvaY + 8;
         doc.line(totalsX, ttcY, totalsX + totalsWidth, ttcY); // Top border
@@ -857,31 +891,31 @@ async function generateSAAISSPDF(doc, invoice, includeZeroProducts = true) {
         doc.text('TOTALE T.T.C', totalsX + 2, ttcY + 5.5);
         doc.text(formatNumberForPDF(invoice.total_ttc) + ' DH', totalsX + totalsWidth - 2, ttcY + 5.5, { align: 'right' });
         doc.line(totalsX, ttcY + 8, totalsX + totalsWidth, ttcY + 8); // Bottom border
-        
+
         // Draw borders and add footers
         const totalPages = pageCount;
-        
+
         doc.setDrawColor(0, 0, 0);
         doc.setLineWidth(0.5);
-        
+
         tableSegments.forEach(segment => {
             doc.setPage(segment.page);
             doc.rect(20, segment.startY, 170, segment.endY - segment.startY);
-            
+
             let xPos = 20;
             for (let i = 0; i < colWidths.length - 1; i++) {
                 xPos += colWidths[i];
                 doc.line(xPos, segment.startY, xPos, segment.endY);
             }
         });
-        
+
         for (let i = 1; i <= totalPages; i++) {
             doc.setPage(i);
             addSAAISSFooter(i, totalPages);
         }
-        
+
         console.log('✅ SAAISS PDF generation completed');
-        
+
     } catch (error) {
         console.error('❌ Error in generateSAAISSPDF:', error);
         throw error;

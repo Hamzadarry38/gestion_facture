@@ -63,6 +63,23 @@ function DashboardChaimaePage() {
                         </div>
                         <div class="option-arrow">→</div>
                     </div>
+                    <div class="option-card" onclick="openPdfManagerChaimae('skm')">
+                        <div class="option-icon">📁</div>
+                        <div class="option-info">
+                            <h2>Fichiers PDF - SKM</h2>
+                            <p>Afficher tous les fichiers PDF sauvegardés pour SKM</p>
+                        </div>
+                        <div class="option-arrow">→</div>
+                    </div>
+
+                    <div class="option-card" onclick="openPdfManagerChaimae('saaiss')">
+                        <div class="option-icon">📁</div>
+                        <div class="option-info">
+                            <h2>Fichiers PDF - SAAISS</h2>
+                            <p>Afficher tous les fichiers PDF sauvegardés pour SAAISS</p>
+                        </div>
+                        <div class="option-arrow">→</div>
+                    </div>
                 </div>
 
                 <div class="dashboard-footer">
@@ -86,15 +103,15 @@ function DashboardChaimaePage() {
 }
 
 // Navigation functions for Chaimae (Global scope)
-window.navigateToCreateInvoice = function() {
+window.navigateToCreateInvoice = function () {
     router.navigate('/create-invoice-chaimae');
 };
 
-window.navigateToViewInvoices = function() {
+window.navigateToViewInvoices = function () {
     // Check if user has a saved year preference
     const rememberYear = localStorage.getItem('chaimae_remember_year');
     const savedYear = localStorage.getItem('chaimae_selected_year');
-    
+
     if (rememberYear === 'true' && savedYear !== null) {
         // User has saved preference, go directly to invoices list
         sessionStorage.setItem('chaimae_current_year', savedYear);
@@ -105,32 +122,32 @@ window.navigateToViewInvoices = function() {
     }
 };
 
-window.navigateToCreateGlobalInvoice = function() {
+window.navigateToCreateGlobalInvoice = function () {
     router.navigate('/create-global-invoice-chaimae');
 };
 
-window.navigateToViewGlobalInvoices = function() {
+window.navigateToViewGlobalInvoices = function () {
     router.navigate('/invoices-list-chaimae');
 };
 
-window.backToCompanySelect = function() {
+window.backToCompanySelect = function () {
     localStorage.removeItem('selectedCompany');
     router.navigate('/company-select');
 };
 
 // Delete all data function for CHAIMAE
-window.deleteAllDataChaimae = async function() {
+window.deleteAllDataChaimae = async function () {
     const confirmed = await customConfirm('Attention', '⚠️ ATTENTION!\n\nÊtes-vous sûr de vouloir supprimer TOUTES les données?\n\n• Toutes les factures\n• Toutes les factures globales\n• Tous les clients\n• Tous les produits\n• Toutes les pièces jointes\n\nCette action est IRRÉVERSIBLE!', 'error');
-    
+
     if (!confirmed) return;
-    
+
     const doubleConfirm = await customConfirm('Dernière Confirmation', '🚨 DERNIÈRE CONFIRMATION!\n\nConfirmez pour supprimer définitivement toutes les données CHAIMAE.', 'error');
-    
+
     if (!doubleConfirm) return;
-    
+
     try {
         const result = await window.electron.dbChaimae.deleteAllData();
-        
+
         if (result.success) {
             await customAlert('Succès', 'Toutes les données CHAIMAE ont été supprimées avec succès!', 'success');
             router.navigate('/company-select');
@@ -140,5 +157,17 @@ window.deleteAllDataChaimae = async function() {
     } catch (error) {
         console.error('Error deleting data:', error);
         await customAlert('Erreur', 'Erreur lors de la suppression des données', 'error');
+    }
+};
+
+window.openPdfManagerChaimae = function (type) {
+    let folder = 'chaimae';
+    if (type === 'skm') folder = 'chaimae_skm';
+    if (type === 'saaiss') folder = 'chaimae_saaiss';
+
+    if (typeof window.showPdfManager === 'function') {
+        window.showPdfManager(folder);
+    } else {
+        window.notify.error('Erreur', 'Le gestionnaire de PDF n\'est pas disponible');
     }
 };

@@ -2,39 +2,39 @@
 // This file handles PDF generation with SKM branding and custom features
 
 // Main function to download SKM Devis PDF for MULTI
-window.downloadMultiSKMDevisPDF = async function(invoiceId) {
+window.downloadMultiSKMDevisPDF = async function (invoiceId) {
     try {
         console.log('📥 Generating SKM PDF for MULTI devis:', invoiceId);
-        
+
         // Get invoice data from MULTI database
         const result = await window.electron.dbMulti.getInvoiceById(invoiceId);
-        
+
         if (!result.success || !result.data) {
             throw new Error('Devis introuvable');
         }
-        
+
         const invoice = result.data;
-        
+
         // Only allow for devis type
         if (invoice.document_type !== 'devis') {
             showSKMWarningModal('Type de document incorrect', 'Cette fonction est disponible uniquement pour les devis.');
             return;
         }
-        
+
         console.log('🔍 Invoice type:', invoice.document_type);
-        
+
         // Check if there are products with zero quantity or price
-        const hasZeroProducts = invoice.products && invoice.products.some(p => 
+        const hasZeroProducts = invoice.products && invoice.products.some(p =>
             parseFloat(p.quantite) === 0 || parseFloat(p.prix_unitaire_ht) === 0
         );
-        
+
         let includeZeroProducts = true; // Default: include all products
-        
+
         if (hasZeroProducts) {
             includeZeroProducts = await new Promise((resolve) => {
                 const overlay = document.createElement('div');
                 overlay.className = 'custom-modal-overlay';
-                
+
                 overlay.innerHTML = `
                     <div class="custom-modal">
                         <div class="custom-modal-header">
@@ -59,55 +59,67 @@ window.downloadMultiSKMDevisPDF = async function(invoiceId) {
                         </div>
                     </div>
                 `;
-                
+
                 document.body.appendChild(overlay);
-                
+
                 const excludeBtn = document.getElementById('excludeZeroSKM');
                 const includeBtn = document.getElementById('includeZeroSKM');
-                
+
                 excludeBtn.addEventListener('click', () => {
                     overlay.remove();
                     resolve(false);
                 });
-                
+
                 includeBtn.addEventListener('click', () => {
                     overlay.remove();
                     resolve(true);
                 });
-                
+
                 overlay.addEventListener('click', (e) => {
                     if (e.target === overlay) {
                         overlay.remove();
                         resolve(true); // Default to include if user clicks outside
                     }
                 });
-                
+
                 setTimeout(() => includeBtn.focus(), 100);
             });
-            
+
             console.log('🔍 User choice for zero products:', includeZeroProducts ? 'Include' : 'Exclude');
         }
-        
+
         // Show simple customization modal
-        const customizationData = await showSimpleSKMModal(invoice);
+        const customizationData = await window.showSimpleSKMModal(invoice);
         if (!customizationData) {
             console.log('❌ User cancelled SKM PDF generation');
             return;
         }
-        
+
+        // Use global generation function
+        await window.generateSKMPDFWithCustomization(invoice, customizationData, 'multi');
+
+    } catch (error) {
+        console.error('❌ Error generating SKM PDF:', error);
+        showSKMErrorModal('Erreur de génération', 'Une erreur est survenue lors de la génération du PDF SKM: ' + error.message);
+    }
+};
+
+// Global function to generate SKM PDF with customizations
+window.generateSKMPDFWithCustomization = async function (invoice, customizationData, context = 'multi') {
+    try {
         // Check if jsPDF is loaded
         if (typeof window.jspdf === 'undefined') {
             await loadJsPDF();
         }
-        
+
         const { jsPDF } = window.jspdf;
         const doc = new jsPDF();
-        
+
         console.log('=== SKM PDF Generation Started ===');
-        
+
         // Apply customizations
         const customizedInvoice = { ...invoice };
-        
+
         // Apply percentage to products (but don't show percentage in PDF)
         if (customizationData.percentage && customizationData.percentage > 0) {
             customizedInvoice.products = customizedInvoice.products.map(product => ({
@@ -115,17 +127,17 @@ window.downloadMultiSKMDevisPDF = async function(invoiceId) {
                 prix_unitaire_ht: parseFloat(product.prix_unitaire_ht) * (1 + customizationData.percentage / 100),
                 total_ht: parseFloat(product.total_ht) * (1 + customizationData.percentage / 100)
             }));
-            
+
             // Recalculate totals
             const newTotalHT = customizedInvoice.products.reduce((sum, p) => sum + parseFloat(p.total_ht), 0);
             const newMontantTVA = newTotalHT * (parseFloat(customizedInvoice.tva_rate) / 100);
             const newTotalTTC = newTotalHT + newMontantTVA;
-            
+
             customizedInvoice.total_ht = newTotalHT;
             customizedInvoice.montant_tva = newMontantTVA;
             customizedInvoice.total_ttc = newTotalTTC;
         }
-        
+
         // Apply custom date and devis number
         if (customizationData.customDate) {
             customizedInvoice.document_date = customizationData.customDate;
@@ -133,66 +145,95 @@ window.downloadMultiSKMDevisPDF = async function(invoiceId) {
         if (customizationData.customDevisNumber) {
             customizedInvoice.document_numero_devis = customizationData.customDevisNumber;
         }
-        
-        // Apply custom product names from modal inputs
-        const productInputs = document.querySelectorAll('[id^="product-name-"]');
-        if (productInputs.length > 0) {
+
+        // Apply custom product names from customization data
+        if (customizationData.customProductNames) {
             customizedInvoice.products = customizedInvoice.products.map((product, index) => {
-                const input = document.getElementById(`product-name-${index}`);
+                const customName = customizationData.customProductNames[index];
                 return {
                     ...product,
-                    designation: input ? input.value.trim() || product.designation : product.designation
+                    designation: customName || product.designation
                 };
             });
         }
-        
-        // Add Devis number to SKM database
+        // Legacy fallback: check DOM if not in customizationData (for backward compatibility if needed)
+        else {
+            const productInputs = document.querySelectorAll('[id^="product-name-"]');
+            if (productInputs.length > 0) {
+                customizedInvoice.products = customizedInvoice.products.map((product, index) => {
+                    const input = document.getElementById(`product-name-${index}`);
+                    return {
+                        ...product,
+                        designation: input ? input.value.trim() || product.designation : product.designation
+                    };
+                });
+            }
+        }
+
+        // Add Devis number to SKM database (always SKM because it is SKM sequence)
         try {
             const currentYear = new Date().getFullYear();
             await window.electron.dbSkm.addDevisNumber(customizationData.customDevisNumber, currentYear);
         } catch (error) {
             console.error('Error saving devis number:', error);
         }
-        
+
         // Generate SKM PDF with special design
-        await generateSKMPDF(doc, customizedInvoice, includeZeroProducts);
-        
+        // Defaulting includeZeroProducts to true for chaimae context for simplicity, or we can pass it
+        await generateSKMPDF(doc, customizedInvoice, true);
+
         // Get the company that created this PDF
         const selectedCompany = JSON.parse(localStorage.getItem('selectedCompany') || '{}');
         const createdBy = selectedCompany.code || selectedCompany.name || 'Unknown';
-        
+
         // Save the PDF with new format: CONSAZIZ_TYPE_ClientName_InvoiceNumber
         const docType = customizedInvoice.document_type === 'devis' ? 'Devis' : 'Facture';
         const invoiceNumber = customizedInvoice.document_numero_devis || customizedInvoice.document_numero || 'N-A';
         const fileName = `CONSAZIZ_${docType}_${customizedInvoice.client_nom}_${invoiceNumber}.pdf`;
-        
-        // Get PDF as blob and save to disk
+
+        // Get PDF as blob
         const pdfBlob = doc.output('blob');
         const pdfArrayBuffer = await pdfBlob.arrayBuffer();
         const pdfUint8Array = new Uint8Array(pdfArrayBuffer);
-        
-        // Save PDF to disk using electron API (save in 'skm' folder, but mark creator as MULTI)
-        const saveResult = await window.electron.pdf.savePdf(pdfUint8Array, 'skm', customizedInvoice.document_numero_devis, createdBy);
-        
+
+        // Folder to save: 'chaimae_skm' if context is chaimae, else 'skm'
+        const saveFolder = context === 'chaimae' ? 'chaimae_skm' : 'skm';
+
+        // Save PDF to disk using electron API
+        // Note: For Chaimae context, we are saving in Chaimae folder but using SKM design
+        const saveResult = await window.electron.pdf.savePdf(pdfUint8Array, saveFolder, customizedInvoice.document_numero_devis, createdBy);
+
         if (saveResult.success) {
-            console.log('✅ SKM PDF saved to disk:', saveResult.filePath);
+            console.log(`✅ SKM PDF saved to disk (${saveFolder}):`, saveResult.filePath);
             // Also save to downloads
             doc.save(fileName);
             console.log('✅ SKM PDF generated successfully:', fileName);
-            showSKMSuccessModal('PDF généré avec succès', `Le fichier ${fileName} a été téléchargé et sauvegardé avec succès !`);
+
+            // Show success modal only if checking from Multi, or use generic notify
+            if (context === 'multi') {
+                showSKMSuccessModal('PDF généré avec succès', `Le fichier ${fileName} a été téléchargé et sauvegardé avec succès !`);
+            } else {
+                window.notify.success('Succès', `PDF SKM généré et sauvegardé avec succès !`);
+            }
         } else {
             console.error('❌ Error saving PDF to disk:', saveResult.error);
-            showSKMWarningModal('Avertissement', 'PDF généré mais erreur lors de la sauvegarde: ' + saveResult.error);
+            if (context === 'multi') {
+                showSKMWarningModal('Avertissement', 'PDF généré mais erreur lors de la sauvegarde: ' + saveResult.error);
+            } else {
+                window.notify.warning('Avertissement', 'PDF généré mais non sauvegardé: ' + saveResult.error);
+                doc.save(fileName); // Fallback download
+            }
         }
-        
+
     } catch (error) {
-        console.error('❌ Error generating SKM PDF:', error);
-        showSKMErrorModal('Erreur de génération', 'Une erreur est survenue lors de la génération du PDF SKM: ' + error.message);
+        console.error('❌ Error in generateSKMPDFWithCustomization:', error);
+        throw error;
     }
 };
 
 // Show simple SKM modal
-async function showSimpleSKMModal(invoice) {
+// Show simple SKM modal
+window.showSimpleSKMModal = async function (invoice) {
     // Get last used devis number
     let lastDevisNumber = 'Aucun';
     let nextDevisNumber = '';
@@ -203,7 +244,7 @@ async function showSimpleSKMModal(invoice) {
         console.log('📋 SKM DB Result:', result);
         if (result && result.success && result.data && result.data.devis_number) {
             lastDevisNumber = result.data.devis_number;
-            
+
             // Extract number before the year (format: number/year)
             // Example: "11/2025" -> extract 11, increment to 12, then add current year
             const match = lastDevisNumber.match(/^(\d+)\/\d+$/);
@@ -230,24 +271,24 @@ async function showSimpleSKMModal(invoice) {
         console.log('Could not get last devis number:', error);
         nextDevisNumber = '1/' + currentYear;
     }
-    
+
     // Ensure nextDevisNumber is in correct format (number/year only)
     if (nextDevisNumber && !nextDevisNumber.match(/^(\d+)\/\d{4}$/)) {
         nextDevisNumber = '1/' + currentYear;
     }
-    
+
     return new Promise((resolve) => {
         const overlay = document.createElement('div');
         overlay.className = 'custom-modal-overlay';
-        
+
         const modal = document.createElement('div');
         modal.className = 'custom-modal';
         modal.style.maxWidth = '600px';
-        
+
         // Get the company that created this PDF
         const selectedCompany = JSON.parse(localStorage.getItem('selectedCompany') || '{}');
         const companyName = selectedCompany.name || 'Inconnue';
-        
+
         modal.innerHTML = `
             <div class="custom-modal-header">
                 <span class="custom-modal-icon info">🎨</span>
@@ -310,16 +351,16 @@ async function showSimpleSKMModal(invoice) {
                 <button id="generateBtn" class="custom-modal-btn primary">Générer PDF SKM</button>
             </div>
         `;
-        
+
         overlay.appendChild(modal);
         document.body.appendChild(overlay);
-        
+
         const percentageInput = document.getElementById('percentageInput');
         const dateInput = document.getElementById('dateInput');
         const devisInput = document.getElementById('devisInput');
         const cancelBtn = document.getElementById('cancelBtn');
         const generateBtn = document.getElementById('generateBtn');
-        
+
         // Auto-add current year when user leaves the devis input field
         devisInput.addEventListener('blur', () => {
             let value = devisInput.value.trim();
@@ -327,24 +368,24 @@ async function showSimpleSKMModal(invoice) {
                 devisInput.value = value + '/' + currentYear;
             }
         });
-        
+
         cancelBtn.onclick = () => {
             overlay.remove();
             resolve(null);
         };
-        
+
         generateBtn.onclick = async () => {
             try {
                 const percentage = parseFloat(percentageInput.value) || 0;
                 const customDate = dateInput.value;
                 const customDevisNumber = devisInput.value.trim();
-                
+
                 if (!customDevisNumber) {
                     showSKMWarningModal('Champ requis', 'Veuillez saisir un numéro de Devis avant de continuer.');
                     devisInput.focus();
                     return;
                 }
-                
+
                 // Check if Devis number already exists
                 const currentYear = new Date().getFullYear();
                 const existsResult = await window.electron.dbSkm.checkDevisExists(customDevisNumber, currentYear);
@@ -354,30 +395,37 @@ async function showSimpleSKMModal(invoice) {
                     devisInput.style.borderColor = '#ff4444';
                     return;
                 }
-                
+
                 // Reset border color if valid
                 devisInput.style.borderColor = '#3e3e42';
-                
+
+                // Gather custom product names
+                const customProductNames = invoice.products.map((product, index) => {
+                    const input = document.getElementById(`product-name-${index}`);
+                    return input ? input.value.trim() : product.designation;
+                });
+
                 overlay.remove();
                 resolve({
                     percentage,
                     customDate,
-                    customDevisNumber
+                    customDevisNumber,
+                    customProductNames
                 });
-                
+
             } catch (error) {
                 console.error('Error in modal:', error);
                 showSKMErrorModal('Erreur', 'Une erreur est survenue: ' + error.message);
             }
         };
-        
+
         overlay.onclick = (e) => {
             if (e.target === overlay) {
                 overlay.remove();
                 resolve(null);
             }
         };
-        
+
         setTimeout(() => generateBtn.focus(), 100);
     });
 }
@@ -387,17 +435,17 @@ async function showSKMCustomizationModal(invoice) {
     return new Promise((resolve) => {
         const overlay = document.createElement('div');
         overlay.className = 'custom-modal-overlay';
-        
+
         const currentYear = new Date().getFullYear();
         const currentDate = new Date().toISOString().slice(0, 10);
-        
+
         // Create modal content
         const modalContent = document.createElement('div');
         modalContent.className = 'custom-modal';
         modalContent.style.maxWidth = '800px';
         modalContent.style.maxHeight = '90vh';
         modalContent.style.overflowY = 'auto';
-        
+
         // Modal header
         const header = document.createElement('div');
         header.className = 'custom-modal-header';
@@ -405,11 +453,11 @@ async function showSKMCustomizationModal(invoice) {
             <span class="custom-modal-icon info">🎨</span>
             <h3 class="custom-modal-title">Personnalisation PDF SKM</h3>
         `;
-        
+
         // Modal body
         const body = document.createElement('div');
         body.className = 'custom-modal-body';
-        
+
         // Percentage section
         const percentageSection = document.createElement('div');
         percentageSection.style.cssText = 'margin-bottom: 2rem; padding: 1rem; background: #1e1e1e; border-radius: 8px;';
@@ -424,7 +472,7 @@ async function showSKMCustomizationModal(invoice) {
                 Ce pourcentage sera appliqué aux prix mais ne sera pas visible dans le PDF
             </small>
         `;
-        
+
         // Date and number section
         const dateSection = document.createElement('div');
         dateSection.style.cssText = 'margin-bottom: 2rem; padding: 1rem; background: #1e1e1e; border-radius: 8px;';
@@ -443,83 +491,83 @@ async function showSKMCustomizationModal(invoice) {
                 </label>
             </div>
         `;
-        
+
         // Products section
         const productsSection = document.createElement('div');
         productsSection.style.cssText = 'margin-bottom: 2rem; padding: 1rem; background: #1e1e1e; border-radius: 8px;';
-        
+
         const productsHeader = document.createElement('h4');
         productsHeader.style.cssText = 'color: #4CAF50; margin: 0 0 1rem 0; font-size: 1rem;';
         productsHeader.textContent = '🛍️ Personnalisation des produits';
-        
+
         const productsList = document.createElement('div');
         productsList.id = 'skmProductsList';
         productsList.style.cssText = 'max-height: 200px; overflow-y: auto;';
-        
+
         // Add products
         invoice.products.forEach((product, index) => {
             const productDiv = document.createElement('div');
             productDiv.style.cssText = 'margin-bottom: 1rem; padding: 0.75rem; background: #2d2d30; border-radius: 6px;';
-            
+
             const label = document.createElement('label');
             label.style.cssText = 'display: flex; flex-direction: column; gap: 0.5rem;';
-            
+
             const span = document.createElement('span');
             span.style.cssText = 'color: #999; font-size: 0.9rem;';
             span.textContent = `Produit ${index + 1}:`;
-            
+
             const input = document.createElement('input');
             input.type = 'text';
             input.id = `skmProduct${index}`;
             input.value = product.designation;
             input.style.cssText = 'padding: 0.5rem; background: #1e1e1e; border: 1px solid #3e3e42; border-radius: 4px; color: #fff;';
-            
+
             label.appendChild(span);
             label.appendChild(input);
             productDiv.appendChild(label);
             productsList.appendChild(productDiv);
         });
-        
+
         productsSection.appendChild(productsHeader);
         productsSection.appendChild(productsList);
-        
+
         // Modal footer
         const footer = document.createElement('div');
         footer.className = 'custom-modal-footer';
-        
+
         const cancelBtn = document.createElement('button');
         cancelBtn.id = 'skmCancelBtn';
         cancelBtn.className = 'custom-modal-btn secondary';
         cancelBtn.textContent = 'Annuler';
-        
+
         const generateBtn = document.createElement('button');
         generateBtn.id = 'skmGenerateBtn';
         generateBtn.className = 'custom-modal-btn primary';
         generateBtn.textContent = 'Générer PDF SKM';
-        
+
         footer.appendChild(cancelBtn);
         footer.appendChild(generateBtn);
-        
+
         // Assemble modal
         body.appendChild(percentageSection);
         body.appendChild(dateSection);
         body.appendChild(productsSection);
-        
+
         modalContent.appendChild(header);
         modalContent.appendChild(body);
         modalContent.appendChild(footer);
-        
+
         overlay.appendChild(modalContent);
         document.body.appendChild(overlay);
-        
+
         const customDevisNumberInput = document.getElementById('skmCustomDevisNumber');
-        
+
         // Check devis number uniqueness
         let isCheckingNumber = false;
         customDevisNumberInput.addEventListener('input', async () => {
             const devisNumber = customDevisNumberInput.value.trim();
             if (!devisNumber || isCheckingNumber) return;
-            
+
             isCheckingNumber = true;
             try {
                 const exists = await window.electron.invoke('db:skm:devis:exists', devisNumber, currentYear);
@@ -535,17 +583,17 @@ async function showSKMCustomizationModal(invoice) {
             }
             isCheckingNumber = false;
         });
-        
+
         cancelBtn.addEventListener('click', () => {
             overlay.remove();
             resolve(null);
         });
-        
+
         generateBtn.addEventListener('click', async () => {
             const percentage = parseFloat(document.getElementById('skmPercentage').value) || 0;
             const customDate = document.getElementById('skmCustomDate').value;
             const customDevisNumber = document.getElementById('skmCustomDevisNumber').value.trim();
-            
+
             // Validate devis number uniqueness
             if (customDevisNumber && customDevisNumber !== invoice.document_numero_devis) {
                 try {
@@ -554,7 +602,7 @@ async function showSKMCustomizationModal(invoice) {
                         window.notify.error('Erreur', 'Ce numéro de devis existe déjà');
                         return;
                     }
-                    
+
                     // Add to SKM database
                     await window.electron.invoke('db:skm:devis:add', customDevisNumber, currentYear);
                 } catch (error) {
@@ -563,7 +611,7 @@ async function showSKMCustomizationModal(invoice) {
                     return;
                 }
             }
-            
+
             // Get custom product names
             const customProductNames = {};
             invoice.products.forEach((_, index) => {
@@ -572,7 +620,7 @@ async function showSKMCustomizationModal(invoice) {
                     customProductNames[index] = input.value.trim();
                 }
             });
-            
+
             overlay.remove();
             resolve({
                 percentage,
@@ -581,14 +629,14 @@ async function showSKMCustomizationModal(invoice) {
                 customProductNames
             });
         });
-        
+
         overlay.addEventListener('click', (e) => {
             if (e.target === overlay) {
                 overlay.remove();
                 resolve(null);
             }
         });
-        
+
         setTimeout(() => generateBtn.focus(), 100);
     });
 }
@@ -600,20 +648,20 @@ async function generateSKMPDF(doc, invoice, includeZeroProducts = true) {
         const headerImg = await loadSKMImage('SKM/Hesder.png');
         const footerImg = await loadSKMImage('SKM/Footer.png');
         const signatureImg = await loadSKMImage('SKM/signature.png');
-        
+
         const pageWidth = doc.internal.pageSize.width;
         const pageHeight = doc.internal.pageSize.height;
-        
+
         // Colors for SKM design (neutral colors, no blue)
         const primaryColor = [80, 80, 80]; // Dark gray
         const secondaryColor = [120, 120, 120]; // Medium gray
         const accentColor = [200, 50, 50]; // Red accent for important text
         const textColor = [40, 40, 40]; // Very dark gray
         const borderColor = [160, 160, 160]; // Light gray
-        
+
         let currentY = 20;
         let pageCount = 1;
-        
+
         // Function to add header
         const addSKMHeader = () => {
             if (headerImg) {
@@ -625,7 +673,7 @@ async function generateSKMPDF(doc, invoice, includeZeroProducts = true) {
                 currentY = 20;
             }
         };
-        
+
         // Function to add footer
         const addSKMFooter = (pageNum, totalPages) => {
             if (footerImg) {
@@ -633,7 +681,7 @@ async function generateSKMPDF(doc, invoice, includeZeroProducts = true) {
                 const footerY = pageHeight - footerHeight - 5; // More space from bottom
                 console.log(`🦶 Adding footer to page ${pageNum} at Y: ${footerY}`);
                 doc.addImage(footerImg, 'PNG', 0, footerY, pageWidth, footerHeight);
-                
+
                 // Add signature above footer (center position, rotated 5 degrees)
                 if (signatureImg) {
                     const signatureWidth = 40;
@@ -641,25 +689,25 @@ async function generateSKMPDF(doc, invoice, includeZeroProducts = true) {
                     const signatureX = (pageWidth - signatureWidth) / 2; // Center horizontally
                     const signatureY = footerY - 21; // 25 units above footer
                     console.log(`✍️ Adding signature to page ${pageNum} at X: ${signatureX}, Y: ${signatureY}`);
-                    
+
                     // Rotate signature 5 degrees around its center
                     const angle = 5;
                     const centerX = signatureX + signatureWidth / 2;
                     const centerY = signatureY + signatureHeight / 2;
-                    
+
                     // Use jsPDF's internal API to apply rotation
                     doc.saveGraphicsState();
                     const angleRad = (angle * Math.PI) / 180;
                     const cos = Math.cos(angleRad);
                     const sin = Math.sin(angleRad);
-                    
+
                     // Apply transformation matrix for rotation
                     doc.internal.write(`q ${cos} ${sin} ${-sin} ${cos} ${centerX - centerX * cos + centerY * sin} ${centerY - centerX * sin - centerY * cos} cm`);
                     doc.addImage(signatureImg, 'PNG', signatureX, signatureY, signatureWidth, signatureHeight);
                     doc.internal.write('Q');
                     doc.restoreGraphicsState();
                 }
-                
+
                 // Add page number below footer (center) - format "1/2"
                 doc.setFontSize(10);
                 doc.setTextColor(100, 100, 100);
@@ -667,28 +715,28 @@ async function generateSKMPDF(doc, invoice, includeZeroProducts = true) {
                 doc.text(pageText, pageWidth / 2, pageHeight - 8, { align: 'center' });
             }
         };
-        
+
         // Add first page header
         addSKMHeader();
-        
+
         // NO title - remove "DEVIS" text
         currentY += 5; // Small space after header
-        
+
         // Function to add client info section (original beautiful design)
         const addClientInfoSection = () => {
             const dateStr = new Date(invoice.document_date).toLocaleDateString('fr-FR');
-            
+
             doc.setFontSize(12);
             doc.setTextColor(0, 0, 0); // Black color
             doc.setFont(undefined, 'bold');
-            
+
             // Client name on the left
             doc.text(`CLIENT: ${invoice.client_nom}`, 20, currentY);
-            
+
             // Date on the right
             doc.text(`Date: ${dateStr}`, pageWidth - 20, currentY, { align: 'right' });
             currentY += 6; // Reduced space
-            
+
             // ICE number if exists - FORCE display
             doc.setFont(undefined, 'normal');
             doc.setFontSize(10);
@@ -696,9 +744,9 @@ async function generateSKMPDF(doc, invoice, includeZeroProducts = true) {
             const iceValue = invoice.client_ice && invoice.client_ice !== '0' ? invoice.client_ice : 'Non spécifié';
             doc.text(`ICE: ${iceValue}`, 20, currentY);
             currentY += 6; // Reduced space
-            
+
             currentY += 8; // Reduced space
-            
+
             // Devis number at the bottom before table
             doc.setFontSize(14);
             doc.setFont(undefined, 'bold');
@@ -706,83 +754,83 @@ async function generateSKMPDF(doc, invoice, includeZeroProducts = true) {
             doc.text(`N° Devis: ${invoice.document_numero_devis}`, 20, currentY);
             currentY += 10; // Reduced space
         };
-        
+
         // Add client info section to first page
         addClientInfoSection();
-        
+
         // Products table - matching image design
         const tableHeaders = ['DESCRIPTION', 'QTE', 'PRIX HT', 'TOTAL HT'];
         const colWidths = [95, 25, 25, 30];  // TOTAL width reduced from 50 to 30
         const colPositions = [20, 115, 140, 165];
         const tableEndX = 195; // Right edge of table
-        
+
         console.log('📊 TABLE CONFIG (MULTI):');
         console.log('  colPositions:', colPositions);
         console.log('  colWidths:', colWidths);
         console.log('  Column 4 (TOTAL): start=' + colPositions[3] + ', width=' + colWidths[3] + ', end=' + (colPositions[3] + colWidths[3]));
         console.log('  Table end: ' + tableEndX);
-        
+
         // Function to add table header (simple black borders)
         const addTableHeader = () => {
             // Draw header row with black borders
             doc.setDrawColor(0, 0, 0);
             doc.setLineWidth(0.5);
-            
+
             // Top border
             doc.line(20, currentY, 195, currentY);
-            
+
             // Draw each header cell with borders
             doc.setTextColor(0, 0, 0);
             doc.setFont(undefined, 'bold');
             doc.setFontSize(10);
-            
+
             tableHeaders.forEach((header, index) => {
                 const x = colPositions[index];
                 const width = colWidths[index];
-                
+
                 // Right border for each column
                 doc.line(x + width, currentY, x + width, currentY + 10);
-                
+
                 // Text
                 doc.text(header, x + 2, currentY + 7);
             });
-            
+
             // Left border
             doc.line(20, currentY, 20, currentY + 10);
-            
+
             // Bottom border
             doc.line(20, currentY + 10, 195, currentY + 10);
-            
+
             currentY += 10;
         };
-        
+
         // Function to add complete table section (header + content area)
         const addCompleteTableSection = () => {
             const tableStartY = currentY;
             addTableHeader();
             return tableStartY;
         };
-        
+
         // Add complete table section to first page
         const firstTableStartY = addCompleteTableSection();
-        
+
         // Table rows - NO background colors, clean white
         doc.setTextColor(...textColor);
         doc.setFont(undefined, 'normal');
         doc.setFontSize(9);
-        
+
         let tableSegments = []; // Track table segments for borders
         let currentSegmentStart = firstTableStartY;
-        
+
         // Show all products but display zeros based on user choice
         const productsToShow = invoice.products;
-        
+
         console.log(`📦 Showing ${productsToShow.length} products with zero handling: ${includeZeroProducts ? 'Show zeros' : 'Hide zeros'}`);
-        
+
         productsToShow.forEach((product, index) => {
             const maxWidth = colWidths[0] - 4; // Description column width
             const descriptionLines = doc.splitTextToSize(product.designation || '', maxWidth);
-            
+
             // Row data with zero handling (fixed per product)
             const isZeroProduct = parseFloat(product.quantite) === 0 || parseFloat(product.prix_unitaire_ht) === 0;
             const quantityText = includeZeroProducts || !isZeroProduct ? product.quantite : '';
@@ -848,11 +896,11 @@ async function generateSKMPDF(doc, invoice, includeZeroProducts = true) {
                     const colIndex = offset + 1; // 1, 2, 3
                     const x = colPositions[colIndex];
                     const width = colWidths[colIndex];
-                    
+
                     // Use same positioning as header: x + 2 for left align, x + width - 2 for right align
                     const align = colIndex > 1 ? 'right' : 'left';
                     const textX = align === 'right' ? x + width - 2 : x + 2;
-                    
+
                     doc.setFontSize(8);
                     doc.text(data, textX, rowY + 5, { align });
                     doc.setFontSize(9);
@@ -861,18 +909,18 @@ async function generateSKMPDF(doc, invoice, includeZeroProducts = true) {
                 // Add borders around this row
                 doc.setDrawColor(0, 0, 0);
                 doc.setLineWidth(0.5);
-                
+
                 // Left border
                 doc.line(20, rowY, 20, rowY + rowHeight);
-                
+
                 // Right border
                 doc.line(195, rowY, 195, rowY + rowHeight);
-                
+
                 // Column separators (vertical lines between columns)
                 colPositions.slice(1).forEach(x => {
                     doc.line(x, rowY, x, rowY + rowHeight);
                 });
-                
+
                 // Bottom border
                 doc.line(20, rowY + rowHeight, 195, rowY + rowHeight);
 
@@ -880,53 +928,53 @@ async function generateSKMPDF(doc, invoice, includeZeroProducts = true) {
                 lineIndex += linesForThisRow;
             }
         });
-        
+
         // Close final table segment
         tableSegments.push({
             startY: currentSegmentStart,
             endY: currentY,
             page: pageCount
         });
-        
+
         // Return to last page for totals
         doc.setPage(pageCount);
-        
+
         // No space - totals connect directly to table
-        
+
         // Recalculate totals based on displayed products
         let displayedTotalHT = 0;
         if (!includeZeroProducts) {
             displayedTotalHT = productsToShow.reduce((sum, p) => sum + parseFloat(p.total_ht), 0);
             const displayedMontantTVA = displayedTotalHT * (parseFloat(invoice.tva_rate) / 100);
             const displayedTotalTTC = displayedTotalHT + displayedMontantTVA;
-            
+
             // Update invoice totals for display
             invoice.total_ht = displayedTotalHT;
             invoice.montant_tva = displayedMontantTVA;
             invoice.total_ttc = displayedTotalTTC;
-            
+
             console.log(`💰 Recalculated totals - HT: ${displayedTotalHT}, TTC: ${displayedTotalTTC}`);
         }
-        
+
         // Totals section - matching image design exactly
         const totalsStartY = currentY;
-        
+
         // Draw totals table with simple borders
         doc.setDrawColor(0, 0, 0);
         doc.setLineWidth(0.5);
-        
+
         // PRIX H.T row
         doc.setFontSize(9);
         doc.setFont(undefined, 'normal');
         doc.setTextColor(0, 0, 0);
-        
+
         // Debug: Log column positions and widths
         console.log('📊 TABLE DIMENSIONS (MULTI):');
         console.log('  colPositions:', colPositions);
         console.log('  colWidths:', colWidths);
         console.log('  Column 3 (P.): start=' + colPositions[2] + ', width=' + colWidths[2] + ', end=' + (colPositions[2] + colWidths[2]));
         console.log('  Column 4 (TOTAL): start=' + colPositions[3] + ', width=' + colWidths[3] + ', end=' + (colPositions[3] + colWidths[3]));
-        
+
         // Row 1: PRIX H.T
         doc.line(20, totalsStartY, 195, totalsStartY); // Top border
         doc.line(20, totalsStartY, 20, totalsStartY + 8); // Left border
@@ -934,7 +982,7 @@ async function generateSKMPDF(doc, invoice, includeZeroProducts = true) {
         doc.text('PRIX H.T', 145, totalsStartY + 6);
         doc.text(formatNumberForPDF(invoice.total_ht), 192, totalsStartY + 6, { align: 'right' });
         doc.line(20, totalsStartY + 8, 195, totalsStartY + 8); // Bottom border
-        
+
         // Row 2: TVA
         const tvaY = totalsStartY + 8;
         doc.line(20, tvaY, 20, tvaY + 8); // Left border
@@ -942,7 +990,7 @@ async function generateSKMPDF(doc, invoice, includeZeroProducts = true) {
         doc.text(`TVA ${invoice.tva_rate}%`, 145, tvaY + 6);
         doc.text(formatNumberForPDF(invoice.montant_tva), 192, tvaY + 6, { align: 'right' });
         doc.line(20, tvaY + 8, 195, tvaY + 8); // Bottom border
-        
+
         // Row 3: PRIX T.T.C
         const ttcY = tvaY + 8;
         doc.setFont(undefined, 'bold');
@@ -951,22 +999,22 @@ async function generateSKMPDF(doc, invoice, includeZeroProducts = true) {
         doc.text('PRIX T.T.C', 145, ttcY + 6);
         doc.text(formatNumberForPDF(invoice.total_ttc), 192, ttcY + 6, { align: 'right' });
         doc.line(20, ttcY + 8, 195, ttcY + 8); // Bottom border
-        
+
         // Calculate total pages
         const totalPages = pageCount;
-        
+
         // Draw borders for all table segments BEFORE adding footers
         console.log('🖼️ Drawing table borders for all pages');
         doc.setDrawColor(0, 0, 0); // Black for main borders
         doc.setLineWidth(0.5); // Standard border thickness
-        
+
         tableSegments.forEach(segment => {
             doc.setPage(segment.page);
             console.log(`📋 Drawing borders for page ${segment.page}`);
-            
+
             // Table border
             doc.rect(20, segment.startY, 175, segment.endY - segment.startY);
-            
+
             // Vertical lines
             let xPos = 20;
             colWidths.forEach(width => {
@@ -974,18 +1022,18 @@ async function generateSKMPDF(doc, invoice, includeZeroProducts = true) {
                 doc.line(xPos, segment.startY, xPos, segment.endY);
             });
         });
-        
+
         // Add complete footer to all pages AFTER drawing borders
         for (let i = 1; i <= totalPages; i++) {
             doc.setPage(i);
             console.log(`🔄 Adding complete footer to page ${i}/${totalPages}`);
-            
+
             // Add complete footer with signature and page number
             addSKMFooter(i, totalPages);
         }
-        
+
         console.log('✅ SKM PDF generation completed');
-        
+
     } catch (error) {
         console.error('❌ Error in SKM PDF generation:', error);
         throw error;
@@ -996,7 +1044,7 @@ async function generateSKMPDF(doc, invoice, includeZeroProducts = true) {
 async function loadSKMImage(imagePath) {
     return new Promise((resolve) => {
         const img = new Image();
-        img.onload = function() {
+        img.onload = function () {
             const canvas = document.createElement('canvas');
             const ctx = canvas.getContext('2d');
             canvas.width = img.width;
@@ -1004,7 +1052,7 @@ async function loadSKMImage(imagePath) {
             ctx.drawImage(img, 0, 0);
             resolve(canvas.toDataURL('image/png'));
         };
-        img.onerror = function() {
+        img.onerror = function () {
             console.warn(`Could not load SKM image: ${imagePath}`);
             resolve(null);
         };
@@ -1028,7 +1076,7 @@ async function loadJsPDF() {
             resolve();
             return;
         }
-        
+
         const script = document.createElement('script');
         script.src = 'https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js';
         script.onload = () => {
@@ -1052,7 +1100,7 @@ function showSKMSuccessModal(title, message) {
         background: rgba(0,0,0,0.7); display: flex; align-items: center; 
         justify-content: center; z-index: 10000; backdrop-filter: blur(5px);
     `;
-    
+
     const modal = document.createElement('div');
     modal.style.cssText = `
         background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
@@ -1060,7 +1108,7 @@ function showSKMSuccessModal(title, message) {
         box-shadow: 0 20px 60px rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.1);
         transform: scale(0.9); opacity: 0; transition: all 0.3s ease;
     `;
-    
+
     modal.innerHTML = `
         <div style="text-align: center;">
             <div style="width: 80px; height: 80px; background: linear-gradient(135deg, #4CAF50, #45a049); 
@@ -1078,15 +1126,15 @@ function showSKMSuccessModal(title, message) {
             </button>
         </div>
     `;
-    
+
     overlay.appendChild(modal);
     document.body.appendChild(overlay);
-    
+
     setTimeout(() => {
         modal.style.transform = 'scale(1)';
         modal.style.opacity = '1';
     }, 10);
-    
+
     overlay.onclick = (e) => {
         if (e.target === overlay) overlay.remove();
     };
@@ -1100,7 +1148,7 @@ function showSKMErrorModal(title, message) {
         background: rgba(0,0,0,0.7); display: flex; align-items: center; 
         justify-content: center; z-index: 10000; backdrop-filter: blur(5px);
     `;
-    
+
     const modal = document.createElement('div');
     modal.style.cssText = `
         background: linear-gradient(135deg, #c62828 0%, #d32f2f 100%);
@@ -1108,7 +1156,7 @@ function showSKMErrorModal(title, message) {
         box-shadow: 0 20px 60px rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.1);
         transform: scale(0.9); opacity: 0; transition: all 0.3s ease;
     `;
-    
+
     modal.innerHTML = `
         <div style="text-align: center;">
             <div style="width: 80px; height: 80px; background: linear-gradient(135deg, #f44336, #d32f2f); 
@@ -1126,15 +1174,15 @@ function showSKMErrorModal(title, message) {
             </button>
         </div>
     `;
-    
+
     overlay.appendChild(modal);
     document.body.appendChild(overlay);
-    
+
     setTimeout(() => {
         modal.style.transform = 'scale(1)';
         modal.style.opacity = '1';
     }, 10);
-    
+
     overlay.onclick = (e) => {
         if (e.target === overlay) overlay.remove();
     };
@@ -1148,7 +1196,7 @@ function showSKMWarningModal(title, message) {
         background: rgba(0,0,0,0.7); display: flex; align-items: center; 
         justify-content: center; z-index: 10000; backdrop-filter: blur(5px);
     `;
-    
+
     const modal = document.createElement('div');
     modal.style.cssText = `
         background: linear-gradient(135deg, #f57c00 0%, #ff9800 100%);
@@ -1156,7 +1204,7 @@ function showSKMWarningModal(title, message) {
         box-shadow: 0 20px 60px rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.1);
         transform: scale(0.9); opacity: 0; transition: all 0.3s ease;
     `;
-    
+
     modal.innerHTML = `
         <div style="text-align: center;">
             <div style="width: 80px; height: 80px; background: linear-gradient(135deg, #ff9800, #f57c00); 
@@ -1174,15 +1222,15 @@ function showSKMWarningModal(title, message) {
             </button>
         </div>
     `;
-    
+
     overlay.appendChild(modal);
     document.body.appendChild(overlay);
-    
+
     setTimeout(() => {
         modal.style.transform = 'scale(1)';
         modal.style.opacity = '1';
     }, 10);
-    
+
     overlay.onclick = (e) => {
         if (e.target === overlay) overlay.remove();
     };
