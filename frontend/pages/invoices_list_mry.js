@@ -132,6 +132,14 @@ function InvoicesListMRYPage() {
                                 <input type="text" id="searchInput" placeholder="Tapez votre recherche..." onkeyup="filterInvoices()" style="width: 100%; padding: 0.75rem; background: #1e1e1e; border: 1px solid #3e3e42; border-radius: 4px; color: #ffffff; font-size: 0.95rem;">
                             </div>
                         </div>
+
+                        <!-- Checkbox Filter -->
+                        <div class="filter-group" style="display: flex; align-items: center; padding-top: 1.8rem; margin-left: 1rem;">
+                            <label style="display: flex; align-items: center; cursor: pointer; gap: 0.5rem; user-select: none;">
+                                <input type="checkbox" id="filterAttachments" onchange="filterInvoices()" style="width: 18px; height: 18px; cursor: pointer;">
+                                <span style="font-size: 0.9rem; color: #ddd; font-weight: 500;">📎 Avec P.J uniquement</span>
+                            </label>
+                        </div>
                         
                         <div class="filter-group">
                             <button class="btn-refresh" onclick="loadInvoices()" style="margin-top: 1.5rem;">
@@ -215,6 +223,7 @@ function InvoicesListMRYPage() {
                                     <th onclick="sortTableMry('total_ttc')" style="cursor: pointer; user-select: none;" title="Cliquez pour trier">
                                         Total TTC <span id="sortIconTotalTTCMry">⇅</span>
                                     </th>
+                                    <th style="width: 50px; text-align: center;">P.J</th>
                                     <th>Actions</th>
                                 </tr>
                             </thead>
@@ -505,6 +514,9 @@ function displayInvoices(invoices) {
                 <td><small style="color: #2196f3;">${invoice.created_by_user_name || '-'}</small></td>
                 <td>${formatNumber(invoice.total_ht)} DH</td>
                 <td><strong>${formatNumber(invoice.total_ttc)} DH</strong></td>
+                <td style="text-align: center; color: #757575;">
+                    <span style="${invoice.attachment_count > 0 ? 'color: #2196f3; font-weight: bold;' : ''}">${invoice.attachment_count || 0}</span>
+                </td>
                 <td>
                     <div class="action-buttons">
                         <button class="btn-icon btn-view" onclick="viewInvoice(${invoice.id})" title="Voir">
@@ -530,13 +542,7 @@ function displayInvoices(invoices) {
                             </svg>
                         </button>
                         ${invoice.document_type === 'devis' ? `
-                        <button class="btn-icon" onclick="downloadSKMDevisPDF(${invoice.id})" title="Télécharger PDF SKM" style="background: #FF9800; color: white;">
-                            <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
-                                <path d="M.5 9.9a.5.5 0 0 1 .5.5v2.5a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-2.5a.5.5 0 0 1 1 0v2.5a2 2 0 0 1-2 2H2a2 2 0 0 1-2-2v-2.5a.5.5 0 0 1 .5-.5z"/>
-                                <path d="M7.646 11.854a.5.5 0 0 0 .708 0l3-3a.5.5 0 0 0-.708-.708L8.5 10.293V1.5a.5.5 0 0 0-1 0v8.793L5.354 8.146a.5.5 0 1 0-.708.708l3 3z"/>
-                            </svg>
-                        </button>
-                        <button class="btn-icon" onclick="downloadSAAISSDevisPDF(${invoice.id})" title="Télécharger PDF SAAISS" style="background: #9C27B0; color: white;">
+                        <button class="btn-icon" onclick="downloadAsOtherCompany(${invoice.id}, 'mry')" title="Télécharger comme autre société" style="background: linear-gradient(135deg, #FF9800, #9C27B0, #4CAF50); color: white;">
                             <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
                                 <path d="M.5 9.9a.5.5 0 0 1 .5.5v2.5a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-2.5a.5.5 0 0 1 1 0v2.5a2 2 0 0 1-2 2H2a2 2 0 0 1-2-2v-2.5a.5.5 0 0 1 .5-.5z"/>
                                 <path d="M7.646 11.854a.5.5 0 0 0 .708 0l3-3a.5.5 0 0 0-.708-.708L8.5 10.293V1.5a.5.5 0 0 0-1 0v8.793L5.354 8.146a.5.5 0 1 0-.708.708l3 3z"/>
@@ -681,6 +687,7 @@ window.resetFilters = function () {
     document.getElementById('filterYear').value = '';
     document.getElementById('filterMonth').value = '';
     document.getElementById('filterClient').value = '';
+    document.getElementById('filterAttachments').checked = false;
     document.getElementById('searchType').value = 'all';
     document.getElementById('searchInput').value = '';
     currentPage = 1;
@@ -694,6 +701,7 @@ window.filterInvoices = async function () {
     const filterYear = document.getElementById('filterYear').value;
     const filterMonth = document.getElementById('filterMonth').value;
     const filterClient = document.getElementById('filterClient').value;
+    const filterAttachments = document.getElementById('filterAttachments').checked;
     const searchInput = document.getElementById('searchInput').value.toLowerCase();
 
     // Show loading if search is active
@@ -729,6 +737,11 @@ window.filterInvoices = async function () {
     // Filter by client
     if (filterClient) {
         filtered = filtered.filter(inv => inv.client_nom === filterClient);
+    }
+
+    // Filter by attachments
+    if (filterAttachments) {
+        filtered = filtered.filter(inv => (inv.attachment_count || 0) > 0);
     }
 
     // Advanced search
@@ -978,19 +991,12 @@ window.viewInvoice = async function (id) {
                         Télécharger Bon de travaux
                     </button>
                     ${invoice.document_type === 'devis' ? `
-                    <button onclick="downloadSKMDevisPDF(${id})" style="padding:0.6rem 1.2rem;background:#FF9800;color:#fff;border:none;border-radius:8px;cursor:pointer;font-size:0.9rem;font-weight:600;display:flex;align-items:center;gap:0.5rem;transition:all 0.2s;" onmouseover="this.style.background='#F57C00'" onmouseout="this.style.background='#FF9800'">
+                    <button onclick="downloadAsOtherCompany(${id}, 'mry')" style="padding:0.6rem 1.2rem;background:linear-gradient(135deg, #FF9800, #9C27B0, #4CAF50);color:#fff;border:none;border-radius:8px;cursor:pointer;font-size:0.9rem;font-weight:600;display:flex;align-items:center;gap:0.5rem;transition:all 0.2s;" onmouseover="this.style.opacity='0.9'" onmouseout="this.style.opacity='1'">
                         <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
                             <path d="M.5 9.9a.5.5 0 0 1 .5.5v2.5a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-2.5a.5.5 0 0 1 1 0v2.5a2 2 0 0 1-2 2H2a2 2 0 0 1-2-2v-2.5a.5.5 0 0 1 .5-.5z"/>
                             <path d="M7.646 11.854a.5.5 0 0 0 .708 0l3-3a.5.5 0 0 0-.708-.708L8.5 10.293V1.5a.5.5 0 0 0-1 0v8.793L5.354 8.146a.5.5 0 1 0-.708.708l3 3z"/>
                         </svg>
-                        Télécharger le PDF SKM
-                    </button>
-                    <button onclick="downloadSAAISSDevisPDF(${id})" style="padding:0.6rem 1.2rem;background:#9C27B0;color:#fff;border:none;border-radius:8px;cursor:pointer;font-size:0.9rem;font-weight:600;display:flex;align-items:center;gap:0.5rem;transition:all 0.2s;" onmouseover="this.style.background='#7B1FA2'" onmouseout="this.style.background='#9C27B0'">
-                        <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
-                            <path d="M.5 9.9a.5.5 0 0 1 .5.5v2.5a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-2.5a.5.5 0 0 1 1 0v2.5a2 2 0 0 1-2 2H2a2 2 0 0 1-2-2v-2.5a.5.5 0 0 1 .5-.5z"/>
-                            <path d="M7.646 11.854a.5.5 0 0 0 .708 0l3-3a.5.5 0 0 0-.708-.708L8.5 10.293V1.5a.5.5 0 0 0-1 0v8.793L5.354 8.146a.5.5 0 1 0-.708.708l3 3z"/>
-                        </svg>
-                        Télécharger le PDF SAAISS
+                        Télécharger comme autre société
                     </button>
                     ` : ''}
                     <button id="closeViewModal" onclick="console.log('🔴🔴🔴 [BUTTON] Close button X clicked directly from HTML!');" style="background:none;border:none;color:#999;cursor:pointer;font-size:1.5rem;padding:0;width:32px;height:32px;display:flex;align-items:center;justify-content:center;border-radius:4px;transition:all 0.2s;margin-left:auto;" onmouseover="this.style.background='#3e3e42';this.style.color='#fff'" onmouseout="this.style.background='none';this.style.color='#999'">×</button>
@@ -2280,6 +2286,27 @@ function formatNumberForPDF(number) {
     return parts[0] + ',' + parts[1];
 }
 
+// Load MRY signature image for PDF
+async function loadMRYSignature() {
+    return new Promise((resolve) => {
+        const img = new Image();
+        img.onload = () => {
+            const canvas = document.createElement('canvas');
+            canvas.width = img.width;
+            canvas.height = img.height;
+            const ctx = canvas.getContext('2d');
+            ctx.drawImage(img, 0, 0);
+            resolve(canvas.toDataURL('image/png'));
+        };
+        img.onerror = () => {
+            console.warn('Could not load MRY signature image');
+            resolve(null);
+        };
+        img.src = 'Signature/MRY.png';
+    });
+}
+
+
 // Download invoice as PDF
 window.downloadInvoicePDF = async function (invoiceId) {
     try {
@@ -2435,6 +2462,9 @@ window.downloadInvoicePDF = async function (invoiceId) {
         const { jsPDF } = window.jspdf;
         const doc = new jsPDF();
 
+        // Load signature image
+        const signatureImgMRY = await loadMRYSignature();
+
         // Colors
         const blueColor = [33, 97, 140]; // #21618C
         const greenColor = [16, 172, 132]; // #10AC84
@@ -2513,6 +2543,11 @@ window.downloadInvoicePDF = async function (invoiceId) {
 
         // Function to add footer to any page
         const addFooter = (pageNum, totalPages) => {
+            // Add signature image above footer (right side)
+            if (signatureImgMRY) {
+                doc.addImage(signatureImgMRY, 'PNG', 140, 235, 60, 30);
+            }
+
             doc.setTextColor(0, 0, 0);
             doc.setFontSize(7);
             doc.setFont(undefined, 'normal');

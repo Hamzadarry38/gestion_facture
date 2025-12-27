@@ -133,6 +133,14 @@ function InvoicesListMultiPage() {
                             </div>
                         </div>
                         
+                        <!-- Checkbox Filter -->
+                        <div class="filter-group" style="display: flex; align-items: center; padding-top: 1.8rem; margin-left: 1rem;">
+                            <label style="display: flex; align-items: center; cursor: pointer; gap: 0.5rem; user-select: none;">
+                                <input type="checkbox" id="filterAttachmentsMulti" onchange="filterInvoicesMulti()" style="width: 18px; height: 18px; cursor: pointer;">
+                                <span style="font-size: 0.9rem; color: #ddd; font-weight: 500;">📎 Avec P.J uniquement</span>
+                            </label>
+                        </div>
+                        
                         <div class="filter-group">
                             <button class="btn-refresh" onclick="loadInvoicesMulti()" style="margin-top: 1.5rem;">
                                 <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor" style="margin-right: 0.5rem;">
@@ -215,6 +223,7 @@ function InvoicesListMultiPage() {
                                     <th onclick="sortTableMulti('total_ttc')" style="cursor: pointer; user-select: none;" title="Cliquer pour trier">
                                         Total TTC <span id="sortIconTTC">⇅</span>
                                     </th>
+                                    <th style="width: 50px; text-align: center;">P.J</th>
                                     <th>Actions</th>
                                 </tr>
                             </thead>
@@ -408,6 +417,7 @@ function filterInvoicesMulti() {
     const yearFilter = document.getElementById('filterYearMulti')?.value || '';
     const monthFilter = document.getElementById('filterMonthMulti')?.value || '';
     const clientFilter = document.getElementById('filterClientMulti')?.value || '';
+    const filterAttachments = document.getElementById('filterAttachmentsMulti')?.checked || false;
     const searchType = document.getElementById('searchTypeMulti')?.value || 'all';
     const searchInput = document.getElementById('searchInputMulti')?.value.toLowerCase() || '';
 
@@ -416,6 +426,7 @@ function filterInvoicesMulti() {
         const matchYear = !yearFilter || new Date(invoice.document_date).getFullYear().toString() === yearFilter;
         const matchMonth = !monthFilter || new Date(invoice.document_date).toISOString().slice(5, 7) === monthFilter;
         const matchClient = !clientFilter || invoice.client_nom === clientFilter;
+        const matchAttachments = !filterAttachments || (invoice.attachment_count || 0) > 0;
 
         let searchMatch = true;
         if (searchInput) {
@@ -468,7 +479,7 @@ function filterInvoicesMulti() {
             }
         }
 
-        return matchType && matchYear && matchMonth && matchClient && searchMatch;
+        return matchType && matchYear && matchMonth && matchClient && matchAttachments && searchMatch;
     });
 
     displayInvoicesMulti();
@@ -546,6 +557,9 @@ function displayInvoicesMulti() {
             <td><small style="color: #2196f3;">${invoice.created_by_user_name || '-'}</small></td>
             <td>${invoice.total_ht.toFixed(2)} DH</td>
             <td><strong>${invoice.total_ttc.toFixed(2)} DH</strong></td>
+            <td style="text-align: center; color: #757575;">
+                <span style="${invoice.attachment_count > 0 ? 'color: #2196f3; font-weight: bold;' : ''}">${invoice.attachment_count || 0}</span>
+            </td>
             <td>
                 <div class="action-buttons">
                     <button class="btn-icon btn-view" onclick="viewInvoiceMulti(${invoice.id})" title="Voir les détails">
@@ -572,13 +586,7 @@ function displayInvoicesMulti() {
                         </svg>
                     </button>
                     ${invoice.document_type === 'devis' ? `
-                    <button class="btn-icon btn-skm" onclick="downloadMultiSKMDevisPDF(${invoice.id})" title="Télécharger PDF SKM" style="background:#FF9800;color:white;">
-                        <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
-                            <path d="M.5 9.9a.5.5 0 0 1 .5.5v2.5a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-2.5a.5.5 0 0 1 1 0v2.5a2 2 0 0 1-2 2H2a2 2 0 0 1-2-2v-2.5a.5.5 0 0 1 .5-.5z"/>
-                            <path d="M7.646 11.854a.5.5 0 0 0 .708 0l3-3a.5.5 0 0 0-.708-.708L8.5 10.293V1.5a.5.5 0 0 0-1 0v8.793L5.354 8.146a.5.5 0 1 0-.708.708l3 3z"/>
-                        </svg>
-                    </button>
-                    <button class="btn-icon btn-saaiss" onclick="downloadMultiSAAISSDevisPDF(${invoice.id})" title="Télécharger PDF SAAISS" style="background:#9C27B0;color:white;">
+                    <button class="btn-icon" onclick="downloadAsOtherCompany(${invoice.id}, 'multi')" title="Télécharger comme autre société" style="background: linear-gradient(135deg, #FF9800, #9C27B0, #4CAF50); color: white;">
                         <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
                             <path d="M.5 9.9a.5.5 0 0 1 .5.5v2.5a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-2.5a.5.5 0 0 1 1 0v2.5a2 2 0 0 1-2 2H2a2 2 0 0 1-2-2v-2.5a.5.5 0 0 1 .5-.5z"/>
                             <path d="M7.646 11.854a.5.5 0 0 0 .708 0l3-3a.5.5 0 0 0-.708-.708L8.5 10.293V1.5a.5.5 0 0 0-1 0v8.793L5.354 8.146a.5.5 0 1 0-.708.708l3 3z"/>
@@ -647,19 +655,12 @@ window.viewInvoiceMulti = async function (id) {
                         Télécharger Bon de travaux
                     </button>
                     ${invoice.document_type === 'devis' ? `
-                    <button onclick="downloadMultiSKMDevisPDF(${id})" style="padding:0.6rem 1.2rem;background:#FF9800;color:#fff;border:none;border-radius:8px;cursor:pointer;font-size:0.9rem;font-weight:600;display:flex;align-items:center;gap:0.5rem;transition:all 0.2s;" onmouseover="this.style.background='#F57C00'" onmouseout="this.style.background='#FF9800'">
+                    <button onclick="downloadAsOtherCompany(${id}, 'multi')" style="padding:0.6rem 1.2rem;background:linear-gradient(135deg, #FF9800, #9C27B0, #4CAF50);color:#fff;border:none;border-radius:8px;cursor:pointer;font-size:0.9rem;font-weight:600;display:flex;align-items:center;gap:0.5rem;transition:all 0.2s;" onmouseover="this.style.opacity='0.9'" onmouseout="this.style.opacity='1'">
                         <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
                             <path d="M.5 9.9a.5.5 0 0 1 .5.5v2.5a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-2.5a.5.5 0 0 1 1 0v2.5a2 2 0 0 1-2 2H2a2 2 0 0 1-2-2v-2.5a.5.5 0 0 1 .5-.5z"/>
                             <path d="M7.646 11.854a.5.5 0 0 0 .708 0l3-3a.5.5 0 0 0-.708-.708L8.5 10.293V1.5a.5.5 0 0 0-1 0v8.793L5.354 8.146a.5.5 0 1 0-.708.708l3 3z"/>
                         </svg>
-                        SKM
-                    </button>
-                    <button onclick="downloadMultiSAAISSDevisPDF(${id})" style="padding:0.6rem 1.2rem;background:#9C27B0;color:#fff;border:none;border-radius:8px;cursor:pointer;font-size:0.9rem;font-weight:600;display:flex;align-items:center;gap:0.5rem;transition:all 0.2s;" onmouseover="this.style.background='#7B1FA2'" onmouseout="this.style.background='#9C27B0'">
-                        <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
-                            <path d="M.5 9.9a.5.5 0 0 1 .5.5v2.5a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-2.5a.5.5 0 0 1 1 0v2.5a2 2 0 0 1-2 2H2a2 2 0 0 1-2-2v-2.5a.5.5 0 0 1 .5-.5z"/>
-                            <path d="M7.646 11.854a.5.5 0 0 0 .708 0l3-3a.5.5 0 0 0-.708-.708L8.5 10.293V1.5a.5.5 0 0 0-1 0v8.793L5.354 8.146a.5.5 0 1 0-.708.708l3 3z"/>
-                        </svg>
-                        SAAISS
+                        Autre Société
                     </button>
                     ` : ''}
                     <button id="closeViewModal" style="background:none;border:none;color:#999;cursor:pointer;font-size:1.5rem;padding:0;width:32px;height:32px;display:flex;align-items:center;justify-content:center;border-radius:4px;transition:all 0.2s;margin-left:auto;" onmouseover="this.style.background='#3e3e42';this.style.color='#fff'" onmouseout="this.style.background='none';this.style.color='#999'">×</button>
@@ -1060,6 +1061,27 @@ window.addNewAttachmentMulti = async function (invoiceId) {
     input.click();
 }
 
+// Load Multi signature image for PDF
+async function loadMultiSignature() {
+    return new Promise((resolve) => {
+        const img = new Image();
+        img.onload = () => {
+            const canvas = document.createElement('canvas');
+            canvas.width = img.width;
+            canvas.height = img.height;
+            const ctx = canvas.getContext('2d');
+            ctx.drawImage(img, 0, 0);
+            resolve(canvas.toDataURL('image/png'));
+        };
+        img.onerror = () => {
+            console.warn('Could not load Multi signature image');
+            resolve(null);
+        };
+        img.src = 'Signature/Multi.png';
+    });
+}
+
+
 // Download Bon de travaux as PDF (without prices) - MULTI TRAVAUX TETOUAN Design
 window.downloadBonDeTravaux = async function (invoiceId) {
     try {
@@ -1155,6 +1177,9 @@ window.downloadBonDeTravaux = async function (invoiceId) {
         const { jsPDF } = window.jspdf;
         const doc = new jsPDF();
 
+        // Load signature image
+        const signatureImgMulti = await loadMultiSignature();
+
         // Colors - MULTI TRAVAUX TETOUAN theme
         const darkGrayColor = [96, 125, 139]; // #607D8B
         const lightGrayBg = [236, 239, 241]; // #ECEFF1
@@ -1214,6 +1239,11 @@ window.downloadBonDeTravaux = async function (invoiceId) {
 
         // Function to add footer
         const addFooter = (pageNum, totalPages) => {
+            // Add signature image above footer (right side)
+            if (signatureImgMulti) {
+                doc.addImage(signatureImgMulti, 'PNG', 140, 235, 60, 30);
+            }
+
             // Company info at bottom
             doc.setTextColor(0, 0, 0);
             doc.setFontSize(9);
@@ -1420,6 +1450,9 @@ window.downloadInvoicePDFMulti = async function (invoiceId) {
         const { jsPDF } = window.jspdf;
         const doc = new jsPDF();
 
+        // Load signature image
+        const signatureImgMulti = await loadMultiSignature();
+
         // Colors - New design
         const darkGrayColor = [96, 125, 139]; // #607D8B
         const lightGrayBg = [236, 239, 241]; // #ECEFF1
@@ -1524,6 +1557,11 @@ window.downloadInvoicePDFMulti = async function (invoiceId) {
 
         // Function to add footer to any page
         const addFooter = (pageNum, totalPages) => {
+            // Add signature image above footer (right side)
+            if (signatureImgMulti) {
+                doc.addImage(signatureImgMulti, 'PNG', 140, 235, 60, 30);
+            }
+
             doc.setTextColor(0, 0, 0);
             doc.setFontSize(9);
             doc.setFont(undefined, 'normal');

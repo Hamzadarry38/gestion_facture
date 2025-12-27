@@ -605,7 +605,8 @@ const invoiceOps = {
 
     getAll: () => {
         const query = `
-            SELECT i.*, c.nom as client_nom, c.ice as client_ice
+            SELECT i.*, c.nom as client_nom, c.ice as client_ice,
+            (SELECT COUNT(*) FROM attachments a WHERE a.invoice_id = i.id) as attachment_count
             FROM invoices i
             JOIN clients c ON i.client_id = c.id
             ORDER BY i.created_at DESC
@@ -643,7 +644,8 @@ const invoiceOps = {
                 updated_by_user_name: row[23],
                 updated_by_user_email: row[24],
                 client_nom: row[25],
-                client_ice: row[26]
+                client_ice: row[26],
+                attachment_count: row[row.length - 1] || 0
             };
 
             // Get products for this invoice

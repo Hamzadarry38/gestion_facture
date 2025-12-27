@@ -109,6 +109,7 @@ function InvoicesListChaimaePage() {
                             </select>
                         </div>
                         
+                        
                         <div class="filter-group" style="grid-column: 1 / -1;">
                             <label>🔍 Recherche avancée:</label>
                             <div style="display: grid; grid-template-columns: 200px 1fr; gap: 0.5rem;">
@@ -126,6 +127,14 @@ function InvoicesListChaimaePage() {
                                 </select>
                                 <input type="text" id="searchInputChaimae" placeholder="Tapez votre recherche..." onkeyup="filterInvoicesChaimae()" style="width: 100%; padding: 0.75rem; background: #1e1e1e; border: 1px solid #3e3e42; border-radius: 4px; color: #ffffff; font-size: 0.95rem;">
                             </div>
+                        </div>
+
+                        <!-- Checkbox Filter -->
+                        <div class="filter-group" style="display: flex; align-items: center; padding-top: 1.8rem; margin-left: 1rem;">
+                            <label style="display: flex; align-items: center; cursor: pointer; gap: 0.5rem; user-select: none;">
+                                <input type="checkbox" id="filterAttachmentsChaimae" onchange="filterInvoicesChaimae()" style="width: 18px; height: 18px; cursor: pointer;">
+                                <span style="font-size: 0.9rem; color: #ddd; font-weight: 500;">📎 Avec P.J uniquement</span>
+                            </label>
                         </div>
                         
                         <div class="filter-group">
@@ -243,6 +252,7 @@ function InvoicesListChaimaePage() {
                                     <th onclick="sortTableChaimae('total_ttc')" style="cursor: pointer; user-select: none;" title="Cliquez pour trier">
                                         Total TTC <span id="sortIconTotalTTCChaimae">⇅</span>
                                     </th>
+                                    <th style="width: 50px; text-align: center;">P.J</th>
                                     <th>Actions</th>
                                 </tr>
                             </thead>
@@ -810,6 +820,12 @@ function displayInvoicesChaimae(invoices) {
                 <td style="padding: 1rem 0.75rem; border-right: 1px solid #3e3e42;"><small style="color: #2196f3;">${invoice.created_by_user_name || '-'}</small></td>
                 <td style="text-align: left; padding: 1rem 0.75rem; border-right: 1px solid #3e3e42;"><strong style="color: #cccccc;">${totalHT} DH</strong></td>
                 <td style="text-align: left; padding: 1rem 0.75rem; border-right: 1px solid #3e3e42;"><strong style="color: #4caf50;">${totalTTC} DH</strong></td>
+                <td style="text-align: center; padding: 1rem 0.75rem; border-right: 1px solid #3e3e42;">
+                    ${invoice.attachment_count > 0 ?
+                `<span style="background:rgba(33, 150, 243, 0.1); color:#2196f3; padding:2px 6px; border-radius:4px; font-weight:600; font-size:0.85rem;">${invoice.attachment_count}</span>` :
+                `<span style="color:#666;">0</span>`
+            }
+                </td>
                 <td style="padding: 1rem 0.75rem;">
                     <div style="display: flex; gap: 0.5rem; justify-content: center;">
                         <button class="btn-icon btn-view" onclick="viewInvoiceChaimae(${invoice.id}, '${invoice.document_type}')" title="Voir">
@@ -836,13 +852,7 @@ function displayInvoicesChaimae(invoices) {
                             </svg>
                         </button>
                         ${invoice.document_type === 'devis' ? `
-                        <button class="btn-icon btn-skm" onclick="downloadChaimaeSKMDevisPDF(${invoice.id})" title="PDF SKM" style="background:#FF9800;color:white;">
-                            <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
-                                <path d="M.5 9.9a.5.5 0 0 1 .5.5v2.5a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-2.5a.5.5 0 0 1 1 0v2.5a2 2 0 0 1-2 2H2a2 2 0 0 1-2-2v-2.5a.5.5 0 0 1 .5-.5z"/>
-                                <path d="M7.646 11.854a.5.5 0 0 0 .708 0l3-3a.5.5 0 0 0-.708-.708L8.5 10.293V1.5a.5.5 0 0 0-1 0v8.793L5.354 8.146a.5.5 0 1 0-.708.708l3 3z"/>
-                            </svg>
-                        </button>
-                        <button class="btn-icon btn-saaiss" onclick="downloadChaimaeSAAISSDevisPDF(${invoice.id})" title="PDF SAAISS" style="background:#9C27B0;color:white;">
+                        <button class="btn-icon" onclick="downloadAsOtherCompany(${invoice.id}, 'chaimae')" title="Télécharger comme autre société" style="background: linear-gradient(135deg, #FF9800, #9C27B0, #4CAF50); color: white;">
                             <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
                                 <path d="M.5 9.9a.5.5 0 0 1 .5.5v2.5a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-2.5a.5.5 0 0 1 1 0v2.5a2 2 0 0 1-2 2H2a2 2 0 0 1-2-2v-2.5a.5.5 0 0 1 .5-.5z"/>
                                 <path d="M7.646 11.854a.5.5 0 0 0 .708 0l3-3a.5.5 0 0 0-.708-.708L8.5 10.293V1.5a.5.5 0 0 0-1 0v8.793L5.354 8.146a.5.5 0 1 0-.708.708l3 3z"/>
@@ -966,6 +976,7 @@ window.changePaginationPageChaimae = function (direction) {
 // Filter invoices
 window.filterInvoicesChaimae = function () {
     const typeFilter = document.getElementById('filterTypeChaimae')?.value || '';
+    const filterAttachments = document.getElementById('filterAttachmentsChaimae')?.checked || false;
     const monthFilter = document.getElementById('filterMonthChaimae')?.value || '';
     const clientFilter = document.getElementById('filterClientChaimae')?.value || '';
     const searchType = document.getElementById('searchTypeChaimae')?.value || 'all';
@@ -974,6 +985,9 @@ window.filterInvoicesChaimae = function () {
     const filtered = allInvoicesChaimae.filter(invoice => {
         // Type filter
         if (typeFilter && invoice.document_type !== typeFilter) return false;
+
+        // Attachments filter
+        if (filterAttachments && (invoice.attachment_count || 0) === 0) return false;
 
         // Year filter (from card selection)
         if (selectedYearChaimae) {
@@ -1084,6 +1098,7 @@ window.resetFiltersChaimae = function () {
     document.getElementById('filterYearChaimae').value = '';
     document.getElementById('filterMonthChaimae').value = '';
     document.getElementById('filterClientChaimae').value = '';
+    if (document.getElementById('filterAttachmentsChaimae')) document.getElementById('filterAttachmentsChaimae').checked = false;
     document.getElementById('searchTypeChaimae').value = 'all';
     document.getElementById('searchInputChaimae').value = '';
 
@@ -2946,6 +2961,27 @@ function formatNumberForPDFChaimae(number) {
     return parts[0] + ',' + parts[1];
 }
 
+// Load Chaimae signature image for PDF
+async function loadChaimaeSignature() {
+    return new Promise((resolve) => {
+        const img = new Image();
+        img.onload = () => {
+            const canvas = document.createElement('canvas');
+            canvas.width = img.width;
+            canvas.height = img.height;
+            const ctx = canvas.getContext('2d');
+            ctx.drawImage(img, 0, 0);
+            resolve(canvas.toDataURL('image/png'));
+        };
+        img.onerror = () => {
+            console.warn('Could not load Chaimae signature image');
+            resolve(null);
+        };
+        img.src = 'Signature/Chaimae.png';
+    });
+}
+
+
 // Download invoice as PDF
 window.downloadInvoicePDFChaimae = async function (invoiceId) {
     try {
@@ -3193,6 +3229,9 @@ window.downloadInvoicePDFChaimae = async function (invoiceId) {
         const { jsPDF } = window.jspdf;
         const doc = new jsPDF();
 
+        // Load signature image
+        const signatureImgChaimae = await loadChaimaeSignature();
+
         // Colors
         const blueColor = [33, 97, 140]; // #21618C
         const greenColor = [76, 175, 80]; // #4caf50
@@ -3303,6 +3342,11 @@ window.downloadInvoicePDFChaimae = async function (invoiceId) {
 
         // Function to add footer
         const addFooter = (pageNum, totalPages) => {
+            // Add signature image above footer (right side)
+            if (signatureImgChaimae) {
+                doc.addImage(signatureImgChaimae, 'PNG', 140, 235, 60, 30);
+            }
+
             doc.setTextColor(0, 0, 0);
             doc.setFontSize(7);
             doc.setFont(undefined, 'normal');

@@ -189,7 +189,7 @@ window.generateSKMPDFWithCustomization = async function (invoice, customizationD
         // Save the PDF with new format: CONSAZIZ_TYPE_ClientName_InvoiceNumber
         const docType = customizedInvoice.document_type === 'devis' ? 'Devis' : 'Facture';
         const invoiceNumber = customizedInvoice.document_numero_devis || customizedInvoice.document_numero || 'N-A';
-        const fileName = `CONSAZIZ_${docType}_${customizedInvoice.client_nom}_${invoiceNumber}.pdf`;
+        const fileName = `SMART_SERVICES_${docType}_${customizedInvoice.client_nom}_${invoiceNumber}.pdf`;
 
         // Get PDF as blob
         const pdfBlob = doc.output('blob');
@@ -684,8 +684,8 @@ async function generateSKMPDF(doc, invoice, includeZeroProducts = true) {
 
                 // Add signature above footer (center position, rotated 5 degrees)
                 if (signatureImg) {
-                    const signatureWidth = 40;
-                    const signatureHeight = 20;
+                    const signatureWidth = 60;
+                    const signatureHeight = 30;
                     const signatureX = (pageWidth - signatureWidth) / 2; // Center horizontally
                     const signatureY = footerY - 21; // 25 units above footer
                     console.log(`✍️ Adding signature to page ${pageNum} at X: ${signatureX}, Y: ${signatureY}`);

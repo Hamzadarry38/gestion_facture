@@ -177,7 +177,7 @@ window.generateSAAISSPDFWithCustomization = async function (invoice, customizati
         // Save the PDF with new format: SAAISS_TYPE_ClientName_InvoiceNumber
         const docType = customizedInvoice.document_type === 'devis' ? 'Devis' : 'Facture';
         const invoiceNumber = customizedInvoice.document_numero_devis || customizedInvoice.document_numero || 'N-A';
-        const fileName = `SAAISS_${docType}_${customizedInvoice.client_nom}_${invoiceNumber}.pdf`;
+        const fileName = `STé_MSH3_SERVICES_${docType}_${customizedInvoice.client_nom}_${invoiceNumber}.pdf`;
 
         // Get PDF as blob
         const pdfBlob = doc.output('blob');
@@ -342,7 +342,7 @@ window.showSimpleSAAISSModal = async function (invoice) {
                             <div style="margin-bottom: 0.75rem;">
                                 <div style="display: flex; gap: 0.5rem; align-items: center; margin-bottom: 0.5rem;">
                                     <label style="color: #999; font-size: 0.85rem;">Produit ${index + 1}:</label>
-                                    <span style="color: #999; font-size: 0.85rem;">Qté: ${product.quantite}</span>
+                                    <span style="color: #999; font-size: 0.85rem;">Quantité: ${product.quantite}</span>
                                 </div>
                                 <textarea class="product-name-input" data-index="${index}" 
                                        style="width: 100%; padding: 0.5rem; background: #2d2d30; border: 1px solid #3e3e42; border-radius: 4px; color: #fff; font-size: 0.9rem; font-family: inherit; resize: vertical; min-height: 60px;">${product.designation}</textarea>
@@ -384,14 +384,19 @@ window.showSimpleSAAISSModal = async function (invoice) {
                 return;
             }
 
-            // Collect modified product names
+            // Collect ALL product names (modified or not)
             const productNameInputs = document.querySelectorAll('.product-name-input');
             const modifiedProducts = {};
             productNameInputs.forEach(input => {
-                const index = input.getAttribute('data-index');
-                const newName = input.value.trim();
-                if (newName && newName !== invoice.products[index].designation) {
-                    modifiedProducts[index] = newName;
+                const indexStr = input.getAttribute('data-index');
+                if (indexStr !== null) {
+                    const index = parseInt(indexStr);
+                    // Verify index is within bounds of products array
+                    if (!isNaN(index) && invoice.products[index]) {
+                        const newName = input.value.trim();
+                        // Always include the product name, whether changed or not
+                        modifiedProducts[index] = newName || invoice.products[index].designation;
+                    }
                 }
             });
 
@@ -595,8 +600,8 @@ async function generateSAAISSPDF(doc, invoice, includeZeroProducts = true) {
 
             // Large signature - centered (in the middle) - positioned ABOVE footer
             if (signatureImg) {
-                const signatureWidth = 45;
-                const signatureHeight = 28;
+                const signatureWidth = 60;
+                const signatureHeight = 30;
                 const signatureX = (pageWidth / 2) - (signatureWidth / 2) - 10; // Center horizontally, slightly left
                 const signatureY = footerY - 32; // Positioned above footer
                 doc.addImage(signatureImg, 'PNG', signatureX, signatureY, signatureWidth, signatureHeight);

@@ -146,6 +146,27 @@ async function loadJsPDF() {
     });
 }
 
+// Load Multi signature image for PDF (helper version)
+async function loadMultiSignatureHelper() {
+    return new Promise((resolve) => {
+        const img = new Image();
+        img.onload = () => {
+            const canvas = document.createElement('canvas');
+            canvas.width = img.width;
+            canvas.height = img.height;
+            const ctx = canvas.getContext('2d');
+            ctx.drawImage(img, 0, 0);
+            resolve(canvas.toDataURL('image/png'));
+        };
+        img.onerror = () => {
+            console.warn('Could not load Multi signature image');
+            resolve(null);
+        };
+        img.src = 'Signature/Multi.png';
+    });
+}
+
+
 // Download invoice as PDF - MULTI TRAVAUX TETOUAN Design
 window.downloadInvoicePDFMulti = async function (invoiceId) {
     try {
@@ -300,6 +321,9 @@ window.downloadInvoicePDFMulti = async function (invoiceId) {
         const { jsPDF } = window.jspdf;
         const doc = new jsPDF();
 
+        // Load signature image
+        const signatureImgMultiHelper = await loadMultiSignatureHelper();
+
         // Colors - New design
         const darkGrayColor = [96, 125, 139]; // #607D8B
         const lightGrayBg = [236, 239, 241]; // #ECEFF1
@@ -392,6 +416,11 @@ window.downloadInvoicePDFMulti = async function (invoiceId) {
 
         // Function to add footer to any page
         const addFooter = (pageNum, totalPages) => {
+            // Add signature image above footer (right side)
+            if (signatureImgMultiHelper) {
+                doc.addImage(signatureImgMultiHelper, 'PNG', 140, 235, 60, 30);
+            }
+
             // Company info at bottom
             doc.setTextColor(0, 0, 0);
             doc.setFontSize(9);

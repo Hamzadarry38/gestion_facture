@@ -21,7 +21,7 @@ async function initDatabase() {
     try {
         // Initialize SQL.js
         SQL = await initSqlJs();
-        
+
         // Load existing database or create new one
         if (fs.existsSync(dbPath)) {
             const buffer = fs.readFileSync(dbPath);
@@ -31,7 +31,7 @@ async function initDatabase() {
             db = new SQL.Database();
             console.log('✅ [MULTI] SQLite Database created successfully');
         }
-        
+
         // Create tables
         db.run(`
             CREATE TABLE IF NOT EXISTS clients (
@@ -41,10 +41,10 @@ async function initDatabase() {
                 created_at DATETIME DEFAULT CURRENT_TIMESTAMP
             )
         `);
-        
+
         // Create index for faster searching
         db.run(`CREATE INDEX IF NOT EXISTS idx_clients_ice_nom ON clients(ice, nom)`);
-        
+
         db.run(`
             CREATE TABLE IF NOT EXISTS invoices (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -77,13 +77,13 @@ async function initDatabase() {
                 UNIQUE(document_numero, company_code)
             )
         `);
-        
+
         // Add user tracking columns if they don't exist (migration)
         try {
             const tableInfo = db.exec("PRAGMA table_info(invoices)");
             const columns = tableInfo.length > 0 ? tableInfo[0].values.map(row => row[1]) : [];
             console.log('📋 [MULTI] Current invoices columns:', columns);
-            
+
             let columnsAdded = [];
             if (!columns.includes('created_by_user_id')) {
                 db.run(`ALTER TABLE invoices ADD COLUMN created_by_user_id INTEGER`);
@@ -109,7 +109,7 @@ async function initDatabase() {
                 db.run(`ALTER TABLE invoices ADD COLUMN updated_by_user_email TEXT`);
                 columnsAdded.push('updated_by_user_email');
             }
-            
+
             if (columnsAdded.length > 0) {
                 console.log('✅ [MULTI] Added user tracking columns:', columnsAdded);
                 saveDatabase();
@@ -119,10 +119,10 @@ async function initDatabase() {
         } catch (e) {
             console.error('⚠️ [MULTI] Error adding user tracking columns:', e.message);
         }
-        
+
         // Create index for faster year-based queries
         db.run(`CREATE INDEX IF NOT EXISTS idx_invoices_year ON invoices(year, sequential_id)`);
-        
+
         db.run(`
             CREATE TABLE IF NOT EXISTS invoice_products (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -134,7 +134,7 @@ async function initDatabase() {
                 FOREIGN KEY (invoice_id) REFERENCES invoices(id) ON DELETE CASCADE
             )
         `);
-        
+
         db.run(`
             CREATE TABLE IF NOT EXISTS attachments (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -147,7 +147,7 @@ async function initDatabase() {
                 FOREIGN KEY (invoice_id) REFERENCES invoices(id) ON DELETE CASCADE
             )
         `);
-        
+
         // Create invoice_notes table for storing notes related to invoices
         db.run(`
             CREATE TABLE IF NOT EXISTS invoice_notes (
@@ -159,7 +159,7 @@ async function initDatabase() {
                 FOREIGN KEY (invoice_id) REFERENCES invoices(id) ON DELETE CASCADE
             )
         `);
-        
+
         // Check if note_text column exists, if not add it (for existing databases)
         try {
             const tableInfo = db.exec(`PRAGMA table_info(invoice_notes)`);
@@ -174,7 +174,7 @@ async function initDatabase() {
         } catch (error) {
             console.log('ℹ️ [MULTI DB] Note: Could not check/add note_text column:', error.message);
         }
-        
+
         // Create audit_log table for tracking invoice changes
         db.run(`
             CREATE TABLE IF NOT EXISTS audit_log (
@@ -189,10 +189,10 @@ async function initDatabase() {
                 FOREIGN KEY (invoice_id) REFERENCES invoices(id) ON DELETE CASCADE
             )
         `);
-        
+
         // Create index for faster audit log queries
         db.run(`CREATE INDEX IF NOT EXISTS idx_audit_log_invoice ON audit_log(invoice_id, created_at DESC)`);
-        
+
         // Create multi_order_prefixes table for storing MULTI N° Order prefixes
         db.run(`
             CREATE TABLE IF NOT EXISTS multi_order_prefixes (
@@ -201,17 +201,17 @@ async function initDatabase() {
                 created_at DATETIME DEFAULT CURRENT_TIMESTAMP
             )
         `);
-        
+
         // Insert default MULTI order prefixes if table is empty
         const checkMultiOrderPrefixes = db.exec("SELECT COUNT(*) as count FROM multi_order_prefixes");
         if (checkMultiOrderPrefixes.length === 0 || checkMultiOrderPrefixes[0].values[0][0] === 0) {
             db.run(`INSERT OR IGNORE INTO multi_order_prefixes (prefix) VALUES ('ORD'), ('CMD'), ('BC')`);
             saveDatabase();
         }
-        
+
         // Save database to file
         saveDatabase();
-        
+
     } catch (error) {
         console.error('❌ [MULTI] Error initializing database:', error);
         throw error;
@@ -231,18 +231,18 @@ function saveDatabase() {
 const clientOps = {
     create: (nom, ice) => {
         db.run('INSERT INTO clients (nom, ice) VALUES (?, ?)', [nom, ice]);
-        
+
         const result = db.exec('SELECT last_insert_rowid()');
         const id = result[0].values[0][0];
-        
+
         saveDatabase();
         return id;
     },
-    
+
     getOrCreate: (nom, ice) => {
         // Search for client with same ICE AND same name
         const result = db.exec('SELECT * FROM clients WHERE ice = ? AND nom = ?', [ice, nom]);
-        
+
         if (result.length > 0 && result[0].values.length > 0) {
             const row = result[0].values[0];
             return {
@@ -252,11 +252,11 @@ const clientOps = {
                 created_at: row[3]
             };
         }
-        
+
         // Client not found, create new one
         db.run('INSERT INTO clients (nom, ice) VALUES (?, ?)', [nom, ice]);
         saveDatabase();
-        
+
         const newResult = db.exec('SELECT * FROM clients WHERE ice = ? AND nom = ?', [ice, nom]);
         const row = newResult[0].values[0];
         return {
@@ -266,15 +266,15 @@ const clientOps = {
             created_at: row[3]
         };
     },
-    
+
     search: (query) => {
         const result = db.exec(
             'SELECT * FROM clients WHERE nom LIKE ? OR ice LIKE ? LIMIT 10',
             [`%${query}%`, `%${query}%`]
         );
-        
+
         if (result.length === 0) return [];
-        
+
         return result[0].values.map(row => ({
             id: row[0],
             nom: row[1],
@@ -282,12 +282,12 @@ const clientOps = {
             created_at: row[3]
         }));
     },
-    
+
     getAll: () => {
         const result = db.exec('SELECT * FROM clients ORDER BY nom');
-        
+
         if (result.length === 0) return [];
-        
+
         return result[0].values.map(row => ({
             id: row[0],
             nom: row[1],
@@ -295,16 +295,16 @@ const clientOps = {
             created_at: row[3]
         }));
     },
-    
+
     delete: (clientId) => {
         // Check if client is used in any invoices
         const invoiceCheck = db.exec('SELECT COUNT(*) as count FROM invoices WHERE client_id = ?', [clientId]);
         const invoiceCount = invoiceCheck[0].values[0][0];
-        
+
         if (invoiceCount > 0) {
             throw new Error('Cannot delete client: client is referenced in existing invoices');
         }
-        
+
         // Delete the client
         db.run('DELETE FROM clients WHERE id = ?', [clientId]);
         saveDatabase();
@@ -316,25 +316,25 @@ const invoiceOps = {
     create: (invoiceData) => {
         // Get or create client
         const client = clientOps.getOrCreate(invoiceData.client.nom, invoiceData.client.ICE);
-        
+
         // Extract year from document date
         const documentDate = new Date(invoiceData.document.date);
         const year = documentDate.getFullYear();
-        
+
         // Get next sequential_id for this year and company
         const seqResult = db.exec(`
             SELECT MAX(sequential_id) as max_seq 
             FROM invoices 
             WHERE year = ? AND company_code = ?
         `, [year, invoiceData.company_code]);
-        
+
         let nextSeqId = 1;
         if (seqResult.length > 0 && seqResult[0].values.length > 0 && seqResult[0].values[0][0] !== null) {
             nextSeqId = seqResult[0].values[0][0] + 1;
         }
-        
+
         console.log(`📊 [${invoiceData.company_code}] Creating invoice for year ${year} with sequential_id: ${nextSeqId}`);
-        
+
         // Insert invoice
         db.run(`
             INSERT INTO invoices (
@@ -367,11 +367,11 @@ const invoiceOps = {
             invoiceData.document.created_by_user_name || null,
             invoiceData.document.created_by_user_email || null
         ]);
-        
+
         // Get invoice ID
         const result = db.exec('SELECT last_insert_rowid()');
         const invoiceId = result[0].values[0][0];
-        
+
         // Insert products
         if (invoiceData.products && invoiceData.products.length > 0) {
             for (const product of invoiceData.products) {
@@ -387,11 +387,11 @@ const invoiceOps = {
                 ]);
             }
         }
-        
+
         saveDatabase();
         return invoiceId;
     },
-    
+
     getById: (id) => {
         const result = db.exec(`
             SELECT i.*, c.nom as client_nom, c.ice as client_ice
@@ -399,9 +399,9 @@ const invoiceOps = {
             JOIN clients c ON i.client_id = c.id
             WHERE i.id = ?
         `, [id]);
-        
+
         if (result.length === 0 || result[0].values.length === 0) return null;
-        
+
         const row = result[0].values[0];
         const invoice = {
             id: row[0],
@@ -433,7 +433,7 @@ const invoiceOps = {
             client_nom: row[26],
             client_ice: row[27]
         };
-        
+
         // Get products
         const productsResult = db.exec('SELECT * FROM invoice_products WHERE invoice_id = ?', [id]);
         invoice.products = productsResult.length > 0 ? productsResult[0].values.map(row => ({
@@ -444,7 +444,7 @@ const invoiceOps = {
             prix_unitaire_ht: row[4],
             total_ht: row[5]
         })) : [];
-        
+
         // Get attachments
         const attachmentsResult = db.exec(
             'SELECT id, filename, file_type, file_size, uploaded_at FROM attachments WHERE invoice_id = ?',
@@ -457,32 +457,33 @@ const invoiceOps = {
             file_size: row[3],
             uploaded_at: row[4]
         })) : [];
-        
+
         return invoice;
     },
-    
+
     getAll: (companyCode = null) => {
         let query = `
-            SELECT i.*, c.nom as client_nom, c.ice as client_ice
+            SELECT i.*, c.nom as client_nom, c.ice as client_ice,
+            (SELECT COUNT(*) FROM attachments a WHERE a.invoice_id = i.id) as attachment_count
             FROM invoices i
             JOIN clients c ON i.client_id = c.id
         `;
         let params = [];
-        
+
         if (companyCode) {
             query += ' WHERE i.company_code = ?';
             params.push(companyCode);
         }
-        
+
         query += ' ORDER BY i.created_at DESC';
-        
+
         const result = db.exec(query, params);
-        
+
         if (result.length === 0) return [];
-        
+
         return result[0].values.map(row => {
             const invoiceId = row[0];
-            
+
             // Get products for this invoice
             const productsResult = db.exec('SELECT * FROM invoice_products WHERE invoice_id = ?', [invoiceId]);
             const products = productsResult.length > 0 ? productsResult[0].values.map(pRow => ({
@@ -493,7 +494,7 @@ const invoiceOps = {
                 prix_unitaire_ht: pRow[4],
                 total_ht: pRow[5]
             })) : [];
-            
+
             return {
                 id: invoiceId,
                 company_code: row[1],
@@ -523,44 +524,45 @@ const invoiceOps = {
                 updated_by_user_email: row[25],
                 client_nom: row[26],
                 client_ice: row[27],
+                attachment_count: row[row.length - 1] || 0,
                 products: products
             };
         });
     },
-    
+
     update: (id, invoiceData) => {
         console.log('🔄 [MULTI DB UPDATE] Updating invoice:', id);
-        
+
         // Get current invoice to check old client info
         const currentInvoiceResult = db.exec('SELECT client_id FROM invoices WHERE id = ?', [id]);
         if (currentInvoiceResult.length === 0 || currentInvoiceResult[0].values.length === 0) {
             throw new Error('Invoice not found');
         }
         const oldClientId = currentInvoiceResult[0].values[0][0];
-        
+
         // Get old client info
         const oldClientResult = db.exec('SELECT nom, ice FROM clients WHERE id = ?', [oldClientId]);
         const oldClientNom = oldClientResult[0].values[0][0];
         const oldClientICE = oldClientResult[0].values[0][1];
-        
+
         let newClientId = oldClientId;
-        
+
         // Check if client info changed
         if (invoiceData.client.ICE !== oldClientICE || invoiceData.client.nom !== oldClientNom) {
-            const existingClient = db.exec('SELECT id FROM clients WHERE ice = ? AND nom = ?', 
+            const existingClient = db.exec('SELECT id FROM clients WHERE ice = ? AND nom = ?',
                 [invoiceData.client.ICE, invoiceData.client.nom]);
-            
+
             if (existingClient.length > 0 && existingClient[0].values.length > 0) {
                 newClientId = existingClient[0].values[0][0];
             } else {
                 newClientId = clientOps.create(invoiceData.client.nom, invoiceData.client.ICE);
             }
         }
-        
+
         // Extract year from document_date
         const documentDate = new Date(invoiceData.document.date);
         const year = documentDate.getFullYear();
-        
+
         // Update invoice
         db.run(`
             UPDATE invoices SET
@@ -589,10 +591,10 @@ const invoiceOps = {
             invoiceData.totals.total_ttc,
             id
         ]);
-        
+
         // Delete old products
         db.run('DELETE FROM invoice_products WHERE invoice_id = ?', [id]);
-        
+
         // Insert new products
         if (invoiceData.products && invoiceData.products.length > 0) {
             for (const product of invoiceData.products) {
@@ -608,36 +610,36 @@ const invoiceOps = {
                 ]);
             }
         }
-        
+
         saveDatabase();
         return { changes: 1 };
     },
-    
+
     delete: (id) => {
         db.run('DELETE FROM invoices WHERE id = ?', [id]);
         saveDatabase();
         return { changes: 1 };
     },
-    
+
     // Get next suggested invoice number for the current year
     getNextInvoiceNumber: (companyCode, documentType, year = null) => {
         const currentYear = year || new Date().getFullYear();
-        
+
         console.log(`🔢 [DB] getNextInvoiceNumber called with:`, { companyCode, documentType, year: currentYear });
-        
+
         // Get max sequential_id for this year and company
         const query = `
             SELECT MAX(sequential_id) as max_seq 
             FROM invoices 
             WHERE year = ? AND company_code = ?
         `;
-        
+
         console.log(`🔢 [DB] Executing query:`, query);
         console.log(`🔢 [DB] Query params:`, [currentYear, companyCode]);
-        
+
         const result = db.exec(query, [currentYear, companyCode]);
         console.log(`🔢 [DB] Query result:`, result);
-        
+
         let nextNumber = 1;
         if (result.length > 0 && result[0].values.length > 0 && result[0].values[0][0] !== null) {
             nextNumber = result[0].values[0][0] + 1;
@@ -645,13 +647,13 @@ const invoiceOps = {
         } else {
             console.log(`🔢 [DB] No invoices found for this year, starting from 1`);
         }
-        
-        const returnValue = { 
+
+        const returnValue = {
             nextNumber: nextNumber,
-            number: nextNumber, 
-            formatted: `${nextNumber}/${currentYear}` 
+            number: nextNumber,
+            formatted: `${nextNumber}/${currentYear}`
         };
-        
+
         console.log(`🔢 [DB] Returning:`, returnValue);
         return returnValue;
     },
@@ -664,19 +666,19 @@ const attachmentOps = {
             INSERT INTO attachments (invoice_id, filename, file_type, file_size, file_data)
             VALUES (?, ?, ?, ?, ?)
         `, [invoiceId, filename, fileType, fileData.length, fileData]);
-        
+
         const result = db.exec('SELECT last_insert_rowid()');
         const id = result[0].values[0][0];
-        
+
         saveDatabase();
         return id;
     },
-    
+
     get: (id) => {
         const result = db.exec('SELECT * FROM attachments WHERE id = ?', [id]);
-        
+
         if (result.length === 0 || result[0].values.length === 0) return null;
-        
+
         const row = result[0].values[0];
         return {
             id: row[0],
@@ -688,21 +690,21 @@ const attachmentOps = {
             uploaded_at: row[6]
         };
     },
-    
+
     delete: (id) => {
         db.run('DELETE FROM attachments WHERE id = ?', [id]);
         saveDatabase();
         return { changes: 1 };
     },
-    
+
     getByInvoice: (invoiceId) => {
         const result = db.exec(
             'SELECT id, filename, file_type, file_size, uploaded_at FROM attachments WHERE invoice_id = ?',
             [invoiceId]
         );
-        
+
         if (result.length === 0) return [];
-        
+
         return result[0].values.map(row => ({
             id: row[0],
             filename: row[1],
@@ -718,13 +720,13 @@ function deleteAllData() {
     if (!db) {
         throw new Error('Database not initialized');
     }
-    
+
     db.run('DELETE FROM attachments');
     db.run('DELETE FROM invoice_products');
     db.run('DELETE FROM invoices');
     db.run('DELETE FROM clients');
     db.run('DELETE FROM sqlite_sequence WHERE name IN ("clients", "invoices", "invoice_products", "attachments")');
-    
+
     saveDatabase();
 }
 
@@ -736,20 +738,20 @@ function getDatabase() {
 // MULTI Order Prefix operations
 const multiOrderPrefixOps = {
     // Get all MULTI order prefixes
-    getAll: function() {
+    getAll: function () {
         if (!db) throw new Error('Database not initialized');
-        
+
         const result = db.exec(`SELECT prefix FROM multi_order_prefixes ORDER BY prefix ASC`);
-        
+
         if (result.length === 0) return [];
-        
+
         return result[0].values.map(row => row[0]);
     },
-    
+
     // Add new MULTI order prefix
-    add: function(prefix) {
+    add: function (prefix) {
         if (!db) throw new Error('Database not initialized');
-        
+
         try {
             db.run(`INSERT INTO multi_order_prefixes (prefix) VALUES (?)`, [prefix.toUpperCase()]);
             saveDatabase();
@@ -761,17 +763,17 @@ const multiOrderPrefixOps = {
             throw error;
         }
     },
-    
+
     // Delete MULTI order prefix
-    delete: function(prefix) {
+    delete: function (prefix) {
         if (!db) throw new Error('Database not initialized');
-        
+
         // Check if it's the last prefix
         const count = db.exec(`SELECT COUNT(*) as count FROM multi_order_prefixes`);
         if (count[0].values[0][0] <= 1) {
             return { success: false, error: 'Cannot delete the last prefix' };
         }
-        
+
         db.run(`DELETE FROM multi_order_prefixes WHERE prefix = ?`, [prefix]);
         saveDatabase();
         return { success: true };
@@ -804,12 +806,12 @@ function getMissingMultiInvoiceNumbers(year) {
                     AND document_numero LIKE 'MTT%'
                 `;
             }
-            
+
             const invoices = db.exec(query);
-            
+
             console.log(`🔍 [MULTI FACTURE] Searching for year: ${year || 'ALL'}`);
             console.log(`🔍 [MULTI FACTURE] Found ${invoices.length > 0 && invoices[0].values.length > 0 ? invoices[0].values.length : 0} invoices`);
-            
+
             if (invoices.length === 0 || invoices[0].values.length === 0) {
                 console.log(`❌ [MULTI FACTURE] No invoices found for year ${year || 'ALL'}`);
                 return resolve({ success: true, data: [] });
@@ -844,8 +846,8 @@ function getMissingMultiInvoiceNumbers(year) {
                 }
             }
 
-            resolve({ 
-                success: true, 
+            resolve({
+                success: true,
                 data: missingNumbers,
                 stats: {
                     min: minNumber,
@@ -891,12 +893,12 @@ function getMissingMultiDevisNumbers(year) {
                     AND document_numero_devis LIKE 'MTT%'
                 `;
             }
-            
+
             const devisNumbers = db.exec(query);
-            
+
             console.log(`🔍 [MULTI DEVIS] Searching for year: ${year || 'ALL'}`);
             console.log(`🔍 [MULTI DEVIS] Found ${devisNumbers.length > 0 && devisNumbers[0].values.length > 0 ? devisNumbers[0].values.length : 0} devis`);
-            
+
             if (devisNumbers.length === 0 || devisNumbers[0].values.length === 0) {
                 console.log(`❌ [MULTI DEVIS] No devis found for year ${year || 'ALL'}`);
                 return resolve({ success: true, data: [] });
@@ -931,8 +933,8 @@ function getMissingMultiDevisNumbers(year) {
                 }
             }
 
-            resolve({ 
-                success: true, 
+            resolve({
+                success: true,
                 data: missingNumbers,
                 stats: {
                     min: minNumber,
