@@ -67,8 +67,8 @@ function DashboardMultiPage() {
                     <div class="option-card" data-action="view-pdf-skm">
                         <div class="option-icon">📁</div>
                         <div class="option-info">
-                            <h2>Fichiers PDF - SKM</h2>
-                            <p>Afficher tous les fichiers PDF sauvegardés pour SKM</p>
+                            <h2>Fichiers PDF - SMART SERVICES</h2>
+                            <p>Afficher tous les fichiers PDF sauvegardés pour SMART SERVICES</p>
                         </div>
                         <div class="option-arrow">→</div>
                     </div>
@@ -76,8 +76,17 @@ function DashboardMultiPage() {
                     <div class="option-card" data-action="view-pdf-saaiss">
                         <div class="option-icon">📁</div>
                         <div class="option-info">
-                            <h2>Fichiers PDF - SAAISS</h2>
-                            <p>Afficher tous les fichiers PDF sauvegardés pour SAAISS</p>
+                            <h2>Fichiers PDF - MSH3 SERVICES</h2>
+                            <p>Afficher tous les fichiers PDF sauvegardés pour MSH3 SERVICES</p>
+                        </div>
+                        <div class="option-arrow">→</div>
+                    </div>
+
+                    <div class="option-card" data-action="view-pdf-benali">
+                        <div class="option-icon">📁</div>
+                        <div class="option-info">
+                            <h2>Fichiers PDF - BEN ALI</h2>
+                            <p>Afficher tous les fichiers PDF sauvegardés pour BEN ALI</p>
                         </div>
                         <div class="option-arrow">→</div>
                     </div>
@@ -100,23 +109,23 @@ function initDashboardMultiPage() {
 }
 
 // Event delegation for dashboard actions
-document.addEventListener('click', function(e) {
+document.addEventListener('click', function (e) {
     const card = e.target.closest('[data-action]');
     if (!card) return;
-    
+
     const action = card.dataset.action;
-    
+
     // Check if we're on Multi dashboard
     const selectedCompany = JSON.parse(localStorage.getItem('selectedCompany') || '{}');
     if (selectedCompany.code !== 'MULTI') return;
-    
+
     if (action === 'create-invoice') {
         router.navigate('/create-invoice-multi');
     } else if (action === 'view-invoices') {
         // Check if user has a saved year preference
         const rememberYear = localStorage.getItem('multi_remember_year');
         const savedYear = localStorage.getItem('multi_selected_year');
-        
+
         if (rememberYear === 'true' && savedYear !== null) {
             // User has saved preference, go directly to invoices list
             sessionStorage.setItem('multi_current_year', savedYear);
@@ -129,8 +138,11 @@ document.addEventListener('click', function(e) {
         console.log('📁 Opening PDF Manager for SKM');
         window.showPdfManager('skm');
     } else if (action === 'view-pdf-saaiss') {
-        console.log('📁 Opening PDF Manager for SAAISS');
+        console.log('📁 Opening PDF Manager for MSH3 SERVICES');
         window.showPdfManager('saaiss');
+    } else if (action === 'view-pdf-benali') {
+        console.log('📁 Opening PDF Manager for BEN ALI');
+        window.showPdfManager('benali');
     } else if (action === 'back-to-select') {
         localStorage.removeItem('selectedCompany');
         router.navigate('/company-select');

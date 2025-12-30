@@ -831,7 +831,7 @@ window.viewInvoiceMulti = async function (id) {
         console.log('📝 [NOTES VIEW MULTI] Loading notes for invoice:', id);
         const noteResult = await window.electron.dbMulti.getNote(id);
         console.log('📥 [NOTES VIEW MULTI] Note result:', noteResult);
-        const notesSection = document.getElementById(`notesSectionMulti${id} `);
+        const notesSection = document.getElementById(`notesSectionMulti${id}`);
         if (notesSection) {
             const notesContent = notesSection.querySelector('div > div');
             if (noteResult.success && noteResult.data) {
@@ -848,7 +848,7 @@ window.viewInvoiceMulti = async function (id) {
 
         // Load audit log asynchronously
         console.log('📋 [AUDIT LOG MULTI] Loading audit log for invoice:', id);
-        const auditLogSection = document.getElementById(`auditLogSectionMulti${id} `);
+        const auditLogSection = document.getElementById(`auditLogSectionMulti${id}`);
         if (auditLogSection) {
             const auditLogContent = auditLogSection.querySelector('div > div');
             try {
@@ -1239,10 +1239,7 @@ window.downloadBonDeTravaux = async function (invoiceId) {
 
         // Function to add footer
         const addFooter = (pageNum, totalPages) => {
-            // Add signature image above footer (right side)
-            if (signatureImgMulti) {
-                doc.addImage(signatureImgMulti, 'PNG', 140, 235, 60, 30);
-            }
+
 
             // Company info at bottom
             doc.setTextColor(0, 0, 0);
@@ -1557,9 +1554,9 @@ window.downloadInvoicePDFMulti = async function (invoiceId) {
 
         // Function to add footer to any page
         const addFooter = (pageNum, totalPages) => {
-            // Add signature image above footer (right side)
-            if (signatureImgMulti) {
-                doc.addImage(signatureImgMulti, 'PNG', 140, 235, 60, 30);
+            // Add signature image above footer (right side) - ONLY FOR DEVIS
+            if (signatureImgMulti && invoice.document_type === 'devis') {
+                doc.addImage(signatureImgMulti, 'PNG', 140, 225, 60, 45);
             }
 
             doc.setTextColor(0, 0, 0);

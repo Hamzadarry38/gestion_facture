@@ -66,8 +66,8 @@ function DashboardChaimaePage() {
                     <div class="option-card" onclick="openPdfManagerChaimae('skm')">
                         <div class="option-icon">📁</div>
                         <div class="option-info">
-                            <h2>Fichiers PDF - SKM</h2>
-                            <p>Afficher tous les fichiers PDF sauvegardés pour SKM</p>
+                            <h2>Fichiers PDF - SMART SERVICES</h2>
+                            <p>Afficher tous les fichiers PDF sauvegardés pour SMART SERVICES</p>
                         </div>
                         <div class="option-arrow">→</div>
                     </div>
@@ -75,8 +75,17 @@ function DashboardChaimaePage() {
                     <div class="option-card" onclick="openPdfManagerChaimae('saaiss')">
                         <div class="option-icon">📁</div>
                         <div class="option-info">
-                            <h2>Fichiers PDF - SAAISS</h2>
-                            <p>Afficher tous les fichiers PDF sauvegardés pour SAAISS</p>
+                            <h2>Fichiers PDF - MSH3 SERVICES</h2>
+                            <p>Afficher tous les fichiers PDF sauvegardés pour MSH3 SERVICES</p>
+                        </div>
+                        <div class="option-arrow">→</div>
+                    </div>
+
+                    <div class="option-card" onclick="openPdfManagerChaimae('benali')">
+                        <div class="option-icon">📁</div>
+                        <div class="option-info">
+                            <h2>Fichiers PDF - BEN ALI</h2>
+                            <p>Afficher tous les fichiers PDF sauvegardés pour BEN ALI</p>
                         </div>
                         <div class="option-arrow">→</div>
                     </div>
@@ -164,6 +173,7 @@ window.openPdfManagerChaimae = function (type) {
     let folder = 'chaimae';
     if (type === 'skm') folder = 'chaimae_skm';
     if (type === 'saaiss') folder = 'chaimae_saaiss';
+    if (type === 'benali') folder = 'chaimae_benali';
 
     if (typeof window.showPdfManager === 'function') {
         window.showPdfManager(folder);

@@ -5,8 +5,9 @@ const { registerDatabaseHandlers } = require('./database/ipc-handlers');
 const { registerChaimaeHandlers } = require('./database/ipc-handlers-chaimae');
 const { registerUsersHandlers } = require('./database/ipc-handlers-users');
 const { registerMultiHandlers } = require('./database/ipc-handlers-multi');
-const { registerSKMHandlers } = require('./database/ipc-handlers-skm');
-const { registerSAAISSHandlers } = require('./database/ipc-handlers-saaiss');
+const { registerSmartSHandlers } = require('./database/ipc-handlers-smarts');
+const { registerMsh3Handlers } = require('./database/ipc-handlers-msh3');
+const { registerBenAliHandlers } = require('./database/ipc-handlers-benali');
 const { initAutoUpdater, checkForUpdates, setLanguage } = require('./updater');
 
 let mainWindow;
@@ -16,20 +17,20 @@ function createDesktopShortcut() {
   try {
     const desktopPath = path.join(app.getPath('home'), 'Desktop');
     const shortcutPath = path.join(desktopPath, 'Gestion des Factures.lnk');
-    
+
     // Check if shortcut already exists
     if (fs.existsSync(shortcutPath)) {
       console.log('✅ Desktop shortcut already exists');
       return;
     }
-    
+
     // Get the executable path
     const exePath = process.execPath;
-    
+
     // Create shortcut using Windows API
     const { execSync } = require('child_process');
     const iconPath = path.join(__dirname, 'assets/icon.png');
-    
+
     // PowerShell script to create shortcut
     const psScript = `
       $WshShell = New-Object -ComObject WScript.Shell
@@ -39,13 +40,13 @@ function createDesktopShortcut() {
       $Shortcut.Description = "Gestion des Factures - Application de gestion des factures"
       $Shortcut.Save()
     `;
-    
+
     // Execute PowerShell script
-    execSync(`powershell -Command "${psScript.replace(/"/g, '\\"')}"`, { 
+    execSync(`powershell -Command "${psScript.replace(/"/g, '\\"')}"`, {
       stdio: 'pipe',
-      shell: true 
+      shell: true
     });
-    
+
     console.log('✅ Desktop shortcut created successfully');
   } catch (error) {
     console.error('⚠️ Error creating desktop shortcut:', error.message);
@@ -56,7 +57,7 @@ function createDesktopShortcut() {
 function createWindow() {
   const packageJson = require('./package.json');
   const appVersion = packageJson.version;
-  
+
   mainWindow = new BrowserWindow({
     width: 1200,
     height: 800,
@@ -136,7 +137,7 @@ function setupIpcHandlers() {
           }
         })()
       `);
-      
+
       if (shouldClear) {
         // Clear authentication data if multiple users exist
         await mainWindow.webContents.executeJavaScript(`
@@ -145,7 +146,7 @@ function setupIpcHandlers() {
           localStorage.removeItem('selectedCompany');
         `);
       }
-      
+
       mainWindow.close();
     }
   });
@@ -207,11 +208,11 @@ function setupPdfHandlers() {
     try {
       // Create PDF directory structure
       const pdfDir = path.join(app.getPath('userData'), 'pdfs', company);
-      
+
       if (!fs.existsSync(pdfDir)) {
         fs.mkdirSync(pdfDir, { recursive: true });
       }
-      
+
       // Create filename with devis number and timestamp
       // Replace / with - in devis number to avoid path issues
       const sanitizedDevisNumber = devisNumber.replace(/\//g, '-');
@@ -220,31 +221,31 @@ function setupPdfHandlers() {
       const creatorPrefix = createdBy ? `[${createdBy}]` : '';
       const filename = `${creatorPrefix}_${sanitizedDevisNumber}_${timestamp}.pdf`;
       const filePath = path.join(pdfDir, filename);
-      
+
       // Save PDF file
       fs.writeFileSync(filePath, pdfData);
-      
+
       return { success: true, filePath };
     } catch (error) {
       return { success: false, error: error.message };
     }
   });
-  
+
   // Get all PDF files for a company, filtered by creator
   ipcMain.handle('pdf:getPdfFiles', async (event, company, createdBy) => {
     try {
       const pdfDir = path.join(app.getPath('userData'), 'pdfs', company);
-      
+
       if (!fs.existsSync(pdfDir)) {
         return { success: true, files: [] };
       }
-      
+
       const files = fs.readdirSync(pdfDir);
       let pdfFiles = files.filter(f => f.endsWith('.pdf')).map(f => {
         // Extract creator from filename (e.g., "[MRY]_..." -> "MRY")
         const creatorMatch = f.match(/^\[([^\]]+)\]/);
         const creator = creatorMatch ? creatorMatch[1] : 'Unknown';
-        
+
         return {
           name: f,
           path: path.join(pdfDir, f),
@@ -253,20 +254,20 @@ function setupPdfHandlers() {
           creator: creator
         };
       });
-      
+
       // Filter by creator if specified
       if (createdBy) {
         pdfFiles = pdfFiles.filter(f => f.creator === createdBy);
       }
-      
+
       return { success: true, files: pdfFiles };
     } catch (error) {
       return { success: false, error: error.message };
     }
   });
-  
+
   console.log('✅ PDF handlers registered successfully');
-  
+
   // Open PDF file
   ipcMain.handle('pdf:openPdf', async (event, filePath) => {
     try {
@@ -277,7 +278,7 @@ function setupPdfHandlers() {
       return { success: false, error: error.message };
     }
   });
-  
+
   // Delete PDF file
   ipcMain.handle('pdf:deletePdf', async (event, filePath) => {
     try {
@@ -301,13 +302,13 @@ function setupPdfExportImportHandlers() {
       const companyName = company.toLowerCase();
       const userCompanyName = userCompany ? userCompany.toUpperCase() : '';
       const dateStr = new Date().toISOString().split('T')[0];
-      
+
       // Build filename: if userCompany is different, include it
       let filename = `${companyName}_PDFs_${dateStr}.zip`;
       if (userCompanyName && userCompanyName !== company.toUpperCase()) {
         filename = `${userCompanyName}_${companyName.toUpperCase()}_PDFs_${dateStr}.zip`;
       }
-      
+
       const result = await dialog.showSaveDialog(mainWindow, {
         title: `Exporter tous les PDFs ${company}`,
         defaultPath: filename,
@@ -316,33 +317,33 @@ function setupPdfExportImportHandlers() {
           { name: 'All Files', extensions: ['*'] }
         ]
       });
-      
+
       if (result.canceled || !result.filePath) {
         return { success: false, canceled: true };
       }
-      
+
       const pdfDir = path.join(app.getPath('userData'), 'pdfs', company);
-      
+
       if (!fs.existsSync(pdfDir)) {
         return { success: false, error: 'Aucun dossier PDF trouvé pour cette entreprise' };
       }
-      
+
       // Use archiver to create ZIP
       const archiver = require('archiver');
       const output = fs.createWriteStream(result.filePath);
       const archive = archiver('zip', { zlib: { level: 9 } });
-      
+
       return new Promise((resolve, reject) => {
         output.on('close', () => {
           console.log(`✅ PDFs exported to: ${result.filePath}`);
           resolve({ success: true, path: result.filePath, size: archive.pointer() });
         });
-        
+
         archive.on('error', (err) => {
           console.error('❌ Archive error:', err);
           reject(err);
         });
-        
+
         archive.pipe(output);
         archive.directory(pdfDir, company);
         archive.finalize();
@@ -354,7 +355,7 @@ function setupPdfExportImportHandlers() {
       return { success: false, error: error.message };
     }
   });
-  
+
   // Import PDFs from ZIP
   ipcMain.handle('pdf:importAll', async (event, company) => {
     try {
@@ -366,14 +367,14 @@ function setupPdfExportImportHandlers() {
         ],
         properties: ['openFile']
       });
-      
+
       if (result.canceled || result.filePaths.length === 0) {
         return { success: false, canceled: true };
       }
-      
+
       const zipPath = result.filePaths[0];
       const pdfDir = path.join(app.getPath('userData'), 'pdfs', company);
-      
+
       // Create backup of existing PDFs
       const backupDir = path.join(app.getPath('userData'), 'pdfs', `${company}_backup_${Date.now()}`);
       if (fs.existsSync(pdfDir)) {
@@ -383,10 +384,10 @@ function setupPdfExportImportHandlers() {
           fs.copyFileSync(path.join(pdfDir, file), path.join(backupDir, file));
         });
       }
-      
+
       // Extract ZIP
       const extract = require('extract-zip');
-      
+
       return new Promise((resolve, reject) => {
         extract(zipPath, { dir: path.join(app.getPath('userData'), 'pdfs') })
           .then(() => {
@@ -405,7 +406,7 @@ function setupPdfExportImportHandlers() {
       return { success: false, error: error.message };
     }
   });
-  
+
   console.log('✅ PDF Export/Import handlers registered');
 }
 
@@ -421,27 +422,27 @@ function setupBackupHandlers() {
           { name: 'All Files', extensions: ['*'] }
         ]
       });
-      
+
       if (!result.canceled && result.filePath) {
         // Use app.getPath('userData') for database location
         const dbPath = path.join(app.getPath('userData'), 'invoices.db');
-        
+
         // Check if database exists
         if (!fs.existsSync(dbPath)) {
           return { success: false, error: 'Base de données introuvable' };
         }
-        
+
         fs.copyFileSync(dbPath, result.filePath);
         return { success: true, path: result.filePath };
       }
-      
+
       return { success: false, canceled: true };
     } catch (error) {
       console.error('Export error:', error);
       return { success: false, error: error.message };
     }
   });
-  
+
   ipcMain.handle('db:backup:import', async () => {
     try {
       const result = await dialog.showOpenDialog(mainWindow, {
@@ -452,34 +453,34 @@ function setupBackupHandlers() {
         ],
         properties: ['openFile']
       });
-      
+
       if (!result.canceled && result.filePaths.length > 0) {
         // Use app.getPath('userData') for database location
         const dbPath = path.join(app.getPath('userData'), 'invoices.db');
         const backupPath = path.join(app.getPath('userData'), `invoices_backup_${Date.now()}.db`);
-        
+
         // Create backup of current database
         if (fs.existsSync(dbPath)) {
           fs.copyFileSync(dbPath, backupPath);
         }
-        
+
         // Copy imported file to database location
         fs.copyFileSync(result.filePaths[0], dbPath);
-        
+
         // Reload the app to apply the new database
         app.relaunch();
         app.exit(0);
-        
+
         return { success: true, path: result.filePaths[0], needsReload: true };
       }
-      
+
       return { success: false, canceled: true };
     } catch (error) {
       console.error('Import error:', error);
       return { success: false, error: error.message };
     }
   });
-  
+
   // Backup & Restore handlers for CHAIMAE
   ipcMain.handle('db:chaimae:backup:export', async () => {
     try {
@@ -491,27 +492,27 @@ function setupBackupHandlers() {
           { name: 'All Files', extensions: ['*'] }
         ]
       });
-      
+
       if (!result.canceled && result.filePath) {
         // Use app.getPath('userData') for database location
         const dbPath = path.join(app.getPath('userData'), 'invoices_chaimae.db');
-        
+
         // Check if database exists
         if (!fs.existsSync(dbPath)) {
           return { success: false, error: 'Base de données introuvable' };
         }
-        
+
         fs.copyFileSync(dbPath, result.filePath);
         return { success: true, path: result.filePath };
       }
-      
+
       return { success: false, canceled: true };
     } catch (error) {
       console.error('Export error:', error);
       return { success: false, error: error.message };
     }
   });
-  
+
   ipcMain.handle('db:chaimae:backup:import', async () => {
     try {
       const result = await dialog.showOpenDialog(mainWindow, {
@@ -522,34 +523,34 @@ function setupBackupHandlers() {
         ],
         properties: ['openFile']
       });
-      
+
       if (!result.canceled && result.filePaths.length > 0) {
         // Use app.getPath('userData') for database location
         const dbPath = path.join(app.getPath('userData'), 'invoices_chaimae.db');
         const backupPath = path.join(app.getPath('userData'), `invoices_chaimae_backup_${Date.now()}.db`);
-        
+
         // Create backup of current database
         if (fs.existsSync(dbPath)) {
           fs.copyFileSync(dbPath, backupPath);
         }
-        
+
         // Copy imported file to database location
         fs.copyFileSync(result.filePaths[0], dbPath);
-        
+
         // Reload the app to apply the new database
         app.relaunch();
         app.exit(0);
-        
+
         return { success: true, path: result.filePaths[0], needsReload: true };
       }
-      
+
       return { success: false, canceled: true };
     } catch (error) {
       console.error('Import error:', error);
       return { success: false, error: error.message };
     }
   });
-  
+
   // Backup & Restore handlers for MULTI
   ipcMain.handle('db:multi:backup:export', async () => {
     try {
@@ -561,27 +562,27 @@ function setupBackupHandlers() {
           { name: 'All Files', extensions: ['*'] }
         ]
       });
-      
+
       if (!result.canceled && result.filePath) {
         // Use app.getPath('userData') for database location
         const dbPath = path.join(app.getPath('userData'), 'multi.db');
-        
+
         // Check if database exists
         if (!fs.existsSync(dbPath)) {
           return { success: false, error: 'Base de données introuvable' };
         }
-        
+
         fs.copyFileSync(dbPath, result.filePath);
         return { success: true, path: result.filePath };
       }
-      
+
       return { success: false, canceled: true };
     } catch (error) {
       console.error('Export error:', error);
       return { success: false, error: error.message };
     }
   });
-  
+
   ipcMain.handle('db:multi:backup:import', async () => {
     try {
       const result = await dialog.showOpenDialog(mainWindow, {
@@ -592,27 +593,27 @@ function setupBackupHandlers() {
         ],
         properties: ['openFile']
       });
-      
+
       if (!result.canceled && result.filePaths.length > 0) {
         // Use app.getPath('userData') for database location
         const dbPath = path.join(app.getPath('userData'), 'multi.db');
         const backupPath = path.join(app.getPath('userData'), `multi_backup_${Date.now()}.db`);
-        
+
         // Create backup of current database
         if (fs.existsSync(dbPath)) {
           fs.copyFileSync(dbPath, backupPath);
         }
-        
+
         // Copy imported file to database location
         fs.copyFileSync(result.filePaths[0], dbPath);
-        
+
         // Reload the app to apply the new database
         app.relaunch();
         app.exit(0);
-        
+
         return { success: true, path: result.filePaths[0], needsReload: true };
       }
-      
+
       return { success: false, canceled: true };
     } catch (error) {
       console.error('Import error:', error);
@@ -625,24 +626,25 @@ function setupBackupHandlers() {
 app.whenReady().then(async () => {
   // Create desktop shortcut on first run
   createDesktopShortcut();
-  
+
   // Register database handlers for all companies (async)
   await registerDatabaseHandlers(); // MRY database
   await registerChaimaeHandlers(); // CHAIMAE database
   await registerMultiHandlers(); // MULTI database
   await registerUsersHandlers(); // Users database
-  await registerSKMHandlers(); // SKM database
-  await registerSAAISSHandlers(); // SAAISS database
-  
+  await registerSmartSHandlers(); // SMART SERVICES database
+  await registerMsh3Handlers(); // MSH3 SERVICES database
+  await registerBenAliHandlers(); // BEN ALI database
+
   // Setup IPC handlers after window is ready
   createWindow();
-  
+
   // Setup handlers after window is created
   setupIpcHandlers();
   setupPdfHandlers();
   setupPdfExportImportHandlers();
   setupBackupHandlers();
-  
+
   // Initialize auto-updater (only in production)
   // Temporarily enabled for testing
   initAutoUpdater();

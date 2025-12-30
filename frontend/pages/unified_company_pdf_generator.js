@@ -10,7 +10,7 @@ const COMPANY_CONFIGS = {
         headerPath: 'SKM/Hesder.png',
         footerPath: 'SKM/Footer.png',
         signaturePath: 'SKM/signature.png',
-        dbName: 'dbSkm'
+        dbName: 'dbSmartS'
     },
     SAAISS: {
         name: 'SAAISS',
@@ -19,7 +19,7 @@ const COMPANY_CONFIGS = {
         headerPath: 'SAAISS/Hesder.png',
         footerPath: 'SAAISS/Footer.png',
         signaturePath: 'SAAISS/signature.png',
-        dbName: 'dbSaaiss'
+        dbName: 'dbMsh3'
     },
     BENALI: {
         name: 'BEN ALI',
@@ -28,7 +28,7 @@ const COMPANY_CONFIGS = {
         headerPath: 'BEN ALI/Hesder.png',
         footerPath: 'BEN ALI/Footer.png',
         signaturePath: 'BEN ALI/signature.png',
-        dbName: 'dbBenali'
+        dbName: 'dbBenAli'
     }
 };
 
@@ -287,6 +287,15 @@ async function generateBenAliPDF(invoiceId, sourceDb) {
             }));
         }
 
+        // Add Devis number to BEN ALI database
+        try {
+            const currentYear = new Date().getFullYear();
+            await window.electron.dbBenAli.addDevisNumber(customizationData.customDevisNumber, currentYear);
+            console.log('✅ BEN ALI Devis number added to database:', customizationData.customDevisNumber);
+        } catch (error) {
+            console.error('Error saving BEN ALI devis number:', error);
+        }
+
         // Generate BEN ALI PDF
         await generateBenAliPDFContent(doc, customizedInvoice);
 
@@ -295,9 +304,32 @@ async function generateBenAliPDF(invoiceId, sourceDb) {
         const invoiceNumber = customizedInvoice.document_numero_devis || customizedInvoice.document_numero || 'N-A';
         const fileName = `BENALI_${docType}_${customizedInvoice.client_nom}_${invoiceNumber}.pdf`;
 
-        doc.save(fileName);
+        // Get PDF as blob and save to backend
+        const pdfBlob = doc.output('blob');
+        const pdfArrayBuffer = await pdfBlob.arrayBuffer();
+        const pdfUint8Array = new Uint8Array(pdfArrayBuffer);
 
-        window.notify.success('Succès', `PDF BEN ALI généré: ${fileName}`, 3000);
+        // Get createdBy
+        const selectedCompany = JSON.parse(localStorage.getItem('selectedCompany') || '{}');
+        const createdBy = selectedCompany.code || selectedCompany.name || 'Unknown';
+
+        // Determine save folder: 'chaimae_benali' if source is chaimae, else 'benali'
+        const saveFolder = sourceDb === 'chaimae' ? 'chaimae_benali' : 'benali';
+
+        // Save to correct folder
+        const saveResult = await window.electron.pdf.savePdf(pdfUint8Array, saveFolder, invoiceNumber, createdBy);
+
+        if (saveResult.success) {
+            console.log(`✅ BEN ALI PDF saved to disk (${saveFolder}):`, saveResult.filePath);
+            // Also download in browser
+            doc.save(fileName);
+            window.notify.success('Succès', `PDF BEN ALI généré et sauvegardé: ${fileName}`, 3000);
+        } else {
+            console.error('❌ Error saving BEN ALI PDF to disk:', saveResult.error);
+            window.notify.error('Erreur', 'Erreur lors de la sauvegarde du PDF: ' + saveResult.error, 4000);
+            // Fallback: download anyway
+            doc.save(fileName);
+        }
 
     } catch (error) {
         console.error('❌ Error generating BEN ALI PDF:', error);
@@ -307,9 +339,50 @@ async function generateBenAliPDF(invoiceId, sourceDb) {
 
 // Show BEN ALI customization modal
 async function showBenAliModal(invoice) {
+    // Get last used devis number
+    let lastDevisNumber = 'Aucun';
+    let nextDevisNumber = '';
     const currentYear = new Date().getFullYear();
-    // Use existing devis number or fallback to 1/Year
-    let nextDevisNumber = invoice.document_numero_devis || invoice.document_numero || ('1/' + currentYear);
+
+    try {
+        // Use BEN ALI database for devis numbers
+        const result = await window.electron.dbBenAli.getMaxDevisNumber(currentYear);
+        console.log('📋 BEN ALI DB Result:', result);
+
+        if (result && result.success && result.data && result.data.devis_number) {
+            lastDevisNumber = result.data.devis_number;
+
+            // Extract number before the year (format: number/year)
+            // Example: "11/2025" -> extract 11, increment to 12, then add current year
+            const match = lastDevisNumber.trim().match(/^(\d+)\s*\/\s*\d+$/);
+            if (match) {
+                const lastNumber = parseInt(match[1]);
+                const nextNumber = lastNumber + 1;
+                nextDevisNumber = nextNumber + '/' + currentYear;
+            } else {
+                // Fallback: try to extract any number and increment
+                const numberMatch = lastDevisNumber.match(/(\d+)/);
+                if (numberMatch) {
+                    const lastNumber = parseInt(numberMatch[1]);
+                    const nextNumber = lastNumber + 1;
+                    nextDevisNumber = nextNumber + '/' + currentYear;
+                } else {
+                    nextDevisNumber = '1/' + currentYear;
+                }
+            }
+        } else {
+            // If no last devis, start with 1/currentYear
+            nextDevisNumber = '1/' + currentYear;
+        }
+    } catch (error) {
+        console.log('Could not get last devis number:', error);
+        nextDevisNumber = '1/' + currentYear;
+    }
+
+    // Ensure nextDevisNumber is in correct format (number/year only)
+    if (nextDevisNumber && !nextDevisNumber.match(/^(\d+)\/\d{4}$/)) {
+        nextDevisNumber = '1/' + currentYear;
+    }
 
     return new Promise((resolve) => {
         const overlay = document.createElement('div');
@@ -363,6 +436,9 @@ async function showBenAliModal(invoice) {
                             </label>
                             <input type="text" id="benaliDevisInput" value="${nextDevisNumber}" placeholder="D2025-001"
                                    style="width: 100%; padding: 0.75rem; background: #2d2d30; border: 1px solid #3e3e42; border-radius: 6px; color: #fff; font-size: 1rem;">
+                            <small style="color: #4CAF50; display: block; margin-top: 0.5rem; font-weight: 500;">
+                                📋 Plus grand N°: <strong>${lastDevisNumber}</strong>
+                            </small>
                         </div>
                     </div>
 
@@ -384,34 +460,68 @@ async function showBenAliModal(invoice) {
 
         document.body.appendChild(overlay);
 
+        const benaliDevisInput = document.getElementById('benaliDevisInput');
+
+        // Auto-add current year when user leaves the devis input field
+        benaliDevisInput.addEventListener('blur', () => {
+            let value = benaliDevisInput.value.trim();
+            if (value && !value.includes('/')) {
+                benaliDevisInput.value = value + '/' + currentYear;
+            }
+        });
+
         document.getElementById('benaliCancelBtn').addEventListener('click', () => {
             overlay.remove();
             resolve(null);
         });
 
-        document.getElementById('benaliGenerateBtn').addEventListener('click', () => {
-            const percentage = parseFloat(document.getElementById('benaliPercentageInput').value) || 0;
-            const customDate = document.getElementById('benaliDateInput').value;
-            const customDevisNumber = document.getElementById('benaliDevisInput').value;
+        document.getElementById('benaliGenerateBtn').addEventListener('click', async () => {
+            try {
+                const percentage = parseFloat(document.getElementById('benaliPercentageInput').value) || 0;
+                const customDate = document.getElementById('benaliDateInput').value;
+                const customDevisNumber = document.getElementById('benaliDevisInput').value.trim();
 
-            // Collect ALL product names (modified or not)
-            const productNameInputs = document.querySelectorAll('.product-name-input');
-            const modifiedProducts = {};
-            productNameInputs.forEach(input => {
-                const indexStr = input.getAttribute('data-index');
-                if (indexStr !== null) {
-                    const index = parseInt(indexStr);
-                    // Verify index is within bounds of products array
-                    if (!isNaN(index) && invoice.products[index]) {
-                        const newName = input.value.trim();
-                        // Always include the product name, whether changed or not
-                        modifiedProducts[index] = newName || invoice.products[index].designation;
-                    }
+                if (!customDevisNumber) {
+                    window.notify.warning('Champ requis', 'Veuillez saisir un numéro de Devis avant de continuer.');
+                    benaliDevisInput.focus();
+                    return;
                 }
-            });
 
-            overlay.remove();
-            resolve({ percentage, customDate, customDevisNumber, modifiedProducts });
+                // Check if Devis number already exists
+                const existsResult = await window.electron.dbBenAli.checkDevisExists(customDevisNumber, currentYear);
+                if (existsResult.success && existsResult.data) {
+                    window.notify.error('Numéro déjà utilisé', 'Ce numéro de Devis a déjà été utilisé cette année. Veuillez choisir un autre numéro unique.');
+                    benaliDevisInput.focus();
+                    benaliDevisInput.style.borderColor = '#ff4444';
+                    return;
+                }
+
+                // Reset border color if valid
+                benaliDevisInput.style.borderColor = '#3e3e42';
+
+                // Collect ALL product names (modified or not)
+                const productNameInputs = document.querySelectorAll('.product-name-input');
+                const modifiedProducts = {};
+                productNameInputs.forEach(input => {
+                    const indexStr = input.getAttribute('data-index');
+                    if (indexStr !== null) {
+                        const index = parseInt(indexStr);
+                        // Verify index is within bounds of products array
+                        if (!isNaN(index) && invoice.products[index]) {
+                            const newName = input.value.trim();
+                            // Always include the product name, whether changed or not
+                            modifiedProducts[index] = newName || invoice.products[index].designation;
+                        }
+                    }
+                });
+
+                overlay.remove();
+                resolve({ percentage, customDate, customDevisNumber, modifiedProducts });
+
+            } catch (error) {
+                console.error('Error in modal:', error);
+                window.notify.error('Erreur', 'Une erreur est survenue: ' + error.message);
+            }
         });
 
         overlay.addEventListener('click', (e) => {

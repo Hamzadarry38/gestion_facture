@@ -46,7 +46,7 @@ window.downloadMultiSKMDevisPDF = async function (invoiceId) {
                                 Certains produits ont une <strong style="color:#ff9800;">quantité = 0</strong> ou un <strong style="color:#ff9800;">prix = 0</strong>.
                             </p>
                             <p style="color:#b0b0b0;font-size:0.9rem;">
-                                Voulez-vous les afficher dans le PDF SKM ?
+                                Voulez-vous les afficher dans le PDF SMART SERVICES ?
                             </p>
                         </div>
                         <div class="custom-modal-footer">
@@ -100,7 +100,7 @@ window.downloadMultiSKMDevisPDF = async function (invoiceId) {
 
     } catch (error) {
         console.error('❌ Error generating SKM PDF:', error);
-        showSKMErrorModal('Erreur de génération', 'Une erreur est survenue lors de la génération du PDF SKM: ' + error.message);
+        showSKMErrorModal('Erreur de génération', 'Une erreur est survenue lors de la génération du PDF SMART SERVICES: ' + error.message);
     }
 };
 
@@ -173,7 +173,7 @@ window.generateSKMPDFWithCustomization = async function (invoice, customizationD
         // Add Devis number to SKM database (always SKM because it is SKM sequence)
         try {
             const currentYear = new Date().getFullYear();
-            await window.electron.dbSkm.addDevisNumber(customizationData.customDevisNumber, currentYear);
+            await window.electron.dbSmartS.addDevisNumber(customizationData.customDevisNumber, currentYear);
         } catch (error) {
             console.error('Error saving devis number:', error);
         }
@@ -213,7 +213,7 @@ window.generateSKMPDFWithCustomization = async function (invoice, customizationD
             if (context === 'multi') {
                 showSKMSuccessModal('PDF généré avec succès', `Le fichier ${fileName} a été téléchargé et sauvegardé avec succès !`);
             } else {
-                window.notify.success('Succès', `PDF SKM généré et sauvegardé avec succès !`);
+                window.notify.success('Succès', `PDF SMART SERVICES généré et sauvegardé avec succès !`);
             }
         } else {
             console.error('❌ Error saving PDF to disk:', saveResult.error);
@@ -240,14 +240,14 @@ window.showSimpleSKMModal = async function (invoice) {
     const currentYear = new Date().getFullYear();
     try {
         // Use SKM database for MULTI company devis numbers (shared database)
-        const result = await window.electron.dbSkm.getMaxDevisNumber(currentYear);
+        const result = await window.electron.dbSmartS.getMaxDevisNumber(currentYear);
         console.log('📋 SKM DB Result:', result);
         if (result && result.success && result.data && result.data.devis_number) {
             lastDevisNumber = result.data.devis_number;
 
             // Extract number before the year (format: number/year)
             // Example: "11/2025" -> extract 11, increment to 12, then add current year
-            const match = lastDevisNumber.match(/^(\d+)\/\d+$/);
+            const match = lastDevisNumber.trim().match(/^(\d+)\s*\/\s*\d+$/);
             if (match) {
                 const lastNumber = parseInt(match[1]);
                 const nextNumber = lastNumber + 1;
@@ -292,7 +292,7 @@ window.showSimpleSKMModal = async function (invoice) {
         modal.innerHTML = `
             <div class="custom-modal-header">
                 <span class="custom-modal-icon info">🎨</span>
-                <h3 class="custom-modal-title">PDF SKM - Personnalisation</h3>
+                <h3 class="custom-modal-title">🏭 SMART SERVICES - Personnalisation</h3>
                 <div style="position: absolute; top: 1rem; right: 1rem; background: #0078d4; color: #fff; padding: 0.4rem 0.8rem; border-radius: 4px; font-size: 0.85rem; font-weight: 600;">
                     🏢 Créé par: <strong>${companyName}</strong>
                 </div>
@@ -348,7 +348,7 @@ window.showSimpleSKMModal = async function (invoice) {
             </div>
             <div class="custom-modal-footer">
                 <button id="cancelBtn" class="custom-modal-btn secondary">Annuler</button>
-                <button id="generateBtn" class="custom-modal-btn primary">Générer PDF SKM</button>
+                <button id="generateBtn" class="custom-modal-btn primary">Générer PDF SMART SERVICES</button>
             </div>
         `;
 
@@ -388,7 +388,7 @@ window.showSimpleSKMModal = async function (invoice) {
 
                 // Check if Devis number already exists
                 const currentYear = new Date().getFullYear();
-                const existsResult = await window.electron.dbSkm.checkDevisExists(customDevisNumber, currentYear);
+                const existsResult = await window.electron.dbSmartS.checkDevisExists(customDevisNumber, currentYear);
                 if (existsResult.success && existsResult.data) {
                     showSKMErrorModal('Numéro de Devis déjà utilisé', 'Ce numéro de Devis a déjà été utilisé cette année. Veuillez choisir un autre numéro unique.');
                     devisInput.focus();
@@ -451,7 +451,7 @@ async function showSKMCustomizationModal(invoice) {
         header.className = 'custom-modal-header';
         header.innerHTML = `
             <span class="custom-modal-icon info">🎨</span>
-            <h3 class="custom-modal-title">Personnalisation PDF SKM</h3>
+            <h3 class="custom-modal-title">Personnalisation PDF SMART SERVICES</h3>
         `;
 
         // Modal body
@@ -543,7 +543,7 @@ async function showSKMCustomizationModal(invoice) {
         const generateBtn = document.createElement('button');
         generateBtn.id = 'skmGenerateBtn';
         generateBtn.className = 'custom-modal-btn primary';
-        generateBtn.textContent = 'Générer PDF SKM';
+        generateBtn.textContent = 'Générer PDF SMART SERVICES';
 
         footer.appendChild(cancelBtn);
         footer.appendChild(generateBtn);

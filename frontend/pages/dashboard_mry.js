@@ -67,8 +67,8 @@ function DashboardMRYPage() {
                     <div class="option-card" data-action="view-pdf-skm">
                         <div class="option-icon">📁</div>
                         <div class="option-info">
-                            <h2>Fichiers PDF - SKM</h2>
-                            <p>Afficher tous les fichiers PDF sauvegardés pour SKM</p>
+                            <h2>Fichiers PDF - SMART SERVICES</h2>
+                            <p>Afficher tous les fichiers PDF sauvegardés pour SMART SERVICES</p>
                         </div>
                         <div class="option-arrow">→</div>
                     </div>
@@ -76,8 +76,17 @@ function DashboardMRYPage() {
                     <div class="option-card" data-action="view-pdf-saaiss">
                         <div class="option-icon">📁</div>
                         <div class="option-info">
-                            <h2>Fichiers PDF - SAAISS</h2>
-                            <p>Afficher tous les fichiers PDF sauvegardés pour SAAISS</p>
+                            <h2>Fichiers PDF - MSH3 SERVICES</h2>
+                            <p>Afficher tous les fichiers PDF sauvegardés pour MSH3 SERVICES</p>
+                        </div>
+                        <div class="option-arrow">→</div>
+                    </div>
+
+                    <div class="option-card" data-action="view-pdf-benali">
+                        <div class="option-icon">📁</div>
+                        <div class="option-info">
+                            <h2>Fichiers PDF - BEN ALI</h2>
+                            <p>Afficher tous les fichiers PDF sauvegardés pour BEN ALI</p>
                         </div>
                         <div class="option-arrow">→</div>
                     </div>
@@ -104,16 +113,16 @@ function DashboardMRYPage() {
 }
 
 // Event delegation for dashboard actions
-document.addEventListener('click', function(e) {
+document.addEventListener('click', function (e) {
     const card = e.target.closest('[data-action]');
     if (!card) return;
-    
+
     const action = card.dataset.action;
-    
+
     // Check if we're on MRY dashboard
     const selectedCompany = JSON.parse(localStorage.getItem('selectedCompany') || '{}');
     if (selectedCompany.code !== 'MRY') return;
-    
+
     if (action === 'create-invoice') {
         console.log('✅ Creating invoice...');
         router.navigate('/create-invoice-mry');
@@ -122,7 +131,7 @@ document.addEventListener('click', function(e) {
         // Check if user has a saved year preference
         const rememberYear = localStorage.getItem('mry_remember_year');
         const savedYear = localStorage.getItem('mry_selected_year');
-        
+
         if (rememberYear === 'true' && savedYear !== null) {
             // User has saved preference, go directly to invoices list
             sessionStorage.setItem('mry_current_year', savedYear);
@@ -136,8 +145,11 @@ document.addEventListener('click', function(e) {
         console.log('📁 Opening PDF Manager for SKM');
         window.showPdfManager('skm');
     } else if (action === 'view-pdf-saaiss') {
-        console.log('📁 Opening PDF Manager for SAAISS');
+        console.log('📁 Opening PDF Manager for MSH3 SERVICES');
         window.showPdfManager('saaiss');
+    } else if (action === 'view-pdf-benali') {
+        console.log('📁 Opening PDF Manager for BEN ALI');
+        window.showPdfManager('benali');
     } else if (action === 'back-to-select') {
         localStorage.removeItem('selectedCompany');
         router.navigate('/company-select');
@@ -149,16 +161,16 @@ document.addEventListener('click', function(e) {
 // Delete all data function for MRY
 async function deleteAllDataMRY() {
     const confirmed = await customConfirm('Attention', '⚠️ ATTENTION!\n\nÊtes-vous sûr de vouloir supprimer TOUTES les données?\n\n• Toutes les factures\n• Tous les clients\n• Tous les produits\n• Toutes les pièces jointes\n\nCette action est IRRÉVERSIBLE!', 'error');
-    
+
     if (!confirmed) return;
-    
+
     const doubleConfirm = await customConfirm('Dernière Confirmation', '🚨 DERNIÈRE CONFIRMATION!\n\nConfirmez pour supprimer définitivement toutes les données MRY.', 'error');
-    
+
     if (!doubleConfirm) return;
-    
+
     try {
         const result = await window.electron.db.deleteAllData();
-        
+
         if (result.success) {
             await customAlert('Succès', 'Toutes les données MRY ont été supprimées avec succès!', 'success');
             router.navigate('/company-select');

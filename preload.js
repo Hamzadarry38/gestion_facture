@@ -190,40 +190,87 @@ contextBridge.exposeInMainWorld('electron', {
     deleteAllData: () => ipcRenderer.invoke('dbMulti:deleteAllData')
   },
 
-  // Database API for SKM
-  dbSkm: {
+  // Database API for SMART SERVICES
+  dbSmartS: {
     // Devis Numbers
-    checkDevisExists: (devisNumber, year) => ipcRenderer.invoke('db:skm:devis:exists', devisNumber, year),
-    addDevisNumber: (devisNumber, year) => ipcRenderer.invoke('db:skm:devis:add', devisNumber, year),
-    getDevisByYear: (year) => ipcRenderer.invoke('db:skm:devis:getByYear', year),
-    getAllDevis: () => ipcRenderer.invoke('db:skm:devis:getAll'),
-    getLastDevisNumber: (year) => ipcRenderer.invoke('db:skm:devis:getLast', year),
-    getMaxDevisNumber: (year) => ipcRenderer.invoke('db:skm:devis:getMax', year),
-    deleteDevisNumber: (devisNumber, year) => ipcRenderer.invoke('db:skm:devis:delete', devisNumber, year),
-    clearAllDevis: () => ipcRenderer.invoke('db:skm:devis:clearAll'),
+    checkDevisExists: (devisNumber, year) => ipcRenderer.invoke('db:smarts:devis:exists', devisNumber, year),
+    addDevisNumber: (devisNumber, year) => ipcRenderer.invoke('db:smarts:devis:add', devisNumber, year),
+    getDevisByYear: (year) => ipcRenderer.invoke('db:smarts:devis:getByYear', year),
+    getAllDevis: () => ipcRenderer.invoke('db:smarts:devis:getAll'),
+    getLastDevisNumber: (year) => ipcRenderer.invoke('db:smarts:devis:getLast', year),
+    getMaxDevisNumber: (year) => ipcRenderer.invoke('db:smarts:devis:getMax', year),
+    deleteDevisNumber: (devisNumber, year) => ipcRenderer.invoke('db:smarts:devis:delete', devisNumber, year),
+    clearAllDevis: () => ipcRenderer.invoke('db:smarts:devis:clearAll'),
 
     // PDF Files
-    savePdfPath: (devisNumber, year, filePath, createdBy) => ipcRenderer.invoke('db:skm:pdf:savePath', devisNumber, year, filePath, createdBy),
-    getPdfPath: (devisNumber, year) => ipcRenderer.invoke('db:skm:pdf:getPath', devisNumber, year),
-    deletePdfPath: (devisNumber, year) => ipcRenderer.invoke('db:skm:pdf:deletePath', devisNumber, year)
+    savePdfPath: (devisNumber, year, filePath, createdBy) => ipcRenderer.invoke('db:smarts:pdf:savePath', devisNumber, year, filePath, createdBy),
+    getPdfPath: (devisNumber, year) => ipcRenderer.invoke('db:smarts:pdf:getPath', devisNumber, year),
+    deletePdfPath: (devisNumber, year) => ipcRenderer.invoke('db:smarts:pdf:deletePath', devisNumber, year)
   },
 
-  // Database API for SAAISS
-  dbSaaiss: {
+  // Database API for MSH3 SERVICES
+  dbMsh3: {
     // Devis Numbers
-    checkDevisExists: (devisNumber, year) => ipcRenderer.invoke('db:saaiss:devis:exists', devisNumber, year),
-    addDevisNumber: (devisNumber, year) => ipcRenderer.invoke('db:saaiss:devis:add', devisNumber, year),
-    getDevisByYear: (year) => ipcRenderer.invoke('db:saaiss:devis:getByYear', year),
-    getAllDevis: () => ipcRenderer.invoke('db:saaiss:devis:getAll'),
-    getLastDevisNumber: (year) => ipcRenderer.invoke('db:saaiss:devis:getLast', year),
-    getMaxDevisNumber: (year) => ipcRenderer.invoke('db:saaiss:devis:getMax', year),
-    deleteDevisNumber: (devisNumber, year) => ipcRenderer.invoke('db:saaiss:devis:delete', devisNumber, year),
-    clearAllDevis: () => ipcRenderer.invoke('db:saaiss:devis:clearAll'),
+    checkDevisExists: (devisNumber, year) => ipcRenderer.invoke('db:msh3:devis:exists', devisNumber, year),
+    addDevisNumber: (devisNumber, year) => ipcRenderer.invoke('db:msh3:devis:add', devisNumber, year),
+    getDevisByYear: (year) => ipcRenderer.invoke('db:msh3:devis:getByYear', year),
+    getAllDevis: () => ipcRenderer.invoke('db:msh3:devis:getAll'),
+    getLastDevisNumber: (year) => ipcRenderer.invoke('db:msh3:devis:getLast', year),
+    getMaxDevisNumber: (year) => ipcRenderer.invoke('db:msh3:devis:getMax', year),
+    deleteDevisNumber: (devisNumber, year) => ipcRenderer.invoke('db:msh3:devis:delete', devisNumber, year),
+    clearAllDevis: () => ipcRenderer.invoke('db:msh3:devis:clearAll'),
 
     // PDF Files
-    savePdfPath: (devisNumber, year, filePath, createdBy) => ipcRenderer.invoke('db:saaiss:pdf:savePath', devisNumber, year, filePath, createdBy),
-    getPdfPath: (devisNumber, year) => ipcRenderer.invoke('db:saaiss:pdf:getPath', devisNumber, year),
-    deletePdfPath: (devisNumber, year) => ipcRenderer.invoke('db:saaiss:pdf:deletePath', devisNumber, year)
+    savePdfPath: (devisNumber, year, filePath, createdBy) => ipcRenderer.invoke('db:msh3:pdf:savePath', devisNumber, year, filePath, createdBy),
+    getPdfPath: (devisNumber, year) => ipcRenderer.invoke('db:msh3:pdf:getPath', devisNumber, year),
+    deletePdfPath: (devisNumber, year) => ipcRenderer.invoke('db:msh3:pdf:deletePath', devisNumber, year)
+  },
+
+  // Legacy aliases for backward compatibility (after renaming skm->smarts, saaiss->msh3)
+  dbSkm: {
+    checkDevisExists: (devisNumber, year) => ipcRenderer.invoke('db:smarts:devis:exists', devisNumber, year),
+    addDevisNumber: (devisNumber, year) => ipcRenderer.invoke('db:smarts:devis:add', devisNumber, year),
+    getDevisByYear: (year) => ipcRenderer.invoke('db:smarts:devis:getByYear', year),
+    getAllDevis: () => ipcRenderer.invoke('db:smarts:devis:getAll'),
+    getLastDevisNumber: (year) => ipcRenderer.invoke('db:smarts:devis:getLast', year),
+    getMaxDevisNumber: (year) => ipcRenderer.invoke('db:smarts:devis:getMax', year),
+    deleteDevisNumber: (devisNumber, year) => ipcRenderer.invoke('db:smarts:devis:delete', devisNumber, year),
+    clearAllDevis: () => ipcRenderer.invoke('db:smarts:devis:clearAll'),
+    savePdfPath: (devisNumber, year, filePath, createdBy) => ipcRenderer.invoke('db:smarts:pdf:savePath', devisNumber, year, filePath, createdBy),
+    getPdfPath: (devisNumber, year) => ipcRenderer.invoke('db:smarts:pdf:getPath', devisNumber, year),
+    deletePdfPath: (devisNumber, year) => ipcRenderer.invoke('db:smarts:pdf:deletePath', devisNumber, year)
+  },
+
+  dbSaaiss: {
+    checkDevisExists: (devisNumber, year) => ipcRenderer.invoke('db:msh3:devis:exists', devisNumber, year),
+    addDevisNumber: (devisNumber, year) => ipcRenderer.invoke('db:msh3:devis:add', devisNumber, year),
+    getDevisByYear: (year) => ipcRenderer.invoke('db:msh3:devis:getByYear', year),
+    getAllDevis: () => ipcRenderer.invoke('db:msh3:devis:getAll'),
+    getLastDevisNumber: (year) => ipcRenderer.invoke('db:msh3:devis:getLast', year),
+    getMaxDevisNumber: (year) => ipcRenderer.invoke('db:msh3:devis:getMax', year),
+    deleteDevisNumber: (devisNumber, year) => ipcRenderer.invoke('db:msh3:devis:delete', devisNumber, year),
+    clearAllDevis: () => ipcRenderer.invoke('db:msh3:devis:clearAll'),
+    savePdfPath: (devisNumber, year, filePath, createdBy) => ipcRenderer.invoke('db:msh3:pdf:savePath', devisNumber, year, filePath, createdBy),
+    getPdfPath: (devisNumber, year) => ipcRenderer.invoke('db:msh3:pdf:getPath', devisNumber, year),
+    deletePdfPath: (devisNumber, year) => ipcRenderer.invoke('db:msh3:pdf:deletePath', devisNumber, year)
+  },
+
+  // Database API for BEN ALI
+  dbBenAli: {
+    // Devis Numbers
+    checkDevisExists: (devisNumber, year) => ipcRenderer.invoke('db:benali:devis:exists', devisNumber, year),
+    addDevisNumber: (devisNumber, year) => ipcRenderer.invoke('db:benali:devis:add', devisNumber, year),
+    getDevisByYear: (year) => ipcRenderer.invoke('db:benali:devis:getByYear', year),
+    getAllDevis: () => ipcRenderer.invoke('db:benali:devis:getAll'),
+    getLastDevisNumber: (year) => ipcRenderer.invoke('db:benali:devis:getLast', year),
+    getMaxDevisNumber: (year) => ipcRenderer.invoke('db:benali:devis:getMax', year),
+    deleteDevisNumber: (devisNumber, year) => ipcRenderer.invoke('db:benali:devis:delete', devisNumber, year),
+    clearAllDevis: () => ipcRenderer.invoke('db:benali:devis:clearAll'),
+
+    // PDF Files
+    savePdfPath: (devisNumber, year, filePath, createdBy) => ipcRenderer.invoke('db:benali:pdf:savePath', devisNumber, year, filePath, createdBy),
+    getPdfPath: (devisNumber, year) => ipcRenderer.invoke('db:benali:pdf:getPath', devisNumber, year),
+    deletePdfPath: (devisNumber, year) => ipcRenderer.invoke('db:benali:pdf:deletePath', devisNumber, year)
   },
 
   // PDF Files API

@@ -46,7 +46,7 @@ window.downloadMultiSAAISSDevisPDF = async function (invoiceId) {
                                 Certains produits ont une <strong style="color:#ff9800;">quantité = 0</strong> ou un <strong style="color:#ff9800;">prix = 0</strong>.
                             </p>
                             <p style="color:#b0b0b0;font-size:0.9rem;">
-                                Voulez-vous les afficher dans le PDF SAAISS ?
+                                Voulez-vous les afficher dans le PDF MSH3 SERVICES ?
                             </p>
                         </div>
                         <div class="custom-modal-footer">
@@ -101,7 +101,7 @@ window.downloadMultiSAAISSDevisPDF = async function (invoiceId) {
 
     } catch (error) {
         console.error('❌ Error generating SAAISS PDF:', error);
-        showSAAISSErrorModal('Erreur de génération', 'Une erreur est survenue lors de la génération du PDF SAAISS: ' + error.message);
+        showSAAISSErrorModal('Erreur de génération', 'Une erreur est survenue lors de la génération du PDF MSH3 SERVICES: ' + error.message);
     }
 };
 
@@ -152,7 +152,7 @@ window.generateSAAISSPDFWithCustomization = async function (invoice, customizati
             // We can skip check here if we trust the modal or just let the add fail if unique constraint
             // But let's keep it for safety if context is multi
             if (context === 'multi') {
-                const existsResult = await window.electron.dbSaaiss.checkDevisExists(customizationData.customDevisNumber, currentYear);
+                const existsResult = await window.electron.dbMsh3.checkDevisExists(customizationData.customDevisNumber, currentYear);
                 if (existsResult.success && existsResult.data) {
                     // Only throw if it's NOT the same devis number (which shouldn't happen for new custom number)
                     // Actually, if we are here, we proceeded from modal which checked it.
@@ -165,7 +165,7 @@ window.generateSAAISSPDFWithCustomization = async function (invoice, customizati
         // Add Devis number to SAAISS database (Sequence management)
         try {
             const currentYear = new Date().getFullYear();
-            await window.electron.dbSaaiss.addDevisNumber(customizationData.customDevisNumber, currentYear);
+            await window.electron.dbMsh3.addDevisNumber(customizationData.customDevisNumber, currentYear);
         } catch (error) {
             console.error('Error saving devis number:', error);
         }
@@ -203,7 +203,7 @@ window.generateSAAISSPDFWithCustomization = async function (invoice, customizati
             if (context === 'multi') {
                 showSAAISSSuccessModal('PDF généré avec succès', `Le fichier ${fileName} a été téléchargé et sauvegardé avec succès !`);
             } else {
-                window.notify.success('Succès', `PDF SAAISS généré et sauvegardé avec succès !`);
+                window.notify.success('Succès', `PDF MSH3 SERVICES généré et sauvegardé avec succès !`);
             }
         } else {
             console.error('❌ Error saving PDF to disk:', saveResult.error);
@@ -229,7 +229,7 @@ window.showSimpleSAAISSModal = async function (invoice) {
     try {
         const currentYear = new Date().getFullYear();
         // Use SAAISS database for MULTI company devis numbers (shared database)
-        const result = await window.electron.dbSaaiss.getMaxDevisNumber(currentYear);
+        const result = await window.electron.dbMsh3.getMaxDevisNumber(currentYear);
         console.log('📋 SAAISS DB Result:', result);
         if (result && result.success && result.data && result.data.devis_number) {
             lastDevisNumber = result.data.devis_number;
@@ -268,8 +268,8 @@ window.showSimpleSAAISSModal = async function (invoice) {
         const currentYear = new Date().getFullYear();
         if (lastDevisNumber && lastDevisNumber !== 'Aucun') {
             // Extract number before the year (format: number/year)
-            // Example: "1/2025" -> extract 1, increment to 2, then add current year
-            const match = lastDevisNumber.match(/^(\d+)\/\d+$/);
+            // Example: "11/2025" -> extract 11, increment to 12, then add current year
+            const match = lastDevisNumber.trim().match(/^(\d+)\s*\/\s*\d+$/);
             if (match) {
                 const lastNumber = parseInt(match[1]);
                 const nextNumber = lastNumber + 1;
@@ -296,7 +296,7 @@ window.showSimpleSAAISSModal = async function (invoice) {
         modal.innerHTML = `
             <div class="custom-modal-header">
                 <span class="custom-modal-icon info">🎨</span>
-                <h3 class="custom-modal-title">PDF SAAISS - Personnalisation</h3>
+                <h3 class="custom-modal-title">🏭 MSH3 SERVICES - Personnalisation</h3>
                 <div style="position: absolute; top: 1rem; right: 1rem; background: #0078d4; color: #fff; padding: 0.4rem 0.8rem; border-radius: 4px; font-size: 0.85rem; font-weight: 600;">
                     🏢 Créé par: <strong>${companyName}</strong>
                 </div>
@@ -353,7 +353,7 @@ window.showSimpleSAAISSModal = async function (invoice) {
             </div>
             <div class="custom-modal-footer">
                 <button id="cancelBtn" class="custom-modal-btn secondary">Annuler</button>
-                <button id="generateBtn" class="custom-modal-btn primary">Générer PDF</button>
+                <button id="generateBtn" class="custom-modal-btn primary">Générer PDF MSH3 SERVICES</button>
             </div>
         `;
 

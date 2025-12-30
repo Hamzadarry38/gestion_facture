@@ -3343,7 +3343,8 @@ window.downloadInvoicePDFChaimae = async function (invoiceId) {
         // Function to add footer
         const addFooter = (pageNum, totalPages) => {
             // Add signature image above footer (right side)
-            if (signatureImgChaimae) {
+            // Add signature image above footer (right side) - ONLY FOR DEVIS
+            if (signatureImgChaimae && invoice.document_type === 'devis') {
                 doc.addImage(signatureImgChaimae, 'PNG', 140, 235, 60, 30);
             }
 
