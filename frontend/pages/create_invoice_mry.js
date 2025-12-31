@@ -183,10 +183,10 @@ function CreateInvoiceMRYPage() {
 }
 
 // Handle document type change (Global)
-window.handleDocumentTypeChange = async function() {
+window.handleDocumentTypeChange = async function () {
     const type = document.getElementById('documentType').value;
     const container = document.getElementById('dynamicFields');
-    
+
     if (!type) {
         container.innerHTML = '';
         return;
@@ -197,12 +197,12 @@ window.handleDocumentTypeChange = async function() {
         main: 'Aucun',
         order: 'Aucun'
     };
-    
+
     try {
         const invoicesResult = await window.electron.db.getAllInvoices('MRY');
         if (invoicesResult.success && invoicesResult.data && invoicesResult.data.length > 0) {
             const invoices = invoicesResult.data;
-            
+
             // Helper function to extract numeric value from document number
             const extractNumber = (docNumber) => {
                 if (!docNumber) return 0;
@@ -219,7 +219,7 @@ window.handleDocumentTypeChange = async function() {
                     factures.sort((a, b) => extractNumber(b.document_numero) - extractNumber(a.document_numero));
                     lastNumbers.main = factures[0].document_numero;
                 }
-                
+
                 // Get highest N° Order
                 const orders = invoices.filter(inv => inv.document_numero_Order);
                 if (orders.length > 0) {
@@ -260,7 +260,7 @@ window.handleDocumentTypeChange = async function() {
             </div>
         `;
         html += '</div>';
-        
+
         // Optional field with toggle
         const selectedMryOrderPrefix = window.selectedMryOrderPrefix || window.mryOrderPrefixes?.[0] || '';
         html += `
@@ -333,12 +333,12 @@ window.handleDocumentTypeChange = async function() {
 }
 
 // Use suggested number (Global)
-window.useSuggestedNumber = function(number) {
+window.useSuggestedNumber = function (number) {
     const input = document.getElementById('documentNumero');
     if (input) {
         input.value = number;
         input.focus();
-        
+
         // Visual feedback
         input.style.background = 'rgba(102, 126, 234, 0.1)';
         input.style.borderColor = '#667eea';
@@ -350,11 +350,11 @@ window.useSuggestedNumber = function(number) {
 }
 
 // Toggle optional field visibility (Global)
-window.toggleOptionalField = function(fieldName) {
+window.toggleOptionalField = function (fieldName) {
     const checkbox = document.getElementById(`toggle${fieldName}`);
     const field = document.getElementById(`field${fieldName}`);
     const input = document.getElementById(`documentNumero${fieldName}`);
-    
+
     if (checkbox.checked) {
         field.style.display = 'block';
         input.required = false;
@@ -366,24 +366,24 @@ window.toggleOptionalField = function(fieldName) {
 }
 
 // Auto-format document number on blur (Global)
-window.autoFormatDocumentNumberOnBlur = function(input) {
+window.autoFormatDocumentNumberOnBlur = function (input) {
     let value = input.value.trim();
-    
+
     // إذا كان الحقل فارغاً، لا تفعل شيئاً
     if (!value) return;
-    
+
     // إذا كان يحتوي بالفعل على سلاش، لا تفعل شيئاً
     if (value.includes('/')) return;
-    
+
     // استخراج الأرقام فقط
     let numbers = value.replace(/[^0-9]/g, '');
-    
+
     // إذا كان هناك أرقام، أضف السنة
     if (numbers) {
         // استخراج السنة من حقل التاريخ بدلاً من السنة الحالية
         const dateInput = document.getElementById('documentDate');
         let year = new Date().getFullYear(); // القيمة الافتراضية
-        
+
         if (dateInput && dateInput.value) {
             // استخراج السنة من التاريخ المختار (YYYY-MM-DD)
             const selectedDate = new Date(dateInput.value);
@@ -392,13 +392,13 @@ window.autoFormatDocumentNumberOnBlur = function(input) {
         } else {
             console.log('📅 [AUTO FORMAT MRY] Using current year:', year);
         }
-        
+
         input.value = `${numbers}/${year}`;
     }
 }
 
 // Format document number (add /2025 if not present) - Legacy function (Global)
-window.formatDocumentNumber = function(input) {
+window.formatDocumentNumber = function (input) {
     let value = input.value.trim();
     if (value && !value.includes('/')) {
         const year = new Date().getFullYear();
@@ -407,20 +407,20 @@ window.formatDocumentNumber = function(input) {
 }
 
 // Handle arrow key navigation in products table (Global)
-window.handleArrowNavigation = function(event, currentRowId, currentCellIndex) {
+window.handleArrowNavigation = function (event, currentRowId, currentCellIndex) {
     // Only handle arrow keys
     if (!['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(event.key)) {
         return;
     }
-    
+
     const currentRow = document.getElementById(currentRowId);
     const tbody = document.getElementById('productsTableBody');
     const allRows = Array.from(tbody.querySelectorAll('tr'));
     const currentRowIndex = allRows.indexOf(currentRow);
-    
+
     let targetRow = null;
     let targetCellIndex = currentCellIndex;
-    
+
     // Handle arrow keys
     if (event.key === 'ArrowUp') {
         // Move to row above
@@ -459,7 +459,7 @@ window.handleArrowNavigation = function(event, currentRowId, currentCellIndex) {
             event.preventDefault();
         }
     }
-    
+
     // Focus the target cell
     if (targetRow) {
         focusCellMry(targetRow, targetCellIndex);
@@ -486,10 +486,10 @@ function focusCellMry(row, cellIndex) {
 
 // Add product row (Global)
 let productRowCounter = 0;
-window.addProductRow = function() {
+window.addProductRow = function () {
     const tbody = document.getElementById('productsTableBody');
     const rowId = `product-${productRowCounter++}`;
-    
+
     const row = document.createElement('tr');
     row.id = rowId;
     row.innerHTML = `
@@ -518,56 +518,56 @@ window.addProductRow = function() {
             </button>
         </td>
     `;
-    
+
     tbody.appendChild(row);
 }
 
 // Calculate row total (Global)
-window.calculateRowTotal = function(rowId) {
+window.calculateRowTotal = function (rowId) {
     const row = document.getElementById(rowId);
     const quantityInput = row.querySelector('.product-quantity');
     const priceInput = row.querySelector('.product-price');
-    
+
     // Get quantity text
     let quantityText = quantityInput.value.trim();
-    
+
     console.log('🔍 MRY Row Calc - Original quantity:', quantityText);
-    
+
     // Convert 'F' or 'f' to '1' FIRST
     if (quantityText.toUpperCase() === 'F') {
         console.log('✅ MRY Row Calc - Converting F to 1');
         quantityText = '1';
     }
-    
+
     // Extract numeric value from quantity (remove units like "Kg", etc)
     const quantity = quantityText.replace(/[^0-9.]/g, '');
-    
+
     let price = parseFloat(priceInput.value) || 0;
     let qty = parseFloat(quantity) || 0;
-    
+
     console.log('🔍 MRY Row Calc - qty:', qty, 'price:', price);
-    
+
     const total = qty * price;
-    
+
     console.log('🔍 MRY Row Calc - total:', total);
-    
+
     // Use simple format without spaces for calculations
     row.querySelector('.product-total').textContent = total.toFixed(2) + ' DH';
-    
+
     calculateTotals();
 }
 
 // Delete product row (Global)
-window.deleteProductRow = function(rowId) {
+window.deleteProductRow = function (rowId) {
     document.getElementById(rowId).remove();
     calculateTotals();
 }
 
 // Calculate all totals (Global)
-window.calculateTotals = function() {
+window.calculateTotals = function () {
     const rows = document.querySelectorAll('#productsTableBody tr');
     let totalHT = 0;
-    
+
     rows.forEach(row => {
         const totalText = row.querySelector('.product-total').textContent;
         // Remove ALL spaces, commas, and 'DH'
@@ -579,11 +579,12 @@ window.calculateTotals = function() {
         const total = parseFloat(cleanText) || 0;
         totalHT += total;
     });
-    
-    const tvaRate = parseFloat(document.getElementById('tvaRate').value) || 0;
+
+    const tvaRateValue = document.getElementById('tvaRate').value;
+    const tvaRate = tvaRateValue === '' ? 20 : (parseFloat(tvaRateValue) || 0);
     const montantTVA = totalHT * (tvaRate / 100);
     const totalTTC = totalHT + montantTVA;
-    
+
     // Use simple format without spaces for display in creation page
     document.getElementById('totalHT').textContent = totalHT.toFixed(2) + ' DH';
     document.getElementById('montantTVA').textContent = montantTVA.toFixed(2) + ' DH';
@@ -624,25 +625,25 @@ async function loadAllClients() {
 }
 
 // Search clients based on input
-window.searchClients = function(query) {
+window.searchClients = function (query) {
     console.log('🔍 Searching clients with query:', query);
     const dropdown = document.getElementById('clientsDropdown');
-    
+
     if (!dropdown) {
         console.error('❌ Dropdown element not found!');
         return;
     }
-    
+
     if (!query || query.trim().length === 0) {
         filteredClients = allClients;
     } else {
         const searchTerm = query.toLowerCase().trim();
-        filteredClients = allClients.filter(client => 
-            client.nom.toLowerCase().includes(searchTerm) || 
+        filteredClients = allClients.filter(client =>
+            client.nom.toLowerCase().includes(searchTerm) ||
             client.ice.toLowerCase().includes(searchTerm)
         );
     }
-    
+
     console.log('📋 Filtered clients:', filteredClients.length);
     displayClientsList();
 }
@@ -651,19 +652,19 @@ window.searchClients = function(query) {
 function displayClientsList() {
     console.log('📋 Displaying clients list...');
     const dropdown = document.getElementById('clientsDropdown');
-    
+
     if (!dropdown) {
         console.error('❌ Dropdown element not found in displayClientsList!');
         return;
     }
-    
+
     if (filteredClients.length === 0) {
         dropdown.innerHTML = '<div class="dropdown-item no-results">Aucun client trouvé</div>';
         dropdown.style.display = 'block';
         console.log('ℹ️ No clients found');
         return;
     }
-    
+
     dropdown.innerHTML = filteredClients.slice(0, 10).map(client => `
         <div class="dropdown-item" style="display: flex; justify-content: space-between; align-items: center;">
             <div style="flex: 1;" onmousedown="selectClient('${client.nom.replace(/'/g, "\\'")}', '${client.ice}')">
@@ -681,13 +682,13 @@ function displayClientsList() {
             </button>
         </div>
     `).join('');
-    
+
     dropdown.style.display = 'block';
     console.log('✅ Dropdown displayed with', filteredClients.slice(0, 10).length, 'clients');
 }
 
 // Show clients list
-window.showClientsList = function() {
+window.showClientsList = function () {
     if (allClients.length > 0) {
         filteredClients = allClients;
         displayClientsList();
@@ -695,7 +696,7 @@ window.showClientsList = function() {
 }
 
 // Hide clients list
-window.hideClientsList = function() {
+window.hideClientsList = function () {
     setTimeout(() => {
         const dropdown = document.getElementById('clientsDropdown');
         dropdown.style.display = 'none';
@@ -703,10 +704,10 @@ window.hideClientsList = function() {
 }
 
 // Select a client from the list
-window.selectClient = function(nom, ice) {
+window.selectClient = function (nom, ice) {
     document.getElementById('clientNom').value = nom;
     document.getElementById('clientICE').value = ice;
-    
+
     const dropdown = document.getElementById('clientsDropdown');
     dropdown.style.display = 'none';
 }
@@ -728,9 +729,9 @@ function showDeleteErrorModalMRY(clientName, errorMessage) {
         backdrop-filter: blur(4px);
         animation: fadeIn 0.2s ease-out;
     `;
-    
+
     const isReferenceError = errorMessage.includes('referenced in existing invoices');
-    
+
     const modal = document.createElement('div');
     modal.style.cssText = `
         background: linear-gradient(135deg, #2d2d30 0%, #1e1e1e 100%);
@@ -743,7 +744,7 @@ function showDeleteErrorModalMRY(clientName, errorMessage) {
         animation: slideUp 0.3s ease-out;
         overflow: hidden;
     `;
-    
+
     modal.innerHTML = `
         <style>
             @keyframes fadeIn {
@@ -817,16 +818,16 @@ function showDeleteErrorModalMRY(clientName, errorMessage) {
             </button>
         </div>
     `;
-    
+
     overlay.appendChild(modal);
     document.body.appendChild(overlay);
-    
+
     overlay.addEventListener('click', (e) => {
         if (e.target === overlay) {
             overlay.remove();
         }
     });
-    
+
     const escapeHandler = (e) => {
         if (e.key === 'Escape') {
             overlay.remove();
@@ -837,7 +838,7 @@ function showDeleteErrorModalMRY(clientName, errorMessage) {
 }
 
 // Delete a client
-window.deleteClient = async function(clientId, clientName) {
+window.deleteClient = async function (clientId, clientName) {
     const overlay = document.createElement('div');
     overlay.style.cssText = `
         position: fixed;
@@ -853,7 +854,7 @@ window.deleteClient = async function(clientId, clientName) {
         backdrop-filter: blur(4px);
         animation: fadeIn 0.2s ease-out;
     `;
-    
+
     const modal = document.createElement('div');
     modal.style.cssText = `
         background: linear-gradient(135deg, #2d2d30 0%, #1e1e1e 100%);
@@ -866,7 +867,7 @@ window.deleteClient = async function(clientId, clientName) {
         animation: slideUp 0.3s ease-out;
         overflow: hidden;
     `;
-    
+
     modal.innerHTML = `
         <div style="background: linear-gradient(135deg, #ff9800 0%, #f57c00 100%); padding: 24px; text-align: center;">
             <div style="width: 64px; height: 64px; margin: 0 auto 16px; background: rgba(255, 255, 255, 0.2); border-radius: 50%; display: flex; align-items: center; justify-content: center;">
@@ -913,26 +914,26 @@ window.deleteClient = async function(clientId, clientName) {
             </div>
         </div>
     `;
-    
+
     overlay.appendChild(modal);
     document.body.appendChild(overlay);
-    
+
     modal.querySelector('#cancelDeleteBtn').addEventListener('click', () => {
         overlay.remove();
     });
-    
+
     overlay.addEventListener('click', (e) => {
         if (e.target === overlay) {
             overlay.remove();
         }
     });
-    
+
     modal.querySelector('#confirmDeleteBtn').addEventListener('click', async () => {
         overlay.remove();
-        
+
         try {
             const result = await window.electron.db.deleteClient(clientId);
-            
+
             if (result.success) {
                 window.notify.success('تم الحذف', `تم حذف الزبون "${clientName}" بنجاح`);
                 await loadAllClients();
@@ -956,22 +957,22 @@ function initializeInvoiceForm() {
             const today = new Date().toISOString().split('T')[0];
             dateInput.value = today;
         }
-        
+
         // Attach form submit handler
         const form = document.getElementById('invoiceForm');
         if (form) {
             form.addEventListener('submit', handleInvoiceSubmit);
         }
-        
+
         // Attach file input handler
         const fileInput = document.getElementById('fileInput');
         if (fileInput) {
             fileInput.addEventListener('change', handleFileSelect);
         }
-        
+
         // Reset selected files
         selectedFiles = [];
-        
+
         // Load all clients for autocomplete
         loadAllClients();
     }, 100);
@@ -981,7 +982,7 @@ function initializeInvoiceForm() {
 function handleFileSelect(event) {
     const files = Array.from(event.target.files);
     const filesList = document.getElementById('filesList');
-    
+
     files.forEach(file => {
         // Check file type
         const validTypes = ['image/png', 'image/jpeg', 'image/jpg', 'application/pdf'];
@@ -993,7 +994,7 @@ function handleFileSelect(event) {
             );
             return;
         }
-        
+
         // Check file size (max 10MB)
         if (file.size > 10 * 1024 * 1024) {
             window.notify.warning(
@@ -1003,10 +1004,10 @@ function handleFileSelect(event) {
             );
             return;
         }
-        
+
         // Add to selected files
         selectedFiles.push(file);
-        
+
         // Display file
         const fileItem = document.createElement('div');
         fileItem.className = 'file-item';
@@ -1020,13 +1021,13 @@ function handleFileSelect(event) {
         `;
         filesList.appendChild(fileItem);
     });
-    
+
     // Reset input
     event.target.value = '';
 }
 
 // Remove file
-window.removeFile = function(index) {
+window.removeFile = function (index) {
     selectedFiles.splice(index, 1);
     updateFilesList();
 };
@@ -1035,7 +1036,7 @@ window.removeFile = function(index) {
 function updateFilesList() {
     const filesList = document.getElementById('filesList');
     filesList.innerHTML = '';
-    
+
     selectedFiles.forEach((file, index) => {
         const fileItem = document.createElement('div');
         fileItem.className = 'file-item';
@@ -1056,13 +1057,13 @@ async function checkDocumentNumberUnique(type, numero, numeroOrder = null) {
     try {
         const result = await window.electron.db.getAllInvoices('MRY');
         if (!result.success) return true;
-        
+
         const invoices = result.data;
-        
+
         // Check based on document type
         if (type === 'facture') {
             // Check N° Facture
-            const duplicateFacture = invoices.find(inv => 
+            const duplicateFacture = invoices.find(inv =>
                 inv.document_type === 'facture' && inv.document_numero === numero
             );
             if (duplicateFacture) {
@@ -1073,10 +1074,10 @@ async function checkDocumentNumberUnique(type, numero, numeroOrder = null) {
                 );
                 return false;
             }
-            
+
             // Check N° Order if provided
             if (numeroOrder) {
-                const duplicateOrder = invoices.find(inv => 
+                const duplicateOrder = invoices.find(inv =>
                     inv.document_numero_Order === numeroOrder
                 );
                 if (duplicateOrder) {
@@ -1090,7 +1091,7 @@ async function checkDocumentNumberUnique(type, numero, numeroOrder = null) {
             }
         } else if (type === 'devis') {
             // Check N° Devis
-            const duplicateDevis = invoices.find(inv => 
+            const duplicateDevis = invoices.find(inv =>
                 inv.document_type === 'devis' && inv.document_numero_devis === numero
             );
             if (duplicateDevis) {
@@ -1102,7 +1103,7 @@ async function checkDocumentNumberUnique(type, numero, numeroOrder = null) {
                 return false;
             }
         }
-        
+
         return true;
     } catch (error) {
         console.error('Error checking document number:', error);
@@ -1113,23 +1114,23 @@ async function checkDocumentNumberUnique(type, numero, numeroOrder = null) {
 // Handle form submission
 async function handleInvoiceSubmit(e) {
     e.preventDefault();
-    
+
     // Show loading notification
     const loadingNotif = window.notify.loading(
         'Enregistrement en cours...',
         'Veuillez patienter pendant que nous sauvegardons votre facture'
     );
-    
+
     // Disable submit button
     const submitBtn = e.target.querySelector('button[type="submit"]');
     const originalText = submitBtn.innerHTML;
     submitBtn.innerHTML = '<span>⏳ Enregistrement...</span>';
     submitBtn.disabled = true;
-    
+
     try {
         // Get current user info
         const currentUser = JSON.parse(localStorage.getItem('user'));
-        
+
         // Collect form data
         const formData = {
             company_code: 'MRY',
@@ -1149,12 +1150,12 @@ async function handleInvoiceSubmit(e) {
             products: [],
             totals: {
                 total_ht: parseFloat(document.getElementById('totalHT').textContent.replace('DH', '').trim()) || 0,
-                tva_rate: parseFloat(document.getElementById('tvaRate').value) || 20,
+                tva_rate: isNaN(parseFloat(document.getElementById('tvaRate').value)) ? 20 : parseFloat(document.getElementById('tvaRate').value),
                 montant_tva: parseFloat(document.getElementById('montantTVA').textContent.replace('DH', '').trim()) || 0,
                 total_ttc: parseFloat(document.getElementById('totalTTC').textContent.replace('DH', '').trim()) || 0
             }
         };
-        
+
         // Add optional fields if present
         const numeroOrder = document.getElementById('documentNumeroOrder');
         if (numeroOrder && numeroOrder.value) {
@@ -1166,14 +1167,14 @@ async function handleInvoiceSubmit(e) {
                 formData.document.numero_Order = numeroOrder.value;
             }
         }
-        
+
         // Check uniqueness before proceeding
         const isUnique = await checkDocumentNumberUnique(
             formData.document.type,
             formData.document.numero,
             formData.document.numero_Order
         );
-        
+
         if (!isUnique) {
             // Remove loading notification
             window.notify.remove(loadingNotif);
@@ -1182,35 +1183,35 @@ async function handleInvoiceSubmit(e) {
             submitBtn.disabled = false;
             return;
         }
-        
+
         // Convert numero to numero_devis for devis type
         if (formData.document.type === 'devis') {
             formData.document.numero_devis = formData.document.numero;
             delete formData.document.numero;
         }
-        
+
         // Collect products
         const rows = document.querySelectorAll('#productsTableBody tr');
         rows.forEach(row => {
             const designation = row.querySelector('.product-designation').value.trim();
             const quantityOriginal = row.querySelector('.product-quantity').value.trim();
             const price = parseFloat(row.querySelector('.product-price').value) || 0;
-            
+
             console.log('🔍 MRY BEFORE conversion - Quantity:', quantityOriginal, 'Type:', typeof quantityOriginal);
-            
+
             // For calculation: convert F to 1
             let quantityForCalc = quantityOriginal;
             if (quantityForCalc.toUpperCase() === 'F') {
                 console.log('✅ MRY Converting F to 1 for calculation');
                 quantityForCalc = '1';
             }
-            
+
             console.log('🔍 MRY AFTER conversion - QuantityForCalc:', quantityForCalc, 'Original:', quantityOriginal);
-            
+
             // Calculate total_ht directly from quantity and price
             const qty = parseFloat(quantityForCalc) || 0;
             const total_ht = qty * price;
-            
+
             console.log('💾 MRY Saving product:', {
                 designation,
                 quantityOriginal,
@@ -1218,7 +1219,7 @@ async function handleInvoiceSubmit(e) {
                 price,
                 calculated_total: total_ht
             });
-            
+
             // Save product if it has at least a designation
             if (designation) {
                 formData.products.push({
@@ -1229,32 +1230,32 @@ async function handleInvoiceSubmit(e) {
                 });
             }
         });
-        
+
         console.log('📝 Saving invoice:', formData);
-        
+
         // Save to database
         const result = await window.electron.db.createInvoice(formData);
-        
+
         if (result.success) {
             const invoiceId = result.data.id;
             console.log('✅ Invoice saved with ID:', invoiceId);
             console.log('👤 Created by:', currentUser?.name || 'Unknown');
-            
+
             // Upload attachments if any
             if (selectedFiles.length > 0) {
                 console.log(`📎 Uploading ${selectedFiles.length} attachments...`);
-                
+
                 for (const file of selectedFiles) {
                     const arrayBuffer = await file.arrayBuffer();
                     const uint8Array = new Uint8Array(arrayBuffer);
-                    
+
                     const attachResult = await window.electron.db.addAttachment(
                         invoiceId,
                         file.name,
                         file.type,
                         uint8Array
                     );
-                    
+
                     if (attachResult.success) {
                         console.log(`✅ Attachment uploaded: ${file.name}`);
                     } else {
@@ -1262,23 +1263,23 @@ async function handleInvoiceSubmit(e) {
                     }
                 }
             }
-            
+
             // Save notes if any
             const noteText = document.getElementById('invoiceNotesMRY')?.value?.trim();
             if (noteText) {
                 await window.electron.db.saveNote(invoiceId, noteText);
             }
-            
+
             // Remove loading notification
             window.notify.remove(loadingNotif);
-            
+
             // Show success notification
             window.notify.success(
                 'Facture enregistrée avec succès!',
                 `ID: ${invoiceId} - ${formData.client.nom}`,
                 4000
             );
-            
+
             // Navigate after a short delay
             setTimeout(() => {
                 router.navigate('/dashboard-mry');
@@ -1288,17 +1289,17 @@ async function handleInvoiceSubmit(e) {
         }
     } catch (error) {
         console.error('❌ Error saving invoice:', error);
-        
+
         // Remove loading notification
         window.notify.remove(loadingNotif);
-        
+
         // Show error notification
         window.notify.error(
             'Erreur lors de l\'enregistrement',
             error.message || 'Une erreur est survenue. Veuillez réessayer.',
             5000
         );
-        
+
         // Restore button
         submitBtn.innerHTML = originalText;
         submitBtn.disabled = false;
@@ -1306,7 +1307,7 @@ async function handleInvoiceSubmit(e) {
 }
 
 // Call initialization when page is rendered
-window.initInvoiceFormPage = function() {
+window.initInvoiceFormPage = function () {
     console.log('🔄 Initializing invoice form page...');
     initializeInvoiceForm();
 };
@@ -1321,10 +1322,10 @@ if (!window.mryOrderPrefixes) {
 }
 
 // Toggle MRY order prefix dropdown (Global)
-window.toggleMryOrderPrefixDropdown = async function() {
+window.toggleMryOrderPrefixDropdown = async function () {
     const dropdown = document.getElementById('mryOrderPrefixDropdown');
     if (!dropdown) return;
-    
+
     if (dropdown.style.display === 'none') {
         await loadMryOrderPrefixesFromDB();
         renderMryOrderPrefixList();
@@ -1335,10 +1336,10 @@ window.toggleMryOrderPrefixDropdown = async function() {
 }
 
 // Render MRY order prefix list (Global)
-window.renderMryOrderPrefixList = function() {
+window.renderMryOrderPrefixList = function () {
     const listContainer = document.getElementById('mryOrderPrefixList');
     if (!listContainer) return;
-    
+
     // Add "No Prefix" option at the beginning
     const noPrefixOption = `
         <div onclick="selectMryOrderPrefix('')" 
@@ -1351,7 +1352,7 @@ window.renderMryOrderPrefixList = function() {
             </div>
         </div>
     `;
-    
+
     listContainer.innerHTML = noPrefixOption + window.mryOrderPrefixes.map((prefix, index) => `
         <div onclick="selectMryOrderPrefix('${prefix}')" 
              style="margin: 0.35rem; padding: 0.75rem 1rem; cursor: pointer; border-radius: 8px; transition: all 0.3s; color: #fff; display: flex; justify-content: space-between; align-items: center; background: ${prefix === window.selectedMryOrderPrefix ? 'linear-gradient(90deg, #2196f3 0%, #1976d2 100%)' : 'rgba(255,255,255,0.05)'}; border: 2px solid ${prefix === window.selectedMryOrderPrefix ? '#2196f3' : 'transparent'}; box-shadow: ${prefix === window.selectedMryOrderPrefix ? '0 2px 8px rgba(33, 150, 243, 0.3)' : 'none'};"
@@ -1379,10 +1380,10 @@ window.renderMryOrderPrefixList = function() {
 }
 
 // Select MRY order prefix (Global)
-window.selectMryOrderPrefix = function(prefix) {
+window.selectMryOrderPrefix = function (prefix) {
     console.log('🔵 [MRY ORDER PREFIX SELECT] Selecting prefix:', prefix);
     window.selectedMryOrderPrefix = prefix;
-    
+
     // Save to localStorage
     try {
         localStorage.setItem('lastSelectedMryOrderPrefix', prefix);
@@ -1390,52 +1391,52 @@ window.selectMryOrderPrefix = function(prefix) {
     } catch (error) {
         console.error('❌ [MRY ORDER PREFIX] Error saving to localStorage:', error);
     }
-    
+
     const prefixInput = document.getElementById('mryOrderPrefixInput');
     const prefixExample = document.getElementById('mryOrderPrefixExample');
-    
+
     if (prefixInput) {
         prefixInput.value = prefix;
         console.log('✅ [MRY ORDER PREFIX SELECT] Updated mryOrderPrefixInput to:', prefix);
     }
-    
+
     if (prefixExample) {
         prefixExample.textContent = prefix;
         console.log('✅ [MRY ORDER PREFIX SELECT] Updated mryOrderPrefixExample to:', prefix);
     }
-    
+
     const dropdown = document.getElementById('mryOrderPrefixDropdown');
     if (dropdown) {
         dropdown.style.display = 'none';
     }
-    
+
     renderMryOrderPrefixList();
 }
 
 // Add new MRY order prefix (Global)
-window.addNewMryOrderPrefix = async function() {
+window.addNewMryOrderPrefix = async function () {
     const newPrefixInput = document.getElementById('newMryOrderPrefixInput');
     if (!newPrefixInput) return;
-    
+
     const newPrefix = newPrefixInput.value.trim().toUpperCase();
-    
+
     if (!newPrefix) {
         window.notify.warning('Attention', 'Veuillez saisir un prefix', 2000);
         return;
     }
-    
+
     if (window.mryOrderPrefixes.includes(newPrefix)) {
         window.notify.warning('Attention', 'Ce prefix existe déjà', 2000);
         return;
     }
-    
+
     const result = await window.electron.db.addMryOrderPrefix(newPrefix);
-    
+
     if (result.success) {
         window.mryOrderPrefixes.push(newPrefix);
         window.mryOrderPrefixes.sort();
         newPrefixInput.value = '';
-        
+
         renderMryOrderPrefixList();
         window.notify.success('Succès', `Prefix "${newPrefix}" ajouté`, 2000);
     } else {
@@ -1444,19 +1445,19 @@ window.addNewMryOrderPrefix = async function() {
 }
 
 // Delete MRY order prefix (Global)
-window.deleteMryOrderPrefix = async function(prefix) {
+window.deleteMryOrderPrefix = async function (prefix) {
     if (window.mryOrderPrefixes.length <= 1) {
         window.notify.warning('Attention', 'Vous devez garder au moins un prefix', 2000);
         return;
     }
-    
+
     const result = await window.electron.db.deleteMryOrderPrefix(prefix);
-    
+
     if (result.success) {
         const index = window.mryOrderPrefixes.indexOf(prefix);
         if (index > -1) {
             window.mryOrderPrefixes.splice(index, 1);
-            
+
             if (window.selectedMryOrderPrefix === prefix) {
                 window.selectedMryOrderPrefix = window.mryOrderPrefixes[0];
                 const prefixInput = document.getElementById('mryOrderPrefixInput');
@@ -1464,7 +1465,7 @@ window.deleteMryOrderPrefix = async function(prefix) {
                 if (prefixInput) prefixInput.value = window.selectedMryOrderPrefix;
                 if (prefixExample) prefixExample.textContent = window.selectedMryOrderPrefix;
             }
-            
+
             renderMryOrderPrefixList();
             window.notify.success('Succès', `Prefix "${prefix}" supprimé`, 2000);
         }
@@ -1480,11 +1481,11 @@ async function loadMryOrderPrefixesFromDB() {
         if (result.success && result.data && result.data.length > 0) {
             window.mryOrderPrefixes = result.data;
             console.log('✅ [MRY ORDER PREFIX] Loaded from DB:', window.mryOrderPrefixes);
-            
+
             if (!window.selectedMryOrderPrefix) {
                 window.selectedMryOrderPrefix = window.mryOrderPrefixes[0];
             }
-            
+
             // Try to load last selected prefix from localStorage
             let lastSelected = null;
             try {
@@ -1493,7 +1494,7 @@ async function loadMryOrderPrefixesFromDB() {
             } catch (error) {
                 console.error('❌ [MRY ORDER PREFIX] Error reading from localStorage:', error);
             }
-            
+
             // Use last selected if it exists in the list, otherwise use first
             if (lastSelected && window.mryOrderPrefixes.includes(lastSelected)) {
                 window.selectedMryOrderPrefix = lastSelected;
@@ -1519,23 +1520,23 @@ async function loadMryOrderPrefixesFromDB() {
 // ==================== MRY MISSING NUMBERS FUNCTIONS ====================
 
 // Show missing invoice numbers for MRY (Global)
-window.showMissingNumbersMRY = async function(selectedYear = null) {
+window.showMissingNumbersMRY = async function (selectedYear = null) {
     const currentYear = selectedYear || new Date().getFullYear();
     console.log('🔍 [MRY FRONTEND] showMissingNumbersMRY called for year:', currentYear);
-    
+
     try {
         console.log('🔍 [MRY FRONTEND] Calling getMryMissingNumbers...');
         const result = await window.electron.db.getMryMissingNumbers(currentYear);
         console.log('🔍 [MRY FRONTEND] Result:', result);
-        
+
         if (!result.success) {
             window.notify.error('Erreur', result.error || 'Impossible de charger les numéros manquants', 3000);
             return;
         }
-        
+
         const missingNumbers = result.data || [];
         const stats = result.stats || {};
-        
+
         // Get all available years from invoices
         const invoicesResult = await window.electron.db.getAllInvoices('MRY');
         let availableYears = [new Date().getFullYear()];
@@ -1546,7 +1547,7 @@ window.showMissingNumbersMRY = async function(selectedYear = null) {
             });
             availableYears = [...new Set([...years, new Date().getFullYear()])].sort((a, b) => b - a);
         }
-        
+
         // Create modal
         const modal = document.createElement('div');
         modal.id = 'missingNumbersModalMRY';
@@ -1563,7 +1564,7 @@ window.showMissingNumbersMRY = async function(selectedYear = null) {
             z-index: 10000;
             backdrop-filter: blur(5px);
         `;
-        
+
         const content = document.createElement('div');
         content.style.cssText = `
             background: linear-gradient(135deg, #1e1e1e 0%, #2d2d30 100%);
@@ -1576,7 +1577,7 @@ window.showMissingNumbersMRY = async function(selectedYear = null) {
             box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
             border: 2px solid #667eea;
         `;
-        
+
         content.innerHTML = `
             <div style="margin-bottom: 1.5rem;">
                 <h2 style="margin: 0 0 0.5rem 0; color: #fff; font-size: 1.5rem; display: flex; align-items: center; gap: 0.5rem;">
@@ -1623,22 +1624,22 @@ window.showMissingNumbersMRY = async function(selectedYear = null) {
                 Fermer
             </button>
         `;
-        
+
         modal.appendChild(content);
-        
+
         // Remove existing modal if any
         const existingModal = document.getElementById('missingNumbersModalMRY');
         if (existingModal) existingModal.remove();
-        
+
         document.body.appendChild(modal);
-        
+
         // Close on outside click
         modal.addEventListener('click', (e) => {
             if (e.target === modal) {
                 modal.remove();
             }
         });
-        
+
     } catch (error) {
         console.error('Error showing missing numbers:', error);
         window.notify.error('Erreur', 'Une erreur est survenue', 3000);
@@ -1646,38 +1647,38 @@ window.showMissingNumbersMRY = async function(selectedYear = null) {
 };
 
 // Select missing number and fill input for MRY (Global)
-window.selectMissingNumberMRY = function(number) {
+window.selectMissingNumberMRY = function (number) {
     const input = document.getElementById('documentNumero');
     if (input) {
         input.value = number;
         input.focus();
-        
+
         // Close modal
         const modal = document.querySelector('[style*="position: fixed"]');
         if (modal) modal.remove();
-        
+
         window.notify.success('Succès', `Numéro ${number} sélectionné`, 2000);
     }
 };
 
 // Show missing devis numbers for MRY (Global)
-window.showMissingDevisNumbersMRY = async function(selectedYear = null) {
+window.showMissingDevisNumbersMRY = async function (selectedYear = null) {
     const currentYear = selectedYear || new Date().getFullYear();
     console.log('🔍 [MRY DEVIS FRONTEND] showMissingDevisNumbersMRY called for year:', currentYear);
-    
+
     try {
         console.log('🔍 [MRY DEVIS FRONTEND] Calling getMryMissingDevisNumbers...');
         const result = await window.electron.db.getMryMissingDevisNumbers(currentYear);
         console.log('🔍 [MRY DEVIS FRONTEND] Result:', result);
-        
+
         if (!result.success) {
             window.notify.error('Erreur', result.error || 'Impossible de charger les numéros manquants', 3000);
             return;
         }
-        
+
         const missingNumbers = result.data || [];
         const stats = result.stats || {};
-        
+
         // Get all available years from invoices
         const invoicesResult = await window.electron.db.getAllInvoices('MRY');
         let availableYears = [new Date().getFullYear()];
@@ -1688,7 +1689,7 @@ window.showMissingDevisNumbersMRY = async function(selectedYear = null) {
             });
             availableYears = [...new Set([...years, new Date().getFullYear()])].sort((a, b) => b - a);
         }
-        
+
         // Create modal
         const modal = document.createElement('div');
         modal.id = 'missingDevisNumbersModalMRY';
@@ -1705,7 +1706,7 @@ window.showMissingDevisNumbersMRY = async function(selectedYear = null) {
             z-index: 10000;
             backdrop-filter: blur(5px);
         `;
-        
+
         const content = document.createElement('div');
         content.style.cssText = `
             background: linear-gradient(135deg, #1e1e1e 0%, #2d2d30 100%);
@@ -1718,7 +1719,7 @@ window.showMissingDevisNumbersMRY = async function(selectedYear = null) {
             box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
             border: 2px solid #667eea;
         `;
-        
+
         content.innerHTML = `
             <div style="margin-bottom: 1.5rem;">
                 <h2 style="margin: 0 0 0.5rem 0; color: #fff; font-size: 1.5rem; display: flex; align-items: center; gap: 0.5rem;">
@@ -1765,22 +1766,22 @@ window.showMissingDevisNumbersMRY = async function(selectedYear = null) {
                 Fermer
             </button>
         `;
-        
+
         modal.appendChild(content);
-        
+
         // Remove existing modal if any
         const existingModal = document.getElementById('missingDevisNumbersModalMRY');
         if (existingModal) existingModal.remove();
-        
+
         document.body.appendChild(modal);
-        
+
         // Close on outside click
         modal.addEventListener('click', (e) => {
             if (e.target === modal) {
                 modal.remove();
             }
         });
-        
+
     } catch (error) {
         console.error('Error showing missing devis numbers:', error);
         window.notify.error('Erreur', 'Une erreur est survenue', 3000);

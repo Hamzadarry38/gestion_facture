@@ -309,7 +309,8 @@ window.calculateTotalsEditSimpleMRY = function () {
         totalHT += total;
     });
 
-    const tvaRate = parseFloat(document.getElementById('editTvaRateSimpleMRY').value) || 0;
+    const tvaRateValue = document.getElementById('editTvaRateSimpleMRY').value;
+    const tvaRate = tvaRateValue === '' ? 20 : (parseFloat(tvaRateValue) || 0);
     const montantTVA = totalHT * (tvaRate / 100);
     const totalTTC = totalHT + montantTVA;
 

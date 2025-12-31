@@ -185,7 +185,7 @@ function CreateInvoiceMultiPage() {
 }
 
 // Call initialization when page is rendered
-window.initCreateInvoiceMultiPage = function() {
+window.initCreateInvoiceMultiPage = function () {
     console.log('🔄 [MULTI] Initializing invoice form page...');
     initializeInvoiceFormMulti();
 };

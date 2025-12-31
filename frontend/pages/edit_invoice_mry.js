@@ -346,7 +346,8 @@ window.calculateTotalsEditMRY = function () {
         totalHT += total;
     });
 
-    const tvaRate = parseFloat(document.getElementById('editTvaRateMRY').value) || 0;
+    const tvaRateValue = document.getElementById('editTvaRateMRY').value;
+    const tvaRate = tvaRateValue === '' ? 20 : (parseFloat(tvaRateValue) || 0);
     const montantTVA = totalHT * (tvaRate / 100);
     const totalTTC = totalHT + montantTVA;
 
@@ -755,7 +756,7 @@ window.showConvertDocumentTypeModalMRY = async function () {
             })),
             totals: {
                 total_ht: invoice.total_ht || 0,
-                tva_rate: invoice.tva_rate || 20,
+                tva_rate: isNaN(parseFloat(invoice.tva_rate)) ? 20 : parseFloat(invoice.tva_rate),
                 montant_tva: invoice.montant_tva || 0,
                 total_ttc: invoice.total_ttc || 0
             }
