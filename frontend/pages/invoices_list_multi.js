@@ -133,12 +133,14 @@ function InvoicesListMultiPage() {
                             </div>
                         </div>
                         
-                        <!-- Checkbox Filter -->
-                        <div class="filter-group" style="display: flex; align-items: center; padding-top: 1.8rem; margin-left: 1rem;">
-                            <label style="display: flex; align-items: center; cursor: pointer; gap: 0.5rem; user-select: none;">
-                                <input type="checkbox" id="filterAttachmentsMulti" onchange="filterInvoicesMulti()" style="width: 18px; height: 18px; cursor: pointer;">
-                                <span style="font-size: 0.9rem; color: #ddd; font-weight: 500;">📎 Avec P.J uniquement</span>
-                            </label>
+                        <!-- P.J Filter -->
+                        <div class="filter-group">
+                            <label>📎 Pièces Jointes:</label>
+                            <select id="filterAttachmentsMulti" onchange="filterInvoicesMulti()">
+                                <option value="all">Tous</option>
+                                <option value="with">Avec P.J</option>
+                                <option value="without">Sans P.J</option>
+                            </select>
                         </div>
                         
                         <div class="filter-group">
@@ -426,7 +428,14 @@ function filterInvoicesMulti() {
         const matchYear = !yearFilter || new Date(invoice.document_date).getFullYear().toString() === yearFilter;
         const matchMonth = !monthFilter || new Date(invoice.document_date).toISOString().slice(5, 7) === monthFilter;
         const matchClient = !clientFilter || invoice.client_nom === clientFilter;
-        const matchAttachments = !filterAttachments || (invoice.attachment_count || 0) > 0;
+
+        let matchAttachments = true;
+        const attachmentFilter = document.getElementById('filterAttachmentsMulti')?.value || 'all';
+        if (attachmentFilter === 'with') {
+            matchAttachments = (invoice.attachment_count || 0) > 0;
+        } else if (attachmentFilter === 'without') {
+            matchAttachments = (invoice.attachment_count || 0) === 0;
+        }
 
         let searchMatch = true;
         if (searchInput) {
@@ -1556,25 +1565,25 @@ window.downloadInvoicePDFMulti = async function (invoiceId) {
         const addFooter = (pageNum, totalPages) => {
             // Add signature image above footer (right side) - ONLY FOR DEVIS
             if (signatureImgMulti && invoice.document_type === 'devis') {
-                doc.addImage(signatureImgMulti, 'PNG', 145, 240, 60, 45);
+                doc.addImage(signatureImgMulti, 'PNG', 150, 240, 60, 45);
             }
 
             doc.setTextColor(0, 0, 0);
             doc.setFontSize(9);
             doc.setFont(undefined, 'normal');
-            doc.text('NIF 68717422 | TP 51001343 | RC 38633 | CNSS 6446237', 105, 275, { align: 'center' });
-            doc.text('ICE : 00380950500031', 105, 279, { align: 'center' });
+            doc.text('NIF 68717422 | TP 51001343 | RC 38633 | CNSS 6446237', 105, 286, { align: 'center' });
+            doc.text('ICE : 00380950500031', 105, 290, { align: 'center' });
 
             // Add phone number
             doc.setTextColor(0, 0, 0);
             doc.setFontSize(8);
             doc.setFont(undefined, 'normal');
-            doc.text('Tel: +212 661 307 323', 105, 283, { align: 'center' });
+            doc.text('Tel: +212 661 307 323', 105, 293, { align: 'center' });
 
             // Add page numbering at bottom in gray
             doc.setTextColor(100, 100, 100);
             doc.setFontSize(8);
-            doc.text(`Page ${pageNum} / ${totalPages}`, 105, 287, { align: 'center' });
+            doc.text(`Page ${pageNum} / ${totalPages}`, 105, 295, { align: 'center' });
         };
 
         // Add header to first page
@@ -1707,6 +1716,64 @@ window.downloadInvoicePDFMulti = async function (invoiceId) {
         doc.setTextColor(255, 255, 255);
         doc.text('TOTALE TTC', 113, fixedBottomY + 16);
         doc.text(`${formatNumberForPDF(invoice.total_ttc)} DH`, 192, fixedBottomY + 16, { align: 'right' });
+
+        // Amount in words - below both sections
+        const amountWordsY = fixedBottomY + 25;
+        doc.setTextColor(0, 0, 0);
+        doc.setFontSize(8);
+        doc.setFont(undefined, 'normal');
+        const amountInWords = numberToFrenchWords(invoice.total_ttc);
+        const docTypeText = invoice.document_type === 'devis' ? 'devis' : 'facture';
+        doc.text(`La Présente ${docTypeText} est Arréte à la somme de : ${amountInWords}`, 15, amountWordsY, { maxWidth: 130 });
+
+        // Add notes if any
+        const noteResult = await window.electron.dbMulti.getNote(invoiceId);
+        if (noteResult.success && noteResult.data) {
+            const notesY = amountWordsY + 12;
+            const footerTopY = 280; // keep clear space above footer
+
+            // Title for first notes block
+            doc.setFontSize(8);
+            doc.setFont(undefined, 'bold');
+            doc.setTextColor(96, 125, 139); // Dark gray color matching the theme
+            doc.text('Notes:', 15, notesY);
+
+            // Prepare text rendering
+            doc.setTextColor(0, 0, 0);
+            doc.setFont(undefined, 'bold');
+            doc.setFontSize(9);
+            const noteLines = doc.splitTextToSize(noteResult.data, 130);
+
+            let lineY = notesY + 4;
+            const lineStep = 4.5; // line height used across the document
+
+            // Render line by line and add pages if needed
+            for (let i = 0; i < noteLines.length; i++) {
+                // If next line would collide with footer, break to a new page
+                if (lineY > footerTopY) {
+                    // track current page and add a fresh one
+                    pages.push(pageCount);
+                    doc.addPage();
+                    addHeader(false);
+                    pageCount++;
+
+                    // Start notes continuation at top area of new page
+                    let contStartY = 60; // below header
+                    doc.setFontSize(8);
+                    doc.setFont(undefined, 'bold');
+                    doc.setTextColor(96, 125, 139);
+                    doc.text('Notes (suite) :', 15, contStartY);
+
+                    doc.setTextColor(0, 0, 0);
+                    doc.setFont(undefined, 'bold');
+                    doc.setFontSize(9);
+                    lineY = contStartY + 4;
+                }
+
+                doc.text(noteLines[i], 15, lineY);
+                lineY += lineStep;
+            }
+        }
 
         // Add page numbering to all pages
         pages.push(pageCount);

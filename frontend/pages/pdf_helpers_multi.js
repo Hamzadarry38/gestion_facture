@@ -418,27 +418,27 @@ window.downloadInvoicePDFMulti = async function (invoiceId) {
         const addFooter = (pageNum, totalPages) => {
             // Add signature image above footer (right side) - ONLY FOR DEVIS
             if (signatureImgMultiHelper && invoice.document_type === 'devis') {
-                doc.addImage(signatureImgMultiHelper, 'PNG', 145, 240, 60, 45);
+                doc.addImage(signatureImgMultiHelper, 'PNG', 150, 240, 60, 45);
             }
 
             // Company info at bottom
             doc.setTextColor(0, 0, 0);
             doc.setFontSize(9);
             doc.setFont(undefined, 'normal');
-            doc.text('NIF 68717422 | TP 51001343 | RC 38633 | CNSS 6446237', 105, 275, { align: 'center' });
-            doc.text('ICE : 00380950500031', 105, 279, { align: 'center' });
+            doc.text('NIF 68717422 | TP 51001343 | RC 38633 | CNSS 6446237', 105, 286, { align: 'center' });
+            doc.text('ICE : 00380950500031', 105, 290, { align: 'center' });
 
             // Add phone number
             doc.setTextColor(0, 0, 0);
             doc.setFontSize(8);
             doc.setFont(undefined, 'normal');
-            doc.text('Tel: +212 661 307 323', 105, 283, { align: 'center' });
+            doc.text('Tel: +212 661 307 323', 105, 293, { align: 'center' });
 
             // Add page numbering at bottom in dark color
             doc.setTextColor(0, 0, 0);
             doc.setFontSize(9);
             doc.setFont(undefined, 'normal');
-            doc.text(`Page ${pageNum} / ${totalPages}`, 105, 287, { align: 'center' });
+            doc.text(`Page ${pageNum} / ${totalPages}`, 105, 295, { align: 'center' });
         };
 
         // Add header to first page
@@ -628,7 +628,7 @@ window.downloadInvoicePDFMulti = async function (invoiceId) {
         doc.setFont(undefined, 'normal');
         const amountInWords = numberToFrenchWords(invoice.total_ttc);
         const docTypeText = invoice.document_type === 'devis' ? 'devis' : 'facture';
-        doc.text(`La Présente ${docTypeText} est Arréte à la somme de : ${amountInWords}`, 15, amountWordsY, { maxWidth: 180 });
+        doc.text(`La Présente ${docTypeText} est Arréte à la somme de : ${amountInWords}`, 15, amountWordsY, { maxWidth: 130 });
 
         // Add notes if any
         const noteResult = await window.electron.dbMulti.getNote(invoiceId);
@@ -646,7 +646,7 @@ window.downloadInvoicePDFMulti = async function (invoiceId) {
             doc.setTextColor(0, 0, 0);
             doc.setFont(undefined, 'bold');
             doc.setFontSize(9);
-            const noteLines = doc.splitTextToSize(noteResult.data, 180);
+            const noteLines = doc.splitTextToSize(noteResult.data, 130);
 
             let lineY = notesY + 4;
             const lineStep = 4.5; // line height used across the document

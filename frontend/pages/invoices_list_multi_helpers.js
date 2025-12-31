@@ -754,15 +754,15 @@ async function generatePDFBlobMulti(invoice, includeOrder = true) {
     const addFooter = (pageNum, totalPages) => {
         // Add signature image above footer (right side) - ONLY FOR DEVIS
         if (signatureImgMulti && invoice.document_type === 'devis') {
-            doc.addImage(signatureImgMulti, 'PNG', 145, 240, 60, 45);
+            doc.addImage(signatureImgMulti, 'PNG', 150, 240, 60, 45);
         }
 
         doc.setTextColor(0, 0, 0);
         doc.setFontSize(9);
         doc.setFont(undefined, 'normal');
-        doc.text('NIF 68717422 | TP 51001343 | RC 38633 | CNSS 6446237', 105, 275, { align: 'center' });
-        doc.text('ICE : 00380950500031', 105, 279, { align: 'center' });
-        doc.text('Tel : 06 61 23 45 67', 105, 283, { align: 'center' }); // Added Tel line
+        doc.text('NIF 68717422 | TP 51001343 | RC 38633 | CNSS 6446237', 105, 286, { align: 'center' });
+        doc.text('ICE : 00380950500031', 105, 290, { align: 'center' });
+        doc.text('Tel : 06 61 23 45 67', 105, 293, { align: 'center' }); // Added Tel line
     };
 
     // Add header to first page
@@ -900,7 +900,39 @@ async function generatePDFBlobMulti(invoice, includeOrder = true) {
     doc.setTextColor(0, 0, 0);
     doc.setFontSize(9);
     doc.setFont(undefined, 'italic');
-    doc.text(`${genderPrefix} ${documentLabel} est ${genderSuffix} à la somme de : ${amountInWords}`, 15, fixedBottomY + 25, { maxWidth: 180 });
+    doc.text(`${genderPrefix} ${documentLabel} est ${genderSuffix} à la somme de : ${amountInWords}`, 15, fixedBottomY + 25, { maxWidth: 130 });
+
+    // Add notes if any
+    const noteResult = await window.electron.dbMulti.getNote(invoice.id);
+    if (noteResult.success && noteResult.data) {
+        const notesY = fixedBottomY + 37;
+        const footerTopY = 280;
+
+        doc.setFontSize(8);
+        doc.setFont(undefined, 'bold');
+        doc.setTextColor(96, 125, 139);
+        doc.text('Notes:', 15, notesY);
+
+        doc.setTextColor(0, 0, 0);
+        doc.setFont(undefined, 'bold');
+        doc.setFontSize(9);
+        const noteLines = doc.splitTextToSize(noteResult.data, 130);
+
+        let lineY = notesY + 4;
+        const lineStep = 4.5;
+
+        for (let i = 0; i < noteLines.length; i++) {
+            if (lineY > footerTopY) {
+                pages.push(pageCount);
+                doc.addPage();
+                addHeader(false);
+                pageCount++;
+                lineY = 70;
+            }
+            doc.text(noteLines[i], 15, lineY);
+            lineY += lineStep;
+        }
+    }
 
     // Add page numbering
     pages.push(pageCount);

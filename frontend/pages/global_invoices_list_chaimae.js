@@ -142,7 +142,7 @@ let allGlobalInvoices = [];
 let filteredGlobalInvoices = [];
 
 // Initialize page
-window.initGlobalInvoicesListChaimaePage = async function() {
+window.initGlobalInvoicesListChaimaePage = async function () {
     console.log('🔄 Initializing global invoices list page for Chaimae...');
     await loadGlobalInvoices();
 }
@@ -153,12 +153,12 @@ async function loadGlobalInvoices() {
         document.getElementById('loadingSpinnerGlobalInvoices').style.display = 'block';
         document.getElementById('globalInvoicesTableContainer').style.display = 'none';
         document.getElementById('emptyStateGlobalInvoices').style.display = 'none';
-        
+
         const result = await window.electron.dbChaimae.getAllGlobalInvoices();
-        
+
         if (result.success) {
             allGlobalInvoices = result.data;
-            
+
             // Sort all invoices by document number (ascending - smallest to largest)
             allGlobalInvoices.sort((a, b) => {
                 const getNumero = (invoice) => {
@@ -173,24 +173,24 @@ async function loadGlobalInvoices() {
                 // Secondary sort by date if numbers are equal
                 return new Date(a.document_date) - new Date(b.document_date);
             });
-            
+
             // Populate year filter
             const years = [...new Set(allGlobalInvoices.map(inv => new Date(inv.document_date).getFullYear()))].sort((a, b) => b - a);
             const yearFilter = document.getElementById('filterYearGlobalInvoices');
-            yearFilter.innerHTML = '<option value="">Toutes les années</option>' + 
+            yearFilter.innerHTML = '<option value="">Toutes les années</option>' +
                 years.map(year => `<option value="${year}">${year}</option>`).join('');
-            
+
             // Populate client filter
             const clients = [...new Set(allGlobalInvoices.map(inv => inv.client_nom))].sort();
             const clientFilter = document.getElementById('filterClientGlobalInvoices');
-            clientFilter.innerHTML = '<option value="">Tous les clients</option>' + 
+            clientFilter.innerHTML = '<option value="">Tous les clients</option>' +
                 clients.map(client => `<option value="${client}">${client}</option>`).join('');
-            
+
             filterGlobalInvoices();
         }
-        
+
         document.getElementById('loadingSpinnerGlobalInvoices').style.display = 'none';
-        
+
     } catch (error) {
         console.error('Error loading global invoices:', error);
         document.getElementById('loadingSpinnerGlobalInvoices').style.display = 'none';
@@ -199,40 +199,40 @@ async function loadGlobalInvoices() {
 }
 
 // Filter global invoices
-window.filterGlobalInvoices = function() {
+window.filterGlobalInvoices = function () {
     const yearFilter = document.getElementById('filterYearGlobalInvoices').value;
     const monthFilter = document.getElementById('filterMonthGlobalInvoices').value;
     const clientFilter = document.getElementById('filterClientGlobalInvoices').value;
     const searchText = document.getElementById('searchGlobalInvoices').value.toLowerCase();
-    
+
     filteredGlobalInvoices = allGlobalInvoices.filter(invoice => {
         const invoiceDate = new Date(invoice.document_date);
         const invoiceYear = invoiceDate.getFullYear().toString();
         const invoiceMonth = (invoiceDate.getMonth() + 1).toString();
-        
+
         // Year filter
         if (yearFilter && invoiceYear !== yearFilter) return false;
-        
+
         // Month filter
         if (monthFilter && invoiceMonth !== monthFilter) return false;
-        
+
         // Client filter
         if (clientFilter && invoice.client_nom !== clientFilter) return false;
-        
+
         // Search filter
         if (searchText) {
             const numero = (invoice.document_numero || '').toLowerCase();
             const client = invoice.client_nom.toLowerCase();
             const ice = (invoice.client_ice || '').toLowerCase();
-            
+
             if (!numero.includes(searchText) && !client.includes(searchText) && !ice.includes(searchText)) {
                 return false;
             }
         }
-        
+
         return true;
     });
-    
+
     // Sort by document number (ascending - smallest to largest)
     filteredGlobalInvoices.sort((a, b) => {
         const getNumero = (invoice) => {
@@ -247,7 +247,7 @@ window.filterGlobalInvoices = function() {
         // Secondary sort by date if numbers are equal
         return new Date(a.document_date) - new Date(b.document_date);
     });
-    
+
     displayGlobalInvoices();
 }
 
@@ -255,12 +255,12 @@ window.filterGlobalInvoices = function() {
 function displayGlobalInvoices() {
     console.log('🎨 [DISPLAY] displayGlobalInvoices function called');
     console.log('📊 [DATA] Number of invoices to display:', filteredGlobalInvoices.length);
-    
+
     const tbody = document.getElementById('globalInvoicesTableBody');
     const counter = document.getElementById('resultsCounterGlobalInvoices');
     const tableContainer = document.getElementById('globalInvoicesTableContainer');
     const emptyState = document.getElementById('emptyStateGlobalInvoices');
-    
+
     if (filteredGlobalInvoices.length === 0) {
         tableContainer.style.display = 'none';
         emptyState.style.display = 'block';
@@ -268,18 +268,18 @@ function displayGlobalInvoices() {
         console.log('⚠️ [DISPLAY] No invoices to display');
         return;
     }
-    
+
     tableContainer.style.display = 'block';
     emptyState.style.display = 'none';
     counter.textContent = `${filteredGlobalInvoices.length} facture(s) globale(s) trouvée(s)`;
-    
+
     console.log('✅ [DISPLAY] Table will be rendered with', filteredGlobalInvoices.length, 'invoices');
-    
+
     console.log('🔘 [BUTTONS] Buttons rendered with onclick handlers');
-    
+
     tbody.innerHTML = filteredGlobalInvoices.map((invoice, index) => {
         const date = new Date(invoice.document_date).toLocaleDateString('fr-FR');
-        
+
         console.log(`📋 [INVOICE ${index + 1}] Rendering invoice #${invoice.id}`);
         console.log('📊 Global Invoice:', {
             id: invoice.id,
@@ -288,7 +288,7 @@ function displayGlobalInvoices() {
             stored_total: invoice.total_ttc
         });
         console.log('🔘 [BUTTONS] Creating 5 buttons for invoice #' + invoice.id);
-        
+
         // Calculate total dynamically from bons
         let calculatedTotalTTC = 0;
         if (invoice.bons && invoice.bons.length > 0) {
@@ -299,11 +299,11 @@ function displayGlobalInvoices() {
             // Fallback to stored value if no bons data
             calculatedTotalTTC = parseFloat(invoice.total_ttc) || 0;
         }
-        
+
         console.log('📊 Calculated Total TTC:', calculatedTotalTTC);
-        
+
         const totalTTC = formatNumberGlobalList(calculatedTotalTTC);
-        
+
         return `
             <tr style="background: #2d2d30; border-top: 1px solid #3e3e42; border-bottom: 1px solid #3e3e42;">
                 <td style="text-align: center; padding: 1rem 0.75rem; border-right: 1px solid #3e3e42;">
@@ -362,16 +362,16 @@ function displayGlobalInvoices() {
 }
 
 // View global invoice
-window.viewGlobalInvoice = async function(id) {
+window.viewGlobalInvoice = async function (id) {
     console.log('🔍 [VIEW BUTTON CLICKED] Global Invoice ID:', id);
     console.log('📍 [LOCATION] viewGlobalInvoice function called');
-    
+
     try {
         console.log('📡 [API CALL] Fetching global invoice data...');
         const result = await window.electron.dbChaimae.getGlobalInvoiceById(id);
-        
+
         console.log('📦 [API RESPONSE - FULL DATA]', JSON.stringify(result, null, 2));
-        
+
         if (result.success && result.data) {
             const invoice = result.data;
             console.log('✅ [SUCCESS] Invoice data loaded');
@@ -383,15 +383,15 @@ window.viewGlobalInvoice = async function(id) {
                 bons_array_length: invoice.bons ? invoice.bons.length : 0,
                 has_bons: !!invoice.bons
             });
-            
+
             const formatNumber = (num) => num.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ' ');
-            
+
             // Sort bons by document number (ascending by default)
             const sortOrder = 'numero_asc'; // Default sort order
-            
+
             if (invoice.bons && invoice.bons.length > 0) {
                 let sortedBons = [...invoice.bons];
-                
+
                 if (sortOrder === 'numero_asc') {
                     // Sort by document number ascending (smallest to largest)
                     sortedBons.sort((a, b) => {
@@ -430,7 +430,7 @@ window.viewGlobalInvoice = async function(id) {
                     sortedBons.sort((a, b) => new Date(b.document_date) - new Date(a.document_date));
                 }
                 // If sortOrder is null, keep original order
-                
+
                 console.log('📋 Drawing bons:', sortedBons.length);
                 sortedBons.forEach((bon, index) => {
                     console.log(`  ${index + 1}. ID: ${bon.id}, Numero: ${bon.document_numero_bl || bon.document_numero}, Total HT: ${formatNumber(bon.total_ht)}`);
@@ -438,7 +438,7 @@ window.viewGlobalInvoice = async function(id) {
             } else {
                 console.warn('⚠️ [WARNING] No bons found in invoice.bons array!');
             }
-            
+
             showGlobalInvoiceDetailsModal(invoice);
         } else {
             console.error('❌ [ERROR] No invoice data found');
@@ -454,8 +454,8 @@ function showGlobalInvoiceDetailsModal(invoice) {
     const modal = document.createElement('div');
     modal.className = 'modal-overlay';
     modal.style.cssText = 'position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.8); display: flex; align-items: center; justify-content: center; z-index: 10000;';
-    
-    const bonsHtml = invoice.bon_livraisons && invoice.bon_livraisons.length > 0 
+
+    const bonsHtml = invoice.bon_livraisons && invoice.bon_livraisons.length > 0
         ? invoice.bon_livraisons.map(bon => `
             <tr style="border-bottom: 1px solid #3e3e42;">
                 <td style="padding: 0.75rem; color: #2196f3;">${bon.document_numero || '-'}</td>
@@ -465,7 +465,7 @@ function showGlobalInvoiceDetailsModal(invoice) {
             </tr>
         `).join('')
         : '<tr><td colspan="4" style="padding: 1rem; text-align: center; color: #999;">Aucun bon de livraison</td></tr>';
-    
+
     modal.innerHTML = `
         <div style="background: #2d2d30; border-radius: 12px; padding: 2rem; max-width: 800px; width: 90%; max-height: 90vh; overflow-y: auto;">
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;">
@@ -542,9 +542,9 @@ function showGlobalInvoiceDetailsModal(invoice) {
             </div>
         </div>
     `;
-    
+
     document.body.appendChild(modal);
-    
+
     // Add event listener for download button
     const downloadBtn = document.getElementById(`downloadPdfBtn${invoice.id}`);
     if (downloadBtn) {
@@ -555,11 +555,11 @@ function showGlobalInvoiceDetailsModal(invoice) {
 }
 
 // Add Bon to Global Invoice
-window.addBonToGlobalInvoice = async function(globalInvoiceId) {
+window.addBonToGlobalInvoice = async function (globalInvoiceId) {
     const modal = document.createElement('div');
     modal.className = 'modal-overlay';
     modal.style.cssText = 'position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.8); display: flex; align-items: center; justify-content: center; z-index: 10000;';
-    
+
     modal.innerHTML = `
         <div style="background: #2d2d30; border-radius: 12px; padding: 2rem; max-width: 600px; width: 90%;">
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;">
@@ -598,31 +598,31 @@ window.addBonToGlobalInvoice = async function(globalInvoiceId) {
             </div>
         </div>
     `;
-    
+
     document.body.appendChild(modal);
 }
 
 // Add Bon Automatic - Select from existing BLs
-window.addBonAutomatic = async function(globalInvoiceId) {
+window.addBonAutomatic = async function (globalInvoiceId) {
     // Close current modal
     document.querySelector('.modal-overlay').remove();
-    
+
     try {
         // Get all available Bons de Livraison (not already in a global invoice)
         const result = await window.electron.dbChaimae.getAvailableBonsForGlobal();
-        
+
         if (!result.success || !result.data || result.data.length === 0) {
             window.notify.info('Info', 'Aucun bon de livraison disponible', 3000);
             return;
         }
-        
+
         const bons = result.data;
-        
+
         // Show selection modal
         const modal = document.createElement('div');
         modal.className = 'modal-overlay';
         modal.style.cssText = 'position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.8); display: flex; align-items: center; justify-content: center; z-index: 10000;';
-        
+
         const bonsHtml = bons.map(bon => `
             <div style="background: #1e1e1e; padding: 1rem; border-radius: 8px; display: flex; align-items: center; gap: 1rem;">
                 <input type="checkbox" id="bon_${bon.id}" value="${bon.id}" 
@@ -642,7 +642,7 @@ window.addBonAutomatic = async function(globalInvoiceId) {
                 </label>
             </div>
         `).join('');
-        
+
         modal.innerHTML = `
             <div style="background: #2d2d30; border-radius: 12px; padding: 2rem; max-width: 800px; width: 90%; max-height: 80vh; overflow-y: auto;">
                 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;">
@@ -667,9 +667,9 @@ window.addBonAutomatic = async function(globalInvoiceId) {
                 </div>
             </div>
         `;
-        
+
         document.body.appendChild(modal);
-        
+
     } catch (error) {
         console.error('Error loading bons:', error);
         window.notify.error('Erreur', 'Erreur lors du chargement des bons', 3000);
@@ -677,18 +677,18 @@ window.addBonAutomatic = async function(globalInvoiceId) {
 }
 
 // Confirm adding selected bons
-window.confirmAddBons = async function(globalInvoiceId) {
+window.confirmAddBons = async function (globalInvoiceId) {
     const checkboxes = document.querySelectorAll('input[type="checkbox"]:checked');
     const selectedBonIds = Array.from(checkboxes).map(cb => parseInt(cb.value));
-    
+
     if (selectedBonIds.length === 0) {
         window.notify.warning('Attention', 'Veuillez sélectionner au moins un bon', 3000);
         return;
     }
-    
+
     try {
         const result = await window.electron.dbChaimae.addBonsToGlobalInvoice(globalInvoiceId, selectedBonIds);
-        
+
         if (result.success) {
             window.notify.success('Succès', `${selectedBonIds.length} bon(s) ajouté(s) avec succès`, 3000);
             document.querySelector('.modal-overlay').remove();
@@ -703,38 +703,38 @@ window.confirmAddBons = async function(globalInvoiceId) {
 }
 
 // Add Bon Manual - Enter data manually
-window.addBonManual = function(globalInvoiceId) {
+window.addBonManual = function (globalInvoiceId) {
     // Close current modal
     document.querySelector('.modal-overlay').remove();
-    
+
     window.notify.info('Info', 'Fonctionnalité d\'ajout manuel en cours de développement', 3000);
 }
 
 // Edit global invoice
-window.editGlobalInvoice = function(id) {
+window.editGlobalInvoice = function (id) {
     console.log('✏️ [EDIT BUTTON CLICKED] Global Invoice ID:', id);
     console.log('📍 [LOCATION] editGlobalInvoice function called');
     console.log('💾 [ACTION] Storing invoice ID in sessionStorage');
-    
+
     // Store the invoice ID in sessionStorage for the edit page
     sessionStorage.setItem('editGlobalInvoiceId', id);
-    
+
     console.log('🔄 [NAVIGATION] Navigating to edit page...');
     router.navigate('/edit-global-invoice-chaimae');
-    
+
     console.log('✅ [DONE] Edit button action completed');
 }
 
 // Delete global invoice
-window.deleteGlobalInvoice = async function(id) {
+window.deleteGlobalInvoice = async function (id) {
     if (!confirm('Êtes-vous sûr de vouloir supprimer cette facture globale ?')) {
         return;
     }
-    
+
     try {
         // Get invoice details before deletion to recalculate bons
         const invoiceResult = await window.electron.dbChaimae.getGlobalInvoiceById(id);
-        
+
         if (invoiceResult.success && invoiceResult.data && invoiceResult.data.bons) {
             // Update each bon to recalculate its totals
             for (const bon of invoiceResult.data.bons) {
@@ -748,11 +748,11 @@ window.deleteGlobalInvoice = async function(id) {
                             totalHT += parseFloat(p.total_ht) || 0;
                         });
                     }
-                    
+
                     const tvaRate = bonDetails.data.tva_rate || 20;
                     const montantTVA = totalHT * (tvaRate / 100);
                     const totalTTC = totalHT + montantTVA;
-                    
+
                     // Update bon with recalculated totals
                     await window.electron.dbChaimae.updateInvoice(bon.id, {
                         ...bonDetails.data,
@@ -766,10 +766,10 @@ window.deleteGlobalInvoice = async function(id) {
                 }
             }
         }
-        
+
         // Now delete the global invoice
         const result = await window.electron.dbChaimae.deleteGlobalInvoice(id);
-        
+
         if (result.success) {
             window.notify.success('Succès', 'Facture globale supprimée avec succès', 3000);
             await loadGlobalInvoices();
@@ -791,23 +791,23 @@ function formatNumberGlobalList(number) {
 }
 
 // Download Global Invoice as PDF
-window.downloadGlobalInvoicePDF = async function(invoiceId, sortOrder = null) {
+window.downloadGlobalInvoicePDF = async function (invoiceId, sortOrder = null) {
     try {
         console.log('📥 Generating PDF for global invoice:', invoiceId);
-        
+
         // Get global invoice data
         const result = await window.electron.dbChaimae.getGlobalInvoiceById(invoiceId);
-        
+
         console.log('🔍 Global Invoice Result:', result);
-        
+
         if (!result.success || !result.data) {
             throw new Error('Facture globale introuvable');
         }
-        
+
         const invoice = result.data;
         console.log('📦 Invoice Data:', invoice);
         console.log('📋 Bons:', invoice.bons);
-        
+
         // If sortOrder not provided, ask user
         if (sortOrder === null && invoice.bons && invoice.bons.length > 1) {
             return new Promise((resolve) => {
@@ -853,7 +853,7 @@ window.downloadGlobalInvoicePDF = async function(invoiceId, sortOrder = null) {
                 document.body.appendChild(modal);
             });
         }
-        
+
         // Check if jsPDF is loaded
         if (typeof window.jspdf === 'undefined') {
             window.notify.info('Info', 'Chargement de jsPDF...', 2000);
@@ -863,31 +863,31 @@ window.downloadGlobalInvoicePDF = async function(invoiceId, sortOrder = null) {
             document.head.appendChild(script);
             return;
         }
-        
+
         // Wait for logo to load if not already loaded
         const logoImg = document.querySelector('img[src*="chaimae.png"]');
         if (logoImg && !logoImg.src.startsWith('data:')) {
             console.log('⏳ Waiting for logo to load...');
             await new Promise(resolve => setTimeout(resolve, 500));
         }
-        
+
         const { jsPDF } = window.jspdf;
         const doc = new jsPDF();
-        
+
         // Colors
         const blueColor = [52, 103, 138]; // #34678A - Dark blue from image
-        
+
         const dateStr = new Date(invoice.document_date).toLocaleDateString('fr-FR');
-        
+
         // Function to add header
         const addHeader = () => {
             // Add Logo
             try {
                 // Try multiple selectors to find the logo
-                let logoImg = document.querySelector('img[src*="chaimae.png"]') || 
-                             document.querySelector('img[data-asset="chaimae"]') ||
-                             document.querySelector('img[src^="data:image"]');
-                
+                let logoImg = document.querySelector('img[src*="chaimae.png"]') ||
+                    document.querySelector('img[data-asset="chaimae"]') ||
+                    document.querySelector('img[src^="data:image"]');
+
                 if (logoImg && logoImg.src && logoImg.src.startsWith('data:')) {
                     // Logo is loaded as base64, use it directly
                     doc.addImage(logoImg.src, 'PNG', 15, 10, 35, 35);
@@ -898,36 +898,36 @@ window.downloadGlobalInvoicePDF = async function(invoiceId, sortOrder = null) {
             } catch (error) {
                 console.error('❌ Error adding logo:', error);
             }
-            
+
             // Company Header
             doc.setFontSize(16);
             doc.setTextColor(...blueColor);
             doc.setFont(undefined, 'bold');
             doc.text('CHAIMAE ERRBAHI MDIQ sarl (AU)', 105, 18, { align: 'center' });
-            
+
             doc.setFontSize(8);
             doc.setFont(undefined, 'normal');
             doc.setTextColor(0, 0, 0);
             doc.text('Patente N° 52003366 - NIF : 40190505', 105, 25, { align: 'center' });
             doc.text('RC N° : 10487 - CNSS : 8721591', 105, 30, { align: 'center' });
             doc.text('ICE : 001544861000014', 105, 35, { align: 'center' });
-            
+
             // Client Info
             doc.setFontSize(11);
             doc.setFont(undefined, 'bold');
             doc.text('CLIENT :', 15, 50);
             doc.setTextColor(0, 128, 0); // Green color
             doc.text(invoice.client_nom, 40, 50);
-            
+
             doc.setTextColor(0, 0, 0);
             doc.text('ICE :', 15, 57);
             doc.setTextColor(0, 128, 0); // Green color
             doc.text(invoice.client_ice, 40, 57);
-            
+
             // Date
             doc.setTextColor(0, 0, 0);
             doc.text(`Date: ${dateStr}`, 150, 50);
-            
+
             // Invoice Number
             doc.setFontSize(14);
             doc.setFont(undefined, 'bold');
@@ -935,7 +935,7 @@ window.downloadGlobalInvoicePDF = async function(invoiceId, sortOrder = null) {
             doc.setTextColor(...blueColor);
             doc.text(invoice.document_numero, 50, 70);
         };
-        
+
         // Function to add footer
         const addFooter = (pageNum, totalPages) => {
             doc.setTextColor(0, 0, 0);
@@ -945,7 +945,7 @@ window.downloadGlobalInvoicePDF = async function(invoiceId, sortOrder = null) {
             doc.text('Email: errbahiabderrahim@gmail.com', 15, 279);
             doc.text('ADRESSE: LOT ALBAHR AV TETOUAN N94 GARAGE 2 M\'DIQ', 15, 283);
             doc.text('Tel: +212 661 307 323', 15, 287);
-            
+
             // Page numbering
             if (pageNum && totalPages) {
                 doc.setFontSize(8);
@@ -953,13 +953,13 @@ window.downloadGlobalInvoicePDF = async function(invoiceId, sortOrder = null) {
                 doc.text(`Page ${pageNum} / ${totalPages}`, 105, 293, { align: 'center' });
             }
         };
-        
+
         // Add header
         addHeader();
-        
+
         // Bons de Livraison Table
         const startY = 80;
-        
+
         // Table Header
         doc.setFillColor(...blueColor);
         doc.rect(15, startY, 180, 8, 'F');
@@ -970,22 +970,22 @@ window.downloadGlobalInvoicePDF = async function(invoiceId, sortOrder = null) {
         doc.text('N° Order', 70, startY + 5.5);
         doc.text('Date de livraison', 120, startY + 5.5);
         doc.text('Total HT', 180, startY + 5.5, { align: 'right' });
-        
+
         // Table Body
         let currentY = startY + 10;
         doc.setTextColor(0, 0, 0);
         doc.setFont(undefined, 'normal');
         doc.setFontSize(9);
-        
+
         let pageCount = 1;
         const pages = [];
-        
+
         let totalHT = 0;
-        
+
         // Sort bons based on user selection
         if (invoice.bons && invoice.bons.length > 0) {
             let sortedBons = [...invoice.bons];
-            
+
             if (sortOrder === 'numero_asc') {
                 // Sort by document number ascending (smallest to largest)
                 sortedBons.sort((a, b) => {
@@ -1024,7 +1024,7 @@ window.downloadGlobalInvoicePDF = async function(invoiceId, sortOrder = null) {
                 sortedBons.sort((a, b) => new Date(b.document_date) - new Date(a.document_date));
             }
             // If sortOrder is null, keep original order
-            
+
             sortedBons.forEach((bon, index) => {
                 // Check if we need a new page
                 if (currentY > 240) {
@@ -1032,7 +1032,7 @@ window.downloadGlobalInvoicePDF = async function(invoiceId, sortOrder = null) {
                     doc.addPage();
                     addHeader();
                     pageCount++;
-                    
+
                     // Re-draw table header
                     doc.setFillColor(...blueColor);
                     doc.rect(15, startY, 180, 8, 'F');
@@ -1043,44 +1043,44 @@ window.downloadGlobalInvoicePDF = async function(invoiceId, sortOrder = null) {
                     doc.text('N° Order', 70, startY + 5.5);
                     doc.text('Date de livraison', 120, startY + 5.5);
                     doc.text('Total HT', 180, startY + 5.5, { align: 'right' });
-                    
+
                     currentY = startY + 10;
                     doc.setTextColor(0, 0, 0);
                     doc.setFont(undefined, 'normal');
                     doc.setFontSize(9);
                 }
-                
+
                 // Alternate row colors
                 if (index % 2 === 0) {
                     doc.setFillColor(245, 245, 245);
                     doc.rect(15, currentY - 3, 180, 8, 'F');
                 }
-                
+
                 const bonHT = parseFloat(bon.total_ht) || 0;
                 totalHT += bonHT;
-                
+
                 // Format number without HTML entities
                 const formatNumber = (num) => {
                     return num.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ' ');
                 };
-                
+
                 doc.text(bon.document_numero_bl || bon.document_numero || '-', 20, currentY + 3);
                 doc.text(bon.document_numero_commande || '-', 70, currentY + 3);
                 doc.text(new Date(bon.document_date).toLocaleDateString('fr-FR'), 120, currentY + 3);
                 doc.text(`${formatNumber(bonHT)} DH`, 180, currentY + 3, { align: 'right' });
-                
+
                 currentY += 8;
             });
         }
-        
+
         // Totals
         currentY += 10;
-        
+
         // Format number helper for totals
         const formatNumberPDF = (num) => {
             return num.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ' ');
         };
-        
+
         // TOTAL HT
         doc.setFillColor(245, 245, 245);
         doc.rect(110, currentY, 85, 8, 'F');
@@ -1090,7 +1090,7 @@ window.downloadGlobalInvoicePDF = async function(invoiceId, sortOrder = null) {
         doc.text('TOTAL HT :', 113, currentY + 5.5);
         doc.setFontSize(8);
         doc.text(`${formatNumberPDF(invoice.total_ht)} DH`, 192, currentY + 5.5, { align: 'right' });
-        
+
         // MONTANT TVA
         currentY += 8;
         doc.setFillColor(255, 255, 255);
@@ -1099,7 +1099,7 @@ window.downloadGlobalInvoicePDF = async function(invoiceId, sortOrder = null) {
         doc.text(`MONTANT TVA ${invoice.tva_rate}% :`, 113, currentY + 5.5);
         doc.setFontSize(8);
         doc.text(`${formatNumberPDF(invoice.montant_tva)} DH`, 192, currentY + 5.5, { align: 'right' });
-        
+
         // MONTANT T.T.C
         currentY += 8;
         doc.setFillColor(173, 216, 230);
@@ -1109,38 +1109,38 @@ window.downloadGlobalInvoicePDF = async function(invoiceId, sortOrder = null) {
         doc.text('MONTANT T.T.C :', 113, currentY + 5.5);
         doc.setFontSize(8.5);
         doc.text(`${formatNumberPDF(invoice.total_ttc)} DH`, 192, currentY + 5.5, { align: 'right' });
-        
+
         // Amount in words (French)
         currentY += 15;
         doc.setTextColor(0, 0, 0);
         doc.setFontSize(9);
         doc.setFont(undefined, 'italic');
         const amountInWords = numberToFrenchWordsGlobal(invoice.total_ttc);
-        
+
         console.log('🔍 [GLOBAL INVOICE PDF] Invoice data:', invoice);
         console.log('🔍 [GLOBAL INVOICE PDF] Document type:', invoice.document_type);
         console.log('🔍 [GLOBAL INVOICE PDF] Document numero:', invoice.document_numero);
         console.log('🔍 [GLOBAL INVOICE PDF] Total TTC:', invoice.total_ttc);
         console.log('🔍 [GLOBAL INVOICE PDF] Amount in words:', amountInWords);
         console.log('📝 [GLOBAL INVOICE PDF] Text to display: La Présente Facture Globale est Arrêtée à la somme de : ' + amountInWords);
-        
+
         doc.text(`La Présente Facture Globale est Arrêtée à la somme de : ${amountInWords}`, 15, currentY, { maxWidth: 180 });
-        
+
         // Add page numbering to all pages
         pages.push(pageCount);
         const totalPages = pages.length;
-        
+
         for (let i = 0; i < totalPages; i++) {
             doc.setPage(i + 1);
             addFooter(i + 1, totalPages);
         }
-        
+
         // Save PDF
         const filename = `Facture_Globale_${invoice.document_numero}_${invoice.client_nom}.pdf`;
         doc.save(filename);
-        
+
         window.notify.success('Succès', 'PDF téléchargé avec succès', 3000);
-        
+
     } catch (error) {
         console.error('❌ Error generating PDF:', error);
         window.notify.error('Erreur', 'Impossible de générer le PDF: ' + error.message, 4000);
@@ -1152,7 +1152,7 @@ function numberToFrenchWordsGlobal(number) {
     const units = ['', 'un', 'deux', 'trois', 'quatre', 'cinq', 'six', 'sept', 'huit', 'neuf'];
     const teens = ['dix', 'onze', 'douze', 'treize', 'quatorze', 'quinze', 'seize', 'dix-sept', 'dix-huit', 'dix-neuf'];
     const tens = ['', '', 'vingt', 'trente', 'quarante', 'cinquante', 'soixante', 'soixante', 'quatre-vingt', 'quatre-vingt'];
-    
+
     function convertLessThanThousand(n) {
         if (n === 0) return '';
         if (n < 10) return units[n];
@@ -1176,7 +1176,7 @@ function numberToFrenchWordsGlobal(number) {
             if (remainder < 10) return 'quatre-vingt-' + units[remainder];
             return 'quatre-vingt-' + teens[remainder - 10];
         }
-        
+
         const hundred = Math.floor(n / 100);
         const remainder = n % 100;
         let result = hundred === 1 ? 'cent' : units[hundred] + ' cent';
@@ -1184,11 +1184,11 @@ function numberToFrenchWordsGlobal(number) {
         if (remainder > 0) result += ' ' + convertLessThanThousand(remainder);
         return result;
     }
-    
+
     function convertNumber(n) {
         if (n === 0) return 'zéro';
         if (n < 1000) return convertLessThanThousand(n);
-        
+
         // Billions (milliards)
         if (n >= 1000000000) {
             const billion = Math.floor(n / 1000000000);
@@ -1197,7 +1197,7 @@ function numberToFrenchWordsGlobal(number) {
             if (remainder > 0) result += ' ' + convertNumber(remainder);
             return result;
         }
-        
+
         // Millions
         if (n >= 1000000) {
             const million = Math.floor(n / 1000000);
@@ -1206,7 +1206,7 @@ function numberToFrenchWordsGlobal(number) {
             if (remainder > 0) result += ' ' + convertNumber(remainder);
             return result;
         }
-        
+
         // Thousands
         const thousand = Math.floor(n / 1000);
         const remainder = n % 1000;
@@ -1214,11 +1214,11 @@ function numberToFrenchWordsGlobal(number) {
         if (remainder > 0) result += ' ' + convertLessThanThousand(remainder);
         return result;
     }
-    
+
     const parts = number.toFixed(2).split('.');
     const dirhams = parseInt(parts[0]);
     const centimes = parseInt(parts[1]);
-    
+
     const amountInWords = convertNumber(dirhams) + ' dirhams';
     if (centimes > 0) {
         return amountInWords + ' et ' + convertNumber(centimes) + ' centimes';
@@ -1227,10 +1227,10 @@ function numberToFrenchWordsGlobal(number) {
 }
 
 // Select all global invoices
-window.selectAllGlobalInvoices = function() {
+window.selectAllGlobalInvoices = function () {
     const selectAll = document.getElementById('selectAllGlobalInvoices');
     const checkboxes = document.querySelectorAll('.global-invoice-checkbox');
-    
+
     checkboxes.forEach(checkbox => {
         checkbox.checked = selectAll.checked;
     });
@@ -1241,7 +1241,7 @@ function updateSelectAllGlobal() {
     const selectAll = document.getElementById('selectAllGlobalInvoices');
     const checkboxes = document.querySelectorAll('.global-invoice-checkbox');
     const checkedBoxes = document.querySelectorAll('.global-invoice-checkbox:checked');
-    
+
     if (checkboxes.length === 0) {
         selectAll.checked = false;
         selectAll.indeterminate = false;
@@ -1258,28 +1258,28 @@ function updateSelectAllGlobal() {
 }
 
 // Handle bulk delete for global invoices
-window.handleBulkDeleteGlobal = async function() {
+window.handleBulkDeleteGlobal = async function () {
     const checkedBoxes = document.querySelectorAll('.global-invoice-checkbox:checked');
-    
+
     if (checkedBoxes.length === 0) {
         window.notify.error('Erreur', 'Veuillez sélectionner au moins une facture globale', 3000);
         return;
     }
-    
+
     const count = checkedBoxes.length;
     const confirmMessage = `Êtes-vous sûr de vouloir supprimer ${count} facture(s) globale(s) ?\n\nCette action est irréversible.`;
-    
+
     const confirmed = await customConfirm('Confirmation', confirmMessage, 'warning');
     if (!confirmed) {
         return;
     }
-    
+
     // Create progress modal
     const progressOverlay = document.createElement('div');
     progressOverlay.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.85);z-index:10000;display:flex;align-items:center;justify-content:center;';
-    
+
     let cancelRequested = false;
-    
+
     progressOverlay.innerHTML = `
         <div style="background:#2d2d30;border-radius:12px;padding:2rem;min-width:400px;box-shadow:0 20px 60px rgba(0,0,0,0.9);">
             <h3 style="color:#fff;margin:0 0 1.5rem 0;font-size:1.2rem;display:flex;align-items:center;gap:0.5rem;">
@@ -1300,13 +1300,13 @@ window.handleBulkDeleteGlobal = async function() {
             </div>
         </div>
     `;
-    
+
     document.body.appendChild(progressOverlay);
-    
+
     const progressBar = document.getElementById('deleteProgressBarGlobal');
     const progressText = document.getElementById('deleteProgressTextGlobal');
     const cancelBtn = document.getElementById('cancelDeleteBtnGlobal');
-    
+
     // Handle cancel button
     cancelBtn.addEventListener('click', () => {
         cancelRequested = true;
@@ -1315,14 +1315,14 @@ window.handleBulkDeleteGlobal = async function() {
         cancelBtn.textContent = '⏸️ Annulation...';
         progressText.textContent = 'Annulation en cours...';
     });
-    
+
     try {
         let successCount = 0;
         let errorCount = 0;
-        
+
         const selectedIds = Array.from(checkedBoxes).map(cb => parseInt(cb.dataset.invoiceId));
         const total = selectedIds.length;
-        
+
         // Delete each global invoice
         for (let i = 0; i < selectedIds.length; i++) {
             // Check if cancel was requested
@@ -1331,12 +1331,12 @@ window.handleBulkDeleteGlobal = async function() {
                 await new Promise(resolve => setTimeout(resolve, 1500));
                 break;
             }
-            
+
             const id = selectedIds[i];
-            
+
             try {
                 const result = await window.electron.dbChaimae.deleteGlobalInvoice(id);
-                
+
                 if (result.success) {
                     successCount++;
                 } else {
@@ -1346,30 +1346,30 @@ window.handleBulkDeleteGlobal = async function() {
                 console.error(`Error deleting global invoice ${id}:`, error);
                 errorCount++;
             }
-            
+
             // Update progress
             const progress = Math.round(((i + 1) / total) * 100);
             progressBar.style.width = progress + '%';
             progressBar.textContent = progress + '%';
             progressText.textContent = `Suppression: ${i + 1} / ${total}`;
-            
+
             // Small delay to show progress
             await new Promise(resolve => setTimeout(resolve, 10));
         }
-        
+
         // Remove progress modal
         document.body.removeChild(progressOverlay);
-        
+
         // Show result
         if (successCount > 0) {
             window.notify.success('Succès', `${successCount} facture(s) globale(s) supprimée(s) avec succès`, 3000);
             await loadGlobalInvoices();
         }
-        
+
         if (errorCount > 0) {
             window.notify.error('Erreur', `${errorCount} facture(s) n'ont pas pu être supprimées`, 3000);
         }
-        
+
     } catch (error) {
         console.error('Error in bulk delete:', error);
         document.body.removeChild(progressOverlay);
@@ -1383,7 +1383,7 @@ setTimeout(() => {
     if (selectAll) {
         selectAll.addEventListener('change', selectAllGlobalInvoices);
     }
-    
+
     // Add checkbox change listeners
     document.addEventListener('change', (e) => {
         if (e.target.classList.contains('global-invoice-checkbox')) {

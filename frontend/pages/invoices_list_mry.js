@@ -133,12 +133,14 @@ function InvoicesListMRYPage() {
                             </div>
                         </div>
 
-                        <!-- Checkbox Filter -->
-                        <div class="filter-group" style="display: flex; align-items: center; padding-top: 1.8rem; margin-left: 1rem;">
-                            <label style="display: flex; align-items: center; cursor: pointer; gap: 0.5rem; user-select: none;">
-                                <input type="checkbox" id="filterAttachments" onchange="filterInvoices()" style="width: 18px; height: 18px; cursor: pointer;">
-                                <span style="font-size: 0.9rem; color: #ddd; font-weight: 500;">📎 Avec P.J uniquement</span>
-                            </label>
+                        <!-- P.J Filter -->
+                        <div class="filter-group">
+                            <label>📎 Pièces Jointes:</label>
+                            <select id="filterAttachments" onchange="filterInvoices()">
+                                <option value="all">Tous</option>
+                                <option value="with">Avec P.J</option>
+                                <option value="without">Sans P.J</option>
+                            </select>
                         </div>
                         
                         <div class="filter-group">
@@ -701,7 +703,7 @@ window.filterInvoices = async function () {
     const filterYear = document.getElementById('filterYear').value;
     const filterMonth = document.getElementById('filterMonth').value;
     const filterClient = document.getElementById('filterClient').value;
-    const filterAttachments = document.getElementById('filterAttachments').checked;
+    const filterAttachments = document.getElementById('filterAttachments').value;
     const searchInput = document.getElementById('searchInput').value.toLowerCase();
 
     // Show loading if search is active
@@ -740,8 +742,10 @@ window.filterInvoices = async function () {
     }
 
     // Filter by attachments
-    if (filterAttachments) {
+    if (filterAttachments === 'with') {
         filtered = filtered.filter(inv => (inv.attachment_count || 0) > 0);
+    } else if (filterAttachments === 'without') {
+        filtered = filtered.filter(inv => (inv.attachment_count || 0) === 0);
     }
 
     // Advanced search

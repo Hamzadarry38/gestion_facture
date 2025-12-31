@@ -129,12 +129,14 @@ function InvoicesListChaimaePage() {
                             </div>
                         </div>
 
-                        <!-- Checkbox Filter -->
-                        <div class="filter-group" style="display: flex; align-items: center; padding-top: 1.8rem; margin-left: 1rem;">
-                            <label style="display: flex; align-items: center; cursor: pointer; gap: 0.5rem; user-select: none;">
-                                <input type="checkbox" id="filterAttachmentsChaimae" onchange="filterInvoicesChaimae()" style="width: 18px; height: 18px; cursor: pointer;">
-                                <span style="font-size: 0.9rem; color: #ddd; font-weight: 500;">📎 Avec P.J uniquement</span>
-                            </label>
+                        <!-- P.J Filter -->
+                        <div class="filter-group">
+                            <label>📎 Pièces Jointes:</label>
+                            <select id="filterAttachmentsChaimae" onchange="filterInvoicesChaimae()">
+                                <option value="all">Tous</option>
+                                <option value="with">Avec P.J</option>
+                                <option value="without">Sans P.J</option>
+                            </select>
                         </div>
                         
                         <div class="filter-group">
@@ -976,7 +978,7 @@ window.changePaginationPageChaimae = function (direction) {
 // Filter invoices
 window.filterInvoicesChaimae = function () {
     const typeFilter = document.getElementById('filterTypeChaimae')?.value || '';
-    const filterAttachments = document.getElementById('filterAttachmentsChaimae')?.checked || false;
+    const filterAttachments = document.getElementById('filterAttachmentsChaimae')?.value || 'all';
     const monthFilter = document.getElementById('filterMonthChaimae')?.value || '';
     const clientFilter = document.getElementById('filterClientChaimae')?.value || '';
     const searchType = document.getElementById('searchTypeChaimae')?.value || 'all';
@@ -987,7 +989,8 @@ window.filterInvoicesChaimae = function () {
         if (typeFilter && invoice.document_type !== typeFilter) return false;
 
         // Attachments filter
-        if (filterAttachments && (invoice.attachment_count || 0) === 0) return false;
+        if (filterAttachments === 'with' && (invoice.attachment_count || 0) === 0) return false;
+        if (filterAttachments === 'without' && (invoice.attachment_count || 0) > 0) return false;
 
         // Year filter (from card selection)
         if (selectedYearChaimae) {
