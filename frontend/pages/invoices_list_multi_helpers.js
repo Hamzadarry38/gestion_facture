@@ -752,17 +752,22 @@ async function generatePDFBlobMulti(invoice, includeOrder = true) {
 
     // Function to add footer
     const addFooter = (pageNum, totalPages) => {
-        // Add signature image above footer (right side) - ONLY FOR DEVIS
+        // Add signature image - moved lower and narrowed for better integration
         if (signatureImgMulti && invoice.document_type === 'devis') {
-            doc.addImage(signatureImgMulti, 'PNG', 150, 240, 60, 45);
+            doc.addImage(signatureImgMulti, 'PNG', 145, 255, 50, 32);
         }
 
         doc.setTextColor(0, 0, 0);
-        doc.setFontSize(9);
+        doc.setFontSize(8.5);
         doc.setFont(undefined, 'normal');
-        doc.text('NIF 68717422 | TP 51001343 | RC 38633 | CNSS 6446237', 105, 286, { align: 'center' });
-        doc.text('ICE : 00380950500031', 105, 290, { align: 'center' });
-        doc.text('Tel : 06 61 23 45 67', 105, 293, { align: 'center' }); // Added Tel line
+        doc.text('NIF 68717422 | TP 51001343 | RC 38633 | CNSS 6446237', 105, 282, { align: 'center' });
+        doc.text('ICE : 00380950500031', 105, 286, { align: 'center' });
+        doc.text('Tel: +212 661 307 323', 105, 289, { align: 'center' });
+
+        // Add page numbering at bottom in gray
+        doc.setTextColor(100, 100, 100);
+        doc.setFontSize(7.5);
+        doc.text(`Page ${pageNum} / ${totalPages}`, 105, 293, { align: 'center' });
     };
 
     // Add header to first page

@@ -166,6 +166,51 @@ async function loadMultiSignatureHelper() {
     });
 }
 
+// Function to generate a flattened footer (text + signature in one image)
+async function generateFlattenedFooterMulti(signatureDataUrl, nif, ice, tel) {
+    return new Promise((resolve) => {
+        const canvas = document.createElement('canvas');
+        const ctx = canvas.getContext('2d');
+
+        // High resolution for 300 DPI (approx 210mm x 50mm)
+        canvas.width = 2480;
+        canvas.height = 600;
+
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+        // Draw Text
+        ctx.fillStyle = 'black';
+        ctx.textAlign = 'center';
+        const centerX = canvas.width / 2;
+
+        // NIF Line
+        ctx.font = 'normal 42px Arial';
+        ctx.fillText(nif, centerX, 440);
+
+        // ICE Line
+        ctx.fillText(ice, centerX, 490);
+
+        // Tel Line
+        ctx.fillText(tel, centerX, 540);
+
+        // Draw Signature if it's a Devis (passed as signatureDataUrl)
+        if (signatureDataUrl) {
+            const img = new Image();
+            img.onload = () => {
+                // Signature position (right side)
+                const sigWidth = 550;
+                const sigHeight = (img.height / img.width) * sigWidth;
+                ctx.drawImage(img, 1750, 100, sigWidth, sigHeight);
+                resolve(canvas.toDataURL('image/png'));
+            };
+            img.onerror = () => resolve(canvas.toDataURL('image/png'));
+            img.src = signatureDataUrl;
+        } else {
+            resolve(canvas.toDataURL('image/png'));
+        }
+    });
+}
+
 
 // Download invoice as PDF - MULTI TRAVAUX TETOUAN Design
 window.downloadInvoicePDFMulti = async function (invoiceId) {
@@ -324,6 +369,14 @@ window.downloadInvoicePDFMulti = async function (invoiceId) {
         // Load signature image
         const signatureImgMultiHelper = await loadMultiSignatureHelper();
 
+        // Generate flattened footer image (Text + Signature)
+        const flattenedFooterData = await generateFlattenedFooterMulti(
+            invoice.document_type === 'devis' ? signatureImgMultiHelper : null,
+            'NIF 68717422 | TP 51001343 | RC 38633 | CNSS 6446237',
+            'ICE : 00380950500031',
+            'Tel: +212 661 307 323'
+        );
+
         // Colors - New design
         const darkGrayColor = [96, 125, 139]; // #607D8B
         const lightGrayBg = [236, 239, 241]; // #ECEFF1
@@ -416,29 +469,15 @@ window.downloadInvoicePDFMulti = async function (invoiceId) {
 
         // Function to add footer to any page
         const addFooter = (pageNum, totalPages) => {
-            // Add signature image above footer (right side) - ONLY FOR DEVIS
-            if (signatureImgMultiHelper && invoice.document_type === 'devis') {
-                doc.addImage(signatureImgMultiHelper, 'PNG', 150, 240, 60, 45);
+            // Add Flattened Footer (Contains Signature + Company Info as one image)
+            if (flattenedFooterData) {
+                doc.addImage(flattenedFooterData, 'PNG', 0, 245, 210, 50);
             }
 
-            // Company info at bottom
-            doc.setTextColor(0, 0, 0);
-            doc.setFontSize(9);
-            doc.setFont(undefined, 'normal');
-            doc.text('NIF 68717422 | TP 51001343 | RC 38633 | CNSS 6446237', 105, 286, { align: 'center' });
-            doc.text('ICE : 00380950500031', 105, 290, { align: 'center' });
-
-            // Add phone number
-            doc.setTextColor(0, 0, 0);
-            doc.setFontSize(8);
-            doc.setFont(undefined, 'normal');
-            doc.text('Tel: +212 661 307 323', 105, 293, { align: 'center' });
-
-            // Add page numbering at bottom in dark color
-            doc.setTextColor(0, 0, 0);
-            doc.setFontSize(9);
-            doc.setFont(undefined, 'normal');
-            doc.text(`Page ${pageNum} / ${totalPages}`, 105, 295, { align: 'center' });
+            // Page numbering
+            doc.setTextColor(100, 100, 100);
+            doc.setFontSize(7.5);
+            doc.text(`Page ${pageNum} / ${totalPages}`, 105, 293, { align: 'center' });
         };
 
         // Add header to first page

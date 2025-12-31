@@ -439,21 +439,21 @@ function addHeaderToPDFMulti(doc, client, month, year, monthNames, darkGrayColor
 // Add footer to PDF page
 function addFooterToPDFMulti(doc, pageNumber, totalPages) {
     doc.setTextColor(0, 0, 0);
-    doc.setFontSize(9);
+    doc.setFontSize(8.5);
     doc.setFont(undefined, 'normal');
-    doc.text('NIF 68717422 | TP 51001343 | RC 38633 | CNSS 6446237', 105, 275, { align: 'center' });
-    doc.text('ICE : 00380950500031', 105, 279, { align: 'center' });
-    doc.text('Tel: +212 661 307 323', 105, 283, { align: 'center' });
+    doc.text('NIF 68717422 | TP 51001343 | RC 38633 | CNSS 6446237', 105, 282, { align: 'center' });
+    doc.text('ICE : 00380950500031', 105, 286, { align: 'center' });
+    doc.text('Tel: +212 661 307 323', 105, 289, { align: 'center' });
 }
 
 // Add page numbering
 function addPageNumbering(doc) {
     const pageCount = doc.internal.getNumberOfPages();
-    doc.setFontSize(8);
+    doc.setFontSize(7.5);
     doc.setTextColor(100, 100, 100); // Light gray
     for (let i = 1; i <= pageCount; i++) {
         doc.setPage(i);
-        doc.text(`Page ${i} / ${pageCount}`, 105, 287, { align: 'center' });
+        doc.text(`Page ${i} / ${pageCount}`, 105, 293, { align: 'center' });
     }
 }
 
