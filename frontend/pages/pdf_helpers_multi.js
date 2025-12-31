@@ -418,7 +418,7 @@ window.downloadInvoicePDFMulti = async function (invoiceId) {
         const addFooter = (pageNum, totalPages) => {
             // Add signature image above footer (right side) - ONLY FOR DEVIS
             if (signatureImgMultiHelper && invoice.document_type === 'devis') {
-                doc.addImage(signatureImgMultiHelper, 'PNG', 140, 225, 60, 45);
+                doc.addImage(signatureImgMultiHelper, 'PNG', 145, 240, 60, 45);
             }
 
             // Company info at bottom

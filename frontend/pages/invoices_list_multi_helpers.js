@@ -640,6 +640,26 @@ function numberToFrenchWordsMultiHelper(number) {
     return result.charAt(0).toUpperCase() + result.slice(1);
 }
 
+// Load Multi signature image for PDF (helper version)
+async function loadMultiSignatureHelper() {
+    return new Promise((resolve) => {
+        const img = new Image();
+        img.onload = () => {
+            const canvas = document.createElement('canvas');
+            canvas.width = img.width;
+            canvas.height = img.height;
+            const ctx = canvas.getContext('2d');
+            ctx.drawImage(img, 0, 0);
+            resolve(canvas.toDataURL('image/png'));
+        };
+        img.onerror = () => {
+            console.warn('Could not load Multi signature image');
+            resolve(null);
+        };
+        img.src = 'Signature/Multi.png';
+    });
+}
+
 // Generate PDF Blob for an invoice (full MULTI TRAVAUX TETOUAN design)
 async function generatePDFBlobMulti(invoice, includeOrder = true) {
     // Check if jsPDF is loaded
@@ -655,6 +675,9 @@ async function generatePDFBlobMulti(invoice, includeOrder = true) {
 
     const { jsPDF } = window.jspdf;
     const doc = new jsPDF();
+
+    // Load signature image
+    const signatureImgMulti = await loadMultiSignatureHelper();
 
     // Colors - MULTI TRAVAUX TETOUAN design
     const darkGrayColor = [96, 125, 139];
@@ -729,6 +752,11 @@ async function generatePDFBlobMulti(invoice, includeOrder = true) {
 
     // Function to add footer
     const addFooter = (pageNum, totalPages) => {
+        // Add signature image above footer (right side) - ONLY FOR DEVIS
+        if (signatureImgMulti && invoice.document_type === 'devis') {
+            doc.addImage(signatureImgMulti, 'PNG', 145, 240, 60, 45);
+        }
+
         doc.setTextColor(0, 0, 0);
         doc.setFontSize(9);
         doc.setFont(undefined, 'normal');
