@@ -38,42 +38,42 @@ function CompanySelectPage() {
                     <p>Choose your company to continue</p>
                     
                     <div style="display: flex; gap: 1rem; justify-content: center; margin-top: 2rem; flex-wrap: wrap;">
-                        <button onclick="exportDatabaseMRY()" style="background: #4caf50; color: white; padding: 0.75rem 1.5rem; border: none; border-radius: 8px; cursor: pointer; font-weight: 600; display: flex; align-items: center; gap: 0.5rem;">
+                        <button onclick="window.electron.db.exportDatabase()" style="background: #4caf50; color: white; padding: 0.75rem 1.5rem; border: none; border-radius: 8px; cursor: pointer; font-weight: 600; display: flex; align-items: center; gap: 0.5rem;">
                             <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
                                 <path d="M.5 9.9a.5.5 0 0 1 .5.5v2.5a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-2.5a.5.5 0 0 1 1 0v2.5a2 2 0 0 1-2 2H2a2 2 0 0 1-2-2v-2.5a.5.5 0 0 1 .5-.5z"/>
                                 <path d="M7.646 1.146a.5.5 0 0 1 .708 0l3 3a.5.5 0 0 1-.708.708L8.5 2.707V11.5a.5.5 0 0 1-1 0V2.707L5.354 4.854a.5.5 0 1 1-.708-.708l3-3z"/>
                             </svg>
                             <span>Exporter MRY</span>
                         </button>
-                        <button onclick="importDatabaseMRY()" style="background: #ff9800; color: white; padding: 0.75rem 1.5rem; border: none; border-radius: 8px; cursor: pointer; font-weight: 600; display: flex; align-items: center; gap: 0.5rem;">
+                        <button onclick="window.electron.db.importDatabase()" style="background: #ff9800; color: white; padding: 0.75rem 1.5rem; border: none; border-radius: 8px; cursor: pointer; font-weight: 600; display: flex; align-items: center; gap: 0.5rem;">
                             <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
                                 <path d="M.5 9.9a.5.5 0 0 1 .5.5v2.5a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-2.5a.5.5 0 0 1 1 0v2.5a2 2 0 0 1-2 2H2a2 2 0 0 1-2-2v-2.5a.5.5 0 0 1 .5-.5z"/>
                                 <path d="M7.646 11.854a.5.5 0 0 0 .708 0l3-3a.5.5 0 0 0-.708-.708L8.5 10.293V1.5a.5.5 0 0 0-1 0v8.793L5.354 8.146a.5.5 0 1 0-.708.708l3 3z"/>
                             </svg>
                             <span>Importer MRY</span>
                         </button>
-                        <button onclick="exportDatabaseChaimae()" style="background: #4caf50; color: white; padding: 0.75rem 1.5rem; border: none; border-radius: 8px; cursor: pointer; font-weight: 600; display: flex; align-items: center; gap: 0.5rem;">
+                        <button onclick="window.electron.dbChaimae.exportDatabase()" style="background: #4caf50; color: white; padding: 0.75rem 1.5rem; border: none; border-radius: 8px; cursor: pointer; font-weight: 600; display: flex; align-items: center; gap: 0.5rem;">
                             <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
                                 <path d="M.5 9.9a.5.5 0 0 1 .5.5v2.5a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-2.5a.5.5 0 0 1 1 0v2.5a2 2 0 0 1-2 2H2a2 2 0 0 1-2-2v-2.5a.5.5 0 0 1 .5-.5z"/>
                                 <path d="M7.646 1.146a.5.5 0 0 1 .708 0l3 3a.5.5 0 0 1-.708.708L8.5 2.707V11.5a.5.5 0 0 1-1 0V2.707L5.354 4.854a.5.5 0 1 1-.708-.708l3-3z"/>
                             </svg>
                             <span>Exporter CHAIMAE</span>
                         </button>
-                        <button onclick="importDatabaseChaimae()" style="background: #ff9800; color: white; padding: 0.75rem 1.5rem; border: none; border-radius: 8px; cursor: pointer; font-weight: 600; display: flex; align-items: center; gap: 0.5rem;">
+                        <button onclick="window.electron.dbChaimae.importDatabase()" style="background: #ff9800; color: white; padding: 0.75rem 1.5rem; border: none; border-radius: 8px; cursor: pointer; font-weight: 600; display: flex; align-items: center; gap: 0.5rem;">
                             <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
                                 <path d="M.5 9.9a.5.5 0 0 1 .5.5v2.5a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-2.5a.5.5 0 0 1 1 0v2.5a2 2 0 0 1-2 2H2a2 2 0 0 1-2-2v-2.5a.5.5 0 0 1 .5-.5z"/>
                                 <path d="M7.646 11.854a.5.5 0 0 0 .708 0l3-3a.5.5 0 0 0-.708-.708L8.5 10.293V1.5a.5.5 0 0 0-1 0v8.793L5.354 8.146a.5.5 0 1 0-.708.708l3 3z"/>
                             </svg>
                             <span>Importer CHAIMAE</span>
                         </button>
-                        <button onclick="exportDatabaseMulti()" style="background: #4caf50; color: white; padding: 0.75rem 1.5rem; border: none; border-radius: 8px; cursor: pointer; font-weight: 600; display: flex; align-items: center; gap: 0.5rem;">
+                        <button onclick="window.electron.dbMulti.exportDatabase()" style="background: #4caf50; color: white; padding: 0.75rem 1.5rem; border: none; border-radius: 8px; cursor: pointer; font-weight: 600; display: flex; align-items: center; gap: 0.5rem;">
                             <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
                                 <path d="M.5 9.9a.5.5 0 0 1 .5.5v2.5a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-2.5a.5.5 0 0 1 1 0v2.5a2 2 0 0 1-2 2H2a2 2 0 0 1-2-2v-2.5a.5.5 0 0 1 .5-.5z"/>
                                 <path d="M7.646 1.146a.5.5 0 0 1 .708 0l3 3a.5.5 0 0 1-.708.708L8.5 2.707V11.5a.5.5 0 0 1-1 0V2.707L5.354 4.854a.5.5 0 1 1-.708-.708l3-3z"/>
                             </svg>
                             <span>Exporter MULTI</span>
                         </button>
-                        <button onclick="importDatabaseMulti()" style="background: #ff9800; color: white; padding: 0.75rem 1.5rem; border: none; border-radius: 8px; cursor: pointer; font-weight: 600; display: flex; align-items: center; gap: 0.5rem;">
+                        <button onclick="window.electron.dbMulti.importDatabase()" style="background: #ff9800; color: white; padding: 0.75rem 1.5rem; border: none; border-radius: 8px; cursor: pointer; font-weight: 600; display: flex; align-items: center; gap: 0.5rem;">
                             <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
                                 <path d="M.5 9.9a.5.5 0 0 1 .5.5v2.5a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-2.5a.5.5 0 0 1 1 0v2.5a2 2 0 0 1-2 2H2a2 2 0 0 1-2-2v-2.5a.5.5 0 0 1 .5-.5z"/>
                                 <path d="M7.646 11.854a.5.5 0 0 0 .708 0l3-3a.5.5 0 0 0-.708-.708L8.5 10.293V1.5a.5.5 0 0 0-1 0v8.793L5.354 8.146a.5.5 0 1 0-.708.708l3 3z"/>
@@ -178,13 +178,13 @@ function selectCompany(company) {
     // Save selected company
     const selectedCompany = companyData[company];
     localStorage.setItem('selectedCompany', JSON.stringify(selectedCompany));
-    
+
     // Navigate to company-specific dashboard
     router.navigate(selectedCompany.route);
 }
 
 // Helper function to show notifications
-window.showPasswordNotification = function(type, message) {
+window.showPasswordNotification = function (type, message) {
     const notification = document.createElement('div');
     notification.style.cssText = `
         position: fixed;
@@ -198,7 +198,7 @@ window.showPasswordNotification = function(type, message) {
         max-width: 400px;
         box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
     `;
-    
+
     if (type === 'success') {
         notification.style.background = '#4caf50';
         notification.style.color = 'white';
@@ -206,10 +206,10 @@ window.showPasswordNotification = function(type, message) {
         notification.style.background = '#f44336';
         notification.style.color = 'white';
     }
-    
+
     notification.textContent = message;
     document.body.appendChild(notification);
-    
+
     setTimeout(() => {
         notification.style.animation = 'slideOutRight 0.3s ease-in';
         setTimeout(() => notification.remove(), 300);
@@ -220,9 +220,9 @@ window.showPasswordNotification = function(type, message) {
 if (!window.companySelectInitialized) {
     window.companySelectInitialized = true;
     console.log('🔐 [Company Select] Initializing password change listeners');
-    
+
     // Handle change password button click
-    document.addEventListener('click', function(e) {
+    document.addEventListener('click', function (e) {
         if (e.target.closest('#changePasswordBtn')) {
             console.log('🔐 [Company Select] Change password button clicked');
             e.preventDefault();
@@ -238,60 +238,60 @@ if (!window.companySelectInitialized) {
     if (!window.isUpdatingPassword) {
         window.isUpdatingPassword = false;
     }
-    
+
     // Create named handler function to allow removal
-    const handlePasswordFormSubmit = async function(e) {
+    const handlePasswordFormSubmit = async function (e) {
         if (e.target.id === 'changePasswordForm') {
             console.log('🔐 [Company Select] Form submitted');
             e.preventDefault();
             e.stopPropagation();
             e.stopImmediatePropagation();
-            
+
             // Prevent concurrent requests
             if (window.isUpdatingPassword) {
                 console.log('⚠️ [Company Select] Password update already in progress');
                 window.showPasswordNotification('error', 'Veuillez patienter, mise à jour du mot de passe en cours...');
                 return;
             }
-            
+
             const oldPassword = document.getElementById('oldPassword').value;
             const newPassword = document.getElementById('newPassword').value;
             const confirmPassword = document.getElementById('confirmPassword').value;
-            
+
             console.log('🔐 [Company Select] Validating passwords...');
             console.log('  - Old password entered:', !!oldPassword);
             console.log('  - New password entered:', !!newPassword);
             console.log('  - Confirm password entered:', !!confirmPassword);
-            
+
             // Validate passwords
             if (!oldPassword || !newPassword || !confirmPassword) {
                 console.log('❌ [Company Select] Validation failed: Missing fields');
                 window.showPasswordNotification('error', 'Tous les champs sont obligatoires');
                 return;
             }
-            
+
             if (newPassword !== confirmPassword) {
                 console.log('❌ [Company Select] Validation failed: Passwords do not match');
                 window.showPasswordNotification('error', 'Les nouveaux mots de passe ne correspondent pas');
                 return;
             }
-            
+
             if (newPassword.length < 6) {
                 console.log('❌ [Company Select] Validation failed: Password too short');
                 window.showPasswordNotification('error', 'Le mot de passe doit contenir au moins 6 caractères');
                 return;
             }
-            
+
             console.log('✅ [Company Select] All validations passed, sending to server...');
             window.isUpdatingPassword = true;
-            
+
             try {
                 const user = JSON.parse(localStorage.getItem('user') || '{}');
                 console.log('🔐 [Company Select] User email:', user.email);
-                
+
                 const result = await window.electron.users.updatePassword(user.email, oldPassword, newPassword);
                 console.log('🔐 [Company Select] Server response:', result);
-                
+
                 if (result.success) {
                     console.log('✅ [Company Select] Password updated successfully');
                     window.showPasswordNotification('success', 'Mot de passe mis à jour avec succès - Rechargement...');
@@ -305,8 +305,8 @@ if (!window.companySelectInitialized) {
                     }, 2000);
                 } else {
                     console.log('❌ [Company Select] Server error:', result.error);
-                    const errorMessage = result.error === 'Old password is incorrect' 
-                        ? 'L\'ancien mot de passe est incorrect' 
+                    const errorMessage = result.error === 'Old password is incorrect'
+                        ? 'L\'ancien mot de passe est incorrect'
                         : (result.error || 'Échec de la mise à jour du mot de passe');
                     window.showPasswordNotification('error', errorMessage);
                     window.isUpdatingPassword = false;
@@ -318,10 +318,10 @@ if (!window.companySelectInitialized) {
             }
         }
     };
-    
+
     // Remove old handler if exists
     document.removeEventListener('submit', window.companySelectPasswordHandler);
-    
+
     // Store handler reference and add new one
     window.companySelectPasswordHandler = handlePasswordFormSubmit;
     document.addEventListener('submit', window.companySelectPasswordHandler, true);

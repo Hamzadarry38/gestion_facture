@@ -117,10 +117,10 @@ async function registerChaimaeHandlers() {
     });
 
     // Attachment handlers for CHAIMAE
-    ipcMain.handle('db:chaimae:attachments:add', async (event, invoiceId, filename, fileType, fileData) => {
+    ipcMain.handle('db:chaimae:attachments:add', async (event, invoiceId, filename, fileType, fileData, filePath, fileSize) => {
         try {
             // console.log(`📎 Adding CHAIMAE attachment: ${filename} (${fileType})`);
-            const id = attachmentOps.add(invoiceId, filename, fileType, Buffer.from(fileData));
+            const id = attachmentOps.add(invoiceId, filename, fileType, fileData ? Buffer.from(fileData) : null, filePath, fileSize || 0);
             // console.log('✅ CHAIMAE Attachment added with ID:', id);
             return { success: true, data: { id } };
         } catch (error) {

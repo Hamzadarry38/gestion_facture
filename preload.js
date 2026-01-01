@@ -25,8 +25,8 @@ contextBridge.exposeInMainWorld('electron', {
       ipcRenderer.invoke('db:invoices:getNextNumber', companyCode, documentType, year),
 
     // Attachments
-    addAttachment: (invoiceId, filename, fileType, fileData) =>
-      ipcRenderer.invoke('db:attachments:add', invoiceId, filename, fileType, fileData),
+    addAttachment: (invoiceId, filename, fileType, fileData, filePath, fileSize) =>
+      ipcRenderer.invoke('db:attachments:add', invoiceId, filename, fileType, fileData, filePath, fileSize),
     getAttachment: (id) => ipcRenderer.invoke('db:attachments:get', id),
     deleteAttachment: (id) => ipcRenderer.invoke('db:attachments:delete', id),
     getAttachmentsByInvoice: (invoiceId) => ipcRenderer.invoke('db:attachments:getByInvoice', invoiceId),
@@ -86,8 +86,8 @@ contextBridge.exposeInMainWorld('electron', {
     getAvailableYears: () => ipcRenderer.invoke('db:chaimae:invoices:getAvailableYears'),
 
     // Attachments
-    addAttachment: (invoiceId, filename, fileType, fileData) =>
-      ipcRenderer.invoke('db:chaimae:attachments:add', invoiceId, filename, fileType, fileData),
+    addAttachment: (invoiceId, filename, fileType, fileData, filePath, fileSize) =>
+      ipcRenderer.invoke('db:chaimae:attachments:add', invoiceId, filename, fileType, fileData, filePath, fileSize),
     getAttachment: (id) => ipcRenderer.invoke('db:chaimae:attachments:get', id),
     deleteAttachment: (id) => ipcRenderer.invoke('db:chaimae:attachments:delete', id),
     getAttachmentsByInvoice: (invoiceId) => ipcRenderer.invoke('db:chaimae:attachments:getByInvoice', invoiceId),
@@ -157,8 +157,8 @@ contextBridge.exposeInMainWorld('electron', {
       ipcRenderer.invoke('dbMulti:getNextInvoiceNumber', companyCode, documentType, year),
 
     // Attachments
-    addAttachment: (invoiceId, filename, fileType, fileData) =>
-      ipcRenderer.invoke('dbMulti:addAttachment', invoiceId, filename, fileType, fileData),
+    addAttachment: (invoiceId, filename, fileType, fileData, filePath, fileSize) =>
+      ipcRenderer.invoke('dbMulti:addAttachment', invoiceId, filename, fileType, fileData, filePath, fileSize),
     getAttachment: (id) => ipcRenderer.invoke('dbMulti:getAttachment', id),
     deleteAttachment: (id) => ipcRenderer.invoke('dbMulti:deleteAttachment', id),
     getAttachmentsByInvoice: (invoiceId) => ipcRenderer.invoke('dbMulti:getAttachmentsByInvoice', invoiceId),
@@ -281,6 +281,14 @@ contextBridge.exposeInMainWorld('electron', {
     deletePdf: (filePath) => ipcRenderer.invoke('pdf:deletePdf', filePath),
     exportAll: (company, userCompany) => ipcRenderer.invoke('pdf:exportAll', company, userCompany),
     importAll: (company) => ipcRenderer.invoke('pdf:importAll', company)
+  },
+
+  // Attachments Storage API
+  attachments: {
+    save: (params) => ipcRenderer.invoke('attachment:save', params),
+    open: (filePath) => ipcRenderer.invoke('attachment:open', filePath),
+    delete: (filePath) => ipcRenderer.invoke('attachment:delete', filePath),
+    migrate: (company) => ipcRenderer.invoke('attachment:migrate', company)
   },
 
   // Asset loading

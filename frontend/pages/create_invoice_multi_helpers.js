@@ -939,7 +939,25 @@ async function handleInvoiceSubmitMulti(e) {
                 for (const file of selectedFilesMulti) {
                     const arrayBuffer = await file.arrayBuffer();
                     const uint8Array = new Uint8Array(arrayBuffer);
-                    await window.electron.dbMulti.addAttachment(invoiceId, file.name, file.type, uint8Array);
+
+                    // 1. Save to disk
+                    const saveResult = await window.electron.attachments.save({
+                        company: 'MULTI',
+                        filename: file.name,
+                        data: uint8Array
+                    });
+
+                    if (saveResult.success) {
+                        // 2. Add to database with path
+                        await window.electron.dbMulti.addAttachment(
+                            invoiceId,
+                            file.name,
+                            file.type,
+                            null, // No BLOB
+                            saveResult.filePath,
+                            file.size
+                        );
+                    }
                 }
             }
 

@@ -4,11 +4,11 @@ const { getMissingMultiInvoiceNumbers, getMissingMultiDevisNumbers, auditLogOps 
 
 async function registerMultiHandlers() {
     console.log('🔄 [MULTI] Registering Multi Company database handlers...');
-    
+
     // Initialize database
     await dbMulti.initDatabase();
     console.log('✅ [MULTI] Multi Company database initialized');
-    
+
     // Create invoice
     ipcMain.handle('dbMulti:createInvoice', async (event, invoiceData) => {
         try {
@@ -21,7 +21,7 @@ async function registerMultiHandlers() {
             return { success: false, error: error.message };
         }
     });
-    
+
     // Get invoice by ID
     ipcMain.handle('dbMulti:getInvoice', async (event, id) => {
         try {
@@ -32,7 +32,7 @@ async function registerMultiHandlers() {
             return { success: false, error: error.message };
         }
     });
-    
+
     // Get all invoices
     ipcMain.handle('dbMulti:getAllInvoices', async (event, companyCode) => {
         try {
@@ -43,7 +43,7 @@ async function registerMultiHandlers() {
             return { success: false, error: error.message };
         }
     });
-    
+
     // Update invoice
     ipcMain.handle('dbMulti:updateInvoice', async (event, id, invoiceData) => {
         try {
@@ -54,7 +54,7 @@ async function registerMultiHandlers() {
             return { success: false, error: error.message };
         }
     });
-    
+
     // Delete invoice
     ipcMain.handle('dbMulti:deleteInvoice', async (event, id) => {
         try {
@@ -65,7 +65,7 @@ async function registerMultiHandlers() {
             return { success: false, error: error.message };
         }
     });
-    
+
     // Get next invoice number
     ipcMain.handle('dbMulti:getNextInvoiceNumber', async (event, companyCode, documentType, year) => {
         try {
@@ -76,7 +76,7 @@ async function registerMultiHandlers() {
             return { success: false, error: error.message };
         }
     });
-    
+
     // Client operations
     ipcMain.handle('dbMulti:getAllClients', async () => {
         try {
@@ -87,7 +87,7 @@ async function registerMultiHandlers() {
             return { success: false, error: error.message };
         }
     });
-    
+
     ipcMain.handle('dbMulti:searchClients', async (event, query) => {
         try {
             const clients = dbMulti.clientOps.search(query);
@@ -97,7 +97,7 @@ async function registerMultiHandlers() {
             return { success: false, error: error.message };
         }
     });
-    
+
     ipcMain.handle('dbMulti:deleteClient', async (event, clientId) => {
         try {
             dbMulti.clientOps.delete(clientId);
@@ -107,18 +107,18 @@ async function registerMultiHandlers() {
             return { success: false, error: error.message };
         }
     });
-    
+
     // Attachment operations
-    ipcMain.handle('dbMulti:addAttachment', async (event, invoiceId, filename, fileType, fileData) => {
+    ipcMain.handle('dbMulti:addAttachment', async (event, invoiceId, filename, fileType, fileData, filePath, fileSize) => {
         try {
-            const attachmentId = dbMulti.attachmentOps.add(invoiceId, filename, fileType, fileData);
+            const attachmentId = dbMulti.attachmentOps.add(invoiceId, filename, fileType, fileData ? Buffer.from(fileData) : null, filePath, fileSize || 0);
             return { success: true, data: { id: attachmentId } };
         } catch (error) {
             console.error('[MULTI] Error adding attachment:', error);
             return { success: false, error: error.message };
         }
     });
-    
+
     ipcMain.handle('dbMulti:getAttachment', async (event, id) => {
         try {
             const attachment = dbMulti.attachmentOps.get(id);
@@ -128,7 +128,7 @@ async function registerMultiHandlers() {
             return { success: false, error: error.message };
         }
     });
-    
+
     ipcMain.handle('dbMulti:deleteAttachment', async (event, id) => {
         try {
             const result = dbMulti.attachmentOps.delete(id);
@@ -138,7 +138,7 @@ async function registerMultiHandlers() {
             return { success: false, error: error.message };
         }
     });
-    
+
     ipcMain.handle('dbMulti:getAttachmentsByInvoice', async (event, invoiceId) => {
         try {
             const attachments = dbMulti.attachmentOps.getByInvoice(invoiceId);
@@ -148,7 +148,7 @@ async function registerMultiHandlers() {
             return { success: false, error: error.message };
         }
     });
-    
+
     // MULTI Order Prefix handlers
     ipcMain.handle('dbMulti:multiOrderPrefixes:getAll', async () => {
         try {
@@ -275,7 +275,7 @@ async function registerMultiHandlers() {
             return { success: false, error: error.message };
         }
     });
-    
+
     console.log('✅ [MULTI] All Multi Company handlers registered successfully');
 }
 

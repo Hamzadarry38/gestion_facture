@@ -61,6 +61,10 @@ function InvoicesListChaimaePage() {
                                 </svg>
                                 <span>Nouvelle</span>
                             </button>
+
+                            <button class="action-btn" onclick="triggerMigration('CHAIMAE')" style="background: #FF9800; color: white; border: none; font-weight: 600;">
+                                🚀 Migrer P.J
+                            </button>
                             
                             <button class="action-btn action-btn-secondary" onclick="router.navigate('/dashboard-chaimae')">
                                 <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor">
@@ -1413,7 +1417,7 @@ window.viewInvoiceChaimae = async function (id, documentType) {
                 </div>
                 
                 <!-- Attachments Section -->
-                <div style="margin-bottom:2rem;">
+                <div style="margin-bottom:2rem;" id="attachmentsSectionChaimae${id}">
                     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem;">
                         <h3 style="color:#fff;font-size:1.1rem;margin:0;font-weight:600;"> Pièces jointes(${invoice.attachments ? invoice.attachments.length : 0})</h3>
                         <button onclick="addNewAttachmentChaimae(${id})" style="padding:0.5rem 1rem;background:#4CAF50;color:#fff;border:none;border-radius:6px;cursor:pointer;font-size:0.85rem;font-weight:600;display:flex;align-items:center;gap:0.5rem;transition:all 0.2s;" onmouseover="this.style.background='#45a049'" onmouseout="this.style.background='#4CAF50'">
@@ -1428,7 +1432,7 @@ window.viewInvoiceChaimae = async function (id, documentType) {
                                         <span style="font-size:1.5rem;">${a.file_type.includes('pdf') ? '📄' : '🖼️'}</span>
                                         <div>
                                             <div style="color:#fff;font-weight:500;">${a.filename}</div>
-                                            <div style="color:#999;font-size:0.85rem;">${(a.file_size / 1024).toFixed(2)} KB</div>
+                                            <div style="color:#999;font-size:0.8rem;margin-top:0.25rem;">${new Date(a.uploaded_at).toLocaleDateString('fr-FR')}</div>
                                         </div>
                                     </div>
                                     <div style="display:flex;gap:0.5rem;">
@@ -5127,28 +5131,44 @@ window.addNewAttachmentChaimae = function (invoiceId) {
                 continue;
             }
 
-            // Read file as array buffer
+            // 1. Read file and save to disk
             const arrayBuffer = await file.arrayBuffer();
             const uint8Array = new Uint8Array(arrayBuffer);
 
-            // Upload to database
+            const saveResult = await window.electron.attachments.save({
+                company: 'CHAIMAE',
+                filename: file.name,
+                data: uint8Array
+            });
+
+            if (!saveResult.success) {
+                window.notify.error('Erreur', `Échec sauvegarde disque: ${file.name}`, 3000);
+                continue;
+            }
+
+            // 2. Add to database with path
             const result = await window.electron.dbChaimae.addAttachment(
                 invoiceId,
                 file.name,
                 file.type,
-                uint8Array
+                null, // No BLOB for new files
+                saveResult.filePath,
+                file.size
             );
 
             if (result.success) {
                 window.notify.success('Succès', `${file.name} ajouté`, 2000);
             } else {
-                window.notify.error('Erreur', `Échec: ${file.name}`, 3000);
+                // Cleanup file if DB insert fails
+                await window.electron.attachments.delete(saveResult.filePath);
+                window.notify.error('Erreur', `Échec DB: ${file.name}`, 3000);
             }
         }
 
-        // Close modal and reopen to refresh
-        document.querySelector('.invoice-view-overlay')?.remove();
-        setTimeout(() => viewInvoiceChaimae(invoiceId), 300);
+        // Refresh specifically the attachments section
+        refreshAttachmentsChaimae(invoiceId);
+        // Refresh main table
+        loadInvoicesChaimae();
     };
 
     input.click();
@@ -5162,24 +5182,29 @@ window.openAttachmentChaimae = async function (attachmentId) {
         if (result.success && result.data) {
             const attachment = result.data;
 
-            // Convert base64 to binary
-            const binaryString = atob(attachment.file_data);
-            const bytes = new Uint8Array(binaryString.length);
-            for (let i = 0; i < binaryString.length; i++) {
-                bytes[i] = binaryString.charCodeAt(i);
+            if (attachment.file_path) {
+                // Open from disk
+                await window.electron.attachments.open(attachment.file_path);
+            } else if (attachment.file_data) {
+                // Fallback for non-migrated BLOBs (often returned as base64 in Chaimae's DB layer)
+                let bytes;
+                if (typeof attachment.file_data === 'string') {
+                    const binaryString = atob(attachment.file_data);
+                    bytes = new Uint8Array(binaryString.length);
+                    for (let i = 0; i < binaryString.length; i++) {
+                        bytes[i] = binaryString.charCodeAt(i);
+                    }
+                } else {
+                    bytes = attachment.file_data;
+                }
+
+                const blob = new Blob([bytes], { type: attachment.file_type });
+                const url = URL.createObjectURL(blob);
+                window.open(url, '_blank');
+                setTimeout(() => URL.revokeObjectURL(url), 10000);
+            } else {
+                window.notify.error('Erreur', 'Contenu du fichier introuvable', 3000);
             }
-
-            // Create blob from binary data
-            const blob = new Blob([bytes], {
-                type: attachment.file_type
-            });
-
-            // Create URL and open
-            const url = URL.createObjectURL(blob);
-            window.open(url, '_blank');
-
-            // Clean up URL after a delay
-            setTimeout(() => URL.revokeObjectURL(url), 10000);
         } else {
             window.notify.error('Erreur', 'Impossible d\'ouvrir le fichier', 3000);
         }
@@ -5197,14 +5222,23 @@ window.deleteAttachmentChaimae = async function (attachmentId, invoiceId) {
     }
 
     try {
+        // Get attachment to find path
+        const attResult = await window.electron.dbChaimae.getAttachment(attachmentId);
+        const pathToDelete = (attResult.success && attResult.data) ? attResult.data.file_path : null;
+
         const result = await window.electron.dbChaimae.deleteAttachment(attachmentId);
 
         if (result.success) {
+            // Delete from disk if path exists
+            if (pathToDelete) {
+                await window.electron.attachments.delete(pathToDelete);
+            }
             window.notify.success('Succès', 'Pièce jointe supprimée', 2000);
 
-            // Close modal and reopen to refresh
-            document.querySelector('.invoice-view-overlay')?.remove();
-            setTimeout(() => viewInvoiceChaimae(invoiceId), 300);
+            // Refresh specifically the attachments section
+            refreshAttachmentsChaimae(invoiceId);
+            // Refresh main table
+            loadInvoicesChaimae();
         } else {
             window.notify.error('Erreur', result.error || 'Impossible de supprimer', 3000);
         }
@@ -5213,6 +5247,64 @@ window.deleteAttachmentChaimae = async function (attachmentId, invoiceId) {
         window.notify.error('Erreur', 'Une erreur est survenue', 3000);
     }
 }
+
+// Helper to refresh attachments in the modal without closing it
+async function refreshAttachmentsChaimae(invoiceId) {
+    const attachmentsSection = document.getElementById(`attachmentsSectionChaimae${invoiceId}`);
+    if (!attachmentsSection) return;
+
+    try {
+        const result = await window.electron.dbChaimae.getInvoiceById(invoiceId);
+        if (result.success && result.data) {
+            const invoice = result.data;
+            let attachmentsHTML = `
+                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem;">
+                    <h3 style="color:#fff;font-size:1.1rem;margin:0;font-weight:600;"> Pièces jointes(${invoice.attachments ? invoice.attachments.length : 0})</h3>
+                    <button onclick="addNewAttachmentChaimae(${invoiceId})" style="padding:0.5rem 1rem;background:#4CAF50;color:#fff;border:none;border-radius:6px;cursor:pointer;font-size:0.85rem;font-weight:600;display:flex;align-items:center;gap:0.5rem;transition:all 0.2s;" onmouseover="this.style.background='#45a049'" onmouseout="this.style.background='#4CAF50'">
+                        ➕ Ajouter
+                    </button>
+                </div>
+            `;
+
+            if (invoice.attachments && invoice.attachments.length > 0) {
+                attachmentsHTML += `
+                    <div style="background:#1e1e1e;border-radius:8px;padding:1rem;">
+                        ${invoice.attachments.map(a => `
+                            <div style="display:flex;justify-content:space-between;align-items:center;padding:0.75rem;background:#252526;border-radius:6px;margin-bottom:0.5rem;">
+                                <div style="display:flex;align-items:center;gap:1rem;">
+                                    <span style="font-size:1.5rem;">${a.file_type.includes('pdf') ? '📄' : '🖼️'}</span>
+                                    <div>
+                                        <div style="color:#fff;font-weight:500;">${a.filename}</div>
+                                        <div style="color:#999;font-size:0.85rem;">${(a.file_size / 1024).toFixed(2)} KB</div>
+                                    </div>
+                                </div>
+                                <div style="display:flex;gap:0.5rem;">
+                                    <button onclick="openAttachmentChaimae(${a.id})" style="padding:0.4rem 0.8rem;background:#2196F3;color:#fff;border:none;border-radius:4px;cursor:pointer;font-size:0.8rem;">
+                                        👁️ Ouvrir
+                                    </button>
+                                    <button onclick="deleteAttachmentChaimae(${a.id}, ${invoiceId})" style="padding:0.4rem 0.8rem;background:#f44336;color:#fff;border:none;border-radius:4px;cursor:pointer;font-size:0.8rem;display:flex;align-items:center;gap:0.4rem;">
+                                        <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor">
+                                            <path d="M5.5 5.5A.5.5 0 0 1 6 6v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5zm2.5 0a.5.5 0 0 1 .5.5v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5zm3 .5a.5.5 0 0 0-1 0v6a.5.5 0 0 0 1 0V6z"/>
+                                            <path fill-rule="evenodd" d="M14.5 3a1 1 0 0 1-1 1H13v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V4h-.5a1 1 0 0 1-1-1V2a1 1 0 0 1 1-1H6a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1h3.5a1 1 0 0 1 1 1v1zM4.118 4 4 4.059V13a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1V4.059L11.882 4H4.118zM2.5 3V2h11v1h-11z"/>
+                                        </svg>
+                                        Supprimer
+                                    </button>
+                                </div>
+                            </div>
+                        `).join('')}
+                    </div>
+                `;
+            } else {
+                attachmentsHTML += '<p style="color:#999;text-align:center;padding:2rem;background:#1e1e1e;border-radius:8px;">Aucune pièce jointe</p>';
+            }
+
+            attachmentsSection.innerHTML = attachmentsHTML;
+        }
+    } catch (err) {
+        console.error('Error refreshing attachments:', err);
+    }
+}
+
 
 // Show create global invoice modal
 window.showCreateGlobalInvoiceModalChaimae = async function () {
@@ -5528,6 +5620,36 @@ window.importDatabaseChaimae = async function () {
     } catch (error) {
         console.error('Import error:', error);
         window.notify.error('Erreur', 'Une erreur est survenue', 3000);
+    }
+}
+
+// Global Migration Trigger
+window.triggerMigration = async function (company) {
+    const confirmed = await customConfirm(
+        '🚀 Migration des pièces jointes',
+        `Cette opération va déplacer TOUTES les pièces jointes de la base de données vers votre disque dur pour libérer de l'espace et accélérer le programme. \n\nContinuer ?`,
+        'info'
+    );
+
+    if (!confirmed) return;
+
+    const loadingNotif = window.notify.loading('Migration en cours...', 'Ceci peut prendre quelques instants');
+
+    try {
+        const result = await window.electron.attachments.migrate(company);
+        window.notify.remove(loadingNotif);
+
+        if (result.success) {
+            window.notify.success('Migration terminée', `${result.migrated} fichiers ont été déplacés avec succès.`, 5000);
+            if (company === 'CHAIMAE') loadInvoicesChaimae();
+            else if (company === 'MULTI') loadInvoicesMulti();
+            else if (company === 'MRY') loadInvoices(); // MRY uses loadInvoices()
+        } else {
+            window.notify.error('Échec de la migration', result.error, 5000);
+        }
+    } catch (error) {
+        window.notify.remove(loadingNotif);
+        window.notify.error('Erreur critique', error.message, 5000);
     }
 }
 

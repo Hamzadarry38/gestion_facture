@@ -61,6 +61,10 @@ function InvoicesListMultiPage() {
                                 </svg>
                                 <span>Nouvelle</span>
                             </button>
+
+                            <button class="action-btn" onclick="triggerMigration('MULTI')" style="background: #FF9800; color: white; border: none; font-weight: 600;">
+                                🚀 Migrer P.J
+                            </button>
                             
                             <button class="action-btn action-btn-secondary" onclick="router.navigate('/dashboard-multi')">
                                 <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor">
@@ -641,7 +645,7 @@ window.viewInvoiceMulti = async function (id) {
         modal.style.cssText = 'background:#2d2d30;border-radius:16px;max-width:900px;width:100%;max-height:90vh;overflow-y:auto;box-shadow:0 25px 50px rgba(0,0,0,0.5);';
 
         modal.innerHTML = `
-            < div style = "background:#1e1e1e;padding:1.5rem 2rem;border-radius:16px 16px 0 0;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid #3e3e42;" >
+            <div style="background:#1e1e1e;padding:1.5rem 2rem;border-radius:16px 16px 0 0;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid #3e3e42;">
                 <div style="display:flex;align-items:center;gap:1rem;">
                     <svg width="24" height="24" viewBox="0 0 16 16" fill="currentColor" style="color:#fff;">
                         <path d="M4 0a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2V2a2 2 0 0 0-2-2H4zm0 1h8a1 1 0 0 1 1 1v12a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V2a1 1 0 0 1 1-1z"/>
@@ -674,7 +678,7 @@ window.viewInvoiceMulti = async function (id) {
                     ` : ''}
                     <button id="closeViewModal" style="background:none;border:none;color:#999;cursor:pointer;font-size:1.5rem;padding:0;width:32px;height:32px;display:flex;align-items:center;justify-content:center;border-radius:4px;transition:all 0.2s;margin-left:auto;" onmouseover="this.style.background='#3e3e42';this.style.color='#fff'" onmouseout="this.style.background='none';this.style.color='#999'">×</button>
                 </div>
-            </div >
+            </div>
 
             <div style="padding:2rem;">
                 <!-- Client Section -->
@@ -774,7 +778,7 @@ window.viewInvoiceMulti = async function (id) {
                 </div>
 
                 <!-- Attachments Section -->
-                <div style="margin-bottom:2rem;">
+                <div style="margin-bottom:2rem;" id="attachmentsSectionMulti${id}">
                     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1rem;">
                         <h3 style="color:#fff;font-size:1.1rem;margin:0;font-weight:600;">Pièces jointes</h3>
                         <button onclick="addNewAttachmentMulti(${id})" style="padding:0.5rem 1rem;background:#4CAF50;color:#fff;border:none;border-radius:6px;cursor:pointer;font-size:0.85rem;font-weight:600;display:flex;align-items:center;gap:0.5rem;transition:all 0.2s;" onmouseover="this.style.background='#45a049'" onmouseout="this.style.background='#4CAF50'">
@@ -797,7 +801,7 @@ window.viewInvoiceMulti = async function (id) {
                                         </div>
                                         <div style="flex:1;min-width:0;">
                                             <div style="color:#fff;font-weight:500;font-size:0.9rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${a.filename}</div>
-                                            <div style="color:#999;font-size:0.8rem;margin-top:0.25rem;">${(a.file_size / 1024).toFixed(1)} KB • ${new Date(a.uploaded_at).toLocaleDateString('fr-FR')}</div>
+                                            <div style="color:#999;font-size:0.8rem;margin-top:0.25rem;">${new Date(a.uploaded_at).toLocaleDateString('fr-FR')}</div>
                                         </div>
                                     </div>
                                     <div style="display:flex;gap:0.5rem;flex-shrink:0;">
@@ -880,7 +884,7 @@ window.viewInvoiceMulti = async function (id) {
                     if (invoice.created_by_user_name) {
                         const createdDate = new Date(invoice.created_at).toLocaleDateString('fr-FR');
                         auditHTML += `
-            < div style = "padding:0.75rem;background:#252526;border-radius:6px;margin-bottom:0.5rem;border-left:4px solid #4CAF50;" >
+            <div style="padding:0.75rem;background:#252526;border-radius:6px;margin-bottom:0.5rem;border-left:4px solid #4CAF50;">
                 <div style="display:flex;justify-content:space-between;align-items:start;">
                     <div>
                         <div style="color:#4CAF50;font-weight:600;font-size:0.9rem;">➕ Création</div>
@@ -889,7 +893,7 @@ window.viewInvoiceMulti = async function (id) {
                     </div>
                     <div style="color:#999;font-size:0.85rem;white-space:nowrap;">${createdDate}</div>
                 </div>
-                            </div >
+                            </div>
             `;
                     }
 
@@ -897,7 +901,7 @@ window.viewInvoiceMulti = async function (id) {
                     logs.forEach(log => {
                         const logDate = new Date(log.created_at).toLocaleDateString('fr-FR');
                         auditHTML += `
-            < div style = "padding:0.75rem;background:#252526;border-radius:6px;margin-bottom:0.5rem;border-left:4px solid #2196F3;" >
+            <div style="padding:0.75rem;background:#252526;border-radius:6px;margin-bottom:0.5rem;border-left:4px solid #2196F3;">
                 <div style="display:flex;justify-content:space-between;align-items:start;">
                     <div>
                         <div style="color:#2196F3;font-weight:600;font-size:0.9rem;">✏️ Mis à jour</div>
@@ -906,7 +910,7 @@ window.viewInvoiceMulti = async function (id) {
                     </div>
                     <div style="color:#999;font-size:0.85rem;white-space:nowrap;">${logDate}</div>
                 </div>
-                            </div >
+                            </div>
             `;
                     });
 
@@ -918,7 +922,7 @@ window.viewInvoiceMulti = async function (id) {
                     console.log('ℹ️ [AUDIT LOG MULTI] No audit logs found');
                     const createdDate = new Date(invoice.created_at).toLocaleDateString('fr-FR');
                     auditLogContent.innerHTML = `
-            < div style = "padding:0.75rem;background:#252526;border-radius:6px;border-left:4px solid #4CAF50;" >
+            <div style="padding:0.75rem;background:#252526;border-radius:6px;border-left:4px solid #4CAF50;">
                 <div style="display:flex;justify-content:space-between;align-items:start;">
                     <div>
                         <div style="color:#4CAF50;font-weight:600;font-size:0.9rem;">➕ Création</div>
@@ -927,7 +931,7 @@ window.viewInvoiceMulti = async function (id) {
                     </div>
                     <div style="color:#999;font-size:0.85rem;white-space:nowrap;">${createdDate}</div>
                 </div>
-                        </div >
+                        </div>
             `;
                 }
             } catch (error) {
@@ -975,9 +979,18 @@ window.openAttachmentMulti = async function (attachmentId) {
         const result = await window.electron.dbMulti.getAttachment(attachmentId);
 
         if (result.success && result.data) {
-            const blob = new Blob([result.data.file_data], { type: result.data.file_type });
-            const url = URL.createObjectURL(blob);
-            window.open(url, '_blank');
+            const attachment = result.data;
+            if (attachment.file_path) {
+                // Open file from disk
+                await window.electron.attachments.open(attachment.file_path);
+            } else if (attachment.file_data) {
+                // Fallback for non-migrated BLOBs
+                const blob = new Blob([attachment.file_data], { type: attachment.file_type });
+                const url = URL.createObjectURL(blob);
+                window.open(url, '_blank');
+            } else {
+                throw new Error('Contenu du fichier introuvable');
+            }
         } else {
             throw new Error(result.error || 'Fichier introuvable');
         }
@@ -995,17 +1008,23 @@ window.deleteAttachmentMulti = async function (attachmentId, invoiceId) {
     }
 
     try {
+        // Get attachment to find path
+        const attResult = await window.electron.dbMulti.getAttachment(attachmentId);
+        const pathToDelete = (attResult.success && attResult.data) ? attResult.data.file_path : null;
+
         const result = await window.electron.dbMulti.deleteAttachment(attachmentId);
 
         if (result.success) {
+            // Delete from disk if path exists
+            if (pathToDelete) {
+                await window.electron.attachments.delete(pathToDelete);
+            }
             window.notify.success('Supprimé', 'Fichier supprimé avec succès', 3000);
 
-            // Close modal and reopen to refresh
-            const modalToClose = document.querySelector('.invoice-view-overlay');
-            if (modalToClose) {
-                modalToClose.remove();
-            }
-            setTimeout(() => viewInvoiceMulti(invoiceId), 300);
+            // Refresh specifically the attachments section
+            refreshAttachmentsMulti(invoiceId);
+            // Refresh main table in background
+            loadInvoicesMulti();
         } else {
             throw new Error(result.error);
         }
@@ -1035,30 +1054,41 @@ window.addNewAttachmentMulti = async function (invoiceId) {
                 const arrayBuffer = await file.arrayBuffer();
                 const uint8Array = new Uint8Array(arrayBuffer);
 
-                // Add attachment
+                // 1. Save to disk first
+                const saveResult = await window.electron.attachments.save({
+                    company: 'MULTI',
+                    filename: file.name,
+                    data: uint8Array
+                });
+
+                if (!saveResult.success) throw new Error(saveResult.error);
+
+                // 2. Add to database with path (file_data is NULL for new ones)
                 const result = await window.electron.dbMulti.addAttachment(
                     invoiceId,
                     file.name,
                     file.type,
-                    uint8Array
+                    null, // No BLOB for new files
+                    saveResult.filePath,
+                    file.size
                 );
 
                 if (result.success) {
-                    console.log('✅ Attachment uploaded:', file.name);
+                    console.log('✅ Attachment saved to disk and DB:', file.name);
                 } else {
+                    // Cleanup file if DB insert fails
+                    await window.electron.attachments.delete(saveResult.filePath);
                     throw new Error(result.error);
                 }
             }
 
             window.notify.remove(loadingNotif);
-            window.notify.success('Succès', `${files.length} fichier(s) ajouté(s) avec succès`, 3000);
+            window.notify.success('Succès', `${files.length} fichier(s) ajouté(s)`, 3000);
 
-            // Close modal and reopen to refresh
-            const modalToClose = document.querySelector('.invoice-view-overlay');
-            if (modalToClose) {
-                modalToClose.remove();
-            }
-            setTimeout(() => viewInvoiceMulti(invoiceId), 300);
+            // Refresh specifically the attachments section
+            refreshAttachmentsMulti(invoiceId);
+            // Refresh main table in background
+            loadInvoicesMulti();
 
         } catch (error) {
             window.notify.remove(loadingNotif);
@@ -1068,6 +1098,71 @@ window.addNewAttachmentMulti = async function (invoiceId) {
     };
 
     input.click();
+}
+
+// Helper to refresh attachments in the modal without closing it
+async function refreshAttachmentsMulti(invoiceId) {
+    const attachmentsSection = document.getElementById(`attachmentsSectionMulti${invoiceId}`);
+    if (!attachmentsSection) return;
+
+    try {
+        const result = await window.electron.dbMulti.getInvoiceById(invoiceId);
+        if (result.success && result.data) {
+            const invoice = result.data;
+            let attachmentsHTML = `
+                <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1rem;">
+                    <h3 style="color:#fff;font-size:1.1rem;margin:0;font-weight:600;">Pièces jointes</h3>
+                    <button onclick="addNewAttachmentMulti(${invoiceId})" style="padding:0.5rem 1rem;background:#4CAF50;color:#fff;border:none;border-radius:6px;cursor:pointer;font-size:0.85rem;font-weight:600;display:flex;align-items:center;gap:0.5rem;transition:all 0.2s;" onmouseover="this.style.background='#45a049'" onmouseout="this.style.background='#4CAF50'">
+                        <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor">
+                            <path d="M8 4a.5.5 0 0 1 .5.5v3h3a.5.5 0 0 1 0 1h-3v3a.5.5 0 0 1-1 0v-3h-3a.5.5 0 0 1 0-1h3v-3A.5.5 0 0 1 8 4z" />
+                        </svg>
+                        Ajouter
+                    </button>
+                </div>
+            `;
+
+            if (invoice.attachments && invoice.attachments.length > 0) {
+                attachmentsHTML += `
+                    <div style="display:grid;gap:0.75rem;">
+                        ${invoice.attachments.map(a => `
+                            <div style="background:#1e1e1e;padding:1rem;border-radius:8px;display:flex;align-items:center;justify-content:space-between;">
+                                <div style="display:flex;align-items:center;gap:1rem;flex:1;min-width:0;">
+                                    <div style="width:40px;height:40px;background:#2d2d30;border-radius:8px;display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+                                        ${a.file_type.includes('pdf') ?
+                        '<svg width="20" height="20" viewBox="0 0 16 16" fill="#f44336"><path d="M14 4.5V14a2 2 0 0 1-2 2h-1v-1h1a1 1 0 0 0 1-1V4.5h-2A1.5 1.5 0 0 1 9.5 3V1H4a1 1 0 0 0-1 1v9H2V2a2 2 0 0 1 2-2h5.5L14 4.5z"/><path d="M1.6 11.85H0v3.999h.791v-1.342h.803c.287 0 .531-.057.732-.173.203-.117.358-.275.463-.474a1.42 1.42 0 0 0 .161-.677c0-.25-.053-.476-.158-.677a1.176 1.176 0 0 0-.46-.477c-.2-.12-.443-.179-.732-.179Zm.545 1.333a.795.795 0 0 1-.085.38.574.574 0 0 1-.238.241.794.794 0 0 1-.375.082H.788V12.48h.66c.218 0 .389.06.512.181.123.122.185.296.185.522Zm1.217-1.333v3.999h1.46c.401 0 .734-.08.998-.237a1.45 1.45 0 0 0 .595-.689c.13-.3.196-.662.196-1.084 0-.42-.065-.778-.196-1.075a1.426 1.426 0 0 0-.589-.68c-.264-.156-.599-.234-1.005-.234H3.362Zm.791.645h.563c.248 0 .45.05.609.152a.89.89 0 0 1 .354.454c.079.201.118.452.118.753a2.3 2.3 0 0 1-.068.592 1.14 1.14 0 0 1-.196.422.8.8 0 0 1-.334.252 1.298 1.298 0 0 1-.483.082h-.563v-2.707Zm3.743 1.763v1.591h-.79V11.85h2.548v.653H7.896v1.117h1.606v.638H7.896Z"/></svg>' :
+                        '<svg width="20" height="20" viewBox="0 0 16 16" fill="#2196F3"><path d="M6.002 5.5a1.5 1.5 0 1 1-3 0 1.5 1.5 0 0 1 3 0z"/><path d="M2.002 1a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V3a2 2 0 0 0-2-2h-12zm12 1a1 1 0 0 1 1 1v6.5l-3.777-1.947a.5.5 0 0 0-.577.093l-3.71 3.71-2.66-1.772a.5.5 0 0 0-.63.062L1.002 12V3a1 1 0 0 1 1-1h12z"/></svg>'
+                    }
+                                    </div>
+                                    <div style="flex:1;min-width:0;">
+                                        <div style="color:#fff;font-weight:500;font-size:0.9rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${a.filename}</div>
+                                        <div style="color:#999;font-size:0.8rem;margin-top:0.25rem;">${(a.file_size / 1024).toFixed(1)} KB • ${new Date(a.uploaded_at).toLocaleDateString('fr-FR')}</div>
+                                    </div>
+                                </div>
+                                <div style="display:flex;gap:0.5rem;flex-shrink:0;">
+                                    <button onclick="openAttachmentMulti(${a.id})" style="padding:0.4rem 0.8rem;background:#2196F3;color:#fff;border:none;border-radius:4px;cursor:pointer;font-size:0.8rem;">
+                                        👁️ Ouvrir
+                                    </button>
+                                    <button onclick="deleteAttachmentMulti(${a.id}, ${invoiceId})" style="padding:0.4rem 0.8rem;background:#f44336;color:#fff;border:none;border-radius:4px;cursor:pointer;font-size:0.8rem;display:flex;align-items:center;gap:0.4rem;">
+                                        <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor">
+                                            <path d="M5.5 5.5A.5.5 0 0 1 6 6v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5zm2.5 0a.5.5 0 0 1 .5.5v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5zm3 .5a.5.5 0 0 0-1 0v6a.5.5 0 0 0 1 0V6z"/>
+                                            <path fill-rule="evenodd" d="M14.5 3a1 1 0 0 1-1 1H13v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V4h-.5a1 1 0 0 1-1-1V2a1 1 0 0 1 1-1H6a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1h3.5a1 1 0 0 1 1 1v1zM4.118 4 4 4.059V13a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1V4.059L11.882 4H4.118zM2.5 3V2h11v1h-11z"/>
+                                        </svg>
+                                        Supprimer
+                                    </button>
+                                </div>
+                            </div>
+                        `).join('')}
+                    </div>
+                `;
+            } else {
+                attachmentsHTML += '<p style="color:#999;text-align:center;padding:2rem;background:#1e1e1e;border-radius:8px;">Aucune pièce jointe</p>';
+            }
+
+            attachmentsSection.innerHTML = attachmentsHTML;
+        }
+    } catch (err) {
+        console.error('Error refreshing attachments:', err);
+    }
 }
 
 // Load Multi signature image for PDF
@@ -1904,3 +1999,33 @@ window.sortTableMulti = function (column) {
 
     console.log('✅ [MULTI SORT] Sorted successfully:', column, currentSortDirectionMulti);
 };
+
+// Global Migration Trigger
+window.triggerMigration = async function (company) {
+    const confirmed = await customConfirm(
+        '🚀 Migration des pièces jointes',
+        `Cette opération va déplacer TOUTES les pièces jointes de la base de données vers votre disque dur pour libérer de l'espace et accélérer le programme. \n\nContinuer ?`,
+        'info'
+    );
+
+    if (!confirmed) return;
+
+    const loadingNotif = window.notify.loading('Migration en cours...', 'Ceci peut prendre quelques instants');
+
+    try {
+        const result = await window.electron.attachments.migrate(company);
+        window.notify.remove(loadingNotif);
+
+        if (result.success) {
+            window.notify.success('Migration terminée', `${result.migrated} fichiers ont été déplacés avec succès.`, 5000);
+            if (company === 'CHAIMAE') loadInvoicesChaimae();
+            else if (company === 'MULTI') loadInvoicesMulti();
+            else if (company === 'MRY') loadInvoices(); // MRY uses loadInvoices()
+        } else {
+            window.notify.error('Échec de la migration', result.error, 5000);
+        }
+    } catch (error) {
+        window.notify.remove(loadingNotif);
+        window.notify.error('Erreur critique', error.message, 5000);
+    }
+}

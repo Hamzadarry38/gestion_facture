@@ -292,6 +292,129 @@ function setupPdfHandlers() {
       return { success: false, error: error.message };
     }
   });
+
+  // Attachment Storage Handlers
+  ipcMain.handle('attachment:save', async (event, { company, filename, data }) => {
+    try {
+      const attachmentsDir = path.join(app.getPath('userData'), 'attachments', company.toLowerCase(), 'Pièces jointes');
+      if (!fs.existsSync(attachmentsDir)) {
+        fs.mkdirSync(attachmentsDir, { recursive: true });
+      }
+
+      const uniqueName = `${Date.now()}_${filename}`;
+      const filePath = path.join(attachmentsDir, uniqueName);
+
+      // data is a Buffer or Uint8Array
+      fs.writeFileSync(filePath, Buffer.from(data));
+
+      return { success: true, filePath, filename: uniqueName };
+    } catch (error) {
+      console.error('❌ Error saving attachment:', error);
+      return { success: false, error: error.message };
+    }
+  });
+
+  ipcMain.handle('attachment:open', async (event, filePath) => {
+    try {
+      if (fs.existsSync(filePath)) {
+        await shell.openPath(filePath);
+        return { success: true };
+      }
+      return { success: false, error: 'File not found' };
+    } catch (error) {
+      return { success: false, error: error.message };
+    }
+  });
+
+  ipcMain.handle('attachment:delete', async (event, filePath) => {
+    try {
+      if (fs.existsSync(filePath)) {
+        fs.unlinkSync(filePath);
+        return { success: true };
+      }
+      return { success: true }; // Already gone
+    } catch (error) {
+      return { success: false, error: error.message };
+    }
+  });
+
+  // Global Migration Handler
+  ipcMain.handle('attachment:migrate', async (event, company) => {
+    try {
+      console.log(`🚀 Starting migration for company: ${company}`);
+      const companyKey = company.toLowerCase();
+
+      // Dynamically get the appropriate database module
+      let dbModule;
+      switch (companyKey) {
+        case 'multi': dbModule = require('./database/db_multi'); break;
+        case 'chaimae': dbModule = require('./database/db_chaimae'); break;
+        case 'mry': dbModule = require('./database/db'); break;
+        default: throw new Error(`Unknown company: ${company}`);
+      }
+
+      const db = dbModule.getDatabase();
+      if (!db) throw new Error('Database not initialized');
+
+      // Ensure file_path column exists
+      try {
+        db.run("ALTER TABLE attachments ADD COLUMN file_path TEXT");
+      } catch (e) {
+        // Column might already exist
+      }
+
+      // First, let's see ALL attachments for debugging
+      const allAttachments = db.exec("SELECT id, filename, file_path, CASE WHEN file_data IS NOT NULL THEN 'HAS_DATA' ELSE 'NO_DATA' END as has_data FROM attachments");
+      console.log('📊 [MIGRATION] All attachments in database:');
+      if (allAttachments.length > 0 && allAttachments[0].values.length > 0) {
+        allAttachments[0].values.forEach(row => {
+          console.log(`   ID: ${row[0]}, File: ${row[1]}, Path: ${row[2] || 'NULL'}, Data: ${row[3]}`);
+        });
+      } else {
+        console.log('   No attachments found in database at all!');
+      }
+
+      // Fetch all attachments with BLOB data that haven't been migrated yet
+      const results = db.exec("SELECT id, filename, file_data FROM attachments WHERE file_data IS NOT NULL AND (file_path IS NULL OR file_path = '')");
+      console.log(`📊 [MIGRATION] Attachments needing migration: ${results.length > 0 ? results[0].values.length : 0}`);
+
+      if (results.length === 0 || results[0].values.length === 0) {
+        return { success: true, migrated: 0, message: 'No attachments to migrate (all already migrated or no data)' };
+      }
+
+      const attachmentsDir = path.join(app.getPath('userData'), 'attachments', companyKey, 'Pièces jointes');
+      if (!fs.existsSync(attachmentsDir)) fs.mkdirSync(attachmentsDir, { recursive: true });
+
+      let count = 0;
+      for (const row of results[0].values) {
+        const [id, originalName, blobData] = row;
+        const uniqueName = `${id}_${originalName.replace(/[^a-zA-Z0-9.-]/g, '_')}`;
+        const filePath = path.join(attachmentsDir, uniqueName);
+
+        // Save file
+        fs.writeFileSync(filePath, Buffer.from(blobData));
+
+        // Update DB: clear BLOB, set path
+        db.run("UPDATE attachments SET file_data = NULL, file_path = ? WHERE id = ?", [filePath, id]);
+        count++;
+      }
+
+      // Vacuum to reclaim space
+      db.run("VACUUM");
+
+      // Save the database file
+      // In these modules, saveDatabase is usually exported or called internally. 
+      // Checking db_multi/db/db_chaimae, they have a saveDatabase function.
+      if (typeof dbModule.saveDatabase === 'function') {
+        dbModule.saveDatabase();
+      }
+
+      return { success: true, migrated: count };
+    } catch (error) {
+      console.error('❌ Migration failed:', error);
+      return { success: false, error: error.message };
+    }
+  });
 }
 
 // PDF Export/Import handlers
@@ -413,212 +536,204 @@ function setupPdfExportImportHandlers() {
 // Backup & Restore handlers for MRY
 function setupBackupHandlers() {
   ipcMain.handle('db:backup:export', async () => {
-    try {
-      const result = await dialog.showSaveDialog(mainWindow, {
-        title: 'Exporter la base de données MRY',
-        defaultPath: `MRY_Backup_${new Date().toISOString().split('T')[0]}.db`,
-        filters: [
-          { name: 'Database Files', extensions: ['db'] },
-          { name: 'All Files', extensions: ['*'] }
-        ]
-      });
-
-      if (!result.canceled && result.filePath) {
-        // Use app.getPath('userData') for database location
-        const dbPath = path.join(app.getPath('userData'), 'invoices.db');
-
-        // Check if database exists
-        if (!fs.existsSync(dbPath)) {
-          return { success: false, error: 'Base de données introuvable' };
-        }
-
-        fs.copyFileSync(dbPath, result.filePath);
-        return { success: true, path: result.filePath };
-      }
-
-      return { success: false, canceled: true };
-    } catch (error) {
-      console.error('Export error:', error);
-      return { success: false, error: error.message };
-    }
+    return exportDatabaseWithAttachments('mry', path.join(app.getPath('userData'), 'invoices.db'), `MRY_Backup_${new Date().toISOString().split('T')[0]}.db`);
   });
 
   ipcMain.handle('db:backup:import', async () => {
-    try {
-      const result = await dialog.showOpenDialog(mainWindow, {
-        title: 'Importer la base de données MRY',
-        filters: [
-          { name: 'Database Files', extensions: ['db'] },
-          { name: 'All Files', extensions: ['*'] }
-        ],
-        properties: ['openFile']
-      });
-
-      if (!result.canceled && result.filePaths.length > 0) {
-        // Use app.getPath('userData') for database location
-        const dbPath = path.join(app.getPath('userData'), 'invoices.db');
-        const backupPath = path.join(app.getPath('userData'), `invoices_backup_${Date.now()}.db`);
-
-        // Create backup of current database
-        if (fs.existsSync(dbPath)) {
-          fs.copyFileSync(dbPath, backupPath);
-        }
-
-        // Copy imported file to database location
-        fs.copyFileSync(result.filePaths[0], dbPath);
-
-        // Reload the app to apply the new database
-        app.relaunch();
-        app.exit(0);
-
-        return { success: true, path: result.filePaths[0], needsReload: true };
-      }
-
-      return { success: false, canceled: true };
-    } catch (error) {
-      console.error('Import error:', error);
-      return { success: false, error: error.message };
-    }
+    return importDatabaseWithAttachments('mry', 'invoices.db');
   });
 
-  // Backup & Restore handlers for CHAIMAE
-  ipcMain.handle('db:chaimae:backup:export', async () => {
+
+
+  // Helper function for ZIP Export
+  async function exportDatabaseWithAttachments(companyKey, dbPath, defaultFilename) {
     try {
+      const { response, checkboxChecked } = await dialog.showMessageBox(mainWindow, {
+        type: 'question',
+        buttons: ['Exporter avec Pièces Jointes (ZIP)', 'Exporter Base seule (.db)', 'Annuler'],
+        defaultId: 0,
+        title: 'Options d\'exportation',
+        message: 'Voulez-vous inclure les pièces jointes ?',
+        detail: 'L\'exportation avec pièces jointes créera un fichier ZIP contenant la base de données et tous les fichiers associés.',
+        cancelId: 2
+      });
+
+      if (response === 2) return { success: false, canceled: true };
+
+      const includeAttachments = response === 0;
+      const extension = includeAttachments ? 'zip' : 'db';
+      const finalFilename = defaultFilename.replace('.db', `.${extension}`);
+
       const result = await dialog.showSaveDialog(mainWindow, {
-        title: 'Exporter la base de données CHAIMAE',
-        defaultPath: `CHAIMAE_Backup_${new Date().toISOString().split('T')[0]}.db`,
+        title: `Exporter la base de données ${companyKey.toUpperCase()}`,
+        defaultPath: finalFilename,
         filters: [
-          { name: 'Database Files', extensions: ['db'] },
+          { name: includeAttachments ? 'ZIP Archive' : 'Database Files', extensions: [extension] },
           { name: 'All Files', extensions: ['*'] }
         ]
       });
 
-      if (!result.canceled && result.filePath) {
-        // Use app.getPath('userData') for database location
-        const dbPath = path.join(app.getPath('userData'), 'invoices_chaimae.db');
+      if (result.canceled || !result.filePath) return { success: false, canceled: true };
 
-        // Check if database exists
-        if (!fs.existsSync(dbPath)) {
-          return { success: false, error: 'Base de données introuvable' };
-        }
+      if (!fs.existsSync(dbPath)) return { success: false, error: 'Base de données introuvable' };
 
+      if (includeAttachments) {
+        // Export as ZIP
+        const archiver = require('archiver');
+        const output = fs.createWriteStream(result.filePath);
+        const archive = archiver('zip', { zlib: { level: 9 } });
+
+        return new Promise((resolve, reject) => {
+          output.on('close', () => {
+            console.log(`✅ Export successful: ${result.filePath}`);
+            resolve({ success: true, path: result.filePath });
+          });
+
+          archive.on('error', (err) => reject(err));
+
+          archive.pipe(output);
+
+          // Add DB file
+          archive.file(dbPath, { name: path.basename(dbPath) });
+
+          // Add attachments folder
+          const attachmentsDir = path.join(app.getPath('userData'), 'attachments', companyKey.toLowerCase());
+          if (fs.existsSync(attachmentsDir)) {
+            archive.directory(attachmentsDir, 'attachments');
+          }
+
+          archive.finalize();
+        });
+      } else {
+        // simple copy
         fs.copyFileSync(dbPath, result.filePath);
         return { success: true, path: result.filePath };
       }
-
-      return { success: false, canceled: true };
     } catch (error) {
       console.error('Export error:', error);
       return { success: false, error: error.message };
     }
-  });
+  }
 
-  ipcMain.handle('db:chaimae:backup:import', async () => {
+  // Helper function for ZIP Import
+  async function importDatabaseWithAttachments(companyKey, dbFilename) {
     try {
       const result = await dialog.showOpenDialog(mainWindow, {
-        title: 'Importer la base de données CHAIMAE',
+        title: `Importer la base de données ${companyKey.toUpperCase()}`,
         filters: [
+          { name: 'Supported Files', extensions: ['db', 'zip'] },
           { name: 'Database Files', extensions: ['db'] },
+          { name: 'ZIP Archives', extensions: ['zip'] },
           { name: 'All Files', extensions: ['*'] }
         ],
         properties: ['openFile']
       });
 
-      if (!result.canceled && result.filePaths.length > 0) {
-        // Use app.getPath('userData') for database location
-        const dbPath = path.join(app.getPath('userData'), 'invoices_chaimae.db');
-        const backupPath = path.join(app.getPath('userData'), `invoices_chaimae_backup_${Date.now()}.db`);
+      if (result.canceled || result.filePaths.length === 0) return { success: false, canceled: true };
 
-        // Create backup of current database
-        if (fs.existsSync(dbPath)) {
-          fs.copyFileSync(dbPath, backupPath);
-        }
+      const sourcePath = result.filePaths[0];
+      const isZip = sourcePath.toLowerCase().endsWith('.zip');
+      const targetDbPath = path.join(app.getPath('userData'), dbFilename);
 
-        // Copy imported file to database location
-        fs.copyFileSync(result.filePaths[0], dbPath);
+      // Backup logic
+      const backupDir = path.join(app.getPath('userData'), 'backups');
+      if (!fs.existsSync(backupDir)) fs.mkdirSync(backupDir);
+      const timestamp = Date.now();
 
-        // Reload the app to apply the new database
-        app.relaunch();
-        app.exit(0);
-
-        return { success: true, path: result.filePaths[0], needsReload: true };
+      // Backup existing DB
+      if (fs.existsSync(targetDbPath)) {
+        fs.copyFileSync(targetDbPath, path.join(backupDir, `${dbFilename}.backup.${timestamp}`));
       }
 
-      return { success: false, canceled: true };
+      if (isZip) {
+        // Extract ZIP
+        const extract = require('extract-zip');
+        const tempDir = path.join(app.getPath('userData'), 'temp_restore', timestamp.toString());
+
+        await extract(sourcePath, { dir: tempDir });
+
+        // 1. Restore DB
+        // Look for .db file in the root of extracted folder
+        const files = fs.readdirSync(tempDir);
+        const dbFile = files.find(f => f.endsWith('.db')); // Assuming only one DB file or simple structure
+
+        if (dbFile) {
+          fs.copyFileSync(path.join(tempDir, dbFile), targetDbPath);
+        } else {
+          // Fallback: check if the expected db filename exists
+          if (fs.existsSync(path.join(tempDir, dbFilename))) {
+            fs.copyFileSync(path.join(tempDir, dbFilename), targetDbPath);
+          }
+        }
+
+        // 2. Restore Attachments
+        const extractedAttachmentsDir = path.join(tempDir, 'attachments');
+        if (fs.existsSync(extractedAttachmentsDir)) {
+          const targetAttachmentsDir = path.join(app.getPath('userData'), 'attachments', companyKey.toLowerCase());
+          if (!fs.existsSync(targetAttachmentsDir)) fs.mkdirSync(targetAttachmentsDir, { recursive: true });
+
+          // Copy recursively equivalent
+          const { cpSync } = require('fs'); // Node 16.7+
+          if (cpSync) {
+            cpSync(extractedAttachmentsDir, targetAttachmentsDir, { recursive: true, force: true });
+          } else {
+            // Fallback for older nodes if needed, but electron usually has modern node
+            // For now, let's assume simple implementation or use ncp/fs-extra if available.
+            // Given the context, we'll try basic approach or rely on fs.cpSync if available in this electron version.
+            // If not, we iterate.
+            // Actually, let's just move the new folder to replace/merge.
+            // Safe merge:
+            const ncp = (reqSrc, reqDest) => {
+              if (!fs.existsSync(reqDest)) fs.mkdirSync(reqDest, { recursive: true });
+              const entries = fs.readdirSync(reqSrc, { withFileTypes: true });
+              for (let entry of entries) {
+                const srcPath = path.join(reqSrc, entry.name);
+                const destPath = path.join(reqDest, entry.name);
+                if (entry.isDirectory()) {
+                  ncp(srcPath, destPath);
+                } else {
+                  fs.copyFileSync(srcPath, destPath);
+                }
+              }
+            };
+            ncp(extractedAttachmentsDir, targetAttachmentsDir);
+          }
+        }
+
+        // Cleanup temp
+        fs.rmSync(tempDir, { recursive: true, force: true });
+
+      } else {
+        // Simple DB copy
+        fs.copyFileSync(sourcePath, targetDbPath);
+      }
+
+      app.relaunch();
+      app.exit(0);
+      return { success: true, needsReload: true };
+
     } catch (error) {
       console.error('Import error:', error);
       return { success: false, error: error.message };
     }
+  }
+
+  // Backup & Restore handlers for CHAIMAE
+  ipcMain.handle('db:chaimae:backup:export', async () => {
+    return exportDatabaseWithAttachments('chaimae', path.join(app.getPath('userData'), 'invoices_chaimae.db'), `CHAIMAE_Backup_${new Date().toISOString().split('T')[0]}.db`);
+  });
+
+  ipcMain.handle('db:chaimae:backup:import', async () => {
+    return importDatabaseWithAttachments('chaimae', 'invoices_chaimae.db');
   });
 
   // Backup & Restore handlers for MULTI
   ipcMain.handle('db:multi:backup:export', async () => {
-    try {
-      const result = await dialog.showSaveDialog(mainWindow, {
-        title: 'Exporter la base de données MULTI',
-        defaultPath: `MULTI_Backup_${new Date().toISOString().split('T')[0]}.db`,
-        filters: [
-          { name: 'Database Files', extensions: ['db'] },
-          { name: 'All Files', extensions: ['*'] }
-        ]
-      });
-
-      if (!result.canceled && result.filePath) {
-        // Use app.getPath('userData') for database location
-        const dbPath = path.join(app.getPath('userData'), 'multi.db');
-
-        // Check if database exists
-        if (!fs.existsSync(dbPath)) {
-          return { success: false, error: 'Base de données introuvable' };
-        }
-
-        fs.copyFileSync(dbPath, result.filePath);
-        return { success: true, path: result.filePath };
-      }
-
-      return { success: false, canceled: true };
-    } catch (error) {
-      console.error('Export error:', error);
-      return { success: false, error: error.message };
-    }
+    return exportDatabaseWithAttachments('multi', path.join(app.getPath('userData'), 'multi.db'), `MULTI_Backup_${new Date().toISOString().split('T')[0]}.db`);
   });
 
   ipcMain.handle('db:multi:backup:import', async () => {
-    try {
-      const result = await dialog.showOpenDialog(mainWindow, {
-        title: 'Importer la base de données MULTI',
-        filters: [
-          { name: 'Database Files', extensions: ['db'] },
-          { name: 'All Files', extensions: ['*'] }
-        ],
-        properties: ['openFile']
-      });
-
-      if (!result.canceled && result.filePaths.length > 0) {
-        // Use app.getPath('userData') for database location
-        const dbPath = path.join(app.getPath('userData'), 'multi.db');
-        const backupPath = path.join(app.getPath('userData'), `multi_backup_${Date.now()}.db`);
-
-        // Create backup of current database
-        if (fs.existsSync(dbPath)) {
-          fs.copyFileSync(dbPath, backupPath);
-        }
-
-        // Copy imported file to database location
-        fs.copyFileSync(result.filePaths[0], dbPath);
-
-        // Reload the app to apply the new database
-        app.relaunch();
-        app.exit(0);
-
-        return { success: true, path: result.filePaths[0], needsReload: true };
-      }
-
-      return { success: false, canceled: true };
-    } catch (error) {
-      console.error('Import error:', error);
-      return { success: false, error: error.message };
-    }
+    return importDatabaseWithAttachments('multi', 'multi.db');
   });
 }
 

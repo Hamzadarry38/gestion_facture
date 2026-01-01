@@ -2065,17 +2065,31 @@ async function handleFormSubmitChaimae(e) {
                     const arrayBuffer = await file.arrayBuffer();
                     const uint8Array = new Uint8Array(arrayBuffer);
 
-                    const attachResult = await window.electron.dbChaimae.addAttachment(
-                        invoiceId,
-                        file.name,
-                        file.type,
-                        uint8Array
-                    );
+                    // 1. Save to disk
+                    const saveResult = await window.electron.attachments.save({
+                        company: 'CHAIMAE',
+                        filename: file.name,
+                        data: uint8Array
+                    });
 
-                    if (attachResult.success) {
-                        console.log(`✅ Attachment uploaded: ${file.name}`);
+                    if (saveResult.success) {
+                        // 2. Add to database with path
+                        const attachResult = await window.electron.dbChaimae.addAttachment(
+                            invoiceId,
+                            file.name,
+                            file.type,
+                            null, // No BLOB
+                            saveResult.filePath,
+                            file.size
+                        );
+
+                        if (attachResult.success) {
+                            console.log(`✅ Attachment uploaded: ${file.name}`);
+                        } else {
+                            console.error(`❌ Failed to upload: ${file.name}`, attachResult.error);
+                        }
                     } else {
-                        console.error(`❌ Failed to upload: ${file.name}`, attachResult.error);
+                        console.error(`❌ Failed to save to disk: ${file.name}`, saveResult.error);
                     }
                 }
             }

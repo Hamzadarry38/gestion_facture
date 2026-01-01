@@ -61,6 +61,10 @@ function InvoicesListMRYPage() {
                                 </svg>
                                 <span>Nouvelle</span>
                             </button>
+
+                            <button class="action-btn" onclick="triggerMigration('MRY')" style="background: #FF9800; color: white; border: none; font-weight: 600;">
+                                🚀 Migrer P.J
+                            </button>
                             
                             <button class="action-btn action-btn-secondary" onclick="router.navigate('/dashboard-mry')">
                                 <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor">
@@ -1108,7 +1112,7 @@ window.viewInvoice = async function (id) {
                 </div>
                 
                 <!-- Attachments Section -->
-                <div style="margin-bottom:2rem;">
+                <div style="margin-bottom:2rem;" id="attachmentsSectionMRY${id}">
                     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem;">
                         <h3 style="color:#fff;font-size:1.1rem;margin:0;font-weight:600;">Pièces jointes (${invoice.attachments ? invoice.attachments.length : 0})</h3>
                         <button onclick="addNewAttachment(${id})" style="padding:0.5rem 1rem;background:#4CAF50;color:#fff;border:none;border-radius:6px;cursor:pointer;font-size:0.85rem;font-weight:600;display:flex;align-items:center;gap:0.5rem;transition:all 0.2s;" onmouseover="this.style.background='#45a049'" onmouseout="this.style.background='#4CAF50'">
@@ -1123,7 +1127,7 @@ window.viewInvoice = async function (id) {
                                         <span style="font-size:1.5rem;">${a.file_type.includes('pdf') ? '📄' : '🖼️'}</span>
                                         <div>
                                             <div style="color:#fff;font-weight:500;">${a.filename}</div>
-                                            <div style="color:#999;font-size:0.85rem;">${(a.file_size / 1024).toFixed(2)} KB</div>
+                                            <div style="color:#999;font-size:0.8rem;margin-top:0.25rem;">${new Date(a.uploaded_at).toLocaleDateString('fr-FR')}</div>
                                         </div>
                                     </div>
                                     <div style="display:flex;gap:0.5rem;">
@@ -1878,14 +1882,32 @@ window.addEditAttachment = async function (invoiceId) {
 
         for (const file of files) {
             try {
+                // Check file size (max 10MB)
+                if (file.size > 10 * 1024 * 1024) {
+                    window.notify.warning('Fichier trop volumineux', `${file.name} dépasse 10MB`, 3000);
+                    continue;
+                }
+
+                // 1. Save to disk first
                 const arrayBuffer = await file.arrayBuffer();
                 const uint8Array = new Uint8Array(arrayBuffer);
 
+                const saveResult = await window.electron.attachments.save({
+                    company: 'MRY',
+                    filename: file.name,
+                    data: uint8Array
+                });
+
+                if (!saveResult.success) throw new Error(saveResult.error);
+
+                // 2. Add to database with path (file_data is NULL for new ones)
                 const result = await window.electron.db.addAttachment(
                     invoiceId,
                     file.name,
                     file.type,
-                    uint8Array
+                    null, // No BLOB for new files
+                    saveResult.filePath,
+                    file.size
                 );
 
                 if (result.success) {
@@ -1894,6 +1916,8 @@ window.addEditAttachment = async function (invoiceId) {
                     document.querySelector('.modal-overlay').remove();
                     setTimeout(() => editInvoice(invoiceId), 300);
                 } else {
+                    // Cleanup file if DB insert fails
+                    await window.electron.attachments.delete(saveResult.filePath);
                     window.notify.error('Erreur', `Échec: ${file.name}`, 3000);
                 }
             } catch (error) {
@@ -2108,48 +2132,33 @@ window.deleteInvoice = async function (id) {
 // Open attachment
 window.openAttachment = async function (attachmentId) {
     try {
-        console.log('📂 Opening attachment:', attachmentId);
         const result = await window.electron.db.getAttachment(attachmentId);
 
         if (result.success && result.data) {
             const attachment = result.data;
-            console.log('📄 Full attachment object:', attachment);
-            console.log('📄 File data details:', {
-                filename: attachment.filename,
-                type: attachment.file_type,
-                size: attachment.file_size,
-                dataType: typeof attachment.file_data,
-                isUint8Array: attachment.file_data instanceof Uint8Array,
-                isArray: Array.isArray(attachment.file_data),
-                isArrayBuffer: attachment.file_data instanceof ArrayBuffer,
-                hasDataProperty: attachment.file_data && attachment.file_data.data !== undefined,
-                constructor: attachment.file_data?.constructor?.name,
-                keys: attachment.file_data ? Object.keys(attachment.file_data).slice(0, 10) : [],
-                firstValues: attachment.file_data ? (Array.isArray(attachment.file_data) ? attachment.file_data.slice(0, 5) : Object.values(attachment.file_data).slice(0, 5)) : []
-            });
+            if (attachment.file_path) {
+                // Open from disk
+                await window.electron.attachments.open(attachment.file_path);
+            } else if (attachment.file_data) {
+                // Fallback for non-migrated BLOBs (stored as base64 in this module)
+                let bytes;
+                if (typeof attachment.file_data === 'string') {
+                    const binaryString = atob(attachment.file_data);
+                    bytes = new Uint8Array(binaryString.length);
+                    for (let i = 0; i < binaryString.length; i++) {
+                        bytes[i] = binaryString.charCodeAt(i);
+                    }
+                } else {
+                    bytes = attachment.file_data;
+                }
 
-            // Convert base64 string to binary
-            console.log('🔄 Converting base64 to binary...');
-            const binaryString = atob(attachment.file_data);
-            const bytes = new Uint8Array(binaryString.length);
-            for (let i = 0; i < binaryString.length; i++) {
-                bytes[i] = binaryString.charCodeAt(i);
+                const blob = new Blob([bytes], { type: attachment.file_type });
+                const url = URL.createObjectURL(blob);
+                window.open(url, '_blank');
+                setTimeout(() => URL.revokeObjectURL(url), 60000);
+            } else {
+                throw new Error('Contenu du fichier introuvable');
             }
-
-            console.log('✅ File data converted, size:', bytes.length);
-
-            // Create blob from binary data
-            const blob = new Blob([bytes], { type: attachment.file_type });
-            console.log('✅ Blob created, size:', blob.size, 'type:', blob.type);
-
-            const url = URL.createObjectURL(blob);
-            console.log('✅ URL created:', url);
-
-            // Open in new window
-            window.open(url, '_blank');
-
-            // Clean up after a delay
-            setTimeout(() => URL.revokeObjectURL(url), 60000);
         } else {
             throw new Error(result.error || 'Fichier introuvable');
         }
@@ -2170,28 +2179,23 @@ window.deleteAttachment = async function (attachmentId, invoiceId) {
     }
 
     try {
-        console.log('🗑️ [DELETE] Deleting attachment from database...');
+        // Get attachment to find path
+        const attResult = await window.electron.db.getAttachment(attachmentId);
+        const pathToDelete = (attResult.success && attResult.data) ? attResult.data.file_path : null;
+
         const result = await window.electron.db.deleteAttachment(attachmentId);
 
         if (result.success) {
-            console.log('🗑️ [DELETE] Attachment deleted successfully');
+            // Delete from disk if path exists
+            if (pathToDelete) {
+                await window.electron.attachments.delete(pathToDelete);
+            }
             window.notify.success('Supprimé', 'Fichier supprimé avec succès', 3000);
 
-            // Close modal and reopen to refresh
-            console.log('🗑️ [DELETE] Closing modal...');
-            const modalToClose = document.querySelector('.invoice-view-overlay');
-            console.log('🗑️ [DELETE] Modal found:', modalToClose ? 'Yes' : 'No');
-            if (modalToClose) {
-                modalToClose.remove();
-                console.log('🗑️ [DELETE] Modal removed');
-            } else {
-                console.warn('🗑️ [DELETE] Warning: Modal not found!');
-            }
-            console.log('🗑️ [DELETE] Reopening invoice view in 300ms...');
-            setTimeout(() => {
-                console.log('🗑️ [DELETE] Calling viewInvoice(' + invoiceId + ')');
-                viewInvoice(invoiceId);
-            }, 300);
+            // Refresh specifically the attachments section
+            refreshAttachmentsMRY(invoiceId);
+            // Refresh main table
+            loadInvoices();
         } else {
             throw new Error(result.error);
         }
@@ -2231,42 +2235,43 @@ window.addNewAttachment = async function (invoiceId) {
                     continue;
                 }
 
-                // Read file as array buffer
+                // 1. Read file and save to disk
                 const arrayBuffer = await file.arrayBuffer();
                 const uint8Array = new Uint8Array(arrayBuffer);
 
-                // Upload to database
+                const saveResult = await window.electron.attachments.save({
+                    company: 'MRY',
+                    filename: file.name,
+                    data: uint8Array
+                });
+
+                if (!saveResult.success) throw new Error(saveResult.error);
+
+                // 2. Add to DB with path
                 const result = await window.electron.db.addAttachment(
                     invoiceId,
                     file.name,
                     file.type,
-                    uint8Array
+                    null, // No BLOB for new files
+                    saveResult.filePath,
+                    file.size
                 );
 
                 if (result.success) {
-                    console.log('✅ Attachment uploaded:', file.name);
+                    console.log('✅ Attachment saved to disk and DB:', file.name);
                 } else {
+                    // Cleanup file if DB fails
+                    await window.electron.attachments.delete(saveResult.filePath);
                     console.error('❌ Failed to upload:', file.name, result.error);
                 }
             }
 
             window.notify.success('Succès', 'Fichier(s) ajouté(s) avec succès', 3000);
 
-            // Close modal and reopen to refresh
-            console.log('📎 [UPLOAD] Files uploaded, closing modal...');
-            const modalToClose = document.querySelector('.invoice-view-overlay');
-            console.log('📎 [UPLOAD] Modal found:', modalToClose ? 'Yes' : 'No');
-            if (modalToClose) {
-                modalToClose.remove();
-                console.log('📎 [UPLOAD] Modal removed');
-            } else {
-                console.warn('📎 [UPLOAD] Warning: Modal not found!');
-            }
-            console.log('📎 [UPLOAD] Reopening invoice view in 300ms...');
-            setTimeout(() => {
-                console.log('📎 [UPLOAD] Calling viewInvoice(' + invoiceId + ')');
-                viewInvoice(invoiceId);
-            }, 300);
+            // Refresh specifically the attachments section
+            refreshAttachmentsMRY(invoiceId);
+            // Refresh main table
+            loadInvoices();
 
         } catch (error) {
             console.error('Error uploading attachments:', error);
@@ -2275,6 +2280,63 @@ window.addNewAttachment = async function (invoiceId) {
     };
 
     input.click();
+}
+
+// Helper to refresh attachments in the modal without closing it
+async function refreshAttachmentsMRY(invoiceId) {
+    const attachmentsSection = document.getElementById(`attachmentsSectionMRY${invoiceId}`);
+    if (!attachmentsSection) return;
+
+    try {
+        const result = await window.electron.db.getInvoiceById(invoiceId);
+        if (result.success && result.data) {
+            const invoice = result.data;
+            let attachmentsHTML = `
+                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem;">
+                    <h3 style="color:#fff;font-size:1.1rem;margin:0;font-weight:600;">Pièces jointes (${invoice.attachments ? invoice.attachments.length : 0})</h3>
+                    <button onclick="addNewAttachment(${invoiceId})" style="padding:0.5rem 1rem;background:#4CAF50;color:#fff;border:none;border-radius:6px;cursor:pointer;font-size:0.85rem;font-weight:600;display:flex;align-items:center;gap:0.5rem;transition:all 0.2s;" onmouseover="this.style.background='#45a049'" onmouseout="this.style.background='#4CAF50'">
+                        ➕ Ajouter
+                    </button>
+                </div>
+            `;
+
+            if (invoice.attachments && invoice.attachments.length > 0) {
+                attachmentsHTML += `
+                    <div style="background:#1e1e1e;border-radius:8px;padding:1rem;">
+                        ${invoice.attachments.map(a => `
+                            <div style="display:flex;justify-content:space-between;align-items:center;padding:0.75rem;background:#252526;border-radius:6px;margin-bottom:0.5rem;">
+                                <div style="display:flex;align-items:center;gap:1rem;">
+                                    <span style="font-size:1.5rem;">${a.file_type.includes('pdf') ? '📄' : '🖼️'}</span>
+                                    <div>
+                                        <div style="color:#fff;font-weight:500;">${a.filename}</div>
+                                        <div style="color:#999;font-size:0.85rem;">${(a.file_size / 1024).toFixed(2)} KB</div>
+                                    </div>
+                                </div>
+                                <div style="display:flex;gap:0.5rem;">
+                                    <button onclick="openAttachment(${a.id})" style="padding:0.4rem 0.8rem;background:#2196F3;color:#fff;border:none;border-radius:4px;cursor:pointer;font-size:0.8rem;">
+                                        👁️ Ouvrir
+                                    </button>
+                                    <button onclick="deleteAttachment(${a.id}, ${invoiceId})" style="padding:0.4rem 0.8rem;background:#f44336;color:#fff;border:none;border-radius:4px;cursor:pointer;font-size:0.8rem;display:flex;align-items:center;gap:0.4rem;">
+                                        <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor">
+                                            <path d="M5.5 5.5A.5.5 0 0 1 6 6v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5zm2.5 0a.5.5 0 0 1 .5.5v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5zm3 .5a.5.5 0 0 0-1 0v6a.5.5 0 0 0 1 0V6z"/>
+                                            <path fill-rule="evenodd" d="M14.5 3a1 1 0 0 1-1 1H13v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V4h-.5a1 1 0 0 1-1-1V2a1 1 0 0 1 1-1H6a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1h3.5a1 1 0 0 1 1 1v1zM4.118 4 4 4.059V13a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1V4.059L11.882 4H4.118zM2.5 3V2h11v1h-11z"/>
+                                        </svg>
+                                        Supprimer
+                                    </button>
+                                </div>
+                            </div>
+                        `).join('')}
+                    </div>
+                `;
+            } else {
+                attachmentsHTML += '<p style="color:#999;text-align:center;padding:2rem;background:#1e1e1e;border-radius:8px;">Aucune pièce jointe</p>';
+            }
+
+            attachmentsSection.innerHTML = attachmentsHTML;
+        }
+    } catch (err) {
+        console.error('Error refreshing attachments:', err);
+    }
 }
 
 // Format number with spaces for thousands - Fixed for PDF Arabic numerals
@@ -4137,6 +4199,36 @@ window.deleteClientEdit = async function (clientId, clientName) {
     } catch (error) {
         console.error('Error deleting client:', error);
         window.notify.error('خطأ', 'حدث خطأ أثناء حذف الزبون');
+    }
+}
+
+// Global Migration Trigger
+window.triggerMigration = async function (company) {
+    const confirmed = await customConfirm(
+        '🚀 Migration des pièces jointes',
+        `Cette opération va déplacer TOUTES les pièces jointes de la base de données vers votre disque dur pour libérer de l'espace et accélérer le programme. \n\nContinuer ?`,
+        'info'
+    );
+
+    if (!confirmed) return;
+
+    const loadingNotif = window.notify.loading('Migration en cours...', 'Ceci peut prendre quelques instants');
+
+    try {
+        const result = await window.electron.attachments.migrate(company);
+        window.notify.remove(loadingNotif);
+
+        if (result.success) {
+            window.notify.success('Migration terminée', `${result.migrated} fichiers ont été déplacés avec succès.`, 5000);
+            if (company === 'CHAIMAE') loadInvoicesChaimae();
+            else if (company === 'MULTI') loadInvoicesMulti();
+            else if (company === 'MRY') loadInvoices(); // MRY uses loadInvoices()
+        } else {
+            window.notify.error('Échec de la migration', result.error, 5000);
+        }
+    } catch (error) {
+        window.notify.remove(loadingNotif);
+        window.notify.error('Erreur critique', error.message, 5000);
     }
 }
 

@@ -1051,7 +1051,7 @@ window.viewInvoice = async function (id) {
                                         <span style="font-size:1.5rem;">${a.file_type.includes('pdf') ? '📄' : '🖼️'}</span>
                                         <div>
                                             <div style="color:#fff;font-weight:500;">${a.filename}</div>
-                                            <div style="color:#999;font-size:0.85rem;">${(a.file_size / 1024).toFixed(2)} KB</div>
+                                            <div style="color:#999;font-size:0.8rem;margin-top:0.25rem;">${new Date(a.uploaded_at).toLocaleDateString('fr-FR')}</div>
                                         </div>
                                     </div>
                                     <div style="display:flex;gap:0.5rem;">
@@ -1873,14 +1873,31 @@ window.addEditAttachment = async function (invoiceId) {
 
         for (const file of files) {
             try {
+                // Check file size (max 10MB)
+                if (file.size > 10 * 1024 * 1024) {
+                    window.notify.warning('Fichier trop volumineux', `${file.name} dépasse 10MB`, 3000);
+                    continue;
+                }
+
+                // 1. Save to disk first
                 const arrayBuffer = await file.arrayBuffer();
                 const uint8Array = new Uint8Array(arrayBuffer);
+
+                const saveResult = await window.electron.attachments.save({
+                    company: 'MRY', // Use MRY as default for generic
+                    filename: file.name,
+                    data: uint8Array
+                });
+
+                if (!saveResult.success) throw new Error(saveResult.error);
 
                 const result = await window.electron.db.addAttachment(
                     invoiceId,
                     file.name,
                     file.type,
-                    uint8Array
+                    null, // No BLOB for new files
+                    saveResult.filePath,
+                    file.size
                 );
 
                 if (result.success) {
@@ -1889,6 +1906,8 @@ window.addEditAttachment = async function (invoiceId) {
                     document.querySelector('.modal-overlay').remove();
                     setTimeout(() => editInvoice(invoiceId), 300);
                 } else {
+                    // Cleanup file if DB insert fails
+                    await window.electron.attachments.delete(saveResult.filePath);
                     window.notify.error('Erreur', `Échec: ${file.name}`, 3000);
                 }
             } catch (error) {
@@ -2226,16 +2245,26 @@ window.addNewAttachment = async function (invoiceId) {
                     continue;
                 }
 
-                // Read file as array buffer
+                // 1. Read file and save to disk
                 const arrayBuffer = await file.arrayBuffer();
                 const uint8Array = new Uint8Array(arrayBuffer);
 
-                // Upload to database
+                const saveResult = await window.electron.attachments.save({
+                    company: 'MRY', // Default for generic
+                    filename: file.name,
+                    data: uint8Array
+                });
+
+                if (!saveResult.success) throw new Error(saveResult.error);
+
+                // 2. Add to database with path
                 const result = await window.electron.db.addAttachment(
                     invoiceId,
                     file.name,
                     file.type,
-                    uint8Array
+                    null, // No BLOB for new files
+                    saveResult.filePath,
+                    file.size
                 );
 
                 if (result.success) {

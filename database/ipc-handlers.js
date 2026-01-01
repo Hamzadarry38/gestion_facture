@@ -101,10 +101,10 @@ async function registerDatabaseHandlers() {
     });
 
     // Attachment handlers
-    ipcMain.handle('db:attachments:add', async (event, invoiceId, filename, fileType, fileData) => {
+    ipcMain.handle('db:attachments:add', async (event, invoiceId, filename, fileType, fileData, filePath, fileSize) => {
         try {
             // console.log(`📎 Adding attachment: ${filename} (${fileType})`);
-            const id = attachmentOps.add(invoiceId, filename, fileType, Buffer.from(fileData));
+            const id = attachmentOps.add(invoiceId, filename, fileType, fileData ? Buffer.from(fileData) : null, filePath, fileSize || 0);
             // console.log('✅ Attachment added with ID:', id);
             return { success: true, data: { id } };
         } catch (error) {

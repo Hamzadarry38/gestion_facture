@@ -192,7 +192,8 @@ async function initDatabase() {
                 filename TEXT NOT NULL,
                 file_type TEXT NOT NULL,
                 file_size INTEGER NOT NULL,
-                file_data BLOB NOT NULL,
+                file_data BLOB,
+                file_path TEXT,
                 uploaded_at DATETIME DEFAULT CURRENT_TIMESTAMP,
                 FOREIGN KEY (invoice_id) REFERENCES invoices(id) ON DELETE CASCADE
             )
@@ -223,6 +224,41 @@ async function initDatabase() {
             }
         } catch (error) {
             console.log('ℹ️ [MRY DB] Note: Could not check/add note_text column:', error.message);
+        }
+
+        // Migration: Fix attachments table to allow NULL file_data (for file-based storage)
+        try {
+            const attTableInfo = db.exec(`PRAGMA table_info(attachments)`);
+            if (attTableInfo.length > 0) {
+                const columns = attTableInfo[0].values;
+                const fileDataCol = columns.find(col => col[1] === 'file_data');
+                // Check if file_data has NOT NULL constraint (notnull is at index 3)
+                if (fileDataCol && fileDataCol[3] === 1) {
+                    console.log('🔄 [MRY DB] Migrating attachments table to allow NULL file_data...');
+
+                    // Recreate table without NOT NULL constraint
+                    db.run(`ALTER TABLE attachments RENAME TO attachments_old`);
+                    db.run(`
+                        CREATE TABLE attachments (
+                            id INTEGER PRIMARY KEY AUTOINCREMENT,
+                            invoice_id INTEGER NOT NULL,
+                            filename TEXT NOT NULL,
+                            file_type TEXT NOT NULL,
+                            file_size INTEGER NOT NULL,
+                            file_data BLOB,
+                            file_path TEXT,
+                            uploaded_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                            FOREIGN KEY (invoice_id) REFERENCES invoices(id) ON DELETE CASCADE
+                        )
+                    `);
+                    db.run(`INSERT INTO attachments SELECT id, invoice_id, filename, file_type, file_size, file_data, NULL, uploaded_at FROM attachments_old`);
+                    db.run(`DROP TABLE attachments_old`);
+                    saveDatabase();
+                    console.log('✅ [MRY DB] Attachments table migrated successfully');
+                }
+            }
+        } catch (error) {
+            console.log('ℹ️ [MRY DB] Note: Could not migrate attachments table:', error.message);
         }
 
         // Create audit_log table for tracking invoice changes
@@ -775,11 +811,13 @@ const invoiceOps = {
 
 // Attachment operations
 const attachmentOps = {
-    add: (invoiceId, filename, fileType, fileData) => {
+    add: (invoiceId, filename, fileType, fileData, filePath = null, fileSize = 0) => {
+        // Calculate size from fileData if provided, otherwise use passed fileSize
+        const size = fileData ? fileData.length : fileSize;
         db.run(`
-            INSERT INTO attachments (invoice_id, filename, file_type, file_size, file_data)
-            VALUES (?, ?, ?, ?, ?)
-        `, [invoiceId, filename, fileType, fileData.length, fileData]);
+            INSERT INTO attachments (invoice_id, filename, file_type, file_size, file_data, file_path)
+            VALUES (?, ?, ?, ?, ?, ?)
+        `, [invoiceId, filename, fileType, size, fileData, filePath]);
 
         const result = db.exec('SELECT last_insert_rowid()');
         const id = result[0].values[0][0];
@@ -801,7 +839,8 @@ const attachmentOps = {
             file_type: row[3],
             file_size: row[4],
             file_data: row[5],
-            uploaded_at: row[6]
+            file_path: row[6],
+            uploaded_at: row[7]
         };
     },
 
@@ -813,7 +852,7 @@ const attachmentOps = {
 
     getByInvoice: (invoiceId) => {
         const result = db.exec(
-            'SELECT id, filename, file_type, file_size, uploaded_at FROM attachments WHERE invoice_id = ?',
+            'SELECT id, filename, file_type, file_size, file_path, uploaded_at FROM attachments WHERE invoice_id = ?',
             [invoiceId]
         );
 
@@ -824,7 +863,8 @@ const attachmentOps = {
             filename: row[1],
             file_type: row[2],
             file_size: row[3],
-            uploaded_at: row[4]
+            file_path: row[4],
+            uploaded_at: row[5]
         }));
     }
 };
