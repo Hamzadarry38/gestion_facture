@@ -983,6 +983,7 @@ window.showConvertInputModalChaimae = function (newType, newTypeLabel, prefillNu
         try {
             const invoicesResult = await window.electron.dbChaimae.getAllInvoices();
             if (invoicesResult.success && invoicesResult.data && invoicesResult.data.length > 0) {
+                const currentYear = new Date().getFullYear();
                 const invoices = invoicesResult.data;
 
                 const extractNumber = (docNumber) => {
@@ -991,20 +992,25 @@ window.showConvertInputModalChaimae = function (newType, newTypeLabel, prefillNu
                     return match ? parseInt(match[0], 10) : 0;
                 };
 
+                const isForYear = (docNumber, year) => {
+                    if (!docNumber) return false;
+                    return docNumber.toString().endsWith('/' + year) || docNumber.toString().endsWith(year.toString());
+                };
+
                 if (newType === 'facture') {
-                    const factures = invoices.filter(inv => inv.document_type === 'facture' && inv.document_numero);
+                    const factures = invoices.filter(inv => inv.document_type === 'facture' && inv.document_numero && isForYear(inv.document_numero, currentYear));
                     if (factures.length > 0) {
                         factures.sort((a, b) => extractNumber(b.document_numero) - extractNumber(a.document_numero));
                         highestNumber = factures[0].document_numero;
                     }
                 } else if (newType === 'devis') {
-                    const devisList = invoices.filter(inv => inv.document_type === 'devis' && inv.document_numero_devis);
+                    const devisList = invoices.filter(inv => inv.document_type === 'devis' && inv.document_numero_devis && isForYear(inv.document_numero_devis, currentYear));
                     if (devisList.length > 0) {
                         devisList.sort((a, b) => extractNumber(b.document_numero_devis) - extractNumber(a.document_numero_devis));
                         highestNumber = devisList[0].document_numero_devis;
                     }
                 } else if (newType === 'bon_livraison') {
-                    const bonsList = invoices.filter(inv => inv.document_type === 'bon_livraison' && inv.document_numero_bl);
+                    const bonsList = invoices.filter(inv => (inv.document_type === 'bon_livraison' || inv.document_type === 'bon de livraison') && inv.document_numero_bl && isForYear(inv.document_numero_bl, currentYear));
 
                     // Group by prefix and find highest for each
                     window.highestByPrefix = {};
@@ -1013,7 +1019,8 @@ window.showConvertInputModalChaimae = function (newType, newTypeLabel, prefillNu
                         const match = blNum.match(/^([A-Z]+)(\d+)/);
                         if (match) {
                             const prefix = match[1];
-                            const num = parseInt(match[2], 10);
+                            const numStr = match[2];
+                            const num = parseInt(numStr, 10);
                             if (!window.highestByPrefix[prefix] || num > window.highestByPrefix[prefix].num) {
                                 window.highestByPrefix[prefix] = { num, full: blNum };
                             }

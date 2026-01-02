@@ -206,32 +206,36 @@ window.handleDocumentTypeChange = async function () {
             // Helper function to extract numeric value from document number
             const extractNumber = (docNumber) => {
                 if (!docNumber) return 0;
-                // Extract the first number from the document string
-                // Examples: "123/2025" -> 123, "MG456/2025" -> 456, "BC789" -> 789
                 const match = docNumber.toString().match(/\d+/);
                 return match ? parseInt(match[0], 10) : 0;
             };
 
+            // Helper function to get max for a specific year
+            const getMaxForYear = (list, field, year) => {
+                const yearStr = year.toString();
+                const filtered = list.filter(inv => {
+                    const val = inv[field];
+                    return val && val.toString().endsWith(yearStr);
+                });
+                if (filtered.length === 0) return 'Aucun';
+                filtered.sort((a, b) => extractNumber(b[field]) - extractNumber(a[field]));
+                return filtered[0][field];
+            };
+
+            const currentYear = new Date().getFullYear();
+
             // Get highest main number based on type
             if (type === 'facture') {
                 const factures = invoices.filter(inv => inv.document_numero);
-                if (factures.length > 0) {
-                    factures.sort((a, b) => extractNumber(b.document_numero) - extractNumber(a.document_numero));
-                    lastNumbers.main = factures[0].document_numero;
-                }
+                lastNumbers.main = getMaxForYear(factures, 'document_numero', currentYear);
 
                 // Get highest N° Order
                 const orders = invoices.filter(inv => inv.document_numero_Order);
-                if (orders.length > 0) {
-                    orders.sort((a, b) => extractNumber(b.document_numero_Order) - extractNumber(a.document_numero_Order));
-                    lastNumbers.order = orders[0].document_numero_Order;
-                }
+                lastNumbers.order = getMaxForYear(orders, 'document_numero_Order', currentYear);
+
             } else if (type === 'devis') {
                 const devisList = invoices.filter(inv => inv.document_numero_devis);
-                if (devisList.length > 0) {
-                    devisList.sort((a, b) => extractNumber(b.document_numero_devis) - extractNumber(a.document_numero_devis));
-                    lastNumbers.main = devisList[0].document_numero_devis;
-                }
+                lastNumbers.main = getMaxForYear(devisList, 'document_numero_devis', currentYear);
             }
         }
     } catch (error) {

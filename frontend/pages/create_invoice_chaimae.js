@@ -209,81 +209,76 @@ window.handleDocumentTypeChangeChaimae = async function () {
             // Helper function to extract numeric value from document number
             const extractNumber = (docNumber) => {
                 if (!docNumber) return 0;
-                // Extract the first number from the document string
-                // Examples: "123/2025" -> 123, "MG456/2025" -> 456, "BC789" -> 789
                 const match = docNumber.toString().match(/\d+/);
                 return match ? parseInt(match[0], 10) : 0;
             };
 
-            // Get highest main number based on type - filter by type first!
+            // Helper function to get max for a specific year
+            const getMaxForYear = (list, field, year) => {
+                const yearStr = year.toString();
+                const filtered = list.filter(inv => {
+                    const val = inv[field];
+                    return val && val.toString().endsWith(yearStr);
+                });
+                if (filtered.length === 0) return 'Aucun';
+                filtered.sort((a, b) => extractNumber(b[field]) - extractNumber(a[field]));
+                return filtered[0][field];
+            };
+
+            const currentYear = new Date().getFullYear();
+
             if (type === 'facture') {
-                // Get only factures with document numbers
                 const factures = invoices.filter(inv => inv.document_type === 'facture' && inv.document_numero);
-                if (factures.length > 0) {
-                    // Sort by extracted numeric value descending to get the highest number
-                    factures.sort((a, b) => extractNumber(b.document_numero) - extractNumber(a.document_numero));
-                    lastNumbers.main = factures[0].document_numero;
-                }
+                lastNumbers.main = getMaxForYear(factures, 'document_numero', currentYear);
 
-                // Get highest N° Order from factures only
                 const facturesWithOrder = invoices.filter(inv => inv.document_type === 'facture' && inv.document_numero_Order);
-                if (facturesWithOrder.length > 0) {
-                    facturesWithOrder.sort((a, b) => extractNumber(b.document_numero_Order) - extractNumber(a.document_numero_Order));
-                    lastNumbers.order = facturesWithOrder[0].document_numero_Order;
-                }
+                lastNumbers.order = getMaxForYear(facturesWithOrder, 'document_numero_Order', currentYear);
 
-                // Get highest Bon de livraison from factures only
                 const facturesWithBL = invoices.filter(inv => inv.document_type === 'facture' && inv.document_bon_de_livraison);
-                if (facturesWithBL.length > 0) {
-                    facturesWithBL.sort((a, b) => extractNumber(b.document_bon_de_livraison) - extractNumber(a.document_bon_de_livraison));
-                    lastNumbers.bonLivraison = facturesWithBL[0].document_bon_de_livraison;
-                }
+                lastNumbers.bonLivraison = getMaxForYear(facturesWithBL, 'document_bon_de_livraison', currentYear);
+
             } else if (type === 'devis') {
-                // Get only devis with document numbers
                 const devisList = invoices.filter(inv => inv.document_type === 'devis' && inv.document_numero_devis);
-                if (devisList.length > 0) {
-                    // Sort by extracted numeric value descending to get the highest number
-                    devisList.sort((a, b) => extractNumber(b.document_numero_devis) - extractNumber(a.document_numero_devis));
-                    lastNumbers.main = devisList[0].document_numero_devis;
-                }
+                lastNumbers.main = getMaxForYear(devisList, 'document_numero_devis', currentYear);
+
             } else if (type === 'bon_livraison') {
-                // Get only bon_livraison with document numbers
                 const bonsList = invoices.filter(inv =>
                     (inv.document_type === 'bon_livraison' || inv.document_type === 'bon de livraison') &&
                     (inv.document_numero || inv.document_bon_de_livraison || inv.document_numero_bl)
                 );
 
-                // Group by prefix and find highest for each
                 window.createHighestByPrefix = {};
+                const currentPrefix = window.selectedPrefix || 'MG';
+
+                // Process all prefixes
                 bonsList.forEach(inv => {
                     const blNum = inv.document_numero_bl || inv.document_numero || inv.document_bon_de_livraison;
                     if (blNum) {
-                        const match = blNum.match(/^([A-Z]+)(\d+)/);
+                        const match = blNum.match(/^([A-Z]+)(\d+)\/(\d+)$/);
                         if (match) {
                             const prefix = match[1];
                             const num = parseInt(match[2], 10);
-                            if (!window.createHighestByPrefix[prefix] || num > window.createHighestByPrefix[prefix].num) {
-                                window.createHighestByPrefix[prefix] = { num, full: blNum };
+                            const year = parseInt(match[3], 10);
+
+                            if (!window.createHighestByPrefix[prefix]) window.createHighestByPrefix[prefix] = {};
+                            if (!window.createHighestByPrefix[prefix][year] || num > window.createHighestByPrefix[prefix][year].num) {
+                                window.createHighestByPrefix[prefix][year] = { num, full: blNum };
                             }
                         }
                     }
                 });
 
-                // Set initial lastNumbers.main based on selected prefix
-                const currentPrefix = window.selectedPrefix || 'MG';
+                // Update lastNumbers.main for the current prefix
                 if (window.createHighestByPrefix[currentPrefix]) {
-                    lastNumbers.main = window.createHighestByPrefix[currentPrefix].full;
+                    const pCurrent = window.createHighestByPrefix[currentPrefix][currentYear];
+                    lastNumbers.main = pCurrent ? pCurrent.full : 'Aucun';
                 }
 
-                // Get highest N° Order from bon_livraison only
                 const bonsWithCommande = invoices.filter(inv =>
                     (inv.document_type === 'bon_livraison' || inv.document_type === 'bon de livraison') &&
                     inv.document_numero_commande
                 );
-                if (bonsWithCommande.length > 0) {
-                    bonsWithCommande.sort((a, b) => extractNumber(b.document_numero_commande) - extractNumber(a.document_numero_commande));
-                    lastNumbers.bonCommande = bonsWithCommande[0].document_numero_commande;
-                }
+                lastNumbers.bonCommande = getMaxForYear(bonsWithCommande, 'document_numero_commande', currentYear);
             }
         }
     } catch (error) {
@@ -672,7 +667,9 @@ window.selectPrefixChaimae = function (prefix) {
     const highestContainer = document.getElementById('createHighestNumberContainerChaimae');
     if (highestDisplay && highestContainer && window.createHighestByPrefix) {
         if (window.createHighestByPrefix[prefix]) {
-            highestDisplay.textContent = window.createHighestByPrefix[prefix].full;
+            const currentYear = 2026;
+            const pCurrent = window.createHighestByPrefix[prefix][currentYear];
+            highestDisplay.textContent = pCurrent ? pCurrent.full : 'Aucun';
             highestContainer.style.display = 'block';
         } else {
             highestContainer.style.display = 'none';

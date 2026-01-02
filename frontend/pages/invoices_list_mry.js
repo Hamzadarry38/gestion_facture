@@ -1677,22 +1677,29 @@ function showConvertInputModal(newType, newTypeLabel, prefillNumero = '') {
             const allInvoicesResult = await window.electron.db.getAllInvoices('MRY');
             if (allInvoicesResult.success) {
                 const invoices = allInvoicesResult.data;
+                const currentYear = new Date().getFullYear();
                 let maxNum = 0;
 
                 if (newType === 'facture') {
-                    // Find highest facture number
+                    // Find highest facture number for current year
                     invoices.forEach(inv => {
                         if (inv.document_type === 'facture' && inv.document_numero) {
-                            const numPart = parseInt(inv.document_numero.split('/')[0]) || 0;
-                            if (numPart > maxNum) maxNum = numPart;
+                            // Check if document belongs to current year
+                            if (inv.document_numero.endsWith('/' + currentYear) || inv.document_numero.endsWith(currentYear.toString())) {
+                                const numPart = parseInt(inv.document_numero.split('/')[0]) || 0;
+                                if (numPart > maxNum) maxNum = numPart;
+                            }
                         }
                     });
                 } else if (newType === 'devis') {
-                    // Find highest devis number
+                    // Find highest devis number for current year
                     invoices.forEach(inv => {
                         if (inv.document_type === 'devis' && inv.document_numero_devis) {
-                            const numPart = parseInt(inv.document_numero_devis.split('/')[0]) || 0;
-                            if (numPart > maxNum) maxNum = numPart;
+                            // Check if document belongs to current year
+                            if (inv.document_numero_devis.endsWith('/' + currentYear) || inv.document_numero_devis.endsWith(currentYear.toString())) {
+                                const numPart = parseInt(inv.document_numero_devis.split('/')[0]) || 0;
+                                if (numPart > maxNum) maxNum = numPart;
+                            }
                         }
                     });
                 }
