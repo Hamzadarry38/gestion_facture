@@ -754,7 +754,7 @@ async function generatePDFBlobMulti(invoice, includeOrder = true) {
     const addFooter = (pageNum, totalPages) => {
         // Add signature image - moved lower and narrowed for better integration
         if (signatureImgMulti && invoice.document_type === 'devis') {
-            doc.addImage(signatureImgMulti, 'PNG', 145, 255, 50, 32);
+            doc.addImage(signatureImgMulti, 'PNG', 145, 246, 65, 41);
         }
 
         doc.setTextColor(0, 0, 0);
