@@ -287,6 +287,60 @@ window.downloadInvoicePDFMulti = async function (invoiceId) {
             }
         }
 
+        // Dedicated Prompt for Signature (Yes/No) - ONLY FOR DEVIS
+        let includeSignature = false;
+        if (invoice.document_type === 'devis') {
+            includeSignature = await new Promise((resolve) => {
+                const overlay = document.createElement('div');
+                overlay.className = 'custom-modal-overlay';
+
+                overlay.innerHTML = `
+                    <div class="custom-modal">
+                        <div class="custom-modal-header">
+                            <span class="custom-modal-icon info">✍️</span>
+                            <h3 class="custom-modal-title">Signature du PDF</h3>
+                        </div>
+                        <div class="custom-modal-body">
+                            <p style="margin-bottom:1.5rem;color:#e0e0e0;font-size:1.1rem;text-align:center;">
+                                Voulez-vous inclure la <strong>signature</strong> dans le document PDF ?
+                            </p>
+                        </div>
+                        <div class="custom-modal-footer" style="display:flex;justify-content:center;gap:1.5rem;">
+                            <button class="custom-modal-btn secondary" id="noSignatureBtn" style="padding:0.75rem 2rem;font-size:1.1rem;min-width:120px;">Non</button>
+                            <button class="custom-modal-btn primary" id="yesSignatureBtn" style="padding:0.75rem 2rem;font-size:1.1rem;min-width:120px;">Oui</button>
+                        </div>
+                    </div>
+                `;
+
+                document.body.appendChild(overlay);
+
+                const yesBtn = overlay.querySelector('#yesSignatureBtn');
+                const noBtn = overlay.querySelector('#noSignatureBtn');
+
+                yesBtn.addEventListener('click', () => {
+                    overlay.remove();
+                    resolve(true);
+                });
+
+                noBtn.addEventListener('click', () => {
+                    overlay.remove();
+                    resolve(false);
+                });
+
+                overlay.addEventListener('click', (e) => {
+                    if (e.target === overlay) {
+                        overlay.remove();
+                        resolve(true); // Default to yes
+                    }
+                });
+
+                setTimeout(() => yesBtn.focus(), 100);
+            });
+            console.log('📄 User choice for signature (Multi Devis):', includeSignature ? 'Yes' : 'No');
+        } else {
+            console.log('📄 Document type is not devis, skipping signature prompt for Multi.');
+        }
+
         console.log('📄 Continuing with PDF generation...');
 
         // Check if there are products with zero quantity or price
@@ -370,8 +424,11 @@ window.downloadInvoicePDFMulti = async function (invoiceId) {
         const signatureImgMultiHelper = await loadMultiSignatureHelper();
 
         // Generate flattened footer image (Text + Signature)
+        // Use the user's choice (includeSignature) AND verify it's a devis (though prompt only appears for devis)
+        const shouldAddSignature = invoice.document_type === 'devis' && includeSignature;
+
         const flattenedFooterData = await generateFlattenedFooterMulti(
-            invoice.document_type === 'devis' ? signatureImgMultiHelper : null,
+            shouldAddSignature ? signatureImgMultiHelper : null,
             'NIF 68717422 | TP 51001343 | RC 38633 | CNSS 6446237',
             'ICE : 00380950500031',
             'Tel: +212 661 307 323'

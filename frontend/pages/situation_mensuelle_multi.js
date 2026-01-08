@@ -970,7 +970,7 @@ window.generateSituationMensuelleMulti = async function (clientId, month, year, 
 
         // Save PDF
         const monthName = monthNames[month];
-        const filename = `Situation_${monthName}_${year}_${client.nom.replace(/\s+/g, '_')}.pdf`;
+        const filename = `Situation_${monthName}_${year}_${client.nom.replace(/\s+/g, '_')}_MULTI.pdf`;
         doc.save(filename);
 
         window.notify.success('Succès', 'Situation mensuelle générée avec succès', 3000);

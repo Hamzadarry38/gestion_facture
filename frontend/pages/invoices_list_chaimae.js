@@ -54,6 +54,15 @@ function InvoicesListChaimaePage() {
                                 </svg>
                                 <span>Situation</span>
                             </button>
+
+                            <button class="action-btn action-btn-situation" onclick="showSituationAnnuelleModalChaimae()" style="background-color: #673ab7;">
+                                <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor">
+                                    <path d="M4 11a1 1 0 1 1 2 0v1a1 1 0 1 1-2 0v-1zm6-4a1 1 0 1 1 2 0v5a1 1 0 1 1-2 0V7zM7 9a1 1 0 0 1 2 0v3a1 1 0 1 1-2 0V9z"/>
+                                    <path d="M4 1.5H3a2 2 0 0 0-2 2V14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V3.5a2 2 0 0 0-2-2h-1v1h1a1 1 0 0 1 1 1V14a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1V3.5a1 1 0 0 1 1-1h1v-1z"/>
+                                    <path d="M9.5 1a.5.5 0 0 1 .5.5v1a.5.5 0 0 1-.5.5h-3a.5.5 0 0 1-.5-.5v-1a.5.5 0 0 1 .5-.5h3zm-3-1A1.5 1.5 0 0 0 5 1.5v1A1.5 1.5 0 0 0 6.5 4h3A1.5 1.5 0 0 0 11 2.5v-1A1.5 1.5 0 0 0 9.5 0h-3z"/>
+                                </svg>
+                                <span>Annuelle</span>
+                            </button>
                             
                             <button class="action-btn action-btn-primary" onclick="router.navigate('/create-invoice-chaimae')">
                                 <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor">
@@ -3166,6 +3175,62 @@ window.downloadInvoicePDFChaimae = async function (invoiceId) {
 
         console.log('📄 Continuing with PDF generation...');
 
+        // Dedicated Prompt for Signature (Yes/No) - ONLY FOR DEVIS
+        let includeSignature = false;
+        if (invoice.document_type === 'devis') {
+            includeSignature = await new Promise((resolve) => {
+                const overlay = document.createElement('div');
+                overlay.className = 'custom-modal-overlay';
+
+                overlay.innerHTML = `
+                    <div class="custom-modal">
+                        <div class="custom-modal-header">
+                            <span class="custom-modal-icon info">✍️</span>
+                            <h3 class="custom-modal-title">Signature du PDF</h3>
+                        </div>
+                        <div class="custom-modal-body">
+                            <p style="margin-bottom:1.5rem;color:#e0e0e0;font-size:1.1rem;text-align:center;">
+                                Voulez-vous inclure la <strong>signature</strong> dans le document PDF ?
+                            </p>
+                        </div>
+                        <div class="custom-modal-footer" style="display:flex;justify-content:center;gap:1.5rem;">
+                            <button class="custom-modal-btn secondary" id="noSignatureBtn" style="padding:0.75rem 2rem;font-size:1.1rem;min-width:120px;">Non</button>
+                            <button class="custom-modal-btn primary" id="yesSignatureBtn" style="padding:0.75rem 2rem;font-size:1.1rem;min-width:120px;">Oui</button>
+                        </div>
+                    </div>
+                `;
+
+                document.body.appendChild(overlay);
+
+                const yesBtn = overlay.querySelector('#yesSignatureBtn');
+                const noBtn = overlay.querySelector('#noSignatureBtn');
+
+                yesBtn.addEventListener('click', () => {
+                    overlay.remove();
+                    resolve(true);
+                });
+
+                noBtn.addEventListener('click', () => {
+                    overlay.remove();
+                    resolve(false);
+                });
+
+                overlay.addEventListener('click', (e) => {
+                    if (e.target === overlay) {
+                        overlay.remove();
+                        resolve(true); // Default to yes
+                    }
+                });
+
+                setTimeout(() => yesBtn.focus(), 100);
+            });
+            console.log('📄 User choice for signature (Chaimae Devis):', includeSignature ? 'Yes' : 'No');
+        } else {
+            console.log('📄 Document type is not devis, skipping signature prompt for Chaimae.');
+        }
+
+        console.log('📄 Continuing with PDF generation...');
+
         // Check if there are products with zero quantity or price
         const hasZeroProducts = invoice.products && invoice.products.some(p =>
             parseFloat(p.quantite) === 0 || parseFloat(p.prix_unitaire_ht) === 0
@@ -3357,8 +3422,8 @@ window.downloadInvoicePDFChaimae = async function (invoiceId) {
         // Function to add footer
         const addFooter = (pageNum, totalPages) => {
             // Add signature image above footer (right side)
-            // Add signature image above footer (right side) - ONLY FOR DEVIS
-            if (signatureImgChaimae && invoice.document_type === 'devis') {
+            // Add signature image above footer (right side) - ONLY FOR DEVIS AND IF USER APPROVED
+            if (signatureImgChaimae && invoice.document_type === 'devis' && includeSignature) {
                 doc.addImage(signatureImgChaimae, 'PNG', 140, 235, 60, 30);
             }
 
