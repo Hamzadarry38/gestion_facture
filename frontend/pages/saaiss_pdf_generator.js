@@ -810,7 +810,7 @@ async function generateSAAISSPDF(doc, invoice, includeZeroProducts = true) {
         const totalsX = 130; // Start position for totals (right side)
         const totalsWidth = 60; // Width of totals box
 
-        // Row 1: TOTALE H.T
+        // Row 1: TOTAL H.T
         doc.setDrawColor(0, 0, 0);
         doc.setLineWidth(0.3);
         doc.line(totalsX, totalsStartY, totalsX + totalsWidth, totalsStartY); // Top border
@@ -820,7 +820,7 @@ async function generateSAAISSPDF(doc, invoice, includeZeroProducts = true) {
         doc.setTextColor(0, 0, 0);
         doc.setFont(undefined, 'bold');
         doc.setFontSize(8);
-        doc.text('TOTALE H.T', totalsX + 2, totalsStartY + 5.5);
+        doc.text('TOTAL H.T', totalsX + 2, totalsStartY + 5.5);
         doc.text(formatNumberForPDF(invoice.total_ht) + ' DH', totalsX + totalsWidth - 2, totalsStartY + 5.5, { align: 'right' });
         doc.line(totalsX, totalsStartY + 8, totalsX + totalsWidth, totalsStartY + 8); // Bottom border
 
@@ -837,7 +837,7 @@ async function generateSAAISSPDF(doc, invoice, includeZeroProducts = true) {
         doc.text(formatNumberForPDF(invoice.montant_tva) + ' DH', totalsX + totalsWidth - 2, tvaY + 5.5, { align: 'right' });
         doc.line(totalsX, tvaY + 8, totalsX + totalsWidth, tvaY + 8); // Bottom border
 
-        // Row 3: TOTALE T.T.C
+        // Row 3: TOTAL T.T.C
         const ttcY = tvaY + 8;
         doc.line(totalsX, ttcY, totalsX + totalsWidth, ttcY); // Top border
         doc.line(totalsX, ttcY, totalsX, ttcY + 8); // Left border
@@ -846,7 +846,7 @@ async function generateSAAISSPDF(doc, invoice, includeZeroProducts = true) {
         doc.setTextColor(0, 0, 0);
         doc.setFont(undefined, 'bold');
         doc.setFontSize(8);
-        doc.text('TOTALE T.T.C', totalsX + 2, ttcY + 5.5);
+        doc.text('TOTAL T.T.C', totalsX + 2, ttcY + 5.5);
         doc.text(formatNumberForPDF(invoice.total_ttc) + ' DH', totalsX + totalsWidth - 2, ttcY + 5.5, { align: 'right' });
         doc.line(totalsX, ttcY + 8, totalsX + totalsWidth, ttcY + 8); // Bottom border
 

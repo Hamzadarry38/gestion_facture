@@ -1,7 +1,7 @@
-// Situation Annuelle - Annual Report Generator for MRY
+// SITUATION - Annual Report Generator for MRY
 // This file handles the generation of annual situation reports for clients
 
-// Show Situation Annuelle Modal
+// Show SITUATION Modal
 window.showSituationAnnuelleModalMRY = async function () {
     try {
         // Get all clients from MRY database
@@ -31,7 +31,7 @@ window.showSituationAnnuelleModalMRY = async function () {
                     </svg>
                 </div>
                 <div style="flex:1;">
-                    <h2 style="color:#fff;margin:0;font-size:1.6rem;font-weight:700;letter-spacing:-0.5px;">Situation Annuelle</h2>
+                    <h2 style="color:#fff;margin:0;font-size:1.6rem;font-weight:700;letter-spacing:-0.5px;">SITUATION</h2>
                     <p style="color:#999;margin:0.25rem 0 0 0;font-size:0.9rem;">Générer un rapport annuel détaillé par mois</p>
                 </div>
             </div>
@@ -215,12 +215,12 @@ window.showSituationAnnuelleModalMRY = async function () {
         };
 
     } catch (error) {
-        console.error('Error showing situation annuelle modal:', error);
+        console.error('Error showing SITUATION modal:', error);
         window.notify.error('Erreur', 'Impossible d\'afficher la fenêtre', 3000);
     }
 };
 
-// Generate Situation Annuelle PDF
+// Generate SITUATION PDF
 window.generateSituationAnnuelleMRY = async function (clientId, year, selectedMonths, includeFacture, includeDevis) {
     try {
         window.notify.info('Info', 'Génération du rapport annuel en cours...', 2000);
@@ -349,7 +349,7 @@ window.generateSituationAnnuelleMRY = async function (clientId, year, selectedMo
             dateRangeStr = `${year}`;
         }
 
-        // We will adapt the existing one slightly for "SITUATION ANNUELLE"
+        // We will adapt the existing one slightly for "SITUATION"
         addHeaderToPDFAnnuelleMRY(doc, client, dateRangeStr, blueColor, greenColor);
 
         // Dynamic Column Positioning
@@ -358,17 +358,17 @@ window.generateSituationAnnuelleMRY = async function (clientId, year, selectedMo
         const totalWidth = endX - startX;
 
         let activeColumns = [];
-        if (includeFacture) activeColumns.push({ label: 'N° FACTURES', key: 'facturesCount' });
-        if (includeDevis) activeColumns.push({ label: 'N° DEVIS', key: 'devisCount' });
+        if (includeFacture) activeColumns.push({ label: 'Nbr FACTURES', key: 'facturesCount' });
+        if (includeDevis) activeColumns.push({ label: 'Nbr DEVIS', key: 'devisCount' });
 
-        const columnWidth = totalWidth / (activeColumns.length + 1);
+        const columnWidth = totalWidth / activeColumns.length;
 
         activeColumns.forEach((col, index) => {
-            col.x = startX + (columnWidth * (index + 1));
+            col.x = startX + (columnWidth * index) + (columnWidth / 2);
         });
 
         // Table Header
-        const startY = 85;
+        const startY = 90; // Moved down from 85
         doc.setFillColor(...blueColor);
         doc.rect(14, startY, 182, 10, 'F');
 
@@ -434,23 +434,24 @@ window.generateSituationAnnuelleMRY = async function (clientId, year, selectedMo
         */
 
         currentY += 8;
-        doc.setFillColor(173, 216, 230); // Light blue
+        doc.setFillColor(255, 255, 255); // White
         doc.rect(110, currentY, 85, 8, 'F');
         doc.setTextColor(...blueColor);
-        doc.text('TOTAL ANNUEL HT :', 113, currentY + 5.5);
+        doc.setFont(undefined, 'bold');
+        doc.text('TOTAL HT :', 113, currentY + 5.5);
         doc.text(`${formatAmountMRY(grandTotalHT)} DH`, 192, currentY + 5.5, { align: 'right' });
 
         currentY += 8;
         doc.setFillColor(255, 255, 255);
         doc.rect(110, currentY, 85, 8, 'F');
-        doc.text('TOTAL ANNUEL TVA :', 113, currentY + 5.5);
+        doc.text('TOTAL TVA :', 113, currentY + 5.5);
         doc.text(`${formatAmountMRY(grandTotalTVA)} DH`, 192, currentY + 5.5, { align: 'right' });
 
         currentY += 8;
-        doc.setFillColor(173, 216, 230); // Light blue
+        doc.setFillColor(...blueColor); // MRY Header Blue
         doc.rect(110, currentY, 85, 8, 'F');
-        doc.setTextColor(...blueColor);
-        doc.text('TOTAL ANNUEL TTC :', 113, currentY + 5.5);
+        doc.setTextColor(255, 255, 255); // White
+        doc.text('TOTAL TTC :', 113, currentY + 5.5);
         doc.text(`${formatAmountMRY(grandTotalTTC)} DH`, 192, currentY + 5.5, { align: 'right' });
 
         // Add footer info
@@ -517,9 +518,10 @@ function addHeaderToPDFAnnuelleMRY(doc, client, dateRangeStr, blueColor, greenCo
     doc.setFontSize(15);
     doc.setFont(undefined, 'bold');
     doc.setTextColor(0, 0, 0);
-    doc.text('SITUATION ANNUELLE', 105, 70, { align: 'center' });
+    doc.text('SITUATION', 105, 70, { align: 'center' });
 
     doc.setTextColor(...blueColor);
     doc.setFontSize(13);
-    doc.text(` ${dateRangeStr}`, 105, 77, { align: 'center' });
+    const splitTitle = doc.splitTextToSize(` ${dateRangeStr}`, 170);
+    doc.text(splitTitle, 105, 82, { align: 'center' });
 }

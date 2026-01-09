@@ -1,7 +1,7 @@
-// Situation Annuelle - Annual Report Generator for CHAIMAE
+// SITUATION - Annual Report Generator for CHAIMAE
 // This file handles the generation of annual situation reports for clients
 
-// Show Situation Annuelle Modal
+// Show SITUATION Modal
 window.showSituationAnnuelleModalChaimae = async function () {
     try {
         // Get all clients from Chaimae database
@@ -31,7 +31,7 @@ window.showSituationAnnuelleModalChaimae = async function () {
                     </svg>
                 </div>
                 <div style="flex:1;">
-                    <h2 style="color:#fff;margin:0;font-size:1.6rem;font-weight:700;letter-spacing:-0.5px;">Situation Annuelle (Chaimae)</h2>
+                    <h2 style="color:#fff;margin:0;font-size:1.6rem;font-weight:700;letter-spacing:-0.5px;">SITUATION (Chaimae)</h2>
                     <p style="color:#999;margin:0.25rem 0 0 0;font-size:0.9rem;">Générer un rapport annuel incluant les BL</p>
                 </div>
             </div>
@@ -219,12 +219,12 @@ window.showSituationAnnuelleModalChaimae = async function () {
         };
 
     } catch (error) {
-        console.error('Error showing situation annuelle modal:', error);
+        console.error('Error showing SITUATION modal:', error);
         window.notify.error('Erreur', 'Impossible d\'afficher la fenêtre', 3000);
     }
 };
 
-// Generate Situation Annuelle PDF for Chaimae
+// Generate SITUATION PDF for Chaimae
 window.generateSituationAnnuelleChaimae = async function (clientId, year, selectedMonths, includeFacture, includeDevis, includeBL) {
     try {
         window.notify.info('Info', 'Génération du rapport annuel en cours...', 2000);
@@ -328,7 +328,7 @@ window.generateSituationAnnuelleChaimae = async function (clientId, year, select
         const doc = new jsPDF();
 
         // Chaimae specific colors
-        const purpleColor = [103, 58, 183]; // #673ab7
+        const purpleColor = [33, 97, 140]; // MRY Blue
         const orangeColor = [255, 152, 0]; // #ff9800
 
         // Generate Title String
@@ -364,23 +364,23 @@ window.generateSituationAnnuelleChaimae = async function (clientId, year, select
         addHeaderToPDFAnnuelleChaimae(doc, client, dateRangeStr, purpleColor, orangeColor);
 
         // Dynamic Column Positioning
-        const startX = 40;
-        const endX = 145; // Slightly wider range for 3 potential columns
+        const startX = 35; // Move left to give more space
+        const endX = 135;
         const totalWidth = endX - startX;
 
         let activeColumns = [];
-        if (includeFacture) activeColumns.push({ label: 'N° FACTURES', key: 'facturesCount' });
-        if (includeDevis) activeColumns.push({ label: 'N° DEVIS', key: 'devisCount' });
-        if (includeBL) activeColumns.push({ label: 'N° BL', key: 'blCount' });
+        if (includeFacture) activeColumns.push({ label: 'Nbr FACTURES', key: 'facturesCount' });
+        if (includeDevis) activeColumns.push({ label: 'Nbr DEVIS', key: 'devisCount' });
+        if (includeBL) activeColumns.push({ label: 'Nbr BL', key: 'blCount' });
 
-        const columnWidth = totalWidth / (activeColumns.length + 1);
+        const columnWidth = totalWidth / activeColumns.length;
 
         activeColumns.forEach((col, index) => {
-            col.x = startX + (columnWidth * (index + 1));
+            col.x = startX + (columnWidth * index) + (columnWidth / 2);
         });
 
         // Table Header
-        const startY = 85;
+        const startY = 90; // Moved down from 85 to accommodate long month lists
         doc.setFillColor(...purpleColor);
         doc.rect(14, startY, 182, 10, 'F');
 
@@ -410,25 +410,25 @@ window.generateSituationAnnuelleChaimae = async function (clientId, year, select
 
                 // Re-draw table header
                 doc.setFillColor(...purpleColor);
-                doc.rect(14, 85, 182, 10, 'F');
+                doc.rect(14, 105, 182, 10, 'F'); // Updated to 105
                 doc.setTextColor(255, 255, 255);
                 doc.setFontSize(9);
                 doc.setFont(undefined, 'bold');
-                doc.text('MOIS', 20, 85 + 6.5);
+                doc.text('MOIS', 20, 105 + 6.5);
 
                 activeColumns.forEach(col => {
-                    doc.text(col.label, col.x, 85 + 6.5, { align: 'center' });
+                    doc.text(col.label, col.x, 105 + 6.5, { align: 'center' });
                 });
 
-                doc.text('TOTAL H.T', 150, 85 + 6.5, { align: 'right' });
-                doc.text('TOTAL T.T.C', 190, 85 + 6.5, { align: 'right' });
+                doc.text('TOTAL H.T', 150, 105 + 6.5, { align: 'right' });
+                doc.text('TOTAL T.T.C', 190, 105 + 6.5, { align: 'right' });
 
-                currentY = 100;
+                currentY = 120; // Start slightly lower on new page
             }
 
             // Alternating row background
             if (index % 2 === 1) {
-                doc.setFillColor(248, 245, 255); // Very light purple
+                doc.setFillColor(245, 245, 245); // Grey
                 doc.rect(14, currentY, 182, 8, 'F');
             }
 
@@ -457,23 +457,24 @@ window.generateSituationAnnuelleChaimae = async function (clientId, year, select
         // Totals Footer
         currentY += 10;
 
-        doc.setFillColor(248, 245, 255);
+        doc.setFillColor(255, 255, 255);
         doc.rect(110, currentY, 85, 8, 'F');
+        doc.setTextColor(...purpleColor);
         doc.setFont(undefined, 'bold');
-        doc.text('TOTAL ANNUEL HT :', 113, currentY + 5.5);
+        doc.text('TOTAL HT :', 113, currentY + 5.5);
         doc.text(`${formatAmountChaimae(grandTotalHT)} DH`, 192, currentY + 5.5, { align: 'right' });
 
         currentY += 8;
         doc.setFillColor(255, 255, 255);
         doc.rect(110, currentY, 85, 8, 'F');
-        doc.text('TOTAL ANNUEL TVA :', 113, currentY + 5.5);
+        doc.text('TOTAL TVA :', 113, currentY + 5.5);
         doc.text(`${formatAmountChaimae(grandTotalTVA)} DH`, 192, currentY + 5.5, { align: 'right' });
 
         currentY += 8;
-        doc.setFillColor(209, 196, 233); // Light purple
+        doc.setFillColor(33, 97, 140); // MRY Header Blue
         doc.rect(110, currentY, 85, 8, 'F');
-        doc.setTextColor(...purpleColor);
-        doc.text('TOTAL ANNUEL TTC :', 113, currentY + 5.5);
+        doc.setTextColor(255, 255, 255); // White text
+        doc.text('TOTAL TTC :', 113, currentY + 5.5);
         doc.text(`${formatAmountChaimae(grandTotalTTC)} DH`, 192, currentY + 5.5, { align: 'right' });
 
         // Add Footer to ALL pages
@@ -555,11 +556,12 @@ function addHeaderToPDFAnnuelleChaimae(doc, client, dateRangeStr, purpleColor, o
     doc.setFontSize(15);
     doc.setFont(undefined, 'bold');
     doc.setTextColor(0, 0, 0);
-    doc.text('SITUATION ANNUELLE', 105, 75, { align: 'center' });
+    doc.text('SITUATION', 105, 75, { align: 'center' });
 
     doc.setTextColor(...purpleColor);
     doc.setFontSize(13);
-    doc.text(` ${dateRangeStr}`, 105, 82, { align: 'center' });
+    const splitTitle = doc.splitTextToSize(` ${dateRangeStr}`, 170);
+    doc.text(splitTitle, 105, 82, { align: 'center' });
 }
 
 // Footer Function (New)

@@ -1491,7 +1491,7 @@ window.downloadBonDeTravaux = async function (invoiceId) {
         doc.setTextColor(255, 255, 255);
         doc.setFontSize(9);
         doc.setFont(undefined, 'bold');
-        doc.text('TOTALE HT', 113, fixedBottomY + 4);
+        doc.text('TOTAL HT', 113, fixedBottomY + 4);
         doc.text(`${formatNumberForPDF(invoice.total_ht)} DH`, 192, fixedBottomY + 4, { align: 'right' });
 
         doc.setFillColor(255, 255, 255);
@@ -1505,7 +1505,7 @@ window.downloadBonDeTravaux = async function (invoiceId) {
         doc.setFillColor(...darkGrayColor);
         doc.rect(110, fixedBottomY + 12, 85, 6, 'F');
         doc.setTextColor(255, 255, 255);
-        doc.text('TOTALE TTC', 113, fixedBottomY + 16);
+        doc.text('TOTAL TTC', 113, fixedBottomY + 16);
         doc.text(`${formatNumberForPDF(invoice.total_ttc)} DH`, 192, fixedBottomY + 16, { align: 'right' });
 
         // Add page numbering to all pages
@@ -1799,7 +1799,7 @@ window.downloadInvoicePDFMulti = async function (invoiceId) {
         doc.setTextColor(255, 255, 255);
         doc.setFontSize(9);
         doc.setFont(undefined, 'bold');
-        doc.text('TOTALE HT', 113, fixedBottomY + 4);
+        doc.text('TOTAL HT', 113, fixedBottomY + 4);
         doc.text(`${formatNumberForPDF(invoice.total_ht)} DH`, 192, fixedBottomY + 4, { align: 'right' });
 
         doc.setFillColor(255, 255, 255);
@@ -1813,7 +1813,7 @@ window.downloadInvoicePDFMulti = async function (invoiceId) {
         doc.setFillColor(...darkGrayColor);
         doc.rect(110, fixedBottomY + 12, 85, 6, 'F');
         doc.setTextColor(255, 255, 255);
-        doc.text('TOTALE TTC', 113, fixedBottomY + 16);
+        doc.text('TOTAL TTC', 113, fixedBottomY + 16);
         doc.text(`${formatNumberForPDF(invoice.total_ttc)} DH`, 192, fixedBottomY + 16, { align: 'right' });
 
         // Amount in words - below both sections
@@ -1823,7 +1823,7 @@ window.downloadInvoicePDFMulti = async function (invoiceId) {
         doc.setFont(undefined, 'normal');
         const amountInWords = numberToFrenchWords(invoice.total_ttc);
         const docTypeText = invoice.document_type === 'devis' ? 'devis' : 'facture';
-        doc.text(`La Présente ${docTypeText} est Arréte à la somme de : ${amountInWords}`, 15, amountWordsY, { maxWidth: 130 });
+        doc.text(`La Présente ${docTypeText} est Arrêté à la somme de : ${amountInWords}`, 15, amountWordsY, { maxWidth: 130 });
 
         // Add notes if any
         const noteResult = await window.electron.dbMulti.getNote(invoiceId);

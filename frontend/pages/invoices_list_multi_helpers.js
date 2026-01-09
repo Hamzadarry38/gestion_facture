@@ -871,7 +871,7 @@ async function generatePDFBlobMulti(invoice, includeOrder = true) {
     doc.setTextColor(255, 255, 255);
     doc.setFontSize(9);
     doc.setFont(undefined, 'bold');
-    doc.text('TOTALE HT', 113, fixedBottomY + 4);
+    doc.text('TOTAL HT', 113, fixedBottomY + 4);
     doc.text(`${formatNumberForPDF(invoice.total_ht)} DH`, 192, fixedBottomY + 4, { align: 'right' });
 
     doc.setFillColor(255, 255, 255);
@@ -885,7 +885,7 @@ async function generatePDFBlobMulti(invoice, includeOrder = true) {
     doc.setFillColor(...darkGrayColor);
     doc.rect(110, fixedBottomY + 12, 85, 6, 'F');
     doc.setTextColor(255, 255, 255);
-    doc.text('TOTALE TTC', 113, fixedBottomY + 16);
+    doc.text('TOTAL TTC', 113, fixedBottomY + 16);
     doc.text(`${formatNumberForPDF(invoice.total_ttc)} DH`, 192, fixedBottomY + 16, { align: 'right' });
 
     // Amount in words

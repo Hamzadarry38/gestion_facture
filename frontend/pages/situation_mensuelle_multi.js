@@ -914,7 +914,7 @@ window.generateSituationMensuelleMulti = async function (clientId, month, year, 
         doc.setTextColor(255, 255, 255);
         doc.setFontSize(9);
         doc.setFont(undefined, 'bold');
-        doc.text('TOTALE HT', 113, fixedBottomY + 4);
+        doc.text('TOTAL HT', 113, fixedBottomY + 4);
         doc.text(`${formatAmountMulti(totalHT)} DH`, 192, fixedBottomY + 4, { align: 'right' });
 
         doc.setFillColor(255, 255, 255);
@@ -928,7 +928,7 @@ window.generateSituationMensuelleMulti = async function (clientId, month, year, 
         doc.setFillColor(...darkGrayColor);
         doc.rect(110, fixedBottomY + 12, 85, 6, 'F');
         doc.setTextColor(255, 255, 255);
-        doc.text('TOTALE TTC', 113, fixedBottomY + 16);
+        doc.text('TOTAL TTC', 113, fixedBottomY + 16);
         doc.text(`${formatAmountMulti(totalTTC)} DH`, 192, fixedBottomY + 16, { align: 'right' });
 
         // Amount in words

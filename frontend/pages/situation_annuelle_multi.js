@@ -1,7 +1,7 @@
-// Situation Annuelle - Annual Report Generator for MULTI TRAVAUX
+// SITUATION - Annual Report Generator for MULTI TRAVAUX
 // This file handles the generation of annual situation reports for clients
 
-// Show Situation Annuelle Modal
+// Show SITUATION Modal
 window.showSituationAnnuelleModalMulti = async function () {
     try {
         // Get all clients from Multi database
@@ -31,7 +31,7 @@ window.showSituationAnnuelleModalMulti = async function () {
                     </svg>
                 </div>
                 <div style="flex:1;">
-                    <h2 style="color:#fff;margin:0;font-size:1.6rem;font-weight:700;letter-spacing:-0.5px;">Situation Annuelle (Multi)</h2>
+                    <h2 style="color:#fff;margin:0;font-size:1.6rem;font-weight:700;letter-spacing:-0.5px;">SITUATION (Multi)</h2>
                     <p style="color:#999;margin:0.25rem 0 0 0;font-size:0.9rem;">Générer un rapport annuel détaillé</p>
                 </div>
             </div>
@@ -215,12 +215,12 @@ window.showSituationAnnuelleModalMulti = async function () {
         };
 
     } catch (error) {
-        console.error('Error showing situation annuelle modal:', error);
+        console.error('Error showing SITUATION modal:', error);
         window.notify.error('Erreur', 'Impossible d\'afficher la fenêtre', 3000);
     }
 };
 
-// Generate Situation Annuelle PDF for Multi
+// Generate SITUATION PDF for Multi
 window.generateSituationAnnuelleMulti = async function (clientId, year, selectedMonths, includeFacture, includeDevis) {
     try {
         window.notify.info('Info', 'Génération du rapport annuel en cours...', 2000);
@@ -315,8 +315,9 @@ window.generateSituationAnnuelleMulti = async function (clientId, year, selected
         const doc = new jsPDF();
 
         // Multi specific colors
-        const redColor = [198, 40, 40];   // #c62828
-        const blueColor = [21, 101, 192];  // #1565c0
+        // Multi specific colors (UPDATED TO MATCH MRY/CHAIMAE BLUE THEME)
+        const redColor = [33, 97, 140];   // Changed from Red to MRY Blue
+        const blueColor = [33, 97, 140];  // Updated to MRY Blue
 
         // Generate Title String
         const monthNamesUpper = ['', 'JANVIER', 'FÉVRIER', 'MARS', 'AVRIL', 'MAI', 'JUIN', 'JUILLET', 'AOÛT', 'SEPTEMBRE', 'OCTOBRE', 'NOVEMBRE', 'DÉCEMBRE'];
@@ -351,22 +352,23 @@ window.generateSituationAnnuelleMulti = async function (clientId, year, selected
         addHeaderToPDFAnnuelleMulti(doc, client, dateRangeStr, redColor, blueColor);
 
         // Dynamic Column Positioning
-        const startX = 40;
-        const endX = 140;
+        const startX = 35;
+        const endX = 125;
         const totalWidth = endX - startX;
 
         let activeColumns = [];
-        if (includeFacture) activeColumns.push({ label: 'N° FACTURES', key: 'facturesCount' });
-        if (includeDevis) activeColumns.push({ label: 'N° DEVIS', key: 'devisCount' });
+        if (includeFacture) activeColumns.push({ label: 'Nbr FACTURES', key: 'facturesCount' });
+        if (includeDevis) activeColumns.push({ label: 'Nbr DEVIS', key: 'devisCount' });
 
-        const columnWidth = totalWidth / (activeColumns.length + 1);
+        const columnWidth = totalWidth / activeColumns.length;
 
         activeColumns.forEach((col, index) => {
-            col.x = startX + (columnWidth * (index + 1));
+            col.x = startX + (columnWidth * index) + (columnWidth / 2);
         });
 
         // Table Header
-        const startY = 85;
+        // Table Header
+        const startY = 90; // Moved down to 90 (Standardized)
         doc.setFillColor(...redColor);
         doc.rect(14, startY, 182, 10, 'F');
 
@@ -434,24 +436,32 @@ window.generateSituationAnnuelleMulti = async function (clientId, year, selected
         // Totals Footer
         currentY += 10;
 
-        doc.setFillColor(255, 235, 238);
+        doc.setFillColor(255, 255, 255); // White for HT
         doc.rect(110, currentY, 85, 8, 'F');
         doc.setFont(undefined, 'bold');
-        doc.text('TOTAL ANNUEL HT :', 113, currentY + 5.5);
+        doc.text('TOTAL HT :', 113, currentY + 5.5);
         doc.text(`${formatAmountMulti(grandTotalHT)} DH`, 192, currentY + 5.5, { align: 'right' });
 
         currentY += 8;
-        doc.setFillColor(255, 255, 255);
+        doc.setFillColor(255, 255, 255); // White for TVA
         doc.rect(110, currentY, 85, 8, 'F');
-        doc.text('TOTAL ANNUEL TVA :', 113, currentY + 5.5);
+        doc.text('TOTAL TVA :', 113, currentY + 5.5);
         doc.text(`${formatAmountMulti(grandTotalTVA)} DH`, 192, currentY + 5.5, { align: 'right' });
 
         currentY += 8;
-        doc.setFillColor(187, 222, 251); // Light blue
+        doc.setFillColor(...redColor); // Red for TTC (Header Color)
         doc.rect(110, currentY, 85, 8, 'F');
-        doc.setTextColor(...blueColor);
-        doc.text('TOTAL ANNUEL TTC :', 113, currentY + 5.5);
+        doc.setTextColor(255, 255, 255); // White text
+        doc.setFont(undefined, 'bold'); // Explicitly bold
+        doc.text('TOTAL TTC :', 113, currentY + 5.5);
         doc.text(`${formatAmountMulti(grandTotalTTC)} DH`, 192, currentY + 5.5, { align: 'right' });
+
+        // Add Footer to ALL pages
+        const totalPages = doc.internal.getNumberOfPages();
+        for (let i = 1; i <= totalPages; i++) {
+            doc.setPage(i);
+            addFooterToPDFAnnuelleMulti(doc, i, totalPages);
+        }
 
         // Save
         const filename = `Situation_Annuelle_${client.nom.replace(/\s+/g, '_')}_${year}_MULTI.pdf`;
@@ -494,11 +504,9 @@ function addHeaderToPDFAnnuelleMulti(doc, client, dateRangeStr, redColor, blueCo
     doc.setFont(undefined, 'bold');
     doc.text('MULTI TRAVAUX TETOUAN', 105, 20, { align: 'center' });
 
-    doc.setFontSize(10);
-    doc.setFont(undefined, 'normal');
-    doc.setTextColor(0, 0, 0);
-    doc.text('Travaux divers ou construction', 105, 27, { align: 'center' });
-    doc.text('Négociant', 105, 32, { align: 'center' });
+    // Removed duplicates as per request
+
+    // Removed "Travaux divers..." and "Négociant" as per request
 
     // Client Info
     doc.setFontSize(11);
@@ -523,9 +531,34 @@ function addHeaderToPDFAnnuelleMulti(doc, client, dateRangeStr, redColor, blueCo
     doc.setFontSize(15);
     doc.setFont(undefined, 'bold');
     doc.setTextColor(0, 0, 0);
-    doc.text('SITUATION ANNUELLE', 105, 70, { align: 'center' });
+    doc.text('SITUATION', 105, 70, { align: 'center' });
 
     doc.setTextColor(...redColor);
     doc.setFontSize(13);
-    doc.text(` ${dateRangeStr}`, 105, 77, { align: 'center' });
+    const splitTitle = doc.splitTextToSize(` ${dateRangeStr}`, 170);
+    doc.text(splitTitle, 105, 82, { align: 'center' });
+}
+
+function addFooterToPDFAnnuelleMulti(doc, pageNumber, totalPages) {
+    const pageWidth = doc.internal.pageSize.width || 210;
+    const pageHeight = doc.internal.pageSize.height || 297;
+
+    doc.setDrawColor(200, 200, 200);
+    doc.line(10, pageHeight - 15, pageWidth - 10, pageHeight - 15);
+
+    doc.setFontSize(8);
+    doc.setTextColor(100, 100, 100);
+    doc.setFont(undefined, 'normal');
+
+    // Footer Text from Image
+    const line1 = 'NIF 68717422 | TP 51001343 | RC 38633 | CNSS 6446237';
+    const line2 = 'ICE : 00380950500031';
+    const line3 = 'Tel: +212 661 307 323';
+
+    doc.text(line1, pageWidth / 2, pageHeight - 11, { align: 'center' });
+    doc.text(line2, pageWidth / 2, pageHeight - 8, { align: 'center' });
+    doc.text(line3, pageWidth / 2, pageHeight - 5, { align: 'center' });
+
+    // Page Number
+    doc.text(`Page ${pageNumber} / ${totalPages}`, pageWidth - 20, pageHeight - 5, { align: 'right' });
 }
