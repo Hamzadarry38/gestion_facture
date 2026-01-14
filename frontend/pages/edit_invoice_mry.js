@@ -105,11 +105,12 @@ function EditInvoiceMRYPage() {
                                 <table class="products-table">
                                     <thead>
                                         <tr>
-                                            <th>Désignation</th>
-                                            <th>Quantité</th>
-                                            <th>Prix unitaire HT</th>
-                                            <th>Total HT</th>
-                                            <th>Actions</th>
+                                            <th style="width: 20px; padding: 0.5rem 0.25rem;"></th>
+                                            <th style="width: 50%;">Désignation</th>
+                                            <th style="width: 120px;">Quantité</th>
+                                            <th style="width: 140px;">Prix unitaire HT</th>
+                                            <th style="width: 120px;">Total HT</th>
+                                            <th style="width: 60px;">Actions</th>
                                         </tr>
                                     </thead>
                                     <tbody id="editProductsTableBodyMRY">
@@ -188,6 +189,10 @@ let allClientsEditMRY = [];
 let filteredClientsEditMRY = [];
 let currentDocumentTypeMRY = null;
 let currentNumeroOrderMRY = null;
+
+// Drag and drop state
+let draggedRowMRY = null;
+let draggedIndexMRY = null;
 
 // Load invoice data
 async function loadInvoiceDataMRY(invoiceId) {
@@ -273,19 +278,25 @@ window.addProductRowEditMRY = function (productData = null) {
 
     const row = document.createElement('tr');
     row.id = rowId;
+    row.draggable = true;
+    row.style.cursor = 'grab';
+
     row.innerHTML = `
-        <td>
-            <textarea class="product-designation" rows="2" placeholder="Description du produit..." onkeydown="handleArrowNavigationEditMRY(event, '${rowId}', 0)">${productData ? productData.designation : ''}</textarea>
+        <td style="cursor: grab; user-select: none; width: 20px; padding: 0.5rem 0.25rem; text-align: center; color: #666; font-size: 16px;" class="drag-handle">
+            ⋮⋮
+        </td>
+        <td style="width: 50%;">
+            <textarea class="product-designation" rows="2" placeholder="Description du produit..." onkeydown="handleArrowNavigationEditMRY(event, '${rowId}', 1)">${productData ? productData.designation : ''}</textarea>
         </td>
         <td>
             <input type="text" class="product-quantity" placeholder="ex: 50 Kg, F, 10" value="${productData ? productData.quantite : ''}"
                    onchange="calculateRowTotalEditMRY('${rowId}')" onblur="calculateRowTotalEditMRY('${rowId}')"
-                   onkeydown="handleArrowNavigationEditMRY(event, '${rowId}', 1)">
+                   onkeydown="handleArrowNavigationEditMRY(event, '${rowId}', 2)">
         </td>
         <td>
             <input type="number" class="product-price" step="0.01" placeholder="0.00" value="${productData ? productData.prix_unitaire_ht : ''}"
                    onchange="calculateRowTotalEditMRY('${rowId}')" onblur="calculateRowTotalEditMRY('${rowId}')"
-                   onkeydown="handleArrowNavigationEditMRY(event, '${rowId}', 2)">
+                   onkeydown="handleArrowNavigationEditMRY(event, '${rowId}', 3)">
         </td>
         <td>
             <span class="product-total">${productData ? (productData.total_ht || 0).toFixed(2) : '0.00'} DH</span>
@@ -299,6 +310,28 @@ window.addProductRowEditMRY = function (productData = null) {
             </button>
         </td>
     `;
+
+    // Add drag event listeners - only on drag handle
+    const dragHandle = row.querySelector('.drag-handle');
+    dragHandle.addEventListener('mousedown', (e) => {
+        row.setAttribute('draggable', 'true');
+    });
+
+    row.addEventListener('dragstart', handleDragStartMRY);
+    row.addEventListener('dragover', handleDragOverMRY);
+    row.addEventListener('drop', handleDropMRY);
+    row.addEventListener('dragend', handleDragEndMRY);
+
+    // Prevent dragging when clicking on inputs
+    const inputs = row.querySelectorAll('input, textarea');
+    inputs.forEach(input => {
+        input.addEventListener('mousedown', (e) => {
+            row.setAttribute('draggable', 'false');
+        });
+        input.addEventListener('blur', () => {
+            row.setAttribute('draggable', 'true');
+        });
+    });
 
     tbody.appendChild(row);
 
@@ -334,6 +367,74 @@ window.deleteProductRowEditMRY = function (rowId) {
     calculateTotalsEditMRY();
 }
 
+// Drag and drop handlers
+function handleDragStartMRY(e) {
+    draggedRowMRY = e.target;
+    const tbody = document.getElementById('editProductsTableBodyMRY');
+    const rows = Array.from(tbody.querySelectorAll('tr'));
+    draggedIndexMRY = rows.indexOf(draggedRowMRY);
+
+    e.target.style.opacity = '0.5';
+    e.target.style.cursor = 'grabbing';
+    e.dataTransfer.effectAllowed = 'move';
+    e.dataTransfer.setData('text/html', e.target.innerHTML);
+}
+
+function handleDragOverMRY(e) {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+
+    const targetRow = e.target.closest('tr');
+    if (targetRow && targetRow !== draggedRowMRY) {
+        targetRow.style.borderTop = '2px solid #9c27b0';
+    }
+}
+
+function handleDropMRY(e) {
+    e.preventDefault();
+    e.stopPropagation();
+
+    const targetRow = e.target.closest('tr');
+    if (!targetRow || targetRow === draggedRowMRY) {
+        return;
+    }
+
+    targetRow.style.borderTop = '';
+
+    const tbody = document.getElementById('editProductsTableBodyMRY');
+    const rows = Array.from(tbody.querySelectorAll('tr'));
+    const dropIndex = rows.indexOf(targetRow);
+
+    if (draggedIndexMRY === null || draggedIndexMRY === dropIndex) {
+        return;
+    }
+
+    // Reorder the rows
+    if (draggedIndexMRY < dropIndex) {
+        tbody.insertBefore(draggedRowMRY, targetRow.nextSibling);
+    } else {
+        tbody.insertBefore(draggedRowMRY, targetRow);
+    }
+
+    // Recalculate totals after reorder
+    calculateTotalsEditMRY();
+}
+
+function handleDragEndMRY(e) {
+    e.target.style.opacity = '1';
+    e.target.style.cursor = 'grab';
+
+    // Remove all border highlights
+    const tbody = document.getElementById('editProductsTableBodyMRY');
+    const rows = Array.from(tbody.querySelectorAll('tr'));
+    rows.forEach(row => {
+        row.style.borderTop = '';
+    });
+
+    draggedRowMRY = null;
+    draggedIndexMRY = null;
+}
+
 // Calculate totals
 window.calculateTotalsEditMRY = function () {
     const rows = document.querySelectorAll('#editProductsTableBodyMRY tr');
@@ -346,9 +447,19 @@ window.calculateTotalsEditMRY = function () {
         totalHT += total;
     });
 
-    const tvaRateValue = document.getElementById('editTvaRateMRY').value;
-    const tvaRate = tvaRateValue === '' ? 20 : (parseFloat(tvaRateValue) || 0);
-    const montantTVA = totalHT * (tvaRate / 100);
+    const tvaInput = document.getElementById('editTvaRateMRY');
+    let tvaRateValue = tvaInput.value;
+    let tvaRate = parseFloat(tvaRateValue);
+
+    // FIX: prevent year (2026) or huge numbers from breaking calculations
+    if (isNaN(tvaRate) || tvaRate < 0 || tvaRate > 100) {
+        console.warn('⚠️ [MRY EDIT] Invalid TVA Rate detected:', tvaRate, 'Resetting to 20');
+        tvaRate = 20;
+        tvaInput.value = '20';
+    }
+
+    const tvaRateFinal = tvaRate;
+    const montantTVA = totalHT * (tvaRateFinal / 100);
     const totalTTC = totalHT + montantTVA;
 
     document.getElementById('editTotalHTMRY').textContent = totalHT.toFixed(2) + ' DH';
@@ -360,6 +471,16 @@ window.calculateTotalsEditMRY = function () {
 window.handleArrowNavigationEditMRY = function (event, currentRowId, currentCellIndex) {
     if (!['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(event.key)) {
         return;
+    }
+
+    // Define currentElement
+    const currentElement = event.target;
+
+    // For number input, prevent up/down from changing value regardless of navigation
+    if (currentElement.type === 'number') {
+        if (event.key === 'ArrowUp' || event.key === 'ArrowDown') {
+            event.preventDefault(); // Prevent increment/decrement
+        }
     }
 
     const currentRow = document.getElementById(currentRowId);
@@ -390,13 +511,13 @@ window.handleArrowNavigationEditMRY = function (event, currentRowId, currentCell
             return;
         }
     } else if (event.key === 'ArrowLeft') {
-        if (currentCellIndex > 0) {
+        if (currentCellIndex > 1) {
             targetRow = currentRow;
             targetCellIndex = currentCellIndex - 1;
             event.preventDefault();
         }
     } else if (event.key === 'ArrowRight') {
-        if (currentCellIndex < 2) {
+        if (currentCellIndex < 3) {
             targetRow = currentRow;
             targetCellIndex = currentCellIndex + 1;
             event.preventDefault();

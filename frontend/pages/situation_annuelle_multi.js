@@ -275,26 +275,34 @@ window.generateSituationAnnuelleMulti = async function (clientId, year, selected
                 let facturesCount = 0;
                 let devisCount = 0;
                 let monthTotalHT = 0;
+                let monthTotalTTC = 0;
+                let monthTotalTVA = 0;
 
                 monthInvoices.forEach(inv => {
-                    monthTotalHT += parseFloat(inv.total_ht || 0);
+                    const invHT = parseFloat(inv.total_ht || 0);
+                    const invTTC = parseFloat(inv.total_ttc || 0);
+                    // Smart fallback for TVA: use stored value, or calculate difference
+                    const invTVA = parseFloat(inv.montant_tva || 0) || (invTTC - invHT);
+
+                    monthTotalHT += invHT;
+                    monthTotalTVA += invTVA;
+                    monthTotalTTC += invTTC;
+
+                    grandTotalTVA += invTVA;
+                    grandTotalTTC += invTTC;
+
                     if (inv.document_type === 'facture') facturesCount++;
                     else if (inv.document_type === 'devis') devisCount++;
                 });
 
-                const monthTVA = monthTotalHT * 0.20;
-                const monthTTC = monthTotalHT + monthTVA;
-
                 grandTotalHT += monthTotalHT;
-                grandTotalTVA += monthTVA;
-                grandTotalTTC += monthTTC;
 
                 monthsData.push({
                     monthName: monthNames[m],
                     facturesCount,
                     devisCount,
                     totalHT: monthTotalHT,
-                    totalTTC: monthTTC
+                    totalTTC: monthTotalTTC
                 });
             }
         }
@@ -315,9 +323,8 @@ window.generateSituationAnnuelleMulti = async function (clientId, year, selected
         const doc = new jsPDF();
 
         // Multi specific colors
-        // Multi specific colors (UPDATED TO MATCH MRY/CHAIMAE BLUE THEME)
-        const redColor = [33, 97, 140];   // Changed from Red to MRY Blue
-        const blueColor = [33, 97, 140];  // Updated to MRY Blue
+        const redColor = [198, 40, 40];   // #c62828
+        const blueColor = [21, 101, 192];  // #1565c0
 
         // Generate Title String
         const monthNamesUpper = ['', 'JANVIER', 'FÉVRIER', 'MARS', 'AVRIL', 'MAI', 'JUIN', 'JUILLET', 'AOÛT', 'SEPTEMBRE', 'OCTOBRE', 'NOVEMBRE', 'DÉCEMBRE'];
@@ -367,8 +374,7 @@ window.generateSituationAnnuelleMulti = async function (clientId, year, selected
         });
 
         // Table Header
-        // Table Header
-        const startY = 90; // Moved down to 90 (Standardized)
+        const startY = 85;
         doc.setFillColor(...redColor);
         doc.rect(14, startY, 182, 10, 'F');
 
@@ -456,13 +462,6 @@ window.generateSituationAnnuelleMulti = async function (clientId, year, selected
         doc.text('TOTAL TTC :', 113, currentY + 5.5);
         doc.text(`${formatAmountMulti(grandTotalTTC)} DH`, 192, currentY + 5.5, { align: 'right' });
 
-        // Add Footer to ALL pages
-        const totalPages = doc.internal.getNumberOfPages();
-        for (let i = 1; i <= totalPages; i++) {
-            doc.setPage(i);
-            addFooterToPDFAnnuelleMulti(doc, i, totalPages);
-        }
-
         // Save
         const filename = `Situation_Annuelle_${client.nom.replace(/\s+/g, '_')}_${year}_MULTI.pdf`;
         doc.save(filename);
@@ -504,9 +503,11 @@ function addHeaderToPDFAnnuelleMulti(doc, client, dateRangeStr, redColor, blueCo
     doc.setFont(undefined, 'bold');
     doc.text('MULTI TRAVAUX TETOUAN', 105, 20, { align: 'center' });
 
-    // Removed duplicates as per request
-
-    // Removed "Travaux divers..." and "Négociant" as per request
+    doc.setFontSize(10);
+    doc.setFont(undefined, 'normal');
+    doc.setTextColor(0, 0, 0);
+    doc.text('Travaux divers ou construction', 105, 27, { align: 'center' });
+    doc.text('Négociant', 105, 32, { align: 'center' });
 
     // Client Info
     doc.setFontSize(11);
@@ -535,30 +536,446 @@ function addHeaderToPDFAnnuelleMulti(doc, client, dateRangeStr, redColor, blueCo
 
     doc.setTextColor(...redColor);
     doc.setFontSize(13);
-    const splitTitle = doc.splitTextToSize(` ${dateRangeStr}`, 170);
-    doc.text(splitTitle, 105, 82, { align: 'center' });
+    doc.text(` ${dateRangeStr}`, 105, 77, { align: 'center' });
 }
+// ==========================================
+// PART 2: Global Clients Annual Report (New Logic)
+// ==========================================
 
-function addFooterToPDFAnnuelleMulti(doc, pageNumber, totalPages) {
-    const pageWidth = doc.internal.pageSize.width || 210;
-    const pageHeight = doc.internal.pageSize.height || 297;
+// Show SITUATION Modal for Multiple Clients
+window.showSituationAnnuelleClientsModalMulti = async function () {
+    try {
+        // Get all clients from Multi database
+        const clientsResult = await window.electron.dbMulti.getAllClients();
+        const clients = clientsResult.success ? clientsResult.data : [];
 
-    doc.setDrawColor(200, 200, 200);
-    doc.line(10, pageHeight - 15, pageWidth - 10, pageHeight - 15);
+        const currentYear = new Date().getFullYear();
+        const years = [currentYear, currentYear - 1, currentYear - 2, currentYear - 3, currentYear - 4];
 
-    doc.setFontSize(8);
-    doc.setTextColor(100, 100, 100);
-    doc.setFont(undefined, 'normal');
+        const overlay = document.createElement('div');
+        overlay.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.9);z-index:999999;display:flex;align-items:center;justify-content:center;animation:fadeIn 0.2s;padding:2rem;';
 
-    // Footer Text from Image
-    const line1 = 'NIF 68717422 | TP 51001343 | RC 38633 | CNSS 6446237';
-    const line2 = 'ICE : 00380950500031';
-    const line3 = 'Tel: +212 661 307 323';
+        const modal = document.createElement('div');
+        modal.style.cssText = 'background:linear-gradient(145deg, #2a2a2e 0%, #1a1a1e 100%);border:2px solid #ef5350;border-radius:20px;padding:2rem;width:650px;max-height:85vh;overflow-y:auto;box-shadow:0 25px 80px rgba(0,0,0,0.95);';
 
-    doc.text(line1, pageWidth / 2, pageHeight - 11, { align: 'center' });
-    doc.text(line2, pageWidth / 2, pageHeight - 8, { align: 'center' });
-    doc.text(line3, pageWidth / 2, pageHeight - 5, { align: 'center' });
+        modal.innerHTML = `
+            <style>
+                @keyframes fadeIn { from { opacity: 0; transform: scale(0.95); } to { opacity: 1; transform: scale(1); } }
+                .client-checkbox-item:hover { background: rgba(229, 57, 53, 0.1); }
+            </style>
+            <div style="display:flex;align-items:center;gap:1rem;margin-bottom:2rem;padding-bottom:1.5rem;border-bottom:2px solid #3a3a3e;">
+                <div style="background:linear-gradient(135deg, #ef5350 0%, #c62828 100%);padding:1rem;border-radius:12px;box-shadow:0 4px 15px rgba(229, 57, 53, 0.3);">
+                    <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2">
+                        <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
+                        <circle cx="9" cy="7" r="4"></circle>
+                        <path d="M23 21v-2a4 4 0 0 0-3-3.87"></path>
+                        <path d="M16 3.13a4 4 0 0 1 0 7.75"></path>
+                    </svg>
+                </div>
+                <div style="flex:1;">
+                    <h2 style="color:#fff;margin:0;font-size:1.6rem;font-weight:700;letter-spacing:-0.5px;">SITUATION GLOBALE (Multi)</h2>
+                    <p style="color:#999;margin:0.25rem 0 0 0;font-size:0.9rem;">Rapport annuel pour plusieurs clients</p>
+                </div>
+            </div>
+            
+            <div style="margin-bottom:1.25rem;position:relative;">
+                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:0.5rem;">
+                    <label style="color:#ef5350;font-weight:600;font-size:0.9rem;text-transform:uppercase;letter-spacing:0.5px;">Clients</label>
+                    <div>
+                        <button type="button" onclick="toggleAllClientsMulti(true)" style="background:none;border:none;color:#ef5350;cursor:pointer;font-size:0.85rem;margin-right:0.5rem;text-decoration:underline;">Tout sélectionner</button>
+                        <button type="button" onclick="toggleAllClientsMulti(false)" style="background:none;border:none;color:#999;cursor:pointer;font-size:0.85rem;text-decoration:underline;">Tout désélectionner</button>
+                    </div>
+                </div>
+                <input type="text" id="situationClientsSearchMulti" placeholder="Rechercher un client..." 
+                       style="width:100%;padding:0.875rem 1rem;background:#2d2d30;border:1px solid #3e3e42;border-radius:10px 10px 0 0;color:#fff;font-size:0.95rem;outline:none;"
+                       oninput="filterSituationClientsListMulti(this.value)">
+                
+                <div id="clientsSelectionListMulti" style="max-height:200px;overflow-y:auto;background:#2d2d30;border:1px solid #3e3e42;border-top:none;border-radius:0 0 10px 10px;">
+                    ${clients.map(client => `
+                        <label class="client-checkbox-item" style="display:flex;align-items:center;padding:0.75rem 1rem;cursor:pointer;border-bottom:1px solid #3e3e42;transition:all 0.2s;">
+                            <input type="checkbox" class="client-checkbox-multi" value="${client.id}" data-name="${client.nom}" style="margin-right:1rem;accent-color:#ef5350;width:18px;height:18px;">
+                            <span style="color:#fff;font-size:0.95rem;">${client.nom}</span>
+                            ${client.ice ? `<span style="color:#999;font-size:0.8rem;margin-left:auto;">${client.ice}</span>` : ''}
+                        </label>
+                    `).join('')}
+                </div>
+                <div style="margin-top:0.5rem;font-size:0.85rem;color:#999;text-align:right;">
+                    <span id="selectedClientsCountMulti">0</span> clients sélectionnés
+                </div>
+            </div>
+            
+            <div style="display:flex;gap:1.5rem;margin-bottom:1.5rem;">
+                <div style="flex:1;">
+                    <label style="display:block;color:#ef5350;margin-bottom:0.5rem;font-weight:600;font-size:0.9rem;text-transform:uppercase;letter-spacing:0.5px;">Année</label>
+                    <select id="situationAnnuelleMultiYearMulti" style="width:100%;padding:0.75rem 1rem;background:#2d2d30;border:1px solid #3e3e42;border-radius:10px;color:#fff;font-size:0.95rem;outline:none;cursor:pointer;transition:all 0.2s;" onfocus="this.style.borderColor='#ef5350';this.style.boxShadow='0 0 0 3px rgba(239, 83, 80, 0.1)'" onblur="this.style.borderColor='#3e3e42';this.style.boxShadow='none'">
+                        ${years.map(y => `<option value="${y}" ${y === currentYear ? 'selected' : ''}>${y}</option>`).join('')}
+                    </select>
+                </div>
+                
+                <div style="flex:1;">
+                    <label style="display:block;color:#ef5350;margin-bottom:0.5rem;font-weight:600;font-size:0.9rem;text-transform:uppercase;letter-spacing:0.5px;">Types de documents</label>
+                    <div style="display:flex;gap:1rem;padding:0.55rem 0;">
+                        <label style="display:flex;align-items:center;color:#fff;cursor:pointer;font-size:0.95rem;">
+                            <input type="checkbox" id="situationAnnuelleMultiTypeFactureMulti" checked style="margin-right:0.5rem;accent-color:#ef5350;width:18px;height:18px;">
+                            Facture
+                        </label>
+                        <label style="display:flex;align-items:center;color:#fff;cursor:pointer;font-size:0.95rem;">
+                            <input type="checkbox" id="situationAnnuelleMultiTypeDevisMulti" checked style="margin-right:0.5rem;accent-color:#ef5350;width:18px;height:18px;">
+                            Devis
+                        </label>
+                    </div>
+                </div>
+            </div>
+            
+            <div style="display:flex;gap:0.75rem;margin-top:2.5rem;">
+                <button id="situationAnnuelleMultiCancelMulti" style="flex:1;padding:0.875rem 1.5rem;background:#3e3e42;color:#fff;border:none;border-radius:10px;cursor:pointer;font-size:0.95rem;font-weight:600;transition:all 0.2s;" onmouseover="this.style.background='#4e4e52'" onmouseout="this.style.background='#3e3e42'">
+                    Annuler
+                </button>
+                <button id="situationAnnuelleMultiGenerateMulti" style="flex:2;padding:0.875rem 1.5rem;background:linear-gradient(135deg, #ef5350 0%, #c62828 100%);color:#fff;border:none;border-radius:10px;cursor:pointer;font-size:0.95rem;font-weight:600;transition:all 0.2s;box-shadow:0 4px 12px rgba(229, 57, 53, 0.3);display:flex;align-items:center;justify-content:center;gap:0.5rem;" onmouseover="this.style.transform='translateY(-2px)';this.style.boxShadow='0 6px 20px rgba(229, 57, 53, 0.4)'" onmouseout="this.style.transform='translateY(0)';this.style.boxShadow='0 4px 12px rgba(229, 57, 53, 0.3)'">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2">
+                        <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"></path>
+                        <polyline points="14 2 14 8 20 8"></polyline>
+                        <line x1="12" y1="18" x2="12" y2="12"></line>
+                        <line x1="9" y1="15" x2="15" y2="15"></line>
+                    </svg>
+                    <span>Générer PDF</span>
+                </button>
+            </div>
+        `;
 
-    // Page Number
-    doc.text(`Page ${pageNumber} / ${totalPages}`, pageWidth - 20, pageHeight - 5, { align: 'right' });
-}
+        overlay.appendChild(modal);
+        document.body.appendChild(overlay);
+
+        // Scripts for interaction
+        window.toggleAllClientsMulti = function (selectAll) {
+            document.querySelectorAll('.client-checkbox-multi').forEach(cb => {
+                if (cb.closest('label').style.display !== 'none') {
+                    cb.checked = selectAll;
+                }
+            });
+            updateSelectedCountMultiGlobal();
+        };
+
+        window.toggleAllMonthsMultiGlobal = function (selectAll) {
+            document.querySelectorAll('.month-checkbox-multi-global').forEach(cb => cb.checked = selectAll);
+        };
+
+        window.filterSituationClientsListMulti = function (query) {
+            const term = query.toLowerCase();
+            document.querySelectorAll('.client-checkbox-item').forEach(item => {
+                const name = item.querySelector('span').textContent.toLowerCase();
+                if (name.includes(term)) {
+                    item.style.display = 'flex';
+                } else {
+                    item.style.display = 'none';
+                }
+            });
+        };
+
+        window.updateSelectedCountMultiGlobal = function () {
+            const count = document.querySelectorAll('.client-checkbox-multi:checked').length;
+            document.getElementById('selectedClientsCountMulti').innerText = count;
+        };
+
+        // Attach listeners to checkboxes to update count
+        document.querySelectorAll('.client-checkbox-multi').forEach(cb => {
+            cb.addEventListener('change', updateSelectedCountMultiGlobal);
+        });
+
+        document.getElementById('situationAnnuelleMultiCancelMulti').onclick = () => overlay.remove();
+
+        document.getElementById('situationAnnuelleMultiGenerateMulti').onclick = async () => {
+            const selectedClientIds = Array.from(document.querySelectorAll('.client-checkbox-multi:checked')).map(cb => cb.value);
+            const year = parseInt(document.getElementById('situationAnnuelleMultiYearMulti').value);
+            const includeFacture = document.getElementById('situationAnnuelleMultiTypeFactureMulti').checked;
+            const includeDevis = document.getElementById('situationAnnuelleMultiTypeDevisMulti').checked;
+
+            if (selectedClientIds.length === 0) {
+                window.notify.error('Erreur', 'Veuillez sélectionner au moins un client', 3000);
+                return;
+            }
+
+            if (!includeFacture && !includeDevis) {
+                window.notify.error('Erreur', 'Veuillez sélectionner au moins un type de document', 3000);
+                return;
+            }
+
+            overlay.remove();
+            await generateSituationAnnuelleClientsMulti(selectedClientIds, year, includeFacture, includeDevis);
+        };
+
+        // Prevent closing on overlay click
+        overlay.onclick = (e) => {
+            e.stopPropagation();
+        };
+
+    } catch (error) {
+        console.error('Error showing SITUATION Global modal:', error);
+        window.notify.error('Erreur', 'Impossible d\'afficher la fenêtre', 3000);
+    }
+};
+
+// Generate SITUATION PDF for Multiple Clients (Multi) - Client-based aggregation
+window.generateSituationAnnuelleClientsMulti = async function (clientIds, year, includeFacture, includeDevis) {
+    try {
+        window.notify.info('Info', 'Génération du rapport global en cours...', 2000);
+
+        // Get invoices
+        const invoicesResult = await window.electron.dbMulti.getAllInvoices('MULTI');
+        if (!invoicesResult.success) {
+            window.notify.error('Erreur', 'Impossible de charger les factures', 3000);
+            return;
+        }
+
+        // Get All Clients to have their names
+        const clientsResult = await window.electron.dbMulti.getAllClients();
+        const allClients = clientsResult.success ? clientsResult.data : [];
+
+        // Filter invoices for the selected year and SELECTED CLIENTS
+        const yearInvoices = invoicesResult.data.filter(inv => {
+            const invDate = new Date(inv.document_date);
+            return clientIds.includes(String(inv.client_id)) && invDate.getFullYear() === year;
+        });
+
+        if (yearInvoices.length === 0) {
+            window.notify.warning('Attention', 'Aucun document trouvé pour cette année et ces clients', 4000);
+            return;
+        }
+
+        // Aggregate data by CLIENT
+        const clientsData = [];
+        let grandTotalHT = 0;
+        let grandTotalTVA = 0;
+        let grandTotalTTC = 0;
+
+        for (const clientId of clientIds) {
+            const client = allClients.find(c => String(c.id) === String(clientId));
+            const clientName = client ? client.nom : `Client #${clientId}`;
+
+            const clientInvoices = yearInvoices.filter(inv => {
+                const invType = (inv.document_type || '').toLowerCase();
+                let isTypeMatch = false;
+
+                if (invType === 'facture' && includeFacture) isTypeMatch = true;
+                else if (invType === 'devis' && includeDevis) isTypeMatch = true;
+
+                return String(inv.client_id) === String(clientId) && isTypeMatch;
+            });
+
+            if (clientInvoices.length > 0) {
+                let facturesCount = 0;
+                let devisCount = 0;
+                let clientTotalHT = 0;
+                let clientTotalTVA = 0;
+                let clientTotalTTC = 0;
+
+                clientInvoices.forEach(inv => {
+                    const invHT = parseFloat(inv.total_ht || 0);
+                    const invTTC = parseFloat(inv.total_ttc || 0);
+                    // Smart fallback for TVA: use stored value, or calculate difference
+                    const invTVA = parseFloat(inv.montant_tva || 0) || (invTTC - invHT);
+
+                    clientTotalHT += invHT;
+                    clientTotalTVA += invTVA;
+                    clientTotalTTC += invTTC;
+
+                    const type = inv.document_type ? inv.document_type.toLowerCase() : '';
+                    if (type === 'facture') facturesCount++;
+                    else if (type === 'devis') devisCount++;
+                });
+
+                grandTotalHT += clientTotalHT;
+                grandTotalTVA += clientTotalTVA;
+                grandTotalTTC += clientTotalTTC;
+
+                clientsData.push({
+                    clientName: clientName.toUpperCase(),
+                    facturesCount,
+                    devisCount,
+                    totalHT: clientTotalHT,
+                    totalTTC: clientTotalTTC
+                });
+            }
+        }
+
+        if (clientsData.length === 0) {
+            window.notify.warning('Attention', 'Aucune donnée trouvée pour les critères sélectionnés', 4000);
+            return;
+        }
+
+        // PDF Generation
+        if (typeof window.jspdf === 'undefined') {
+            const script = document.createElement('script');
+            script.src = 'https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js';
+            await new Promise((resolve) => { script.onload = resolve; document.head.appendChild(script); });
+        }
+
+        const { jsPDF } = window.jspdf;
+        const doc = new jsPDF();
+
+        const redColor = [198, 40, 40];   // #c62828
+        const blueColor = [21, 101, 192];  // #1565c0
+
+        // Generate Title String
+        const dateRangeStr = `ANNÉE ${year}`;
+
+        // Helper to add header (multi-client)
+        const addGlobalHeaderMulti = async (doc, clientNames, dateRangeStr) => {
+            // Logo
+            try {
+                const logoImg = document.querySelector('img[src*="multi.png"]') ||
+                    document.querySelector('img[data-asset="multi"]') ||
+                    document.querySelector('img[src^="data:image"]');
+                if (logoImg && logoImg.src && logoImg.src.startsWith('data:')) {
+                    doc.addImage(logoImg.src, 'PNG', 15, 10, 35, 35);
+                }
+            } catch (error) {
+                console.log('Logo not added:', error);
+            }
+
+            // Company Header
+            doc.setFontSize(18);
+            doc.setTextColor(...redColor);
+            doc.setFont(undefined, 'bold');
+            doc.text('MULTI TRAVAUX TETOUAN', 105, 20, { align: 'center' });
+
+            doc.setFontSize(10);
+            doc.setFont(undefined, 'normal');
+            doc.setTextColor(0, 0, 0);
+            doc.text('Travaux divers ou construction', 105, 27, { align: 'center' });
+            doc.text('Négociant', 105, 32, { align: 'center' });
+
+            // Client Info
+            doc.setFontSize(11);
+            doc.setFont(undefined, 'bold');
+            doc.text('CLIENT :', 15, 50);
+            doc.setTextColor(...blueColor);
+            doc.text(clientNames, 40, 50);
+
+            // Date
+            doc.setTextColor(0, 0, 0);
+            doc.text(`Date: ${new Date().toLocaleDateString('fr-FR')}`, 150, 50);
+
+            // Title
+            doc.setFontSize(15);
+            doc.setFont(undefined, 'bold');
+            doc.setTextColor(0, 0, 0);
+            doc.text('SITUATION GLOBALE', 105, 70, { align: 'center' });
+
+            doc.setTextColor(...redColor);
+            doc.setFontSize(13);
+            doc.text(` ${dateRangeStr}`, 105, 77, { align: 'center' });
+        };
+
+        const clientLabel = clientIds.length === 1 ? 'UN SEUL CLIENT' : `MULTI-CLIENTS (${clientIds.length})`;
+        await addGlobalHeaderMulti(doc, clientLabel, dateRangeStr);
+
+        // Dynamic Column Positioning
+        const startX = 65; // Moved further right to avoid overlap with long client names
+        const endX = 135;
+        const totalWidth = endX - startX;
+
+        let activeColumns = [];
+        if (includeFacture) activeColumns.push({ label: 'Nbr FACTURES', key: 'facturesCount' });
+        if (includeDevis) activeColumns.push({ label: 'Nbr DEVIS', key: 'devisCount' });
+
+        const columnWidth = totalWidth / activeColumns.length;
+
+        activeColumns.forEach((col, index) => {
+            col.x = startX + (columnWidth * index) + (columnWidth / 2);
+        });
+
+        // Table Header
+        const startY = 85;
+        doc.setFillColor(...redColor);
+        doc.rect(14, startY, 182, 10, 'F');
+
+        doc.setTextColor(255, 255, 255);
+        doc.setFontSize(9);
+        doc.setFont(undefined, 'bold');
+        doc.text('CLIENT', 20, startY + 6.5);
+
+        activeColumns.forEach(col => {
+            doc.text(col.label, col.x, startY + 6.5, { align: 'center' });
+        });
+
+        doc.text('TOTAL H.T', 160, startY + 6.5, { align: 'right' }); // Moved further right
+        doc.text('TOTAL T.T.C', 190, startY + 6.5, { align: 'right' });
+
+        // Table Content
+        doc.setFont(undefined, 'normal');
+        let currentY = startY + 10;
+
+        clientsData.forEach((row, index) => {
+            // Check if we need a new page
+            if (currentY > 250) {
+                doc.addPage();
+                addGlobalHeaderMulti(doc, clientLabel, dateRangeStr);
+
+                // Re-draw table header
+                doc.setFillColor(...redColor);
+                doc.rect(14, 85, 182, 10, 'F');
+                doc.setTextColor(255, 255, 255);
+                doc.setFontSize(9);
+                doc.setFont(undefined, 'bold');
+                doc.text('CLIENT', 20, 85 + 6.5);
+                activeColumns.forEach(col => {
+                    doc.text(col.label, col.x, 85 + 6.5, { align: 'center' });
+                });
+                doc.text('TOTAL H.T', 160, 85 + 6.5, { align: 'right' });
+                doc.text('TOTAL T.T.C', 190, 85 + 6.5, { align: 'right' });
+                currentY = 100;
+            }
+
+            // Alternating row background
+            if (index % 2 === 1) {
+                doc.setFillColor(255, 235, 238); // Very light red
+                doc.rect(14, currentY, 182, 8, 'F');
+            }
+
+            doc.setTextColor(0, 0, 0);
+            doc.text(row.clientName, 20, currentY + 5.5);
+
+            activeColumns.forEach(col => {
+                doc.text(row[col.key].toString(), col.x, currentY + 5.5, { align: 'center' });
+            });
+
+            doc.text(formatAmountMulti(row.totalHT), 160, currentY + 5.5, { align: 'right' });
+            doc.text(formatAmountMulti(row.totalTTC), 190, currentY + 5.5, { align: 'right' });
+
+            currentY += 8;
+        });
+
+        // Totals Footer
+        currentY += 10;
+        doc.setFillColor(255, 255, 255);
+        doc.rect(110, currentY, 85, 8, 'F');
+        doc.setFont(undefined, 'bold');
+        doc.setTextColor(0, 0, 0);
+        doc.text('TOTAL HT :', 113, currentY + 5.5);
+        doc.text(`${formatAmountMulti(grandTotalHT)} DH`, 192, currentY + 5.5, { align: 'right' });
+
+        currentY += 8;
+        doc.setFillColor(255, 255, 255);
+        doc.rect(110, currentY, 85, 8, 'F');
+        doc.text('TOTAL TVA :', 113, currentY + 5.5);
+        doc.text(`${formatAmountMulti(grandTotalTVA)} DH`, 192, currentY + 5.5, { align: 'right' });
+
+        currentY += 8;
+        doc.setFillColor(...redColor);
+        doc.rect(110, currentY, 85, 8, 'F');
+        doc.setTextColor(255, 255, 255);
+        doc.text('TOTAL TTC :', 113, currentY + 5.5);
+        doc.text(`${formatAmountMulti(grandTotalTTC)} DH`, 192, currentY + 5.5, { align: 'right' });
+
+        // Save
+        const filename = `Situation_Globale_${year}_MULTI.pdf`;
+        doc.save(filename);
+
+        window.notify.success('Succès', 'Rapport global généré avec succès', 3000);
+
+    } catch (error) {
+        console.error('Error generating global report for Multi:', error);
+        window.notify.error('Erreur', 'Impossible de générer le rapport: ' + error.message, 4000);
+    }
+};

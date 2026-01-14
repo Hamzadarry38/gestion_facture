@@ -2732,24 +2732,27 @@ window.downloadInvoicePDF = async function (invoiceId) {
         doc.setFontSize(8);
         doc.text(`${formatNumberForPDF(invoice.total_ht)} DH`, 192, currentY + 5.5, { align: 'right' });
 
-        // MONTANT TVA
-        currentY += 8;
-        doc.setFillColor(255, 255, 255);
-        doc.rect(110, currentY, 85, 8, 'F');
-        doc.setFontSize(9);
-        doc.text(`MONTANT TVA ${invoice.tva_rate}% :`, 113, currentY + 5.5);
-        doc.setFontSize(8);
-        doc.text(`${formatNumberForPDF(invoice.montant_tva)} DH`, 192, currentY + 5.5, { align: 'right' });
+        // MONTANT TVA and T.T.C (Only if TVA > 0)
+        if (parseFloat(invoice.tva_rate) > 0) {
+            // MONTANT TVA
+            currentY += 8;
+            doc.setFillColor(255, 255, 255);
+            doc.rect(110, currentY, 85, 8, 'F');
+            doc.setFontSize(9);
+            doc.text(`MONTANT TVA ${invoice.tva_rate}% :`, 113, currentY + 5.5);
+            doc.setFontSize(8);
+            doc.text(`${formatNumberForPDF(invoice.montant_tva)} DH`, 192, currentY + 5.5, { align: 'right' });
 
-        // MONTANT T.T.C
-        currentY += 8;
-        doc.setFillColor(173, 216, 230);
-        doc.rect(110, currentY, 85, 8, 'F');
-        doc.setTextColor(...blueColor);
-        doc.setFontSize(9);
-        doc.text('MONTANT T.T.C :', 113, currentY + 5.5);
-        doc.setFontSize(8.5);
-        doc.text(`${formatNumberForPDF(invoice.total_ttc)} DH`, 192, currentY + 5.5, { align: 'right' });
+            // MONTANT T.T.C
+            currentY += 8;
+            doc.setFillColor(173, 216, 230);
+            doc.rect(110, currentY, 85, 8, 'F');
+            doc.setTextColor(...blueColor);
+            doc.setFontSize(9);
+            doc.text('MONTANT T.T.C :', 113, currentY + 5.5);
+            doc.setFontSize(8.5);
+            doc.text(`${formatNumberForPDF(invoice.total_ttc)} DH`, 192, currentY + 5.5, { align: 'right' });
+        }
 
         // Amount in words
         currentY += 15;
@@ -3764,22 +3767,25 @@ async function generateSinglePDFBlob(invoice, organizationType, folderName, incl
     doc.setFontSize(8);
     doc.text(`${formatNumberForPDF(invoice.total_ht)} DH`, 192, currentY + 5.5, { align: 'right' });
 
-    currentY += 8;
-    doc.setFillColor(255, 255, 255);
-    doc.rect(110, currentY, 85, 8, 'F');
-    doc.setFontSize(9);
-    doc.text(`MONTANT TVA ${invoice.tva_rate}% :`, 113, currentY + 5.5);
-    doc.setFontSize(8);
-    doc.text(`${formatNumberForPDF(invoice.montant_tva)} DH`, 192, currentY + 5.5, { align: 'right' });
+    // MONTANT TVA and T.T.C (Only if TVA > 0)
+    if (parseFloat(invoice.tva_rate) > 0) {
+        currentY += 8;
+        doc.setFillColor(255, 255, 255);
+        doc.rect(110, currentY, 85, 8, 'F');
+        doc.setFontSize(9);
+        doc.text(`MONTANT TVA ${invoice.tva_rate}% :`, 113, currentY + 5.5);
+        doc.setFontSize(8);
+        doc.text(`${formatNumberForPDF(invoice.montant_tva)} DH`, 192, currentY + 5.5, { align: 'right' });
 
-    currentY += 8;
-    doc.setFillColor(173, 216, 230);
-    doc.rect(110, currentY, 85, 8, 'F');
-    doc.setTextColor(...blueColor);
-    doc.setFontSize(9);
-    doc.text('MONTANT T.T.C :', 113, currentY + 5.5);
-    doc.setFontSize(8.5);
-    doc.text(`${formatNumberForPDF(invoice.total_ttc)} DH`, 192, currentY + 5.5, { align: 'right' });
+        currentY += 8;
+        doc.setFillColor(173, 216, 230);
+        doc.rect(110, currentY, 85, 8, 'F');
+        doc.setTextColor(...blueColor);
+        doc.setFontSize(9);
+        doc.text('MONTANT T.T.C :', 113, currentY + 5.5);
+        doc.setFontSize(8.5);
+        doc.text(`${formatNumberForPDF(invoice.total_ttc)} DH`, 192, currentY + 5.5, { align: 'right' });
+    }
 
     currentY += 15;
     doc.setTextColor(0, 0, 0);

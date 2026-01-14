@@ -309,8 +309,18 @@ window.calculateTotalsEditSimpleMRY = function () {
         totalHT += total;
     });
 
-    const tvaRateValue = document.getElementById('editTvaRateSimpleMRY').value;
-    const tvaRate = tvaRateValue === '' ? 20 : (parseFloat(tvaRateValue) || 0);
+    const tvaInput = document.getElementById('editTvaRateSimpleMRY');
+    let tvaRateValue = tvaInput.value;
+    let tvaRate = parseFloat(tvaRateValue);
+
+    // FIX: prevent year (2026) or huge numbers from breaking calculations
+    if (isNaN(tvaRate) || tvaRate < 0 || tvaRate > 100) {
+        console.warn('⚠️ [MRY SIMPLE] Invalid TVA Rate detected:', tvaRate, 'Resetting to 20');
+        tvaRate = 20;
+        tvaInput.value = '20';
+    }
+
+    // Use validated tvaRate
     const montantTVA = totalHT * (tvaRate / 100);
     const totalTTC = totalHT + montantTVA;
 

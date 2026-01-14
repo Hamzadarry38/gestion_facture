@@ -284,22 +284,29 @@ window.generateSituationAnnuelleChaimae = async function (clientId, year, select
                 let devisCount = 0;
                 let blCount = 0;
                 let monthTotalHT = 0;
+                let monthTotalTTC = 0;
+                let monthTotalTVA = 0;
 
                 monthInvoices.forEach(inv => {
-                    monthTotalHT += parseFloat(inv.total_ht || 0);
-                    const type = inv.document_type ? inv.document_type.toLowerCase() : '';
+                    const invHT = parseFloat(inv.total_ht || 0);
+                    const invTTC = parseFloat(inv.total_ttc || 0);
+                    // Smart fallback for TVA: use stored value, or calculate difference
+                    const invTVA = parseFloat(inv.montant_tva || 0) || (invTTC - invHT);
 
+                    monthTotalHT += invHT;
+                    monthTotalTVA += invTVA;
+                    monthTotalTTC += invTTC;
+
+                    grandTotalTVA += invTVA;
+                    grandTotalTTC += invTTC;
+
+                    const type = inv.document_type ? inv.document_type.toLowerCase() : '';
                     if (type === 'facture') facturesCount++;
                     else if (type === 'devis') devisCount++;
                     else if (type === 'bon de livraison' || type === 'bl') blCount++;
                 });
 
-                const monthTVA = monthTotalHT * 0.20;
-                const monthTTC = monthTotalHT + monthTVA;
-
                 grandTotalHT += monthTotalHT;
-                grandTotalTVA += monthTVA;
-                grandTotalTTC += monthTTC;
 
                 monthsData.push({
                     monthName: monthNames[m],
@@ -307,7 +314,7 @@ window.generateSituationAnnuelleChaimae = async function (clientId, year, select
                     devisCount,
                     blCount,
                     totalHT: monthTotalHT,
-                    totalTTC: monthTTC
+                    totalTTC: monthTotalTTC
                 });
             }
         }
@@ -410,20 +417,20 @@ window.generateSituationAnnuelleChaimae = async function (clientId, year, select
 
                 // Re-draw table header
                 doc.setFillColor(...purpleColor);
-                doc.rect(14, 105, 182, 10, 'F'); // Updated to 105
+                doc.rect(14, 85, 182, 10, 'F');
                 doc.setTextColor(255, 255, 255);
                 doc.setFontSize(9);
                 doc.setFont(undefined, 'bold');
-                doc.text('MOIS', 20, 105 + 6.5);
+                doc.text('MOIS', 20, 85 + 6.5);
 
                 activeColumns.forEach(col => {
-                    doc.text(col.label, col.x, 105 + 6.5, { align: 'center' });
+                    doc.text(col.label, col.x, 85 + 6.5, { align: 'center' });
                 });
 
-                doc.text('TOTAL H.T', 150, 105 + 6.5, { align: 'right' });
-                doc.text('TOTAL T.T.C', 190, 105 + 6.5, { align: 'right' });
+                doc.text('TOTAL H.T', 150, 85 + 6.5, { align: 'right' });
+                doc.text('TOTAL T.T.C', 190, 85 + 6.5, { align: 'right' });
 
-                currentY = 120; // Start slightly lower on new page
+                currentY = 100;
             }
 
             // Alternating row background
@@ -471,7 +478,7 @@ window.generateSituationAnnuelleChaimae = async function (clientId, year, select
         doc.text(`${formatAmountChaimae(grandTotalTVA)} DH`, 192, currentY + 5.5, { align: 'right' });
 
         currentY += 8;
-        doc.setFillColor(33, 97, 140); // MRY Header Blue
+        doc.setFillColor(...purpleColor); // CHAIMAE Purple
         doc.rect(110, currentY, 85, 8, 'F');
         doc.setTextColor(255, 255, 255); // White text
         doc.text('TOTAL TTC :', 113, currentY + 5.5);
@@ -581,3 +588,474 @@ function addFooterToPDFAnnuelleChaimae(doc, pageNumber, totalPages) {
         doc.text(`Page ${pageNumber} / ${totalPages}`, 105, 293, { align: 'center' });
     }
 }
+// ==========================================
+// PART 2: Global Clients Annual Report (New Logic)
+// ==========================================
+
+// Show SITUATION Modal for Multiple Clients
+window.showSituationAnnuelleClientsModalChaimae = async function () {
+    try {
+        // Get all clients from Chaimae database
+        const clientsResult = await window.electron.dbChaimae.getAllClients();
+        const clients = clientsResult.success ? clientsResult.data : [];
+
+        const currentYear = new Date().getFullYear();
+        const years = [currentYear, currentYear - 1, currentYear - 2, currentYear - 3, currentYear - 4];
+
+        const overlay = document.createElement('div');
+        overlay.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.9);z-index:999999;display:flex;align-items:center;justify-content:center;animation:fadeIn 0.2s;padding:2rem;';
+
+        const modal = document.createElement('div');
+        modal.style.cssText = 'background:linear-gradient(145deg, #2a2a2e 0%, #1a1a1e 100%);border:2px solid #FF9800;border-radius:20px;padding:2rem;width:650px;max-height:85vh;overflow-y:auto;box-shadow:0 25px 80px rgba(0,0,0,0.95);';
+
+        modal.innerHTML = `
+            <style>
+                @keyframes fadeIn { from { opacity: 0; transform: scale(0.95); } to { opacity: 1; transform: scale(1); } }
+                .client-checkbox-item:hover { background: rgba(255, 152, 0, 0.1); }
+            </style>
+            <div style="display:flex;align-items:center;gap:1rem;margin-bottom:2rem;padding-bottom:1.5rem;border-bottom:2px solid #3a3a3e;">
+                <div style="background:linear-gradient(135deg, #FF9800 0%, #F57C00 100%);padding:1rem;border-radius:12px;box-shadow:0 4px 15px rgba(255, 152, 0, 0.3);">
+                    <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2">
+                        <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
+                        <circle cx="9" cy="7" r="4"></circle>
+                        <path d="M23 21v-2a4 4 0 0 0-3-3.87"></path>
+                        <path d="M16 3.13a4 4 0 0 1 0 7.75"></path>
+                    </svg>
+                </div>
+                <div style="flex:1;">
+                    <h2 style="color:#fff;margin:0;font-size:1.6rem;font-weight:700;letter-spacing:-0.5px;">SITUATION GLOBALE (Chaimae)</h2>
+                    <p style="color:#999;margin:0.25rem 0 0 0;font-size:0.9rem;">Rapport annuel pour plusieurs clients</p>
+                </div>
+            </div>
+            
+            <div style="margin-bottom:1.25rem;position:relative;">
+                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:0.5rem;">
+                    <label style="color:#FF9800;font-weight:600;font-size:0.9rem;text-transform:uppercase;letter-spacing:0.5px;">Clients</label>
+                    <div>
+                        <button type="button" onclick="toggleAllClientsChaimae(true)" style="background:none;border:none;color:#FF9800;cursor:pointer;font-size:0.85rem;margin-right:0.5rem;text-decoration:underline;">Tout sélectionner</button>
+                        <button type="button" onclick="toggleAllClientsChaimae(false)" style="background:none;border:none;color:#999;cursor:pointer;font-size:0.85rem;text-decoration:underline;">Tout désélectionner</button>
+                    </div>
+                </div>
+                <input type="text" id="situationClientsSearchChaimae" placeholder="Rechercher un client..." 
+                       style="width:100%;padding:0.875rem 1rem;background:#2d2d30;border:1px solid #3e3e42;border-radius:10px 10px 0 0;color:#fff;font-size:0.95rem;outline:none;"
+                       oninput="filterSituationClientsListChaimae(this.value)">
+                
+                <div id="clientsSelectionListChaimae" style="max-height:200px;overflow-y:auto;background:#2d2d30;border:1px solid #3e3e42;border-top:none;border-radius:0 0 10px 10px;">
+                    ${clients.map(client => `
+                        <label class="client-checkbox-item" style="display:flex;align-items:center;padding:0.75rem 1rem;cursor:pointer;border-bottom:1px solid #3e3e42;transition:all 0.2s;">
+                            <input type="checkbox" class="client-checkbox-chaimae" value="${client.id}" data-name="${client.nom}" style="margin-right:1rem;accent-color:#FF9800;width:18px;height:18px;">
+                            <span style="color:#fff;font-size:0.95rem;">${client.nom}</span>
+                            ${client.ice ? `<span style="color:#999;font-size:0.8rem;margin-left:auto;">${client.ice}</span>` : ''}
+                        </label>
+                    `).join('')}
+                </div>
+                <div style="margin-top:0.5rem;font-size:0.85rem;color:#999;text-align:right;">
+                    <span id="selectedClientsCountChaimae">0</span> clients sélectionnés
+                </div>
+            </div>
+            
+            <div style="display:flex;gap:1.5rem;margin-bottom:1.5rem;">
+                <div style="flex:1;">
+                    <label style="display:block;color:#FF9800;margin-bottom:0.5rem;font-weight:600;font-size:0.9rem;text-transform:uppercase;letter-spacing:0.5px;">Année</label>
+                    <select id="situationAnnuelleMultiYearChaimae" style="width:100%;padding:0.75rem 1rem;background:#2d2d30;border:1px solid #3e3e42;border-radius:10px;color:#fff;font-size:0.95rem;outline:none;cursor:pointer;transition:all 0.2s;" onfocus="this.style.borderColor='#FF9800';this.style.boxShadow='0 0 0 3px rgba(255, 152, 0, 0.1)'" onblur="this.style.borderColor='#3e3e42';this.style.boxShadow='none'">
+                        ${years.map(y => `<option value="${y}" ${y === currentYear ? 'selected' : ''}>${y}</option>`).join('')}
+                    </select>
+                </div>
+                
+                <div style="flex:2;">
+                    <label style="display:block;color:#FF9800;margin-bottom:0.5rem;font-weight:600;font-size:0.9rem;text-transform:uppercase;letter-spacing:0.5px;">Types de documents</label>
+                    <div style="display:flex;gap:1rem;padding:0.55rem 0;flex-wrap:wrap;">
+                        <label style="display:flex;align-items:center;color:#fff;cursor:pointer;font-size:0.95rem;">
+                            <input type="checkbox" id="situationAnnuelleMultiTypeFactureChaimae" checked style="margin-right:0.5rem;accent-color:#FF9800;width:18px;height:18px;">
+                            Facture
+                        </label>
+                        <label style="display:flex;align-items:center;color:#fff;cursor:pointer;font-size:0.95rem;">
+                            <input type="checkbox" id="situationAnnuelleMultiTypeDevisChaimae" checked style="margin-right:0.5rem;accent-color:#FF9800;width:18px;height:18px;">
+                            Devis
+                        </label>
+                        <label style="display:flex;align-items:center;color:#fff;cursor:pointer;font-size:0.95rem;">
+                            <input type="checkbox" id="situationAnnuelleMultiTypeBLChaimae" checked style="margin-right:0.5rem;accent-color:#FF9800;width:18px;height:18px;">
+                            Bon de Livraison
+                        </label>
+                    </div>
+                </div>
+            </div>
+
+            <div style="display:flex;gap:0.75rem;margin-top:2.5rem;">
+                <button id="situationAnnuelleMultiCancelChaimae" style="flex:1;padding:0.875rem 1.5rem;background:#3e3e42;color:#fff;border:none;border-radius:10px;cursor:pointer;font-size:0.95rem;font-weight:600;transition:all 0.2s;" onmouseover="this.style.background='#4e4e52'" onmouseout="this.style.background='#3e3e42'">
+                    Annuler
+                </button>
+                <button id="situationAnnuelleMultiGenerateChaimae" style="flex:2;padding:0.875rem 1.5rem;background:linear-gradient(135deg, #FF9800 0%, #F57C00 100%);color:#fff;border:none;border-radius:10px;cursor:pointer;font-size:0.95rem;font-weight:600;transition:all 0.2s;box-shadow:0 4px 12px rgba(255, 152, 0, 0.3);display:flex;align-items:center;justify-content:center;gap:0.5rem;" onmouseover="this.style.transform='translateY(-2px)';this.style.boxShadow='0 6px 20px rgba(255, 152, 0, 0.4)'" onmouseout="this.style.transform='translateY(0)';this.style.boxShadow='0 4px 12px rgba(255, 152, 0, 0.3)'">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2">
+                        <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"></path>
+                        <polyline points="14 2 14 8 20 8"></polyline>
+                        <line x1="12" y1="18" x2="12" y2="12"></line>
+                        <line x1="9" y1="15" x2="15" y2="15"></line>
+                    </svg>
+                    <span>Générer PDF</span>
+                </button>
+            </div>
+        `;
+
+        overlay.appendChild(modal);
+        document.body.appendChild(overlay);
+
+        // Scripts for interaction
+        window.toggleAllClientsChaimae = function (selectAll) {
+            document.querySelectorAll('.client-checkbox-chaimae').forEach(cb => {
+                if (cb.closest('label').style.display !== 'none') {
+                    cb.checked = selectAll;
+                }
+            });
+            updateSelectedCountChaimae();
+        };
+
+        window.toggleAllMonthsMultiChaimae = function (selectAll) {
+            // Deprecated for Global Report
+        };
+
+        window.filterSituationClientsListChaimae = function (query) {
+            const term = query.toLowerCase();
+            document.querySelectorAll('.client-checkbox-item').forEach(item => {
+                const name = item.querySelector('span').textContent.toLowerCase();
+                if (name.includes(term)) {
+                    item.style.display = 'flex';
+                } else {
+                    item.style.display = 'none';
+                }
+            });
+        };
+
+        window.updateSelectedCountChaimae = function () {
+            const count = document.querySelectorAll('.client-checkbox-chaimae:checked').length;
+            document.getElementById('selectedClientsCountChaimae').innerText = count;
+        };
+
+        // Attach listeners to checkboxes to update count
+        document.querySelectorAll('.client-checkbox-chaimae').forEach(cb => {
+            cb.addEventListener('change', updateSelectedCountChaimae);
+        });
+
+        document.getElementById('situationAnnuelleMultiCancelChaimae').onclick = () => overlay.remove();
+
+        document.getElementById('situationAnnuelleMultiGenerateChaimae').onclick = async () => {
+            const selectedClientIds = Array.from(document.querySelectorAll('.client-checkbox-chaimae:checked')).map(cb => cb.value);
+            const year = parseInt(document.getElementById('situationAnnuelleMultiYearChaimae').value);
+            const includeFacture = document.getElementById('situationAnnuelleMultiTypeFactureChaimae').checked;
+            const includeDevis = document.getElementById('situationAnnuelleMultiTypeDevisChaimae').checked;
+            const includeBL = document.getElementById('situationAnnuelleMultiTypeBLChaimae').checked;
+
+            if (selectedClientIds.length === 0) {
+                window.notify.error('Erreur', 'Veuillez sélectionner au moins un client', 3000);
+                return;
+            }
+
+            if (!includeFacture && !includeDevis && !includeBL) {
+                window.notify.error('Erreur', 'Veuillez sélectionner au moins un type de document', 3000);
+                return;
+            }
+
+            overlay.remove();
+            await generateSituationAnnuelleClientsChaimae(selectedClientIds, year, includeFacture, includeDevis, includeBL);
+        };
+
+        // Prevent closing on overlay click
+        overlay.onclick = (e) => {
+            e.stopPropagation();
+        };
+
+    } catch (error) {
+        console.error('Error showing SITUATION Global modal:', error);
+        window.notify.error('Erreur', 'Impossible d\'afficher la fenêtre', 3000);
+    }
+};
+
+// Generate SITUATION PDF for Multiple Clients (Chaimae) - Client-based aggregation
+window.generateSituationAnnuelleClientsChaimae = async function (clientIds, year, includeFacture, includeDevis, includeBL) {
+    try {
+        window.notify.info('Info', 'Génération du rapport global en cours...', 2000);
+
+        // Get invoices
+        const invoicesResult = await window.electron.dbChaimae.getAllInvoices('CHAIMAE');
+        if (!invoicesResult.success) {
+            window.notify.error('Erreur', 'Impossible de charger les factures', 3000);
+            return;
+        }
+
+        // Get All Clients to have their names
+        const clientsResult = await window.electron.dbChaimae.getAllClients();
+        const allClients = clientsResult.success ? clientsResult.data : [];
+
+        // Filter invoices for the selected year and SELECTED CLIENTS
+        const yearInvoices = invoicesResult.data.filter(inv => {
+            const invDate = new Date(inv.document_date);
+            return clientIds.includes(String(inv.client_id)) && invDate.getFullYear() === year;
+        });
+
+        if (yearInvoices.length === 0) {
+            window.notify.warning('Attention', 'Aucun document trouvé pour cette année et ces clients', 4000);
+            return;
+        }
+
+        // Aggregate data by CLIENT
+        const clientsData = [];
+        let grandTotalHT = 0;
+        let grandTotalTVA = 0;
+        let grandTotalTTC = 0;
+
+        for (const clientId of clientIds) {
+            const client = allClients.find(c => String(c.id) === String(clientId));
+            const clientName = client ? client.nom : `Client #${clientId}`;
+
+            const clientInvoices = yearInvoices.filter(inv => {
+                const invType = (inv.document_type || '').toLowerCase();
+                let isTypeMatch = false;
+
+                if (invType === 'facture' && includeFacture) isTypeMatch = true;
+                else if (invType === 'devis' && includeDevis) isTypeMatch = true;
+                else if ((invType === 'bon de livraison' || invType === 'bl') && includeBL) isTypeMatch = true;
+
+                return String(inv.client_id) === String(clientId) && isTypeMatch;
+            });
+
+            if (clientInvoices.length > 0) {
+                let facturesCount = 0;
+                let devisCount = 0;
+                let blCount = 0;
+                let clientTotalHT = 0;
+                let clientTotalTVA = 0;
+                let clientTotalTTC = 0;
+
+                clientInvoices.forEach(inv => {
+                    const invHT = parseFloat(inv.total_ht || 0);
+                    const invTTC = parseFloat(inv.total_ttc || 0);
+                    // Use stored TVA if available, otherwise fallback to difference
+                    const invTVA = parseFloat(inv.montant_tva || 0) || (invTTC - invHT);
+
+                    clientTotalHT += invHT;
+                    clientTotalTVA += invTVA;
+                    clientTotalTTC += invTTC;
+
+                    const type = inv.document_type ? inv.document_type.toLowerCase() : '';
+                    if (type === 'facture') facturesCount++;
+                    else if (type === 'devis') devisCount++;
+                    else if (type === 'bon de livraison' || type === 'bl') blCount++;
+                });
+
+                grandTotalHT += clientTotalHT;
+                grandTotalTVA += clientTotalTVA;
+                grandTotalTTC += clientTotalTTC;
+
+                clientsData.push({
+                    clientName: clientName.toUpperCase(),
+                    facturesCount,
+                    devisCount,
+                    blCount,
+                    totalHT: clientTotalHT,
+                    totalTTC: clientTotalTTC
+                });
+            }
+        }
+
+        if (clientsData.length === 0) {
+            window.notify.warning('Attention', 'Aucune donnée trouvée pour les critères sélectionnés', 4000);
+            return;
+        }
+
+        // PDF Generation
+        if (typeof window.jspdf === 'undefined') {
+            const script = document.createElement('script');
+            script.src = 'https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js';
+            await new Promise((resolve) => { script.onload = resolve; document.head.appendChild(script); });
+        }
+
+        const { jsPDF } = window.jspdf;
+        const doc = new jsPDF();
+
+        const blueColor = [33, 97, 140]; // MRY Blue
+        const greenColor = [16, 172, 132]; // MRY Green
+
+        // Generate Title String
+        const dateRangeStr = `ANNÉE ${year}`;
+
+        // Logo
+        try {
+            const logoImg = document.querySelector('img[src*="chaimae.png"]') ||
+                document.querySelector('img[data-asset="chaimae"]') ||
+                document.querySelector('img[src^="data:image"]');
+            if (logoImg && logoImg.src && logoImg.src.startsWith('data:')) {
+                doc.addImage(logoImg.src, 'PNG', 15, 10, 35, 35);
+            }
+        } catch (error) {
+            console.log('Logo not added:', error);
+        }
+
+        // Company Header (Chaimae)
+        doc.setFontSize(18);
+        doc.setTextColor(...blueColor);
+        doc.setFont(undefined, 'bold');
+        doc.text('CHAIMAE ERRBAHI MDIQ sarl (AU)', 105, 20, { align: 'center' });
+
+        doc.setFontSize(10);
+        doc.setFont(undefined, 'normal');
+        doc.setTextColor(0, 0, 0);
+        doc.text('Patente N° 52003366 - NIF : 40190505', 105, 27, { align: 'center' });
+        doc.text('RC N° : 10487 - CNSS : 8721591', 105, 32, { align: 'center' });
+        doc.text('ICE : 001544861000014', 105, 37, { align: 'center' });
+
+        // Client Info
+        doc.setFontSize(11);
+        doc.setFont(undefined, 'bold');
+        doc.text('CLIENT :', 15, 50);
+        doc.setTextColor(...greenColor);
+
+        if (clientIds.length === 1) {
+            const clientsResult = await window.electron.dbChaimae.getAllClients();
+            const client = clientsResult.data.find(c => c.id == clientIds[0]);
+            doc.text(client ? client.nom.toUpperCase() : 'UNKNOWN', 40, 50);
+            if (client && client.ice && client.ice !== '0') {
+                doc.setTextColor(0, 0, 0);
+                doc.text('ICE :', 15, 57);
+                doc.setTextColor(...greenColor);
+                doc.text(client.ice, 40, 57);
+            }
+        } else {
+            doc.text('MULTI-CLIENTS (' + clientIds.length + ')', 40, 50);
+        }
+
+        // Date
+        doc.setTextColor(0, 0, 0);
+        doc.text(`Date: ${new Date().toLocaleDateString('fr-FR')}`, 150, 50);
+
+        // Title
+        doc.setFontSize(15);
+        doc.setFont(undefined, 'bold');
+        doc.setTextColor(0, 0, 0);
+        doc.text('SITUATION GLOBALE', 105, 75, { align: 'center' });
+
+        doc.setTextColor(...blueColor);
+        doc.setFontSize(13);
+        doc.text(` ${dateRangeStr}`, 105, 82, { align: 'center' });
+
+        // Dynamic Column Positioning
+        const startX = 65; // Increased to avoid overlap
+        const endX = 135;
+        const totalWidth = endX - startX;
+
+        let activeColumns = [];
+        if (includeFacture) activeColumns.push({ label: 'Nbr FACTURES', key: 'facturesCount' });
+        if (includeDevis) activeColumns.push({ label: 'Nbr DEVIS', key: 'devisCount' });
+        if (includeBL) activeColumns.push({ label: 'Nbr BL', key: 'blCount' });
+
+        const columnWidth = totalWidth / activeColumns.length;
+
+        activeColumns.forEach((col, index) => {
+            col.x = startX + (columnWidth * index) + (columnWidth / 2);
+        });
+
+        // Table Header
+        const startY = 90;
+        doc.setFillColor(...blueColor);
+        doc.rect(14, startY, 182, 10, 'F');
+
+        doc.setTextColor(255, 255, 255);
+        doc.setFontSize(9);
+        doc.setFont(undefined, 'bold');
+        doc.text('CLIENT', 20, startY + 6.5);
+
+        activeColumns.forEach(col => {
+            doc.text(col.label, col.x, startY + 6.5, { align: 'center' });
+        });
+
+        doc.text('TOTAL H.T', 160, startY + 6.5, { align: 'right' });
+        doc.text('TOTAL T.T.C', 190, startY + 6.5, { align: 'right' });
+
+        // Table Content
+        doc.setFont(undefined, 'normal');
+        let currentY = startY + 10;
+        let pageNumberInGlobal = 1;
+
+        clientsData.forEach((row, index) => {
+            if (currentY > 250) {
+                doc.addPage();
+                pageNumberInGlobal++;
+                // Header on new page
+                try {
+                    const logoImg = document.querySelector('img[src*="chaimae.png"]') ||
+                        document.querySelector('img[data-asset="chaimae"]') ||
+                        document.querySelector('img[src^="data:image"]');
+                    if (logoImg && logoImg.src && logoImg.src.startsWith('data:')) {
+                        doc.addImage(logoImg.src, 'PNG', 15, 10, 35, 35);
+                    }
+                } catch (e) { }
+                doc.setFontSize(18); doc.setTextColor(...blueColor); doc.setFont(undefined, 'bold');
+                doc.text('CHAIMAE ERRBAHI MDIQ sarl (AU)', 105, 20, { align: 'center' });
+
+                doc.setFillColor(...blueColor);
+                doc.rect(14, 85, 182, 10, 'F');
+                doc.setTextColor(255, 255, 255);
+                doc.setFontSize(9);
+                doc.text('CLIENT', 20, 85 + 6.5);
+                activeColumns.forEach(col => { doc.text(col.label, col.x, 85 + 6.5, { align: 'center' }); });
+                doc.text('TOTAL H.T', 160, 85 + 6.5, { align: 'right' });
+                doc.text('TOTAL T.T.C', 190, 85 + 6.5, { align: 'right' });
+                currentY = 100;
+            }
+
+            if (index % 2 === 1) {
+                doc.setFillColor(245, 245, 245);
+                doc.rect(14, currentY, 182, 8, 'F');
+            }
+
+            doc.setTextColor(0, 0, 0);
+            doc.text(row.clientName, 20, currentY + 5.5);
+
+            activeColumns.forEach(col => {
+                doc.text(row[col.key].toString(), col.x, currentY + 5.5, { align: 'center' });
+            });
+
+            doc.text(formatAmountChaimae(row.totalHT), 160, currentY + 5.5, { align: 'right' });
+            doc.text(formatAmountChaimae(row.totalTTC), 190, currentY + 5.5, { align: 'right' });
+
+            currentY += 8;
+        });
+
+        currentY += 10;
+        doc.setFillColor(255, 255, 255);
+        doc.rect(110, currentY, 85, 8, 'F');
+        doc.setTextColor(...blueColor);
+        doc.setFont(undefined, 'bold');
+        doc.text('TOTAL HT :', 113, currentY + 5.5);
+        doc.text(`${formatAmountChaimae(grandTotalHT)} DH`, 192, currentY + 5.5, { align: 'right' });
+
+        currentY += 8;
+        doc.setFillColor(255, 255, 255);
+        doc.rect(110, currentY, 85, 8, 'F');
+        doc.text('TOTAL TVA :', 113, currentY + 5.5);
+        doc.text(`${formatAmountChaimae(grandTotalTVA)} DH`, 192, currentY + 5.5, { align: 'right' });
+
+        currentY += 8;
+        doc.setFillColor(...blueColor);
+        doc.rect(110, currentY, 85, 8, 'F');
+        doc.setTextColor(255, 255, 255);
+        doc.text('TOTAL TTC :', 113, currentY + 5.5);
+        doc.text(`${formatAmountChaimae(grandTotalTTC)} DH`, 192, currentY + 5.5, { align: 'right' });
+
+        // Add Footer to ALL pages
+        const totalPagesInGlobal = doc.internal.getNumberOfPages();
+        for (let i = 1; i <= totalPagesInGlobal; i++) {
+            doc.setPage(i);
+            addFooterToPDFAnnuelleChaimae(doc, i, totalPagesInGlobal);
+        }
+
+        // Save
+        const filename = `Situation_Globale_${year}_CHAIMAE.pdf`;
+        doc.save(filename);
+
+        window.notify.success('Succès', 'Rapport global généré avec succès', 3000);
+
+    } catch (error) {
+        console.error('Error generating global report for Chaimae:', error);
+        window.notify.error('Erreur', 'Impossible de générer le rapport: ' + error.message, 4000);
+    }
+};

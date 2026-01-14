@@ -1367,7 +1367,16 @@ window.calculateTotalsChaimae = function () {
 
     console.log('📊 TOTAL HT:', totalHT);
 
-    const tvaRate = parseFloat(document.getElementById('tvaRateChaimae').value) || 0;
+    const tvaInput = document.getElementById('tvaRateChaimae');
+    let tvaRate = parseFloat(tvaInput.value) || 0;
+
+    // FIX: prevent year (2026) or huge numbers from breaking calculations
+    if (tvaRate < 0 || tvaRate > 100) {
+        console.warn('⚠️ [CHAIMAE] Invalid TVA Rate detected:', tvaRate, 'Resetting to 20');
+        tvaRate = 20;
+        tvaInput.value = '20';
+    }
+
     const montantTVA = totalHT * (tvaRate / 100);
     const totalTTC = totalHT + montantTVA;
 

@@ -63,6 +63,15 @@ function InvoicesListChaimaePage() {
                                 </svg>
                                 <span>Annuelle</span>
                             </button>
+
+                            <button class="action-btn action-btn-situation" onclick="showSituationAnnuelleClientsModalChaimae()" style="background-color: #FF9800;">
+                                <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor">
+                                    <path d="M7 14s-1 0-1-1 1-4 5-4 5 3 5 4-1 1-1 1H7zm4-6a3 3 0 1 0 0-6 3 3 0 0 0 0 6z"/>
+                                    <path fill-rule="evenodd" d="M5.216 14A2.238 2.238 0 0 1 5 13c0-1.355.68-2.75 1.936-3.72A6.325 6.325 0 0 0 5 9c-4 0-5 3-5 4s1 1 1 1h4.216z"/>
+                                    <path d="M4.5 8a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5z"/>
+                                </svg>
+                                <span>Globale</span>
+                            </button>
                             
                             <button class="action-btn action-btn-primary" onclick="router.navigate('/create-invoice-chaimae')">
                                 <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor">
@@ -3615,24 +3624,27 @@ window.downloadInvoicePDFChaimae = async function (invoiceId) {
         doc.setFontSize(8);
         doc.text(`${formatNumberForPDFChaimae(invoice.total_ht)} DH`, 192, currentY + 5.5, { align: 'right' });
 
-        // MONTANT TVA
-        currentY += 8;
-        doc.setFillColor(255, 255, 255);
-        doc.rect(110, currentY, 85, 8, 'F');
-        doc.setFontSize(9);
-        doc.text(`MONTANT TVA ${invoice.tva_rate}% :`, 113, currentY + 5.5);
-        doc.setFontSize(8);
-        doc.text(`${formatNumberForPDFChaimae(invoice.montant_tva)} DH`, 192, currentY + 5.5, { align: 'right' });
+        // MONTANT TVA and T.T.C (Only if TVA > 0)
+        if (parseFloat(invoice.tva_rate) > 0) {
+            // MONTANT TVA
+            currentY += 8;
+            doc.setFillColor(255, 255, 255);
+            doc.rect(110, currentY, 85, 8, 'F');
+            doc.setFontSize(9);
+            doc.text(`MONTANT TVA ${invoice.tva_rate}% :`, 113, currentY + 5.5);
+            doc.setFontSize(8);
+            doc.text(`${formatNumberForPDFChaimae(invoice.montant_tva)} DH`, 192, currentY + 5.5, { align: 'right' });
 
-        // MONTANT T.T.C
-        currentY += 8;
-        doc.setFillColor(173, 216, 230);
-        doc.rect(110, currentY, 85, 8, 'F');
-        doc.setTextColor(...blueColor);
-        doc.setFontSize(9);
-        doc.text('MONTANT T.T.C :', 113, currentY + 5.5);
-        doc.setFontSize(8.5);
-        doc.text(`${formatNumberForPDFChaimae(invoice.total_ttc)} DH`, 192, currentY + 5.5, { align: 'right' });
+            // MONTANT T.T.C
+            currentY += 8;
+            doc.setFillColor(173, 216, 230);
+            doc.rect(110, currentY, 85, 8, 'F');
+            doc.setTextColor(...blueColor);
+            doc.setFontSize(9);
+            doc.text('MONTANT T.T.C :', 113, currentY + 5.5);
+            doc.setFontSize(8.5);
+            doc.text(`${formatNumberForPDFChaimae(invoice.total_ttc)} DH`, 192, currentY + 5.5, { align: 'right' });
+        }
 
         // Amount in words
         currentY += 15;
@@ -4433,22 +4445,25 @@ async function generateSinglePDFBlobChaimae(invoice, organizationType, folderNam
     doc.setFontSize(8);
     doc.text(`${formatNumberForPDFChaimae(invoice.total_ht)} DH`, 192, currentY + 5.5, { align: 'right' });
 
-    currentY += 8;
-    doc.setFillColor(255, 255, 255);
-    doc.rect(110, currentY, 85, 8, 'F');
-    doc.setFontSize(9);
-    doc.text(`MONTANT TVA ${invoice.tva_rate}% :`, 113, currentY + 5.5);
-    doc.setFontSize(8);
-    doc.text(`${formatNumberForPDFChaimae(invoice.montant_tva)} DH`, 192, currentY + 5.5, { align: 'right' });
+    // MONTANT TVA and T.T.C (Only if TVA > 0)
+    if (parseFloat(invoice.tva_rate) > 0) {
+        currentY += 8;
+        doc.setFillColor(255, 255, 255);
+        doc.rect(110, currentY, 85, 8, 'F');
+        doc.setFontSize(9);
+        doc.text(`MONTANT TVA ${invoice.tva_rate}% :`, 113, currentY + 5.5);
+        doc.setFontSize(8);
+        doc.text(`${formatNumberForPDFChaimae(invoice.montant_tva)} DH`, 192, currentY + 5.5, { align: 'right' });
 
-    currentY += 8;
-    doc.setFillColor(173, 216, 230);
-    doc.rect(110, currentY, 85, 8, 'F');
-    doc.setTextColor(...blueColor);
-    doc.setFontSize(9);
-    doc.text('MONTANT T.T.C :', 113, currentY + 5.5);
-    doc.setFontSize(8.5);
-    doc.text(`${formatNumberForPDFChaimae(invoice.total_ttc)} DH`, 192, currentY + 5.5, { align: 'right' });
+        currentY += 8;
+        doc.setFillColor(173, 216, 230);
+        doc.rect(110, currentY, 85, 8, 'F');
+        doc.setTextColor(...blueColor);
+        doc.setFontSize(9);
+        doc.text('MONTANT T.T.C :', 113, currentY + 5.5);
+        doc.setFontSize(8.5);
+        doc.text(`${formatNumberForPDFChaimae(invoice.total_ttc)} DH`, 192, currentY + 5.5, { align: 'right' });
+    }
 
     currentY += 15;
     doc.setTextColor(0, 0, 0);

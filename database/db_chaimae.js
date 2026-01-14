@@ -581,35 +581,40 @@ const invoiceOps = {
 
         if (result.length === 0 || result[0].values.length === 0) return null;
 
+        const columns = result[0].columns;
         const row = result[0].values[0];
+
+        // Helper to safely get value by column name
+        const getVal = (col) => row[columns.indexOf(col)];
+
         const invoice = {
-            id: row[0],
-            client_id: row[1],
-            document_type: row[2],
-            document_date: row[3],
-            document_numero: row[4],
-            document_numero_Order: row[5],
-            document_numero_bl: row[6],
-            document_numero_devis: row[7],
-            document_order_devis: row[8],
-            document_bon_de_livraison: row[9],
-            document_numero_commande: row[10],
-            year: row[11],
-            sequential_id: row[12],
-            total_ht: row[13],
-            tva_rate: row[14],
-            montant_tva: row[15],
-            total_ttc: row[16],
-            created_at: row[17],
-            updated_at: row[18],
-            created_by_user_id: row[19],
-            created_by_user_name: row[20],
-            created_by_user_email: row[21],
-            updated_by_user_id: row[22],
-            updated_by_user_name: row[23],
-            updated_by_user_email: row[24],
-            client_nom: row[25],
-            client_ice: row[26]
+            id: getVal('id'),
+            client_id: getVal('client_id'),
+            document_type: getVal('document_type'),
+            document_date: getVal('document_date'),
+            document_numero: getVal('document_numero'),
+            document_numero_Order: getVal('document_numero_Order'),
+            document_numero_bl: getVal('document_numero_bl'),
+            document_numero_devis: getVal('document_numero_devis'),
+            document_order_devis: getVal('document_order_devis'),
+            document_bon_de_livraison: getVal('document_bon_de_livraison'),
+            document_numero_commande: getVal('document_numero_commande'),
+            year: getVal('year'),
+            sequential_id: getVal('sequential_id'),
+            total_ht: getVal('total_ht'),
+            tva_rate: getVal('tva_rate'),
+            montant_tva: getVal('montant_tva'),
+            total_ttc: getVal('total_ttc'),
+            created_at: getVal('created_at'),
+            updated_at: getVal('updated_at'),
+            created_by_user_id: getVal('created_by_user_id'),
+            created_by_user_name: getVal('created_by_user_name'),
+            created_by_user_email: getVal('created_by_user_email'),
+            updated_by_user_id: getVal('updated_by_user_id'),
+            updated_by_user_name: getVal('updated_by_user_name'),
+            updated_by_user_email: getVal('updated_by_user_email'),
+            client_nom: getVal('client_nom'),
+            client_ice: getVal('client_ice')
         };
 
         // Get products
@@ -652,36 +657,48 @@ const invoiceOps = {
 
         if (result.length === 0) return [];
 
-        const invoices = result[0].values.map(row => {
+        const columns = result[0].columns;
+        console.log('🔍 [DB CHAIMAE] getAll Columns detected:', columns);
+        console.log('🔍 [DB CHAIMAE] Mapped total_ttc index:', columns.indexOf('total_ttc'));
+
+        const invoices = result[0].values.map((row, rIdx) => {
+            // Helper to safely get value by column name
+            const getVal = (col) => row[columns.indexOf(col)];
+
+            // Debug first row
+            if (rIdx === 0) {
+                console.log('🔍 [DB CHAIMAE] First Row total_ttc RAW value:', getVal('total_ttc'));
+            }
+
             const invoice = {
-                id: row[0],
-                client_id: row[1],
-                document_type: row[2],
-                document_date: row[3],
-                document_numero: row[4],
-                document_numero_Order: row[5],
-                document_numero_bl: row[6],
-                document_numero_devis: row[7],
-                document_order_devis: row[8],
-                document_bon_de_livraison: row[9],
-                document_numero_commande: row[10],
-                year: row[11],
-                sequential_id: row[12],
-                total_ht: row[13],
-                tva_rate: row[14],
-                montant_tva: row[15],
-                total_ttc: row[16],
-                created_at: row[17],
-                updated_at: row[18],
-                created_by_user_id: row[19],
-                created_by_user_name: row[20],
-                created_by_user_email: row[21],
-                updated_by_user_id: row[22],
-                updated_by_user_name: row[23],
-                updated_by_user_email: row[24],
-                client_nom: row[25],
-                client_ice: row[26],
-                attachment_count: row[row.length - 1] || 0
+                id: getVal('id'),
+                client_id: getVal('client_id'),
+                document_type: getVal('document_type'),
+                document_date: getVal('document_date'),
+                document_numero: getVal('document_numero'),
+                document_numero_Order: getVal('document_numero_Order'),
+                document_numero_bl: getVal('document_numero_bl'),
+                document_numero_devis: getVal('document_numero_devis'),
+                document_order_devis: getVal('document_order_devis'),
+                document_bon_de_livraison: getVal('document_bon_de_livraison'),
+                document_numero_commande: getVal('document_numero_commande'),
+                year: getVal('year'),
+                sequential_id: getVal('sequential_id'),
+                total_ht: getVal('total_ht'),
+                tva_rate: getVal('tva_rate'),
+                montant_tva: getVal('montant_tva'),
+                total_ttc: getVal('total_ttc'),
+                created_at: getVal('created_at'),
+                updated_at: getVal('updated_at'),
+                created_by_user_id: getVal('created_by_user_id'),
+                created_by_user_name: getVal('created_by_user_name'),
+                created_by_user_email: getVal('created_by_user_email'),
+                updated_by_user_id: getVal('updated_by_user_id'),
+                updated_by_user_name: getVal('updated_by_user_name'),
+                updated_by_user_email: getVal('updated_by_user_email'),
+                client_nom: getVal('client_nom'),
+                client_ice: getVal('client_ice'),
+                attachment_count: getVal('attachment_count') || 0
             };
 
             // Get products for this invoice

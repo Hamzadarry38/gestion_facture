@@ -106,11 +106,12 @@ function EditInvoiceMultiPage() {
                                 <table class="products-table">
                                     <thead>
                                         <tr>
-                                            <th>Désignation</th>
-                                            <th>Quantité</th>
-                                            <th>Prix unitaire HT</th>
-                                            <th>Total HT</th>
-                                            <th>Actions</th>
+                                            <th style="width: 20px; padding: 0.5rem 0.25rem;"></th>
+                                            <th style="width: 50%;">Désignation</th>
+                                            <th style="width: 120px;">Quantité</th>
+                                            <th style="width: 140px;">Prix unitaire HT</th>
+                                            <th style="width: 120px;">Total HT</th>
+                                            <th style="width: 60px;">Actions</th>
                                         </tr>
                                     </thead>
                                     <tbody id="editProductsTableBodyMulti">
@@ -189,6 +190,9 @@ let allClientsEditMulti = [];
 let filteredClientsEditMulti = [];
 let currentDocumentTypeMulti = null;
 let currentNumeroOrderMulti = null; // Store original N° Order
+// Drag and drop state
+let draggedRowMulti = null;
+let draggedIndexMulti = null;
 
 // Load invoice data
 async function loadInvoiceDataMulti(invoiceId) {
@@ -274,6 +278,16 @@ window.handleArrowNavigationEditMulti = function (event, currentRowId, currentCe
         return;
     }
 
+    // Define currentElement
+    const currentElement = event.target;
+
+    // For number input, prevent up/down from changing value regardless of navigation
+    if (currentElement.type === 'number') {
+        if (event.key === 'ArrowUp' || event.key === 'ArrowDown') {
+            event.preventDefault(); // Prevent increment/decrement
+        }
+    }
+
     const currentRow = document.getElementById(currentRowId);
     const tbody = document.getElementById('editProductsTableBodyMulti');
     const allRows = Array.from(tbody.querySelectorAll('tr'));
@@ -307,14 +321,14 @@ window.handleArrowNavigationEditMulti = function (event, currentRowId, currentCe
         }
     } else if (event.key === 'ArrowLeft') {
         // Move to cell on the left
-        if (currentCellIndex > 0) {
+        if (currentCellIndex > 1) {
             targetRow = currentRow;
             targetCellIndex = currentCellIndex - 1;
             event.preventDefault();
         }
     } else if (event.key === 'ArrowRight') {
         // Move to cell on the right
-        if (currentCellIndex < 2) { // 0=designation, 1=quantity, 2=price
+        if (currentCellIndex < 3) { // 1=designation, 2=quantity, 3=price
             targetRow = currentRow;
             targetCellIndex = currentCellIndex + 1;
             event.preventDefault();
@@ -352,19 +366,25 @@ window.addProductRowEditMulti = function (productData = null) {
 
     const row = document.createElement('tr');
     row.id = rowId;
+    row.setAttribute('draggable', 'true');
+    row.style.cursor = 'grab';
+
     row.innerHTML = `
-        <td>
-            <textarea class="product-designation" rows="2" placeholder="Description du produit..." onkeydown="handleArrowNavigationEditMulti(event, '${rowId}', 0)">${productData ? productData.designation : ''}</textarea>
+        <td style="cursor: grab; user-select: none; width: 20px; padding: 0.5rem 0.25rem; text-align: center; color: #666; font-size: 16px;" class="drag-handle">
+            ⋮⋮
+        </td>
+        <td style="width: 50%;">
+            <textarea class="product-designation" rows="2" placeholder="Description du produit..." onkeydown="handleArrowNavigationEditMulti(event, '${rowId}', 1)">${productData ? productData.designation : ''}</textarea>
         </td>
         <td>
             <input type="text" class="product-quantity" placeholder="ex: 50 Kg, F, 10" value="${productData ? productData.quantite : ''}"
                    onchange="calculateRowTotalEditMulti('${rowId}')" onblur="calculateRowTotalEditMulti('${rowId}')"
-                   onkeydown="handleArrowNavigationEditMulti(event, '${rowId}', 1)">
+                   onkeydown="handleArrowNavigationEditMulti(event, '${rowId}', 2)">
         </td>
         <td>
             <input type="number" class="product-price" step="0.01" placeholder="0.00" value="${productData ? productData.prix_unitaire_ht : ''}"
                    onchange="calculateRowTotalEditMulti('${rowId}')" onblur="calculateRowTotalEditMulti('${rowId}')"
-                   onkeydown="handleArrowNavigationEditMulti(event, '${rowId}', 2)">
+                   onkeydown="handleArrowNavigationEditMulti(event, '${rowId}', 3)">
         </td>
         <td>
             <span class="product-total">${productData ? (productData.total_ht || 0).toFixed(2) : '0.00'} DH</span>
@@ -378,6 +398,28 @@ window.addProductRowEditMulti = function (productData = null) {
             </button>
         </td>
     `;
+
+    // Add drag event listeners - only on drag handle
+    const dragHandle = row.querySelector('.drag-handle');
+    dragHandle.addEventListener('mousedown', (e) => {
+        row.setAttribute('draggable', 'true');
+    });
+
+    row.addEventListener('dragstart', handleDragStartMulti);
+    row.addEventListener('dragover', handleDragOverMulti);
+    row.addEventListener('drop', handleDropMulti);
+    row.addEventListener('dragend', handleDragEndMulti);
+
+    // Prevent dragging when clicking on inputs
+    const inputs = row.querySelectorAll('input, textarea');
+    inputs.forEach(input => {
+        input.addEventListener('mousedown', (e) => {
+            row.setAttribute('draggable', 'false');
+        });
+        input.addEventListener('blur', () => {
+            row.setAttribute('draggable', 'true');
+        });
+    });
 
     tbody.appendChild(row);
 
@@ -411,6 +453,74 @@ window.calculateRowTotalEditMulti = function (rowId) {
 window.deleteProductRowEditMulti = function (rowId) {
     document.getElementById(rowId).remove();
     calculateTotalsEditMulti();
+}
+
+// Drag and drop handlers
+function handleDragStartMulti(e) {
+    draggedRowMulti = e.target;
+    const tbody = document.getElementById('editProductsTableBodyMulti');
+    const rows = Array.from(tbody.querySelectorAll('tr'));
+    draggedIndexMulti = rows.indexOf(draggedRowMulti);
+
+    e.target.style.opacity = '0.5';
+    e.target.style.cursor = 'grabbing';
+    e.dataTransfer.effectAllowed = 'move';
+    e.dataTransfer.setData('text/html', e.target.innerHTML);
+}
+
+function handleDragOverMulti(e) {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+
+    const targetRow = e.target.closest('tr');
+    if (targetRow && targetRow !== draggedRowMulti) {
+        targetRow.style.borderTop = '2px solid #2196f3'; // Blue for Multi
+    }
+}
+
+function handleDropMulti(e) {
+    e.preventDefault();
+    e.stopPropagation();
+
+    const targetRow = e.target.closest('tr');
+    if (!targetRow || targetRow === draggedRowMulti) {
+        return;
+    }
+
+    targetRow.style.borderTop = '';
+
+    const tbody = document.getElementById('editProductsTableBodyMulti');
+    const rows = Array.from(tbody.querySelectorAll('tr'));
+    const dropIndex = rows.indexOf(targetRow);
+
+    if (draggedIndexMulti === null || draggedIndexMulti === dropIndex) {
+        return;
+    }
+
+    // Reorder the rows
+    if (draggedIndexMulti < dropIndex) {
+        tbody.insertBefore(draggedRowMulti, targetRow.nextSibling);
+    } else {
+        tbody.insertBefore(draggedRowMulti, targetRow);
+    }
+
+    // Recalculate totals after reorder
+    calculateTotalsEditMulti();
+}
+
+function handleDragEndMulti(e) {
+    e.target.style.opacity = '1';
+    e.target.style.cursor = 'grab';
+
+    // Remove all border highlights
+    const tbody = document.getElementById('editProductsTableBodyMulti');
+    const rows = Array.from(tbody.querySelectorAll('tr'));
+    rows.forEach(row => {
+        row.style.borderTop = '';
+    });
+
+    draggedRowMulti = null;
+    draggedIndexMulti = null;
 }
 
 // Calculate totals

@@ -1,6 +1,10 @@
 // SITUATION - Annual Report Generator for MRY
 // This file handles the generation of annual situation reports for clients
 
+// ==========================================
+// PART 1: Single Client Annual Report
+// ==========================================
+
 // Show SITUATION Modal
 window.showSituationAnnuelleModalMRY = async function () {
     try {
@@ -223,10 +227,13 @@ window.showSituationAnnuelleModalMRY = async function () {
 // Generate SITUATION PDF
 window.generateSituationAnnuelleMRY = async function (clientId, year, selectedMonths, includeFacture, includeDevis) {
     try {
+        console.log('🟦 [MRY ANNUAL] Starting...', { clientId, year, selectedMonths, includeFacture, includeDevis });
         window.notify.info('Info', 'Génération du rapport annuel en cours...', 2000);
 
         // Get client info
+        console.log('🟦 [MRY ANNUAL] Fetching clients...');
         const clientsResult = await window.electron.db.getAllClients();
+        console.log('🟦 [MRY ANNUAL] Clients result:', clientsResult);
         const client = clientsResult.data.find(c => c.id == clientId);
 
         if (!client) {
@@ -276,26 +283,34 @@ window.generateSituationAnnuelleMRY = async function (clientId, year, selectedMo
                 let facturesCount = 0;
                 let devisCount = 0;
                 let monthTotalHT = 0;
+                let monthTotalTTC = 0;
+                let monthTotalTVA = 0;
 
                 monthInvoices.forEach(inv => {
-                    monthTotalHT += parseFloat(inv.total_ht || 0);
+                    const invHT = parseFloat(inv.total_ht || 0);
+                    const invTTC = parseFloat(inv.total_ttc || 0);
+                    // Smart fallback for TVA: use stored value, or calculate difference
+                    const invTVA = parseFloat(inv.montant_tva || 0) || (invTTC - invHT);
+
+                    monthTotalHT += invHT;
+                    monthTotalTVA += invTVA;
+                    monthTotalTTC += invTTC;
+
+                    grandTotalTVA += invTVA;
+                    grandTotalTTC += invTTC;
+
                     if (inv.document_type === 'facture') facturesCount++;
                     else if (inv.document_type === 'devis') devisCount++;
                 });
 
-                const monthTVA = monthTotalHT * 0.20;
-                const monthTTC = monthTotalHT + monthTVA;
-
                 grandTotalHT += monthTotalHT;
-                grandTotalTVA += monthTVA;
-                grandTotalTTC += monthTTC;
 
                 monthsData.push({
                     monthName: monthNames[m],
                     facturesCount,
                     devisCount,
                     totalHT: monthTotalHT,
-                    totalTTC: monthTTC
+                    totalTTC: monthTotalTTC
                 });
             }
         }
@@ -368,7 +383,7 @@ window.generateSituationAnnuelleMRY = async function (clientId, year, selectedMo
         });
 
         // Table Header
-        const startY = 90; // Moved down from 85
+        const startY = 85;
         doc.setFillColor(...blueColor);
         doc.rect(14, startY, 182, 10, 'F');
 
@@ -408,31 +423,6 @@ window.generateSituationAnnuelleMRY = async function (clientId, year, selectedMo
             currentY += 8;
         });
 
-        /* REMOVED TOTAL ROW AS PER USER REQUEST
-        // Total Row
-        doc.setFillColor(...blueColor);
-        doc.rect(14, currentY, 182, 10, 'F');
-        doc.setTextColor(255, 255, 255);
-        doc.setFont(undefined, 'bold');
-        // doc.text('TOTAL GÉNÉRAL', 20, currentY + 6.5);
-
-        // Sum of all counts
-        const totalFactures = monthsData.reduce((sum, row) => sum + row.facturesCount, 0);
-        const totalDevis = monthsData.reduce((sum, row) => sum + row.devisCount, 0);
-
-        const totalsMap = {
-            'facturesCount': totalFactures,
-            'devisCount': totalDevis
-        };
-
-        activeColumns.forEach(col => {
-            doc.text(totalsMap[col.key].toString(), col.x, currentY + 6.5, { align: 'center' });
-        });
-
-        doc.text(formatAmountMRY(grandTotalHT), 140, currentY + 6.5, { align: 'right' });
-        doc.text(formatAmountMRY(grandTotalTTC), 190, currentY + 6.5, { align: 'right' });
-        */
-
         currentY += 8;
         doc.setFillColor(255, 255, 255); // White
         doc.rect(110, currentY, 85, 8, 'F');
@@ -454,20 +444,30 @@ window.generateSituationAnnuelleMRY = async function (clientId, year, selectedMo
         doc.text('TOTAL TTC :', 113, currentY + 5.5);
         doc.text(`${formatAmountMRY(grandTotalTTC)} DH`, 192, currentY + 5.5, { align: 'right' });
 
-        // Add footer info
         addFooterToPDFMRY(doc, 1, 1);
-
-        // Save
         const filename = `Situation_Annuelle_${client.nom.replace(/\s+/g, '_')}_${year}_MRY.pdf`;
+        console.log('🟦 [MRY ANNUAL] Saving PDF:', filename);
         doc.save(filename);
+        console.log('✅ [MRY ANNUAL] Success!');
 
         window.notify.success('Succès', 'Rapport annuel généré avec succès', 3000);
-
     } catch (error) {
-        console.error('Error generating annual report:', error);
-        window.notify.error('Erreur', 'Impossible de générer le rapport: ' + error.message, 4000);
+        console.error('🔴 [MRY ANNUAL] ERROR:', error);
+        console.error('🔴 [MRY ANNUAL] Stack:', error.stack);
+        window.notify.error('Erreur', 'Génération échouée: ' + error.message, 5000);
     }
 };
+
+// Helper Function for PDF Formatting
+function formatAmountMRY(amount) {
+    if (isNaN(amount) || amount === null || amount === undefined) {
+        return '0.00';
+    }
+    const num = parseFloat(amount);
+    const parts = num.toFixed(2).split('.');
+    parts[0] = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, ' ');
+    return parts.join('.');
+}
 
 function addHeaderToPDFAnnuelleMRY(doc, client, dateRangeStr, blueColor, greenColor) {
     // Logo
@@ -500,14 +500,18 @@ function addHeaderToPDFAnnuelleMRY(doc, client, dateRangeStr, blueColor, greenCo
     doc.setFont(undefined, 'bold');
     doc.text('CLIENT :', 15, 50);
     doc.setTextColor(...greenColor);
-    doc.text(client.nom.toUpperCase(), 40, 50);
 
-    // Only show ICE if it exists and is not '0'
-    if (client.ice && client.ice !== '0') {
-        doc.setTextColor(0, 0, 0);
-        doc.text('ICE :', 15, 57);
-        doc.setTextColor(...greenColor);
-        doc.text(client.ice, 40, 57);
+    if (client) {
+        doc.text(client.nom.toUpperCase(), 40, 50);
+        // Only show ICE if it exists and is not '0'
+        if (client.ice && client.ice !== '0') {
+            doc.setTextColor(0, 0, 0);
+            doc.text('ICE :', 15, 57);
+            doc.setTextColor(...greenColor);
+            doc.text(client.ice, 40, 57);
+        }
+    } else {
+        doc.text('MULTI-CLIENTS', 40, 50);
     }
 
     // Date
@@ -522,6 +526,289 @@ function addHeaderToPDFAnnuelleMRY(doc, client, dateRangeStr, blueColor, greenCo
 
     doc.setTextColor(...blueColor);
     doc.setFontSize(13);
-    const splitTitle = doc.splitTextToSize(` ${dateRangeStr}`, 170);
-    doc.text(splitTitle, 105, 82, { align: 'center' });
+    doc.text(` ${dateRangeStr}`, 105, 77, { align: 'center' });
+}
+
+
+// ==========================================
+// PART 2: Global Clients Annual Report (MRY)
+// ==========================================
+
+// Show SITUATION Modal for Multiple Clients
+window.showSituationAnnuelleClientsModalMRY = async function () {
+    try {
+        const clientsResult = await window.electron.db.getAllClients();
+        const clients = clientsResult.success ? clientsResult.data : [];
+        const currentYear = new Date().getFullYear();
+        const years = [currentYear, currentYear - 1, currentYear - 2, currentYear - 3, currentYear - 4];
+
+        const overlay = document.createElement('div');
+        overlay.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.9);z-index:999999;display:flex;align-items:center;justify-content:center;animation:fadeIn 0.2s;padding:2rem;';
+
+        const modal = document.createElement('div');
+        modal.style.cssText = 'background:linear-gradient(145deg, #2a2a2e 0%, #1a1a1e 100%);border:2px solid #FF9800;border-radius:20px;padding:2rem;width:600px;max-height:85vh;overflow-y:auto;box-shadow:0 25px 80px rgba(0,0,0,0.95);';
+
+        modal.innerHTML = `
+            <style>
+                @keyframes fadeIn { from { opacity: 0; transform: scale(0.95); } to { opacity: 1; transform: scale(1); } }
+                .client-checkbox-item:hover { background: rgba(255, 152, 0, 0.1); }
+            </style>
+            <div style="display:flex;align-items:center;gap:1rem;margin-bottom:2rem;padding-bottom:1.5rem;border-bottom:2px solid #3a3a3e;">
+                <div style="background:linear-gradient(135deg, #FF9800 0%, #F57C00 100%);padding:1rem;border-radius:12px;box-shadow:0 4px 15px rgba(255, 152, 0, 0.3);">
+                    <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2">
+                        <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
+                        <circle cx="9" cy="7" r="4"></circle>
+                        <path d="M23 21v-2a4 4 0 0 0-3-3.87"></path>
+                        <path d="M16 3.13a4 4 0 0 1 0 7.75"></path>
+                    </svg>
+                </div>
+                <div style="flex:1;">
+                    <h2 style="color:#fff;margin:0;font-size:1.6rem;font-weight:700;letter-spacing:-0.5px;">SITUATION GLOBALE</h2>
+                    <p style="color:#999;margin:0.25rem 0 0 0;font-size:0.9rem;">Rapport annuel pour plusieurs clients</p>
+                </div>
+            </div>
+            
+            <div style="margin-bottom:1.25rem;position:relative;">
+                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:0.5rem;">
+                    <label style="color:#FF9800;font-weight:600;font-size:0.9rem;text-transform:uppercase;letter-spacing:0.5px;">Clients</label>
+                    <div>
+                        <button type="button" id="toggleAllClientsMRY_True" style="background:none;border:none;color:#FF9800;cursor:pointer;font-size:0.85rem;margin-right:0.5rem;text-decoration:underline;">Tout sélectionner</button>
+                        <button type="button" id="toggleAllClientsMRY_False" style="background:none;border:none;color:#999;cursor:pointer;font-size:0.85rem;text-decoration:underline;">Tout désélectionner</button>
+                    </div>
+                </div>
+                <input type="text" id="situationClientsSearchMRY" placeholder="Rechercher un client..." 
+                       style="width:100%;padding:0.875rem 1rem;background:#2d2d30;border:1px solid #3e3e42;border-radius:10px 10px 0 0;color:#fff;font-size:0.95rem;outline:none;">
+                
+                <div id="clientsSelectionListMRY" style="max-height:200px;overflow-y:auto;background:#2d2d30;border:1px solid #3e3e42;border-top:none;border-radius:0 0 10px 10px;">
+                    ${clients.map(client => `
+                        <label class="client-checkbox-item" style="display:flex;align-items:center;padding:0.75rem 1rem;cursor:pointer;border-bottom:1px solid #3e3e42;transition:all 0.2s;">
+                            <input type="checkbox" class="client-checkbox-mry" value="${client.id}" data-name="${client.nom}" style="margin-right:1rem;accent-color:#FF9800;width:18px;height:18px;">
+                            <span style="color:#fff;font-size:0.95rem;">${client.nom}</span>
+                            ${client.ice ? `<span style="color:#999;font-size:0.8rem;margin-left:auto;">${client.ice}</span>` : ''}
+                        </label>
+                    `).join('')}
+                </div>
+                <div style="margin-top:0.5rem;font-size:0.85rem;color:#999;text-align:right;">
+                    <span id="selectedClientsCountMRY">0</span> clients sélectionnés
+                </div>
+            </div>
+            
+            <div style="display:flex;gap:1.5rem;margin-bottom:1.5rem;">
+                <div style="flex:1;">
+                    <label style="display:block;color:#FF9800;margin-bottom:0.5rem;font-weight:600;font-size:0.9rem;text-transform:uppercase;letter-spacing:0.5px;">Année</label>
+                    <select id="situationAnnuelleMultiYearMRY" style="width:100%;padding:0.75rem 1rem;background:#2d2d30;border:1px solid #3e3e42;border-radius:10px;color:#fff;font-size:0.95rem;outline:none;cursor:pointer;transition:all 0.2s;">
+                        ${years.map(y => `<option value="${y}" ${y === currentYear ? 'selected' : ''}>${y}</option>`).join('')}
+                    </select>
+                </div>
+                
+                <div style="flex:1;">
+                    <label style="display:block;color:#FF9800;margin-bottom:0.5rem;font-weight:600;font-size:0.9rem;text-transform:uppercase;letter-spacing:0.5px;">Types de documents</label>
+                    <div style="display:flex;gap:1rem;padding:0.55rem 0;">
+                        <label style="display:flex;align-items:center;color:#fff;cursor:pointer;font-size:0.95rem;">
+                            <input type="checkbox" id="situationAnnuelleMultiTypeFactureMRY" checked style="margin-right:0.5rem;accent-color:#FF9800;width:18px;height:18px;">
+                            Facture
+                        </label>
+                        <label style="display:flex;align-items:center;color:#fff;cursor:pointer;font-size:0.95rem;">
+                            <input type="checkbox" id="situationAnnuelleMultiTypeDevisMRY" checked style="margin-right:0.5rem;accent-color:#FF9800;width:18px;height:18px;">
+                            Devis
+                        </label>
+                    </div>
+                </div>
+            </div>
+            
+            <div style="display:flex;gap:0.75rem;margin-top:2.5rem;">
+                <button id="situationAnnuelleMultiCancelMRY" style="flex:1;padding:0.875rem 1.5rem;background:#3e3e42;color:#fff;border:none;border-radius:10px;cursor:pointer;font-size:0.95rem;font-weight:600;transition:all 0.2s;">
+                    Annuler
+                </button>
+                <button id="situationAnnuelleMultiGenerateMRY" style="flex:2;padding:0.875rem 1.5rem;background:linear-gradient(135deg, #FF9800 0%, #F57C00 100%);color:#fff;border:none;border-radius:10px;cursor:pointer;font-size:0.95rem;font-weight:600;transition:all 0.2s;box-shadow:0 4px 12px rgba(255, 152, 0, 0.3);display:flex;align-items:center;justify-content:center;gap:0.5rem;">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2">
+                        <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"></path>
+                        <polyline points="14 2 14 8 20 8"></polyline>
+                        <line x1="12" y1="18" x2="12" y2="12"></line>
+                        <line x1="9" y1="15" x2="15" y2="15"></line>
+                    </svg>
+                    <span>Générer PDF</span>
+                </button>
+            </div>
+        `;
+
+        overlay.appendChild(modal);
+        document.body.appendChild(overlay);
+
+        const updateSelectedCount = () => {
+            const count = modal.querySelectorAll('.client-checkbox-mry:checked').length;
+            modal.querySelector('#selectedClientsCountMRY').innerText = count;
+        };
+
+        modal.querySelector('#toggleAllClientsMRY_True').onclick = () => {
+            modal.querySelectorAll('.client-checkbox-mry').forEach(cb => {
+                if (cb.closest('label').style.display !== 'none') cb.checked = true;
+            });
+            updateSelectedCount();
+        };
+
+        modal.querySelector('#toggleAllClientsMRY_False').onclick = () => {
+            modal.querySelectorAll('.client-checkbox-mry').forEach(cb => cb.checked = false);
+            updateSelectedCount();
+        };
+
+        modal.querySelector('#situationClientsSearchMRY').oninput = (e) => {
+            const term = e.target.value.toLowerCase();
+            modal.querySelectorAll('.client-checkbox-item').forEach(item => {
+                const name = item.querySelector('span').textContent.toLowerCase();
+                item.style.display = name.includes(term) ? 'flex' : 'none';
+            });
+        };
+
+        modal.querySelectorAll('.client-checkbox-mry').forEach(cb => cb.onchange = updateSelectedCount);
+        modal.querySelector('#situationAnnuelleMultiCancelMRY').onclick = () => overlay.remove();
+        modal.querySelector('#situationAnnuelleMultiGenerateMRY').onclick = async () => {
+            const selectedClientIds = Array.from(modal.querySelectorAll('.client-checkbox-mry:checked')).map(cb => cb.value);
+            const year = parseInt(modal.querySelector('#situationAnnuelleMultiYearMRY').value);
+            const includeFacture = modal.querySelector('#situationAnnuelleMultiTypeFactureMRY').checked;
+            const includeDevis = modal.querySelector('#situationAnnuelleMultiTypeDevisMRY').checked;
+
+            if (selectedClientIds.length === 0) {
+                window.notify.error('Erreur', 'Veuillez sélectionner au moins un client', 3000);
+                return;
+            }
+            overlay.remove();
+            await generateSituationAnnuelleClientsMRY(selectedClientIds, year, includeFacture, includeDevis);
+        };
+    } catch (error) {
+        console.error('Error showing SITUATION Global modal:', error);
+    }
+};
+
+// Generate Global PDF for MRY
+window.generateSituationAnnuelleClientsMRY = async function (clientIds, year, includeFacture, includeDevis) {
+    try {
+        window.notify.info('Info', 'Génération en cours...', 2000);
+        const invoicesResult = await window.electron.db.getAllInvoices('MRY');
+        const clientsResult = await window.electron.db.getAllClients();
+        const allClients = clientsResult.success ? clientsResult.data : [];
+
+        const yearInvoices = invoicesResult.data.filter(inv => {
+            const invDate = new Date(inv.document_date);
+            return clientIds.includes(String(inv.client_id)) && invDate.getFullYear() === year;
+        });
+
+        if (yearInvoices.length === 0) {
+            window.notify.warning('Attention', 'Aucun document trouvé', 4000);
+            return;
+        }
+
+        const clientsData = [];
+        let grandTotalHT = 0, grandTotalTVA = 0, grandTotalTTC = 0;
+
+        for (const clientId of clientIds) {
+            const client = allClients.find(c => String(c.id) === String(clientId));
+            const clientInvoices = yearInvoices.filter(inv => {
+                const invType = (inv.document_type || '').toLowerCase();
+                return String(inv.client_id) === String(clientId) && ((includeFacture && invType === 'facture') || (includeDevis && invType === 'devis'));
+            });
+
+            if (clientInvoices.length > 0) {
+                let facturesCount = 0, devisCount = 0, clientHT = 0, clientTTC = 0, clientTVA = 0;
+                clientInvoices.forEach(inv => {
+                    const ht = parseFloat(inv.total_ht || 0);
+                    const ttc = parseFloat(inv.total_ttc || 0);
+                    // Use stored TVA if available, otherwise fallback to difference
+                    const tva = parseFloat(inv.montant_tva || 0) || (ttc - ht);
+
+                    clientHT += ht;
+                    clientTTC += ttc;
+                    clientTVA += tva;
+
+                    if (inv.document_type === 'facture') facturesCount++;
+                    else if (inv.document_type === 'devis') devisCount++;
+                });
+                grandTotalHT += clientHT;
+                grandTotalTTC += clientTTC;
+                grandTotalTVA += clientTVA;
+
+                clientsData.push({
+                    clientName: (client ? client.nom : 'Inconnu').toUpperCase(),
+                    facturesCount,
+                    devisCount,
+                    totalHT: clientHT,
+                    totalTTC: clientTTC
+                });
+            }
+        }
+
+        if (typeof window.jspdf === 'undefined') {
+            const script = document.createElement('script');
+            script.src = 'https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js';
+            await new Promise(r => { script.onload = r; document.head.appendChild(script); });
+        }
+
+        const { jsPDF } = window.jspdf;
+        const doc = new jsPDF();
+        const blueColor = [33, 97, 140];
+        const greenColor = [16, 172, 132];
+
+        // Header and Title logic
+        const clientLabel = clientIds.length === 1 ? null : { nom: `MULTI-CLIENTS (${clientIds.length})` };
+        addHeaderToPDFAnnuelleMRY(doc, clientLabel, `ANNÉE ${year}`, blueColor, greenColor);
+
+        // Table logic
+        const startY = 85;
+        doc.setFillColor(...blueColor);
+        doc.rect(14, startY, 182, 10, 'F');
+        doc.setTextColor(255, 255, 255);
+        doc.setFontSize(9);
+        doc.setFont(undefined, 'bold');
+        doc.text('CLIENT', 20, startY + 6.5);
+        doc.text('NB DOCS', 100, startY + 6.5, { align: 'center' });
+        doc.text('TOTAL H.T', 150, startY + 6.5, { align: 'right' });
+        doc.text('TOTAL T.T.C', 190, startY + 6.5, { align: 'right' });
+
+        doc.setFont(undefined, 'normal');
+        let currentY = startY + 10;
+        clientsData.forEach((row, idx) => {
+            if (idx % 2 === 1) { doc.setFillColor(245, 245, 245); doc.rect(14, currentY, 182, 8, 'F'); }
+            doc.setTextColor(0, 0, 0);
+            doc.text(row.clientName, 20, currentY + 5.5);
+            doc.text(`${row.facturesCount + row.devisCount}`, 100, currentY + 5.5, { align: 'center' });
+            doc.text(formatAmountMRY(row.totalHT), 150, currentY + 5.5, { align: 'right' });
+            doc.text(formatAmountMRY(row.totalTTC), 190, currentY + 5.5, { align: 'right' });
+            currentY += 8;
+        });
+
+        currentY += 10;
+        doc.setFont(undefined, 'bold');
+        doc.text('TOTAL HT :', 130, currentY); doc.text(`${formatAmountMRY(grandTotalHT)} DH`, 190, currentY, { align: 'right' });
+        currentY += 8;
+        doc.text('TOTAL TVA :', 130, currentY); doc.text(`${formatAmountMRY(grandTotalTVA)} DH`, 190, currentY, { align: 'right' });
+        currentY += 8;
+        doc.setFillColor(...blueColor);
+        doc.rect(125, currentY - 5, 70, 8, 'F');
+        doc.setTextColor(255, 255, 255);
+        doc.text('TOTAL TTC :', 130, currentY); doc.text(`${formatAmountMRY(grandTotalTTC)} DH`, 190, currentY, { align: 'right' });
+        doc.setTextColor(0, 0, 0);
+
+        addFooterToPDFMRY(doc, 1, 1);
+        doc.save(`Situation_Globale_${year}_MRY.pdf`);
+        window.notify.success('Succès', 'Rapport généré');
+    } catch (e) {
+        console.error('🔴 [MRY ANNUAL GLOBAL] ERROR:', e);
+        console.error('🔴 [MRY ANNUAL GLOBAL] Stack:', e.stack);
+        window.notify.error('Erreur', 'Génération échouée: ' + e.message, 5000);
+    }
+};
+
+function addFooterToPDFMRY(doc, pageNumber, totalPages) {
+    doc.setTextColor(0, 0, 0);
+    doc.setFontSize(7);
+    doc.setFont(undefined, 'normal');
+    doc.text('NIF : 25077370  TP : 51200166  R.C : 23181  CNSS : 5679058  ICE : 002036664000051', 15, 275);
+    doc.text('R.I.B : 007 720 0005973000000519 74  ATTIJARI WAFA BANQ', 15, 279);
+    doc.text('AV, BNI IDDER RUE 14 N°10 COELMA - TÉTOUAN.', 15, 283);
+    doc.text('EMAIL: errbahiabderrahim@gmail.com  TEL : 0661307323', 15, 287);
+    if (pageNumber && totalPages) {
+        doc.setFontSize(8);
+        doc.setTextColor(128, 128, 128);
+        doc.text(`Page ${pageNumber} / ${totalPages}`, 105, 293, { align: 'center' });
+    }
 }

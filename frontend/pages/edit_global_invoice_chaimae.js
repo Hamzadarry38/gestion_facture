@@ -313,35 +313,35 @@ let availableBonsEdit = [];
 let selectedClientIdEdit = null;
 
 // Initialize page
-window.initEditGlobalInvoiceChaimaePage = async function() {
+window.initEditGlobalInvoiceChaimaePage = async function () {
     console.log('🔄 Initializing edit global invoice page for Chaimae...');
-    
+
     // Get invoice ID from sessionStorage
     const invoiceId = sessionStorage.getItem('editGlobalInvoiceId');
-    
+
     if (!invoiceId) {
         window.notify.error('Erreur', 'ID de facture introuvable', 3000);
         router.navigate('/invoices-list-chaimae');
         return;
     }
-    
+
     try {
         // Load invoice data
         console.log('🔄 [EDIT PAGE] Loading invoice ID:', invoiceId);
         const result = await window.electron.dbChaimae.getGlobalInvoiceById(parseInt(invoiceId));
-        
+
         console.log('📦 [EDIT PAGE - API RESPONSE]:', JSON.stringify(result, null, 2));
-        
+
         if (!result.success || !result.data) {
             window.notify.error('Erreur', 'Facture introuvable', 3000);
             router.navigate('/invoices-list-chaimae');
             return;
         }
-        
+
         currentInvoiceEdit = result.data;
         selectedClientIdEdit = currentInvoiceEdit.client_id;
         currentBonsEdit = currentInvoiceEdit.bons || [];
-        
+
         console.log('📋 [EDIT PAGE - LOADED DATA]:', {
             invoice_id: currentInvoiceEdit.id,
             numero: currentInvoiceEdit.document_numero,
@@ -350,7 +350,7 @@ window.initEditGlobalInvoiceChaimaePage = async function() {
             bons_array_length: currentBonsEdit.length,
             has_bons: !!currentInvoiceEdit.bons
         });
-        
+
         if (currentBonsEdit.length > 0) {
             console.log('📦 [EDIT PAGE - CURRENT BONS]:');
             currentBonsEdit.forEach((bon, index) => {
@@ -359,24 +359,24 @@ window.initEditGlobalInvoiceChaimaePage = async function() {
         } else {
             console.warn('⚠️ [EDIT PAGE] No bons found in currentBonsEdit array!');
         }
-        
+
         // Populate form fields
         document.getElementById('clientNomEditGlobal').value = currentInvoiceEdit.client_nom;
         document.getElementById('clientICEEditGlobal').value = currentInvoiceEdit.client_ice;
         document.getElementById('documentNumeroEditGlobal').value = currentInvoiceEdit.document_numero;
         document.getElementById('documentDateEditGlobal').value = currentInvoiceEdit.document_date;
         document.getElementById('tvaRateEditGlobal').value = currentInvoiceEdit.tva_rate;
-        
+
         // Display current bons
         displayCurrentBonsEdit();
-        
+
         // Calculate totals
         calculateTotalsEdit();
-        
+
         // Handle form submission
         const form = document.getElementById('editGlobalInvoiceForm');
         form.addEventListener('submit', handleFormSubmitEdit);
-        
+
     } catch (error) {
         console.error('Error loading invoice:', error);
         window.notify.error('Erreur', 'Erreur lors du chargement de la facture', 3000);
@@ -387,20 +387,20 @@ window.initEditGlobalInvoiceChaimaePage = async function() {
 // Display current bons
 function displayCurrentBonsEdit() {
     const tbody = document.getElementById('currentBonsTableBody');
-    
+
     if (currentBonsEdit.length === 0) {
         tbody.innerHTML = '<tr><td colspan="5" style="text-align: center; padding: 2rem; color: #999;">Aucun bon de livraison</td></tr>';
         return;
     }
-    
+
     tbody.innerHTML = currentBonsEdit.map((bon, index) => {
         const bonNumero = bon.document_numero_bl || bon.document_numero || '-';
         const bonCommande = bon.document_numero_commande || '-';
         const bonDate = new Date(bon.document_date).toLocaleDateString('fr-FR');
         const bonTotal = formatNumberEdit(bon.total_ttc || 0);
-        
+
         const bgColor = index % 2 === 0 ? '#252526' : '#2d2d30';
-        
+
         return `
             <tr style="background: ${bgColor}; transition: all 0.2s;" 
                 onmouseover="this.style.background='#3e3e42'" 
@@ -424,40 +424,40 @@ function displayCurrentBonsEdit() {
 }
 
 // Load available bons for client
-window.loadAvailableBonsEdit = async function() {
+window.loadAvailableBonsEdit = async function () {
     if (!selectedClientIdEdit) {
         window.notify.error('Erreur', 'Client introuvable', 3000);
         return;
     }
-    
+
     try {
         const result = await window.electron.dbChaimae.getBonsByClient(selectedClientIdEdit);
-        
+
         if (result.success) {
             // Filter out bons that are already in the current invoice
             const currentBonIds = currentBonsEdit.map(b => b.id);
             availableBonsEdit = result.data.filter(bon => !currentBonIds.includes(bon.id));
-            
+
             if (availableBonsEdit.length === 0) {
                 document.getElementById('availableBonsContainer').style.display = 'block';
                 document.getElementById('availableBonsTable').style.display = 'none';
                 document.getElementById('emptyAvailableBonsMessage').style.display = 'block';
                 return;
             }
-            
+
             document.getElementById('availableBonsTable').style.display = 'table';
             document.getElementById('emptyAvailableBonsMessage').style.display = 'none';
             document.getElementById('availableBonsContainer').style.display = 'block';
-            
+
             const tbody = document.getElementById('availableBonsTableBody');
             tbody.innerHTML = availableBonsEdit.map((bon, index) => {
                 const bonNumero = bon.document_numero_bl || bon.document_numero || '-';
                 const bonCommande = bon.document_numero_commande || '-';
                 const bonDate = new Date(bon.document_date).toLocaleDateString('fr-FR');
                 const bonTotal = formatNumberEdit(bon.total_ttc || 0);
-                
+
                 const bgColor = index % 2 === 0 ? '#252526' : '#2d2d30';
-                
+
                 return `
                     <tr style="background: ${bgColor}; transition: all 0.2s;" 
                         onmouseover="this.style.background='#3e3e42'" 
@@ -486,31 +486,31 @@ window.loadAvailableBonsEdit = async function() {
 }
 
 // Toggle all current bons
-window.toggleAllCurrentBonsEdit = function(checkbox) {
+window.toggleAllCurrentBonsEdit = function (checkbox) {
     const checkboxes = document.querySelectorAll('.current-bon-checkbox');
     checkboxes.forEach(cb => cb.checked = checkbox.checked);
     calculateTotalsEdit();
 }
 
 // Toggle all available bons
-window.toggleAllAvailableBonsEdit = function(checkbox) {
+window.toggleAllAvailableBonsEdit = function (checkbox) {
     const checkboxes = document.querySelectorAll('.available-bon-checkbox');
     checkboxes.forEach(cb => cb.checked = checkbox.checked);
     calculateTotalsEdit();
 }
 
 // Calculate totals
-window.calculateTotalsEdit = function() {
+window.calculateTotalsEdit = function () {
     // Get selected current bons
     const selectedCurrentCheckboxes = document.querySelectorAll('.current-bon-checkbox:checked');
     const selectedCurrentBonIds = Array.from(selectedCurrentCheckboxes).map(cb => parseInt(cb.dataset.bonId));
-    
+
     // Get selected available bons
     const selectedAvailableCheckboxes = document.querySelectorAll('.available-bon-checkbox:checked');
     const selectedAvailableBonIds = Array.from(selectedAvailableCheckboxes).map(cb => parseInt(cb.dataset.bonId));
-    
+
     let totalHT = 0;
-    
+
     // Add current bons
     selectedCurrentBonIds.forEach(bonId => {
         const bon = currentBonsEdit.find(b => b.id === bonId);
@@ -518,7 +518,7 @@ window.calculateTotalsEdit = function() {
             totalHT += bon.total_ht || 0;
         }
     });
-    
+
     // Add available bons
     selectedAvailableBonIds.forEach(bonId => {
         const bon = availableBonsEdit.find(b => b.id === bonId);
@@ -526,11 +526,20 @@ window.calculateTotalsEdit = function() {
             totalHT += bon.total_ht || 0;
         }
     });
-    
-    const tvaRate = parseFloat(document.getElementById('tvaRateEditGlobal').value) || 0;
+
+    const tvaInput = document.getElementById('tvaRateEditGlobal');
+    let tvaRate = parseFloat(tvaInput.value) || 0;
+
+    // FIX: prevent year (2026) or huge numbers from breaking calculations
+    if (tvaRate < 0 || tvaRate > 100) {
+        console.warn('⚠️ [CHAIMAE GLOBAL] Invalid TVA Rate detected:', tvaRate, 'Resetting to 20');
+        tvaRate = 20;
+        tvaInput.value = '20';
+    }
+
     const montantTVA = totalHT * (tvaRate / 100);
     const totalTTC = totalHT + montantTVA;
-    
+
     document.getElementById('totalHTEditGlobal').textContent = formatNumberEdit(totalHT) + ' DH';
     document.getElementById('montantTVAEditGlobal').textContent = formatNumberEdit(montantTVA) + ' DH';
     document.getElementById('totalTTCEditGlobal').textContent = formatNumberEdit(totalTTC) + ' DH';
@@ -552,10 +561,10 @@ if (!window.bonLivraisonPrefixes) {
 }
 
 // Toggle prefix dropdown for Edit page (Global)
-window.togglePrefixDropdownEdit = async function() {
+window.togglePrefixDropdownEdit = async function () {
     const dropdown = document.getElementById('prefixDropdownEdit');
     if (!dropdown) return;
-    
+
     if (dropdown.style.display === 'none') {
         // Load prefixes from database first
         if (!window.prefixesLoaded) {
@@ -578,10 +587,10 @@ window.togglePrefixDropdownEdit = async function() {
 }
 
 // Render prefix list for Edit page (Global)
-window.renderPrefixListEdit = function() {
+window.renderPrefixListEdit = function () {
     const listContainer = document.getElementById('prefixListEdit');
     if (!listContainer) return;
-    
+
     listContainer.innerHTML = window.bonLivraisonPrefixes.map((prefix, index) => `
         <div onclick="selectPrefixEdit('${prefix}')" 
              style="margin: 0.35rem; padding: 0.75rem 1rem; cursor: pointer; border-radius: 8px; transition: all 0.3s; color: #fff; display: flex; justify-content: space-between; align-items: center; background: ${prefix === window.selectedPrefix ? 'linear-gradient(90deg, #667eea 0%, #764ba2 100%)' : 'rgba(255,255,255,0.05)'}; border: 2px solid ${prefix === window.selectedPrefix ? '#667eea' : 'transparent'}; box-shadow: ${prefix === window.selectedPrefix ? '0 2px 8px rgba(102, 126, 234, 0.3)' : 'none'};"
@@ -609,45 +618,45 @@ window.renderPrefixListEdit = function() {
 }
 
 // Select prefix for Edit page (Global)
-window.selectPrefixEdit = function(prefix) {
+window.selectPrefixEdit = function (prefix) {
     window.selectedPrefix = prefix;
     const prefixInput = document.getElementById('prefixInputEdit');
     const prefixExample = document.getElementById('prefixExampleEdit');
-    
+
     if (prefixInput) prefixInput.value = prefix;
     if (prefixExample) prefixExample.textContent = prefix;
-    
+
     const dropdown = document.getElementById('prefixDropdownEdit');
     if (dropdown) dropdown.style.display = 'none';
-    
+
     renderPrefixListEdit();
 }
 
 // Add new prefix for Edit page (Global)
-window.addNewPrefixEdit = async function() {
+window.addNewPrefixEdit = async function () {
     const newPrefixInput = document.getElementById('newPrefixInputEdit');
     if (!newPrefixInput) return;
-    
+
     const newPrefix = newPrefixInput.value.trim().toUpperCase();
-    
+
     if (!newPrefix) {
         window.notify.warning('Attention', 'Veuillez saisir un prefix', 2000);
         return;
     }
-    
+
     if (window.bonLivraisonPrefixes.includes(newPrefix)) {
         window.notify.warning('Attention', 'Ce prefix existe déjà', 2000);
         return;
     }
-    
+
     // Add to database
     const result = await window.electron.dbChaimae.addPrefix(newPrefix);
-    
+
     if (result.success) {
         window.bonLivraisonPrefixes.push(newPrefix);
         window.bonLivraisonPrefixes.sort();
         newPrefixInput.value = '';
-        
+
         renderPrefixListEdit();
         window.notify.success('Succès', `Prefix "${newPrefix}" ajouté`, 2000);
     } else {
@@ -656,20 +665,20 @@ window.addNewPrefixEdit = async function() {
 }
 
 // Delete prefix for Edit page (Global)
-window.deletePrefixEdit = async function(prefix) {
+window.deletePrefixEdit = async function (prefix) {
     if (window.bonLivraisonPrefixes.length <= 1) {
         window.notify.warning('Attention', 'Vous devez garder au moins un prefix', 2000);
         return;
     }
-    
+
     // Delete from database
     const result = await window.electron.dbChaimae.deletePrefix(prefix);
-    
+
     if (result.success) {
         const index = window.bonLivraisonPrefixes.indexOf(prefix);
         if (index > -1) {
             window.bonLivraisonPrefixes.splice(index, 1);
-            
+
             // If deleted prefix was selected, select the first one
             if (window.selectedPrefix === prefix) {
                 window.selectedPrefix = window.bonLivraisonPrefixes[0];
@@ -678,7 +687,7 @@ window.deletePrefixEdit = async function(prefix) {
                 if (prefixInput) prefixInput.value = window.selectedPrefix;
                 if (prefixExample) prefixExample.textContent = window.selectedPrefix;
             }
-            
+
             renderPrefixListEdit();
             window.notify.success('Succès', `Prefix "${prefix}" supprimé`, 2000);
         }
@@ -688,29 +697,29 @@ window.deletePrefixEdit = async function(prefix) {
 }
 
 // Format Bon numero with selected prefix for Edit page (Global)
-window.formatBonNumeroWithPrefixEdit = function(input) {
+window.formatBonNumeroWithPrefixEdit = function (input) {
     let value = input.value.trim();
-    
+
     // 🔍 DEBUG: Log input value
     console.log('🔴 [EDIT FORMAT BON NUMERO] Input value:', value);
-    
+
     // إذا كان الحقل فارغاً، لا تفعل شيئاً
     if (!value) {
         console.log('⚠️ [EDIT FORMAT BON NUMERO] Empty value, returning');
         return;
     }
-    
+
     // إذا كان يحتوي بالفعل على سلاش، لا تفعل شيئاً
     if (value.includes('/')) {
         console.log('⚠️ [EDIT FORMAT BON NUMERO] Already has slash, returning:', value);
         return;
     }
-    
+
     // استخراج الأرقام فقط
     let numbers = value.replace(/[^0-9]/g, '');
-    
+
     console.log('🔴 [EDIT FORMAT BON NUMERO] Extracted numbers:', numbers);
-    
+
     // إذا كان هناك أرقام، أضف السنة
     if (numbers) {
         const year = new Date().getFullYear();
@@ -721,7 +730,7 @@ window.formatBonNumeroWithPrefixEdit = function(input) {
 }
 
 // Show manual bon form
-window.showAddManualBonForm = function() {
+window.showAddManualBonForm = function () {
     document.getElementById('manualBonForm').style.display = 'block';
     // Set today's date as default
     const today = new Date().toISOString().split('T')[0];
@@ -729,7 +738,7 @@ window.showAddManualBonForm = function() {
 }
 
 // Hide manual bon form
-window.hideAddManualBonForm = function() {
+window.hideAddManualBonForm = function () {
     document.getElementById('manualBonForm').style.display = 'none';
     // Clear form
     document.getElementById('manualBonNumero').value = '';
@@ -740,11 +749,11 @@ window.hideAddManualBonForm = function() {
 }
 
 // Add product row to manual form
-window.addManualProductRow = function() {
+window.addManualProductRow = function () {
     const tbody = document.getElementById('manualProductsTableBody');
     const row = document.createElement('tr');
     row.style.borderBottom = '1px solid #3e3e42';
-    
+
     row.innerHTML = `
         <td style="padding: 0.75rem;">
             <textarea class="manual-product-designation" placeholder="Désignation du produit" rows="2"
@@ -773,34 +782,34 @@ window.addManualProductRow = function() {
             </button>
         </td>
     `;
-    
+
     tbody.appendChild(row);
 }
 
 // Remove product row
-window.removeManualProductRow = function(btn) {
+window.removeManualProductRow = function (btn) {
     btn.closest('tr').remove();
     calculateManualBonTotal();
 }
 
 // Calculate product total
-window.calculateManualProductTotal = function(input) {
+window.calculateManualProductTotal = function (input) {
     const row = input.closest('tr');
     const quantityValue = row.querySelector('.manual-product-quantity').value.trim();
     const quantityUpper = quantityValue.toUpperCase();
     const quantity = (quantityUpper === 'F') ? 1 : (parseFloat(quantityValue) || 0);
     const price = parseFloat(row.querySelector('.manual-product-price').value) || 0;
     const total = quantity * price;
-    
+
     row.querySelector('.manual-product-total').textContent = total.toFixed(2) + ' DH';
     calculateManualBonTotal();
 }
 
 // Calculate total for manual bon
-window.calculateManualBonTotal = function() {
+window.calculateManualBonTotal = function () {
     const rows = document.querySelectorAll('#manualProductsTableBody tr');
     let total = 0;
-    
+
     rows.forEach(row => {
         const quantityValue = row.querySelector('.manual-product-quantity').value.trim();
         const quantityUpper = quantityValue.toUpperCase();
@@ -808,22 +817,22 @@ window.calculateManualBonTotal = function() {
         const price = parseFloat(row.querySelector('.manual-product-price').value) || 0;
         total += quantity * price;
     });
-    
+
     document.getElementById('manualBonTotalDisplay').textContent = total.toFixed(2) + ' DH';
     return total;
 }
 
 // Add manual bon to list
-window.addManualBonToList = async function() {
+window.addManualBonToList = async function () {
     console.log('✍️ [MANUAL BL] Starting addManualBonToList function...');
-    
+
     // Get selected prefix and combine with numero
     const selectedPrefix = window.selectedPrefix || 'MG';
     const numeroValue = document.getElementById('manualBonNumero').value.trim();
     const fullNumero = selectedPrefix + numeroValue;
     const commande = document.getElementById('manualBonCommande').value.trim();
     const date = document.getElementById('manualBonDate').value;
-    
+
     // Get products
     const productRows = document.querySelectorAll('#manualProductsTableBody tr');
     const products = [];
@@ -831,12 +840,12 @@ window.addManualBonToList = async function() {
         const designation = row.querySelector('.manual-product-designation').value.trim();
         const quantite = row.querySelector('.manual-product-quantity').value.trim();
         const prix_unitaire_ht = parseFloat(row.querySelector('.manual-product-price').value) || 0;
-        
+
         if (designation) {
             // For calculation: convert 'F' or 'f' to 1, otherwise parse as number
             const quantiteUpper = quantite.toUpperCase();
             const qtyForCalculation = (quantiteUpper === 'F') ? 1 : (parseFloat(quantite) || 0);
-            
+
             products.push({
                 designation,
                 quantite: quantite || '0', // Keep original value for saving
@@ -845,23 +854,23 @@ window.addManualBonToList = async function() {
             });
         }
     });
-    
+
     const total = calculateManualBonTotal();
-    
+
     console.log('📝 [MANUAL BL - INPUT DATA]:', {
         fullNumero,
         commande,
         date,
         total
     });
-    
+
     // Validation
     if (!fullNumero) {
         console.error('❌ [MANUAL BL] Validation failed: No numero');
         window.notify.error('Erreur', 'Le numéro de BL est requis', 3000);
         return;
     }
-    
+
     // Check format PREFIX+XXX/YYYY (accept any prefix and any number of digits)
     const prefixPattern = new RegExp(`^[A-Z]+\\d+\\/\\d{4}$`);
     if (!fullNumero.match(prefixPattern)) {
@@ -869,27 +878,27 @@ window.addManualBonToList = async function() {
         window.notify.error('Erreur', `Format invalide. Entrez des chiffres (ex: 2 → ${selectedPrefix}2/2025)`, 3000);
         return;
     }
-    
+
     if (!date) {
         console.error('❌ [MANUAL BL] Validation failed: No date');
         window.notify.error('Erreur', 'La date est requise', 3000);
         return;
     }
-    
+
     if (isNaN(total) || total < 0) {
         console.error('❌ [MANUAL BL] Validation failed: Invalid total', total);
         window.notify.error('Erreur', 'Le montant doit être un nombre valide', 3000);
         return;
     }
-    
+
     console.log('✅ [MANUAL BL] All validations passed');
-    
+
     // Check if numero already exists in database
     try {
         console.log('🔍 [MANUAL BL] Checking if numero exists in database...');
         const checkResult = await window.electron.dbChaimae.checkBonNumeroExists(fullNumero);
         console.log('📦 [MANUAL BL] Database check result:', checkResult);
-        
+
         if (checkResult && checkResult.exists) {
             console.error('❌ [MANUAL BL] Numero already exists in database');
             window.notify.error('Erreur', `Le numéro ${fullNumero} existe déjà dans la base de données`, 4000);
@@ -899,19 +908,19 @@ window.addManualBonToList = async function() {
         console.error('❌ [MANUAL BL] Error checking bon numero:', error);
         // Continue anyway if check fails
     }
-    
+
     // Check if Order already exists in database (if provided)
     if (commande) {
         try {
             console.log('🔍 [MANUAL BL] Checking if Order exists in database...');
             const allInvoicesResult = await window.electron.dbChaimae.getAllInvoices();
-            
+
             if (allInvoicesResult.success) {
-                const duplicate = allInvoicesResult.data.find(inv => 
-                    inv.document_numero_commande === commande && 
+                const duplicate = allInvoicesResult.data.find(inv =>
+                    inv.document_numero_commande === commande &&
                     inv.document_type === 'bon_livraison'
                 );
-                
+
                 if (duplicate) {
                     console.error('❌ [MANUAL BL] N° Order already exists');
                     window.notify.error('Erreur', `Le N° Order "${commande}" existe déjà dans la base de données`, 4000);
@@ -923,23 +932,23 @@ window.addManualBonToList = async function() {
             // Continue anyway if check fails
         }
     }
-    
+
     // Check if numero already exists in current list
     console.log('🔍 [MANUAL BL] Checking if numero exists in current list...');
     console.log('📋 [MANUAL BL] Current bons count:', currentBonsEdit.length);
-    
-    const existsInList = currentBonsEdit.some(bon => 
+
+    const existsInList = currentBonsEdit.some(bon =>
         (bon.document_numero_bl === fullNumero || bon.document_numero === fullNumero)
     );
-    
+
     if (existsInList) {
         console.error('❌ [MANUAL BL] Numero already exists in current list');
         window.notify.error('Erreur', `Le numéro ${fullNumero} est déjà dans la liste`, 3000);
         return;
     }
-    
+
     console.log('✅ [MANUAL BL] Numero is unique, creating manual bon...');
-    
+
     // Create manual bon object with negative ID to distinguish from DB bons
     const manualBon = {
         id: -Date.now(), // Negative ID for manual entries
@@ -952,43 +961,43 @@ window.addManualBonToList = async function() {
         isManual: true,
         products: products // Store products for later saving
     };
-    
+
     console.log('📦 [MANUAL BL] Created manual bon object:', manualBon);
-    
+
     // Add to current bons
     currentBonsEdit.push(manualBon);
     console.log('✅ [MANUAL BL] Added to currentBonsEdit. New count:', currentBonsEdit.length);
-    
+
     // Refresh display
     console.log('🔄 [MANUAL BL] Refreshing display...');
     displayCurrentBonsEdit();
-    
+
     console.log('💰 [MANUAL BL] Calculating totals...');
     calculateTotalsEdit();
-    
+
     // Hide form and show success message
     console.log('✅ [MANUAL BL] Hiding form and showing success message');
     hideAddManualBonForm();
     window.notify.success('Succès', `BL ${fullNumero} ajouté avec succès`, 3000);
-    
+
     console.log('🎉 [MANUAL BL] Manual BL added successfully!');
 }
 
 // Handle form submission
 async function handleFormSubmitEdit(e) {
     e.preventDefault();
-    
+
     try {
         console.log('💾 [SAVE] Starting form submission...');
-        
+
         // First, save manual bons to database
         const manualBons = currentBonsEdit.filter(bon => bon.isManual && bon.id < 0);
         console.log('📝 [SAVE] Manual bons to save:', manualBons.length);
-        
+
         const manualBonIds = [];
         for (const manualBon of manualBons) {
             console.log('💾 [SAVE] Saving manual bon:', manualBon.document_numero_bl);
-            
+
             const bonData = {
                 client: {
                     nom: currentInvoiceEdit.client_nom,
@@ -1012,9 +1021,9 @@ async function handleFormSubmitEdit(e) {
                     total_ttc: manualBon.total_ttc
                 }
             };
-            
+
             console.log('📤 [SAVE] Bon data to save:', bonData);
-            
+
             try {
                 const result = await window.electron.dbChaimae.createInvoice(bonData);
                 if (result.success) {
@@ -1030,36 +1039,36 @@ async function handleFormSubmitEdit(e) {
                 console.error('❌ [SAVE] Error saving manual bon:', error);
             }
         }
-        
+
         console.log('✅ [SAVE] All manual bons saved. New IDs:', manualBonIds);
-        
+
         // Refresh display to update checkboxes with real IDs
         if (manualBonIds.length > 0) {
             console.log('🔄 [SAVE] Refreshing display to update IDs...');
             displayCurrentBonsEdit();
         }
-        
+
         // Get all selected bon IDs (current + available)
         const selectedCurrentCheckboxes = document.querySelectorAll('.current-bon-checkbox:checked');
         const selectedCurrentBonIds = Array.from(selectedCurrentCheckboxes).map(cb => parseInt(cb.dataset.bonId));
-        
+
         const selectedAvailableCheckboxes = document.querySelectorAll('.available-bon-checkbox:checked');
         const selectedAvailableBonIds = Array.from(selectedAvailableCheckboxes).map(cb => parseInt(cb.dataset.bonId));
-        
+
         const allSelectedBonIds = [...selectedCurrentBonIds, ...selectedAvailableBonIds];
-        
+
         console.log('📦 [SAVE] Selected bon IDs after refresh:', allSelectedBonIds);
-        
+
         if (allSelectedBonIds.length === 0) {
             window.notify.error('Erreur', 'Veuillez sélectionner au moins un bon de livraison', 3000);
             return;
         }
-        
+
         // Parse totals (remove formatting)
         const totalHTText = document.getElementById('totalHTEditGlobal').textContent.replace(/\s/g, '').replace('DH', '').replace(',', '.');
         const montantTVAText = document.getElementById('montantTVAEditGlobal').textContent.replace(/\s/g, '').replace('DH', '').replace(',', '.');
         const totalTTCText = document.getElementById('totalTTCEditGlobal').textContent.replace(/\s/g, '').replace('DH', '').replace(',', '.');
-        
+
         const formData = {
             document_numero: document.getElementById('documentNumeroEditGlobal').value,
             document_date: document.getElementById('documentDateEditGlobal').value,
@@ -1069,7 +1078,7 @@ async function handleFormSubmitEdit(e) {
             total_ttc: parseFloat(totalTTCText),
             bon_livraison_ids: allSelectedBonIds
         };
-        
+
         console.log('📤 [EDIT SUBMIT] Updating global invoice ID:', currentInvoiceEdit.id);
         console.log('📋 [FORM DATA]:', formData);
         console.log('📦 [SELECTED BONS]:', {
@@ -1084,36 +1093,36 @@ async function handleFormSubmitEdit(e) {
             montant_tva: formData.montant_tva,
             total_ttc: formData.total_ttc
         });
-        
+
         // Check for duplicate document number in global invoices (excluding current invoice)
         const allGlobalInvoicesResult = await window.electron.dbChaimae.getAllGlobalInvoices();
         if (allGlobalInvoicesResult.success) {
-            const duplicateGlobal = allGlobalInvoicesResult.data.find(inv => 
+            const duplicateGlobal = allGlobalInvoicesResult.data.find(inv =>
                 inv.document_numero === formData.document_numero && inv.id !== currentInvoiceEdit.id
             );
-            
+
             if (duplicateGlobal) {
                 window.notify.error('Erreur', `Le numéro "${formData.document_numero}" existe déjà dans une autre facture globale`, 5000);
                 return;
             }
         }
-        
+
         // Check for duplicate document number in regular invoices
         const allRegularInvoicesResult = await window.electron.dbChaimae.getAllInvoices();
         if (allRegularInvoicesResult.success) {
-            const duplicateRegular = allRegularInvoicesResult.data.find(inv => 
+            const duplicateRegular = allRegularInvoicesResult.data.find(inv =>
                 inv.document_type === 'facture' && inv.document_numero === formData.document_numero
             );
-            
+
             if (duplicateRegular) {
                 window.notify.error('Erreur', `Le numéro "${formData.document_numero}" existe déjà dans une facture normale`, 5000);
                 return;
             }
         }
-        
+
         // Update in database
         const result = await window.electron.dbChaimae.updateGlobalInvoice(currentInvoiceEdit.id, formData);
-        
+
         if (result.success) {
             window.notify.success('Succès', 'Facture globale modifiée avec succès!', 3000);
             sessionStorage.removeItem('editGlobalInvoiceId');
@@ -1123,7 +1132,7 @@ async function handleFormSubmitEdit(e) {
         } else {
             window.notify.error('Erreur', result.error || 'Erreur lors de la modification', 4000);
         }
-        
+
     } catch (error) {
         console.error('Error updating global invoice:', error);
         window.notify.error('Erreur', 'Erreur lors de la modification de la facture globale', 4000);

@@ -780,10 +780,18 @@ window.generateSituationMensuelleMulti = async function (clientId, month, year, 
         doc.setFontSize(9);
 
         let totalHT = 0;
+        let totalTVA = 0;
+        let totalTTC = 0;
 
         allInvoices.forEach((inv, index) => {
-            const ht = parseFloat(inv.total_ht) || 0;
+            const ht = parseFloat(inv.total_ht || 0);
+            const ttc = parseFloat(inv.total_ttc || 0);
+            // Smart fallback for TVA: use stored value, or calculate difference
+            const tva = parseFloat(inv.montant_tva || 0) || (ttc - ht);
+
             totalHT += ht;
+            totalTVA += tva;
+            totalTTC += (ttc || (ht + tva));
 
             let typeLabel = '';
             let mainNumero = '';
@@ -886,8 +894,8 @@ window.generateSituationMensuelleMulti = async function (clientId, month, year, 
             addHeaderToPDFMulti(doc, client, month, year, monthNames, darkGrayColor, lightGrayBg);
         }
 
-        const montantTVA = totalHT * 0.2;
-        const totalTTC = totalHT + montantTVA;
+        // Calculate amount in words from totalTTC
+        const amountInWords = numberToFrenchWordsMulti(totalTTC);
 
         // Remarques section - Left side
         doc.setFillColor(...darkGrayColor);
@@ -922,8 +930,8 @@ window.generateSituationMensuelleMulti = async function (clientId, month, year, 
         doc.setDrawColor(200, 200, 200);
         doc.rect(110, fixedBottomY + 6, 85, 6);
         doc.setTextColor(0, 0, 0);
-        doc.text('TVA 20%', 113, fixedBottomY + 10);
-        doc.text(`${formatAmountMulti(montantTVA)} DH`, 192, fixedBottomY + 10, { align: 'right' });
+        doc.text('TOTAL TVA', 113, fixedBottomY + 10);
+        doc.text(`${formatAmountMulti(totalTVA)} DH`, 192, fixedBottomY + 10, { align: 'right' });
 
         doc.setFillColor(...darkGrayColor);
         doc.rect(110, fixedBottomY + 12, 85, 6, 'F');
@@ -932,7 +940,6 @@ window.generateSituationMensuelleMulti = async function (clientId, month, year, 
         doc.text(`${formatAmountMulti(totalTTC)} DH`, 192, fixedBottomY + 16, { align: 'right' });
 
         // Amount in words
-        const amountInWords = numberToFrenchWordsMulti(totalTTC);
 
         // Determine document type based on selected invoices
         const documentTypes = new Set(allInvoices.map(inv => inv.document_type));

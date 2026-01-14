@@ -801,6 +801,8 @@ window.generateSituationMensuelleMRY = async function (clientId, month, year, so
         doc.setFontSize(8);
 
         let totalHT = 0;
+        let totalTVA = 0;
+        let totalTTC = 0;
 
         allInvoices.forEach((inv, index) => {
             // Check if we need a new page (with more space for multi-line rows)
@@ -833,8 +835,13 @@ window.generateSituationMensuelleMRY = async function (clientId, month, year, so
                 doc.setFontSize(8);
             }
 
-            const ht = parseFloat(inv.total_ht) || 0;
-            totalHT += ht;
+            const hVal = parseFloat(inv.total_ht || 0);
+            const tVal = parseFloat(inv.total_ttc || 0);
+            const tvaVal = parseFloat(inv.montant_tva || 0) || (tVal - hVal);
+
+            totalHT += hVal;
+            totalTVA += tvaVal;
+            totalTTC += (tVal || (hVal + tvaVal));
 
             // Determine document type and numero with details
             let typeLabel = '';
@@ -901,7 +908,7 @@ window.generateSituationMensuelleMRY = async function (clientId, month, year, so
             doc.setTextColor(0, 0, 0);
             doc.setFontSize(8);
             doc.setFont(undefined, 'normal');
-            doc.text(formatAmountMRY(ht) + ' DH', 188, currentY + 2.5, { align: 'right' });
+            doc.text(formatAmountMRY(hVal) + ' DH', 188, currentY + 2.5, { align: 'right' });
 
             currentY += rowHeight;
         });
@@ -918,8 +925,7 @@ window.generateSituationMensuelleMRY = async function (clientId, month, year, so
             currentY = 100;
         }
 
-        const montantTVA = totalHT * 0.2;
-        const totalTTC = totalHT + montantTVA;
+        // No hardcoded calculation needed as we sum individual values now
 
         // TOTAL HT
         doc.setFillColor(245, 245, 245);
@@ -936,9 +942,9 @@ window.generateSituationMensuelleMRY = async function (clientId, month, year, so
         doc.setFillColor(255, 255, 255);
         doc.rect(110, currentY, 85, 8, 'F');
         doc.setFontSize(9);
-        doc.text('MONTANT TVA 20% :', 113, currentY + 5.5);
+        doc.text('TOTAL TVA :', 113, currentY + 5.5);
         doc.setFontSize(8);
-        doc.text(`${formatAmountMRY(montantTVA)} DH`, 192, currentY + 5.5, { align: 'right' });
+        doc.text(`${formatAmountMRY(totalTVA)} DH`, 192, currentY + 5.5, { align: 'right' });
 
         // MONTANT T.T.C
         currentY += 8;
@@ -946,7 +952,7 @@ window.generateSituationMensuelleMRY = async function (clientId, month, year, so
         doc.rect(110, currentY, 85, 8, 'F');
         doc.setTextColor(...blueColor);
         doc.setFontSize(9);
-        doc.text('MONTANT T.T.C :', 113, currentY + 5.5);
+        doc.text('TOTAL TTC :', 113, currentY + 5.5);
         doc.setFontSize(8.5);
         doc.text(`${formatAmountMRY(totalTTC)} DH`, 192, currentY + 5.5, { align: 'right' });
 

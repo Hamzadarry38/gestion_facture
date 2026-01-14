@@ -584,9 +584,20 @@ window.calculateTotals = function () {
         totalHT += total;
     });
 
-    const tvaRateValue = document.getElementById('tvaRate').value;
-    const tvaRate = tvaRateValue === '' ? 20 : (parseFloat(tvaRateValue) || 0);
-    const montantTVA = totalHT * (tvaRate / 100);
+    const tvaInput = document.getElementById('tvaRate');
+    let tvaRateValue = tvaInput.value;
+    let tvaRate = parseFloat(tvaRateValue);
+
+    // FIX: prevent year (2026) or huge numbers from breaking calculations
+    // This logic forces the rate back to 20 if it detects a year-like number
+    if (isNaN(tvaRate) || tvaRate < 0 || tvaRate > 100) {
+        console.warn('⚠️ [MRY] Invalid TVA Rate detected:', tvaRate, 'Resetting to 20');
+        tvaRate = 20;
+        tvaInput.value = '20';
+    }
+
+    const tvaRateFinal = tvaRate;
+    const montantTVA = totalHT * (tvaRateFinal / 100);
     const totalTTC = totalHT + montantTVA;
 
     // Use simple format without spaces for display in creation page
