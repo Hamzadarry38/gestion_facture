@@ -915,7 +915,7 @@ window.showConvertDocumentTypeModalChaimae = async function () {
             return;
         }
 
-        const { newNumero, numeroOrder, bonLivraison } = inputData;
+        const { newNumero, numeroOrder, bonLivraison, newDate } = inputData;
 
         // Check for duplicate numbers
         const allInvoicesResult = await window.electron.dbChaimae.getAllInvoices();
@@ -946,7 +946,7 @@ window.showConvertDocumentTypeModalChaimae = async function () {
             },
             document: {
                 type: selectedNewType,
-                date: invoice.document_date || new Date().toISOString().split('T')[0],
+                date: newDate || invoice.document_date || new Date().toISOString().split('T')[0],
                 numero: selectedNewType === 'facture' ? newNumero : (selectedNewType === 'bon_livraison' ? null : null),
                 numero_devis: selectedNewType === 'devis' ? newNumero : null,
                 numero_bl: selectedNewType === 'bon_livraison' ? newNumero : null,
@@ -1189,6 +1189,13 @@ window.showConvertInputModalChaimae = function (newType, newTypeLabel, prefillNu
                 <small style="color: #999; font-size: 0.85rem; display: block; margin-top: 0.5rem;">Ex: 123 → 123/2025</small>
                 ${highestNumber !== 'Aucun' ? `<div style="margin-top:0.5rem;color:${config.color};font-size:0.85rem;font-weight:500;">📌 Plus grand numéro actuel: ${highestNumber}</div>` : ''}
             </div>
+
+            <div style="margin-bottom:2rem;">
+                <label style="display:block;color:#2196F3;margin-bottom:0.75rem;font-weight:600;font-size:1.1rem;">Date</label>
+                <input type="date" id="convertInputDateChaimae" 
+                       style="width:100%;padding:1rem;background:#2d2d30;border:2px solid #3e3e42;border-radius:8px;color:#fff;font-size:1.1rem;box-sizing:border-box;outline:none;transition:all 0.3s;"
+                       value="${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, '0')}-${String(new Date().getDate()).padStart(2, '0')}">
+            </div>
             ` : ''}
             
             ${newType === 'facture' ? `
@@ -1302,12 +1309,19 @@ window.showConvertInputModalChaimae = function (newType, newTypeLabel, prefillNu
 
             const numeroOrder = input2 ? input2.value.trim() : '';
             const bonLivraison = input3 ? input3.value.trim() : '';
+            const newDate = document.getElementById('convertInputDateChaimae').value;
+
+            if (!newDate) {
+                window.notify.error('Erreur', 'Veuillez saisir une date', 3000);
+                return;
+            }
 
             overlay.remove();
             resolve({
                 newNumero,
                 numeroOrder: numeroOrder || null,
-                bonLivraison: bonLivraison || null
+                bonLivraison: bonLivraison || null,
+                newDate
             });
         };
 

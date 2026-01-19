@@ -831,7 +831,7 @@ window.showConvertDocumentTypeModalMRY = async function () {
             return;
         }
 
-        const { newNumero, newNumeroOrder } = inputData;
+        const { newNumero, newNumeroOrder, newDate } = inputData;
 
         // Check uniqueness
         const allInvoicesResult = await window.electron.db.getAllInvoices('MRY');
@@ -861,7 +861,7 @@ window.showConvertDocumentTypeModalMRY = async function () {
             },
             document: {
                 type: newType,
-                date: invoice.document_date || new Date().toISOString().split('T')[0],
+                date: newDate || invoice.document_date || new Date().toISOString().split('T')[0],
                 numero: newType === 'facture' ? newNumero : null,
                 numero_devis: newType === 'devis' ? newNumero : null,
                 numero_Order: newType === 'facture' ? (newNumeroOrder || null) : null,
@@ -1004,6 +1004,13 @@ function showConvertInputModalMRY(newType, newTypeLabel, prefillNumero = '') {
                 <small style="color: #999; font-size: 0.85rem; display: block; margin-top: 0.5rem;">Ex: 123 → 123/2025</small>
                 ${highestNumber !== 'Aucun' ? `<div style="margin-top:0.5rem;color:${newType === 'facture' ? '#4caf50' : '#9c27b0'};font-size:0.85rem;font-weight:500;">📌 Plus grand numéro actuel: ${highestNumber}</div>` : ''}
             </div>
+
+            <div style="margin-bottom:2rem;">
+                <label style="display:block;color:#2196F3;margin-bottom:0.75rem;font-weight:600;font-size:1.1rem;">Date</label>
+                <input type="date" id="convertInputDateMRY" 
+                       style="width:100%;padding:1rem;background:#2d2d30;border:2px solid #3e3e42;border-radius:8px;color:#fff;font-size:1.1rem;box-sizing:border-box;outline:none;transition:all 0.3s;"
+                       value="${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, '0')}-${String(new Date().getDate()).padStart(2, '0')}">
+            </div>
             
             ${newType === 'facture' ? `
             <div style="margin-bottom:2rem;">
@@ -1036,14 +1043,20 @@ function showConvertInputModalMRY(newType, newTypeLabel, prefillNumero = '') {
         btnConfirm.onclick = () => {
             const newNumero = input1.value.trim();
             const newNumeroOrder = input2?.value.trim() || null;
+            const newDate = document.getElementById('convertInputDateMRY').value;
 
             if (!newNumero) {
                 window.notify.error('Erreur', 'Veuillez saisir un numéro de document', 3000);
                 return;
             }
 
+            if (!newDate) {
+                window.notify.error('Erreur', 'Veuillez saisir une date', 3000);
+                return;
+            }
+
             overlay.remove();
-            resolve({ newNumero, newNumeroOrder });
+            resolve({ newNumero, newNumeroOrder, newDate });
         };
 
         btnCancel.onclick = () => {

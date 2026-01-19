@@ -3433,7 +3433,7 @@ window.downloadInvoicePDFChaimae = async function (invoiceId) {
             // Add signature image above footer (right side)
             // Add signature image above footer (right side) - ONLY FOR DEVIS AND IF USER APPROVED
             if (signatureImgChaimae && invoice.document_type === 'devis' && includeSignature) {
-                doc.addImage(signatureImgChaimae, 'PNG', 140, 235, 60, 30);
+                doc.addImage(signatureImgChaimae, 'PNG', 140, 255, 60, 30);
             }
 
             doc.setTextColor(0, 0, 0);
