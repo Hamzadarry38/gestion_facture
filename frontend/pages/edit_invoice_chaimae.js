@@ -1190,30 +1190,14 @@ window.showConvertInputModalChaimae = function (newType, newTypeLabel, prefillNu
                 ${highestNumber !== 'Aucun' ? `<div style="margin-top:0.5rem;color:${config.color};font-size:0.85rem;font-weight:500;">📌 Plus grand numéro actuel: ${highestNumber}</div>` : ''}
             </div>
 
+            ` : ''}
+
             <div style="margin-bottom:2rem;">
                 <label style="display:block;color:#2196F3;margin-bottom:0.75rem;font-weight:600;font-size:1.1rem;">Date</label>
                 <input type="date" id="convertInputDateChaimae" 
                        style="width:100%;padding:1rem;background:#2d2d30;border:2px solid #3e3e42;border-radius:8px;color:#fff;font-size:1.1rem;box-sizing:border-box;outline:none;transition:all 0.3s;"
                        value="${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, '0')}-${String(new Date().getDate()).padStart(2, '0')}">
             </div>
-            ` : ''}
-            
-            ${newType === 'facture' ? `
-            <div style="margin-bottom:2rem;">
-                <label style="display:block;color:#9e9e9e;margin-bottom:0.75rem;font-weight:500;font-size:1rem;">N° Order (optionnel)</label>
-                <input type="text" id="convertInputChaimae2" placeholder="Exemple: 555" value="${prefillOrder}"
-                       style="width:100%;padding:1rem;background:#2d2d30;border:2px solid #3e3e42;border-radius:8px;color:#fff;font-size:1.1rem;box-sizing:border-box;outline:none;transition:all 0.3s;"
-                       onfocus="this.style.borderColor='#4caf50';this.style.background='#1e1e1e';"
-                       onblur="this.style.borderColor='#3e3e42';this.style.background='#2d2d30';">
-            </div>
-            <div style="margin-bottom:2rem;">
-                <label style="display:block;color:#ff9800;margin-bottom:0.75rem;font-weight:500;font-size:1rem;">Bon de livraison (optionnel)</label>
-                <input type="text" id="convertInputChaimae3" placeholder="Exemple: MG123/2025" value="${prefillBL}"
-                       style="width:100%;padding:1rem;background:#2d2d30;border:2px solid #3e3e42;border-radius:8px;color:#fff;font-size:1.1rem;box-sizing:border-box;outline:none;transition:all 0.3s;"
-                       onfocus="this.style.borderColor='#ff9800';this.style.background='#1e1e1e';"
-                       onblur="this.style.borderColor='#3e3e42';this.style.background='#2d2d30';">
-            </div>
-            ` : ''}
             
             ${newType === 'bon_livraison' ? `
             <div style="margin-bottom:2rem;">
@@ -1309,7 +1293,8 @@ window.showConvertInputModalChaimae = function (newType, newTypeLabel, prefillNu
 
             const numeroOrder = input2 ? input2.value.trim() : '';
             const bonLivraison = input3 ? input3.value.trim() : '';
-            const newDate = document.getElementById('convertInputDateChaimae').value;
+            const dateEl = document.getElementById('convertInputDateChaimae');
+            const newDate = dateEl ? dateEl.value : '';
 
             if (!newDate) {
                 window.notify.error('Erreur', 'Veuillez saisir une date', 3000);
