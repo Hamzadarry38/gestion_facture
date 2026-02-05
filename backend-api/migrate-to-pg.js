@@ -108,7 +108,7 @@ async function migrate() {
                             inv.document_numero_devis, inv.document_order_devis, inv.document_bon_de_livraison,
                             inv.document_numero_commande, inv.year, inv.sequential_id, inv.total_ht,
                             inv.tva_rate, inv.montant_tva, inv.total_ttc, inv.created_at, inv.updated_at,
-                            admin.email, admin.id, admin.name, admin.email,
+                            admin.name, admin.id, admin.name, admin.email,
                             'validated', 'normal', 'sans_accuse'
                         ]
                     );
