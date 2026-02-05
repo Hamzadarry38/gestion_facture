@@ -1,6 +1,6 @@
 {
   "name": "gestion-factures",
-  "version": "1.1.69",
+  "version": "1.1.70",
   "description": "Application de gestion des factures",
   "main": "main.js",
   "scripts": {
@@ -101,6 +101,7 @@
     "electron-updater": "^6.1.7",
     "extract-zip": "^2.0.1",
     "pg": "^8.17.2",
-    "sql.js": "^1.13.0"
+    "sql.js": "^1.13.0",
+    "sqlite3": "^5.1.7"
   }
 }

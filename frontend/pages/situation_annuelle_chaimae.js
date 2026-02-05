@@ -1067,7 +1067,7 @@ window.generateSituationAnnuelleClientsChaimae = async function (clientIds, year
             doc.text(formatAmountChaimae(row.totalTTC), 190, currentY + 5.5, { align: 'right' });
 
             currentY += 8;
-        });
+        }
 
         currentY += 10;
         doc.setFillColor(255, 255, 255);
