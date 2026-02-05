@@ -799,8 +799,8 @@ function displayInvoicesMulti() {
             <td class="col-ice-multi-body" style="${columnVisibilityMulti.ice ? '' : 'display: none;'}">${invoice.client_ice}</td>
             <td>${date}</td>
             <td><small style="color: #2196f3;">${invoice.created_by_user_name || '-'}</small></td>
-            <td>${invoice.total_ht.toFixed(2)} DH</td>
-            <td><strong>${invoice.total_ttc.toFixed(2)} DH</strong></td>
+            <td>${Number(invoice.total_ht || 0).toFixed(2)} DH</td>
+            <td><strong>${Number(invoice.total_ttc || 0).toFixed(2)} DH</strong></td>
             <td>
                 <select onchange="window.updateArStatusMulti('${invoice.id}', this.value)"
                         style="padding: 0.4rem; background: ${invoice.ar_status === 'accuse' ? '#4caf50' : (invoice.ar_status === 'en_attente' ? '#ff9800' : '#424242')}; color: white; border: none; border-radius: 4px; font-size: 0.85rem; cursor: pointer; width: 100%; transition: background 0.3s;"
