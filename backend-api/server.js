@@ -339,9 +339,9 @@ app.get('/invoices/:company', async (req, res) => {
     const invoicesRes = await pool.query(`
       SELECT i.*, c.nom as client_nom, c.ice as client_ice 
       FROM invoices i 
-      LEFT JOIN clients c ON i.client_id = c.id 
+      JOIN clients c ON i.client_id = c.id 
       WHERE i.company_code = $1
-      ORDER BY i.created_at DESC
+      ORDER BY i.id DESC
     `, [company.toUpperCase()]);
 
     const invoices = invoicesRes.rows;
@@ -390,38 +390,32 @@ app.get('/invoices/:company', async (req, res) => {
 app.get('/invoices/id/:id', async (req, res) => {
   try {
     const { id } = req.params;
-    console.log(`[SERVER] GET /invoices/id/${id} - Searching for invoice...`);
-
     const invoiceRes = await pool.query(`
       SELECT i.*, c.nom as client_nom, c.ice as client_ice 
       FROM invoices i 
-      LEFT JOIN clients c ON i.client_id = c.id 
+      JOIN clients c ON i.client_id = c.id 
       WHERE i.id = $1
     `, [id]);
 
     if (invoiceRes.rows.length === 0) {
-      console.warn(`[SERVER] GET /invoices/id/${id} - NOT FOUND in database`);
       return res.status(404).json({ success: false, message: 'Invoice not found' });
     }
 
     const invoice = invoiceRes.rows[0];
-    console.log(`[SERVER] GET /invoices/id/${id} - Found: ${invoice.document_type} ${invoice.document_numero || invoice.document_numero_devis}`);
-
     const productsRes = await pool.query('SELECT * FROM invoice_products WHERE invoice_id = $1', [id]);
     invoice.products = productsRes.rows;
 
     // Fetch attachments
-    const attachmentsRes = await pool.query('SELECT *, created_at as uploaded_at FROM invoice_attachments WHERE invoice_id = $1 ORDER BY created_at DESC', [id]);
+    // Fetch attachments (Safe fallback: Order by ID if created_at is missing)
+    const attachmentsRes = await pool.query('SELECT * FROM invoice_attachments WHERE invoice_id = $1 ORDER BY id DESC', [id]);
     invoice.attachments = attachmentsRes.rows;
     invoice.attachment_count = attachmentsRes.rows.length;
 
     res.json({ success: true, data: invoice });
   } catch (err) {
-    console.error(`[SERVER] GET /invoices/id/${req.params.id} - ERROR:`, err.message);
     res.status(500).json({ success: false, error: err.message });
   }
 });
-
 
 app.post('/invoices', async (req, res) => {
   const client = await pool.connect();
@@ -809,7 +803,50 @@ app.get('/attachments/invoice/:invoiceId', async (req, res) => {
   }
 });
 
-// --- Deleted Redundant Attachment Route ---
+app.post('/attachments', async (req, res) => {
+  console.log('🔵 [API] POST /attachments called');
+  const client = await pool.connect();
+  try {
+    const { invoice_id, filename, file_type, file_size, file_data, file_path } = req.body;
+
+    console.log(`📝 [API] Attempting to add attachment: ${filename} for invoice: ${invoice_id}`);
+
+    await client.query('BEGIN');
+
+    // Convert base64 to buffer if provided
+    let dataBuffer = null;
+    if (file_data) {
+      dataBuffer = Buffer.from(file_data, 'base64');
+      console.log(`📊 [API] Converted file_data to buffer (${dataBuffer.length} bytes)`);
+    }
+
+    const result = await client.query(
+      `INSERT INTO invoice_attachments (invoice_id, filename, file_type, file_size, file_path, file_data, created_at)
+       VALUES ($1, $2, $3, $4, $5, $6, NOW())
+       RETURNING id`,
+      [invoice_id, filename, file_type, file_size, file_path, dataBuffer]
+    );
+
+    const attachmentId = result.rows[0].id;
+    console.log(`✅ [API] Inserted attachment record ID: ${attachmentId}`);
+
+    // Update attachment_count in invoices for performance (if column exists)
+    await client.query(
+      'UPDATE invoices SET attachment_count = (SELECT COUNT(*) FROM invoice_attachments WHERE invoice_id = $1) WHERE id = $1',
+      [invoice_id]
+    );
+
+    await client.query('COMMIT');
+    console.log(`✨ [API] Transaction committed successfully for invoice ${invoice_id}`);
+    res.json({ success: true, data: { id: attachmentId } });
+  } catch (err) {
+    if (client) await client.query('ROLLBACK');
+    console.error('❌ [API] Transaction ERROR:', err);
+    res.status(500).json({ success: false, error: err.message });
+  } finally {
+    client.release();
+  }
+});
 
 app.delete('/attachments/:id', async (req, res) => {
   try {

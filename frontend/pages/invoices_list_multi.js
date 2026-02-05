@@ -84,6 +84,13 @@ function InvoicesListMultiPage() {
                             <button class="action-btn" onclick="triggerMigration('MULTI')" style="background: #FF9800; color: white; border: none; font-weight: 600;">
                                 🚀 Migrer P.J
                             </button>
+
+                            <button class="action-btn" onclick="handleManualMigration()" style="background: #795548; color: white; border: none; font-weight: 600; display: flex; align-items: center; gap: 0.5rem;">
+                                <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor">
+                                    <path d="M1 11.5a.5.5 0 0 0 .5.5h11.793l-3.147 3.146a.5.5 0 0 0 .708.708l4-4a.5.5 0 0 0 0-.708l-4-4a.5.5 0 0 0-.708.708L13.293 11H1.5a.5.5 0 0 0-.5.5zm14-7a.5.5 0 0 0-.5-.5H2.707l3.147 3.146a.5.5 0 1 0-.708.708l-4-4a.5.5 0 0 0 0-.708l4-4a.5.5 0 1 0 .708.708L2.707 4H14.5a.5.5 0 0 0 .5-.5z"/>
+                                </svg>
+                                📥 Import Old Data
+                            </button>
                             
                             <button class="action-btn action-btn-secondary" onclick="router.navigate('/dashboard-multi')">
                                 <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor">
@@ -861,6 +868,33 @@ function displayInvoicesMulti() {
     // Setup select all checkbox
     setupSelectAllMulti();
 }
+
+// Manual Migration Function
+window.handleManualMigration = async function () {
+    const confirmed = await customConfirm(
+        'Importer les anciennes données',
+        'Voulez-vous lancer la migration manuelle des anciennes données (Fichiers SQLite) vers la base de données actuelle ?\n\n⚠️ Cette opération importera toutes les factures manquantes en conservant leur date de création.',
+        'warning'
+    );
+
+    if (confirmed) {
+        window.notify.info('Migration en cours', 'Veuillez patienter pendant l\'importation...', 5000);
+
+        try {
+            const result = await window.electron.ipcRenderer.invoke('db:migrate:manual');
+
+            if (result.success) {
+                window.notify.success('Succès', 'L\'importation des données est terminée !', 5000);
+                setTimeout(() => loadInvoicesMulti(), 1000); // Reload table
+            } else {
+                window.notify.error('Erreur', 'Échec de la migration: ' + result.error, 8000);
+            }
+        } catch (error) {
+            console.error('Migration error:', error);
+            window.notify.error('Erreur', 'Une erreur inattendue est survenue.', 5000);
+        }
+    }
+};
 
 // View invoice details
 window.viewInvoiceMulti = async function (id) {
