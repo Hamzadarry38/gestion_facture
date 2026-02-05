@@ -339,7 +339,7 @@ app.get('/invoices/:company', async (req, res) => {
     const invoicesRes = await pool.query(`
       SELECT i.*, c.nom as client_nom, c.ice as client_ice 
       FROM invoices i 
-      JOIN clients c ON i.client_id = c.id 
+      LEFT JOIN clients c ON i.client_id = c.id 
       WHERE i.company_code = $1
       ORDER BY i.created_at DESC
     `, [company.toUpperCase()]);
@@ -393,7 +393,7 @@ app.get('/invoices/id/:id', async (req, res) => {
     const invoiceRes = await pool.query(`
       SELECT i.*, c.nom as client_nom, c.ice as client_ice 
       FROM invoices i 
-      JOIN clients c ON i.client_id = c.id 
+      LEFT JOIN clients c ON i.client_id = c.id 
       WHERE i.id = $1
     `, [id]);
 

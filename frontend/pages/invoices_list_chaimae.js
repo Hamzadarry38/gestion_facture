@@ -3211,21 +3211,38 @@ function formatNumberForPDFChaimae(number) {
 
 // Load Chaimae signature image for PDF
 async function loadChaimaeSignature() {
-    return new Promise((resolve) => {
-        const img = new Image();
-        img.onload = () => {
-            const canvas = document.createElement('canvas');
-            canvas.width = img.width;
-            canvas.height = img.height;
-            const ctx = canvas.getContext('2d');
-            ctx.drawImage(img, 0, 0);
-            resolve(canvas.toDataURL('image/png'));
-        };
-        img.onerror = () => {
-            console.warn('Could not load Chaimae signature image');
+    return new Promise(async (resolve) => {
+        try {
+            const signaturePath = 'Signature/Chaimae.png';
+            let dataUrl = null;
+
+            if (window.electron && window.electron.getAssetPath) {
+                dataUrl = await window.electron.getAssetPath(signaturePath);
+            }
+
+            if (!dataUrl) {
+                // Fallback to direct path in case asset loader fails
+                dataUrl = signaturePath;
+            }
+
+            const img = new Image();
+            img.onload = () => {
+                const canvas = document.createElement('canvas');
+                canvas.width = img.width;
+                canvas.height = img.height;
+                const ctx = canvas.getContext('2d');
+                ctx.drawImage(img, 0, 0);
+                resolve(canvas.toDataURL('image/png'));
+            };
+            img.onerror = () => {
+                console.warn('Could not load Chaimae signature image:', signaturePath);
+                resolve(null);
+            };
+            img.src = dataUrl;
+        } catch (error) {
+            console.error('Error in loadChaimaeSignature:', error);
             resolve(null);
-        };
-        img.src = 'Signature/Chaimae.png';
+        }
     });
 }
 
@@ -4753,18 +4770,31 @@ async function generateSinglePDFBlobChaimae(invoice, organizationType, folderNam
 // Load jsPDF library
 async function loadJsPDFChaimae() {
     return new Promise((resolve, reject) => {
+        // Check if already loaded (either via script tag or dynamically)
         if (typeof window.jspdf !== 'undefined') {
             resolve();
             return;
         }
 
+        // Try to load from local script if not already present
         const script = document.createElement('script');
-        script.src = 'https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js';
+        script.src = 'frontend/scripts/jspdf.umd.min.js';
         script.onload = () => {
-            console.log('✅ jsPDF loaded');
+            console.log('✅ jsPDF loaded locally');
             resolve();
         };
-        script.onerror = () => reject(new Error('Failed to load jsPDF'));
+        script.onerror = () => {
+            // Last resort: CDN
+            console.warn('⚠️ Local jsPDF failed, trying CDN...');
+            const cdnScript = document.createElement('script');
+            cdnScript.src = 'https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js';
+            cdnScript.onload = () => {
+                console.log('✅ jsPDF loaded from CDN');
+                resolve();
+            };
+            cdnScript.onerror = () => reject(new Error('Failed to load jsPDF (both local and CDN)'));
+            document.head.appendChild(cdnScript);
+        };
         document.head.appendChild(script);
     });
 }

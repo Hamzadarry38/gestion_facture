@@ -385,7 +385,15 @@ window.loadInvoiceDataChaimae = async function (invoiceId) {
 
     } catch (error) {
         console.error('[Chaimae] Error loading invoice:', error);
-        window.notify.error('Erreur', 'Impossible de charger la facture', 3000);
+
+        let errorMsg = 'Impossible de charger la facture';
+        if (error.message.includes('Network Error') || error.message.includes('ECONNREFUSED')) {
+            errorMsg = 'Impossible de se connecter au serveur backend. Veuillez vérifier la configuration.';
+        } else if (error.message === 'Facture introuvable') {
+            errorMsg = 'Le document demandé est introuvable.';
+        }
+
+        window.notify.error('Erreur', errorMsg, 5000);
         router.navigate('/invoices-list-chaimae');
     }
 }

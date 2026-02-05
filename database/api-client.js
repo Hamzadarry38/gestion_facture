@@ -1,9 +1,26 @@
 const axios = require('axios');
 
 // Configuration
-// Phase 1: Local Verification uses localhost
-// Phase 2: Will switch to https://anpe-web-api.ddns.net/api-facture/
-const API_URL = 'http://localhost:8001';
+// In Electron, we can use a global window variable or localStorage to set the API URL
+// Fallback logic: local dev -> DDNS production
+const DEFAULT_LOCAL_API = 'http://localhost:8001';
+const PRODUCTION_API = 'https://anpe-web-api.ddns.net/api-facture';
+
+// Safe way to check for localStorage in both Node (Main) and Browser (Renderer) environments
+let configuredApiUrl = null;
+try {
+    if (typeof window !== 'undefined' && window.localStorage) {
+        configuredApiUrl = window.localStorage.getItem('API_BASE_URL');
+    }
+} catch (e) {
+    // Fallback if localStorage access is blocked or unavailable
+}
+
+const API_URL = configuredApiUrl || DEFAULT_LOCAL_API;
+console.log(`[API Client] Using Base URL: ${API_URL}`);
+
+
+
 
 const apiClient = axios.create({
     baseURL: API_URL,
