@@ -623,7 +623,7 @@ function numberToFrenchWordsMultiHelper(number) {
         return result;
     }
 
-    const parts = number.toFixed(2).split('.');
+    const parts = Number(number || 0).toFixed(2).split('.');
     const dirhams = parseInt(parts[0]);
     const centimes = parseInt(parts[1]);
 
