@@ -93,6 +93,38 @@ function InvoicesListChaimaePage() {
                         </div>
                     </div>
 
+                    <!-- Validation Queue Section (Super User only) -->
+                    <div id="validationQueueSectionChaimae" style="display: none; margin-bottom: 2rem; background: #1a1a1a; border: 2px solid #ff9800; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 20px rgba(255,152,0,0.2);">
+                        <div style="padding: 1rem 1.5rem; background: linear-gradient(90deg, #ff9800, #f57c00); display: flex; justify-content: space-between; align-items: center;">
+                            <h3 style="margin: 0; color: white; font-size: 1.2rem; display: flex; align-items: center; gap: 0.5rem;">
+                                🛡️ File d'attente de validation (<span id="pendingInvoicesCountChaimae">0</span>)
+                            </h3>
+                            <button onclick="toggleValidationQueueChaimae()" style="background: rgba(255,255,255,0.2); border: none; color: white; padding: 0.4rem 0.8rem; border-radius: 4px; cursor: pointer; font-size: 0.9rem;">
+                                <span id="toggleValidationIconChaimae">▼</span> Afficher/Masquer
+                            </button>
+                        </div>
+                        <div id="validationQueueContentChaimae" style="display: none; padding: 1.5rem;">
+                            <div class="table-container" style="max-height: 400px; overflow-y: auto;">
+                                <table class="invoices-table">
+                                    <thead>
+                                        <tr>
+                                            <th>Type</th>
+                                            <th>N° Document</th>
+                                            <th>Client</th>
+                                            <th>Date</th>
+                                            <th>Total TTC</th>
+                                            <th>Par</th>
+                                            <th style="width: 200px; text-align: center;">Actions</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="pendingInvoicesTableBodyChaimae">
+                                        <!-- Pending invoices loaded here -->
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+
                     <!-- Filters -->
                     <div class="filters-section" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem; margin-bottom: 1.5rem;">
                         <div class="filter-group">
@@ -158,6 +190,27 @@ function InvoicesListChaimaePage() {
                                 <option value="all">Tous</option>
                                 <option value="with">Avec P.J</option>
                                 <option value="without">Sans P.J</option>
+                            </select>
+                        </div>
+                        
+                        <!-- Creation Method Filter -->
+                        <div class="filter-group">
+                            <label>🔧 Méthode de création:</label>
+                            <select id="filterCreationMethodChaimae" onchange="filterInvoicesChaimae()">
+                                <option value="all">Tous</option>
+                                <option value="normal">Créé normalement</option>
+                                <option value="converted">Converti</option>
+                            </select>
+                        </div>
+
+                        <!-- AR Status Filter -->
+                        <div class="filter-group">
+                            <label>🕒 Accusé de Réception:</label>
+                            <select id="filterArStatusChaimae" onchange="filterInvoicesChaimae()">
+                                <option value="all">Tous</option>
+                                <option value="sans_accuse">Sans accusé</option>
+                                <option value="en_attente">En attente</option>
+                                <option value="accuse">Accusé</option>
                             </select>
                         </div>
                         
@@ -269,13 +322,14 @@ function InvoicesListChaimaePage() {
                                     <th class="col-date-chaimae" onclick="sortTableChaimae('date')" style="cursor: pointer; user-select: none;" title="Cliquez pour trier">
                                         Date <span id="sortIconDateChaimae">⇅</span>
                                     </th>
-                                    <th class="col-createdBy-chaimae">Créé par</th>
+                                    <th class="col-createdByCombined-chaimae" style="width: 150px; text-align: center;">Créé / Livré</th>
                                     <th class="col-totalHT-chaimae" onclick="sortTableChaimae('total_ht')" style="cursor: pointer; user-select: none;" title="Cliquez pour trier">
                                         Total HT <span id="sortIconTotalHTChaimae">⇅</span>
                                     </th>
                                     <th onclick="sortTableChaimae('total_ttc')" style="cursor: pointer; user-select: none;" title="Cliquez pour trier">
                                         Total TTC <span id="sortIconTotalTTCChaimae">⇅</span>
                                     </th>
+                                    <th style="width: 140px; text-align: center;">Accusé R.</th>
                                     <th style="width: 50px; text-align: center;">P.J</th>
                                     <th>Actions</th>
                                 </tr>
@@ -324,6 +378,7 @@ let allInvoicesChaimae = [];
 let filteredInvoicesChaimae = [];
 let currentPageChaimae = 1;
 let itemsPerPageChaimae = 10;
+let isSuperUserChaimae = false;
 
 // Column visibility state for Chaimae - ICE hidden by default
 let columnVisibilityChaimae = {
@@ -399,6 +454,7 @@ function formatNumberChaimae(number) {
 }
 
 // Load invoices from database
+// Load invoices from database
 window.loadInvoicesChaimae = async function () {
     // Load column visibility preferences
     loadColumnVisibilityChaimae();
@@ -407,13 +463,27 @@ window.loadInvoicesChaimae = async function () {
     const tableBody = document.getElementById('invoicesTableBodyChaimae');
     const emptyState = document.getElementById('emptyStateChaimae');
 
+    // Check user identity
+    const user = JSON.parse(localStorage.getItem('user') || '{}');
+    isSuperUserChaimae = (user.email === 'redouanerrebbahi99@gmail.com' || user.can_auto_validate === true);
+
+    // Update UI based on identity
+    const validationSection = document.getElementById('validationQueueSectionChaimae');
+    const userMgmtBtn = document.getElementById('userManagementBtnChaimae');
+    if (validationSection) validationSection.style.display = isSuperUserChaimae ? 'block' : 'none';
+    if (userMgmtBtn) userMgmtBtn.style.display = isSuperUserChaimae ? 'block' : 'none';
+
+    if (isSuperUserChaimae) {
+        loadPendingInvoicesChaimae();
+    }
+
     try {
         // Get selected year from session or localStorage
         const sessionYear = sessionStorage.getItem('chaimae_current_year');
         const savedYear = localStorage.getItem('chaimae_selected_year');
         const rememberYear = localStorage.getItem('chaimae_remember_year');
 
-        // Use session year first (even if empty string for "all years"), then saved year if remember is enabled
+        // Use session year first
         if (sessionYear !== null) {
             selectedYearChaimae = sessionYear;
         } else if (rememberYear === 'true' && savedYear !== null) {
@@ -437,12 +507,6 @@ window.loadInvoicesChaimae = async function () {
         // Get global invoices from database
         const globalResult = await window.electron.dbChaimae.getAllGlobalInvoices();
 
-        console.log('🔍 [CHAIMAE] Raw database result:', result);
-        if (result.success && result.data.length > 0) {
-            console.log('🔍 [CHAIMAE] First invoice from DB:', result.data[0]);
-            console.log('🔍 [CHAIMAE] First invoice keys:', Object.keys(result.data[0]));
-        }
-
         if (result.success) {
             const regularInvoices = result.data;
             const globalInvoices = globalResult.success ? globalResult.data : [];
@@ -454,26 +518,19 @@ window.loadInvoicesChaimae = async function () {
                 updated_by_user_name: inv.updated_by_user_name || inv.created_by_user_name || '-'
             }));
 
-            console.log('🔍 [CHAIMAE] Enriched first invoice:', enrichedInvoices.length > 0 ? enrichedInvoices[0] : 'No invoices');
-
             // Store only regular invoices in main array
-            allInvoicesChaimae = enrichedInvoices;
+            // Filter: Main list should ONLY show validated invoices (or rejected/modified)
+            // Pending invoices should ONLY appear in the Validation Queue at the top for admins.
+            allInvoicesChaimae = enrichedInvoices.filter(inv => inv.validation_status !== 'pending');
 
             // Display global invoices separately
             displayGlobalInvoicesChaimae(globalInvoices);
 
-            console.log('📊 Loaded invoices for Chaimae:', regularInvoices.length, '+ Global:', globalInvoices.length);
-
             // Populate filters
             await populateFiltersChaimae();
 
-            // Apply year filter if selected
-            if (selectedYearChaimae) {
-                filterInvoicesChaimae();
-            } else {
-                filteredInvoicesChaimae = allInvoicesChaimae;
-                displayInvoicesChaimae(allInvoicesChaimae);
-            }
+            // Apply filters
+            filterInvoicesChaimae();
 
             // Hide loading
             if (loadingSpinner) loadingSpinner.style.display = 'none';
@@ -494,7 +551,7 @@ window.loadInvoicesChaimae = async function () {
             5000
         );
     }
-}
+};
 
 // Store selected year globally
 let selectedYearChaimae = '';
@@ -588,6 +645,84 @@ function renderYearCardsChaimae(years) {
 
     container.innerHTML = cardsHTML;
 }
+
+// Validation Queue Functions
+async function loadPendingInvoicesChaimae() {
+    try {
+        const result = await window.electron.dbChaimae.getPendingInvoices();
+        if (result.success) {
+            displayPendingInvoicesChaimae(result.data);
+            const countSpan = document.getElementById('pendingInvoicesCountChaimae');
+            if (countSpan) countSpan.textContent = result.data.length;
+        }
+    } catch (error) {
+        console.error('Error loading pending invoices:', error);
+    }
+}
+
+function displayPendingInvoicesChaimae(invoices) {
+    const tableBody = document.getElementById('pendingInvoicesTableBodyChaimae');
+    if (!tableBody) return;
+
+    if (invoices.length === 0) {
+        tableBody.innerHTML = '<tr><td colspan="7" style="text-align:center;padding:2rem;color:#999;">Aucune facture en attente de validation</td></tr>';
+        return;
+    }
+
+    tableBody.innerHTML = invoices.map(inv => `
+        <tr>
+            <td><span class="badge badge-${inv.document_type}">${inv.document_type}</span></td>
+            <td><strong>${inv.document_numero}</strong></td>
+            <td>${inv.client_nom || '-'}</td>
+            <td>${new Date(inv.document_date).toLocaleDateString('fr-FR')}</td>
+            <td><strong>${formatNumberChaimae(inv.total_ttc)}</strong> DH</td>
+            <td><span style="color:#2196f3;">${inv.created_by || '-'}</span></td>
+            <td style="text-align:center;">
+                <div style="display:flex;gap:0.5rem;justify-content:center;">
+                    <button onclick="handleValidateInvoiceChaimae('${inv.id}', 'validated')" class="btn-action btn-validate" title="Valider" style="background:#4caf50;color:white;border:none;padding:0.4rem 0.8rem;border-radius:4px;cursor:pointer;">
+                        ✅ Valider
+                    </button>
+                    <button onclick="handleValidateInvoiceChaimae('${inv.id}', 'rejected')" class="btn-action btn-reject" title="Rejeter" style="background:#f44336;color:white;border:none;padding:0.4rem 0.8rem;border-radius:4px;cursor:pointer;">
+                        ❌ Rejeter
+                    </button>
+                </div>
+            </td>
+        </tr>
+    `).join('');
+}
+
+window.toggleValidationQueueChaimae = function () {
+    const content = document.getElementById('validationQueueContentChaimae');
+    const icon = document.getElementById('toggleValidationIconChaimae');
+    if (content.style.display === 'none') {
+        content.style.display = 'block';
+        icon.textContent = '▲';
+    } else {
+        content.style.display = 'none';
+        icon.textContent = '▼';
+    }
+};
+
+window.handleValidateInvoiceChaimae = async function (id, status) {
+    const action = status === 'validated' ? 'valider' : 'rejeter';
+    const confirmMessage = `Êtes-vous sûr de vouloir ${action} ce document ?`;
+
+    const confirmed = await customConfirm('Confirmation', confirmMessage, status === 'validated' ? 'info' : 'warning');
+    if (confirmed) {
+        try {
+            const result = await window.electron.dbChaimae.validateInvoice(id, status);
+            if (result.success) {
+                window.notify.success('Succès', `Le document a été ${status === 'validated' ? 'validé' : 'rejeté'}.`);
+                loadInvoicesChaimae(); // Reload everything
+            } else {
+                window.notify.error('Erreur', result.error);
+            }
+        } catch (error) {
+            console.error('Error validating invoice:', error);
+            window.notify.error('Erreur', error.message);
+        }
+    }
+};
 
 // Select year card
 window.selectYearCardChaimae = function (year) {
@@ -813,8 +948,8 @@ function displayInvoicesChaimae(invoices) {
         // Additional info
         let additionalInfo = '';
         if (invoice.document_type === 'facture') {
-            if (invoice.document_numero_Order) {
-                additionalInfo += `<div style="font-size: 0.85rem; color: #2196f3; margin-top: 0.25rem;">📋 N° Order: ${invoice.document_numero_Order}</div>`;
+            if (invoice.document_numero_Order || invoice.document_numero_order) {
+                additionalInfo += `<div style="font-size: 0.85rem; color: #2196f3; margin-top: 0.25rem;">📋 N° Order: ${invoice.document_numero_Order || invoice.document_numero_order}</div>`;
             }
             if (invoice.document_bon_de_livraison) {
                 additionalInfo += `<div style="font-size: 0.85rem; color: #4caf50; margin-top: 0.25rem;">📦 Bon de livraison: ${invoice.document_bon_de_livraison}</div>`;
@@ -827,8 +962,11 @@ function displayInvoicesChaimae(invoices) {
             additionalInfo += `<div style="font-size: 0.85rem; color: #9c27b0; margin-top: 0.25rem;">📦 ${invoice.bon_count} Bons de livraison</div>`;
         }
 
+        // Determine row class based on creation method
+        const rowClass = invoice.creation_method === 'converted' ? 'row-converted' : '';
+
         return `
-            <tr style="background: #2d2d30; border-top: 1px solid #3e3e42; border-bottom: 1px solid #3e3e42;">
+            <tr class="${rowClass}">
                 <td style="text-align: center; padding: 1rem 0.75rem; border-right: 1px solid #3e3e42;">
                     <input type="checkbox" class="invoice-checkbox-chaimae" data-invoice-id="${invoice.id}" 
                            style="width: 18px; height: 18px; cursor: pointer;">
@@ -841,9 +979,21 @@ function displayInvoicesChaimae(invoices) {
                 <td style="padding: 1rem 0.75rem; border-right: 1px solid #3e3e42; color: #cccccc;">${invoice.client_nom}</td>
                 <td class="col-ice-chaimae-body" style="padding: 1rem 0.75rem; border-right: 1px solid #3e3e42; ${columnVisibilityChaimae.ice ? '' : 'display: none;'}"><small style="color: #999;">${invoice.client_ice || '-'}</small></td>
                 <td style="padding: 1rem 0.75rem; border-right: 1px solid #3e3e42; color: #cccccc;">${date}</td>
-                <td style="padding: 1rem 0.75rem; border-right: 1px solid #3e3e42;"><small style="color: #2196f3;">${invoice.created_by_user_name || '-'}</small></td>
+                <td style="padding: 0.5rem; border-right: 1px solid #3e3e42; text-align: center; white-space: nowrap; font-size: 0.85rem;">
+                    <span style="color: #2196f3; font-weight: bold;">${invoice.created_by || '-'}</span>
+                    <span style="color: #666; margin: 0 2px;">/</span>
+                    <span style="color: #ff9800; font-weight: bold;">${invoice.delivered_by || '-'}</span>
+                </td>
                 <td style="text-align: left; padding: 1rem 0.75rem; border-right: 1px solid #3e3e42;"><strong style="color: #cccccc;">${totalHT} DH</strong></td>
                 <td style="text-align: left; padding: 1rem 0.75rem; border-right: 1px solid #3e3e42;"><strong style="color: #4caf50;">${totalTTC} DH</strong></td>
+                <td style="padding: 1rem 0.75rem; border-right: 1px solid #3e3e42; text-align: center;">
+                    <select onchange="updateArStatusChaimae(${invoice.id}, this.value)" 
+                            style="padding: 0.4rem; background: ${invoice.ar_status === 'accuse' ? '#1b5e20' : invoice.ar_status === 'en_attente' ? '#e65100' : '#424242'}; color: white; border: none; border-radius: 4px; font-size: 0.85rem; cursor: pointer; width: 100%;">
+                        <option value="sans_accuse" ${invoice.ar_status === 'sans_accuse' ? 'selected' : ''}>Sans accusé</option>
+                        <option value="en_attente" ${invoice.ar_status === 'en_attente' ? 'selected' : ''}>En attente</option>
+                        <option value="accuse" ${invoice.ar_status === 'accuse' ? 'selected' : ''}>Accusé</option>
+                    </select>
+                </td>
                 <td style="text-align: center; padding: 1rem 0.75rem; border-right: 1px solid #3e3e42;">
                     ${invoice.attachment_count > 0 ?
                 `<span style="background:rgba(33, 150, 243, 0.1); color:#2196f3; padding:2px 6px; border-radius:4px; font-weight:600; font-size:0.85rem;">${invoice.attachment_count}</span>` :
@@ -1001,6 +1151,8 @@ window.changePaginationPageChaimae = function (direction) {
 window.filterInvoicesChaimae = function () {
     const typeFilter = document.getElementById('filterTypeChaimae')?.value || '';
     const filterAttachments = document.getElementById('filterAttachmentsChaimae')?.value || 'all';
+    const filterCreationMethod = document.getElementById('filterCreationMethodChaimae')?.value || 'all';
+    const filterArStatus = document.getElementById('filterArStatusChaimae')?.value || 'all';
     const monthFilter = document.getElementById('filterMonthChaimae')?.value || '';
     const clientFilter = document.getElementById('filterClientChaimae')?.value || '';
     const searchType = document.getElementById('searchTypeChaimae')?.value || 'all';
@@ -1013,6 +1165,13 @@ window.filterInvoicesChaimae = function () {
         // Attachments filter
         if (filterAttachments === 'with' && (invoice.attachment_count || 0) === 0) return false;
         if (filterAttachments === 'without' && (invoice.attachment_count || 0) > 0) return false;
+
+        // Creation Method filter
+        if (filterCreationMethod === 'normal' && invoice.creation_method !== 'normal') return false;
+        if (filterCreationMethod === 'converted' && invoice.creation_method !== 'converted') return false;
+
+        // AR Status filter
+        if (filterArStatus !== 'all' && (invoice.ar_status || 'sans_accuse') !== filterArStatus) return false;
 
         // Year filter (from card selection)
         if (selectedYearChaimae) {
@@ -1123,7 +1282,9 @@ window.resetFiltersChaimae = function () {
     document.getElementById('filterYearChaimae').value = '';
     document.getElementById('filterMonthChaimae').value = '';
     document.getElementById('filterClientChaimae').value = '';
-    if (document.getElementById('filterAttachmentsChaimae')) document.getElementById('filterAttachmentsChaimae').checked = false;
+    if (document.getElementById('filterAttachmentsChaimae')) document.getElementById('filterAttachmentsChaimae').value = 'all';
+    if (document.getElementById('filterCreationMethodChaimae')) document.getElementById('filterCreationMethodChaimae').value = 'all';
+    if (document.getElementById('filterArStatusChaimae')) document.getElementById('filterArStatusChaimae').value = 'all';
     document.getElementById('searchTypeChaimae').value = 'all';
     document.getElementById('searchInputChaimae').value = '';
 
@@ -1355,10 +1516,10 @@ window.viewInvoiceChaimae = async function (id, documentType) {
                             <span style="color:#999;font-size:0.9rem;">N°:</span>
                             <div style="color:#fff;font-weight:500;margin-top:0.25rem;">${docNumber}</div>
                         </div>
-                        ${invoice.document_type === 'facture' && invoice.document_numero_Order ? `
+                        ${invoice.document_type === 'facture' && (invoice.document_numero_Order || invoice.document_numero_order) ? `
                         <div style="margin-bottom:0.75rem;">
                             <span style="color:#999;font-size:0.9rem;">N° Order:</span>
-                            <div style="color:#fff;font-weight:500;margin-top:0.25rem;">${invoice.document_numero_Order}</div>
+                            <div style="color:#fff;font-weight:500;margin-top:0.25rem;">${invoice.document_numero_Order || invoice.document_numero_order}</div>
                         </div>
                         ` : ''}
                         ${invoice.document_type === 'facture' && invoice.document_bon_de_livraison ? `
@@ -1367,10 +1528,10 @@ window.viewInvoiceChaimae = async function (id, documentType) {
                             <div style="color:#fff;font-weight:500;margin-top:0.25rem;">${invoice.document_bon_de_livraison}</div>
                         </div>
                         ` : ''}
-                        ${invoice.document_type === 'bon_livraison' && invoice.document_numero_commande ? `
+                        ${invoice.document_type === 'bon_livraison' && (invoice.document_numero_commande || invoice.document_numero_order) ? `
                         <div style="margin-bottom:0.75rem;">
                             <span style="color:#999;font-size:0.9rem;">N° Order:</span>
-                            <div style="color:#fff;font-weight:500;margin-top:0.25rem;">${invoice.document_numero_commande}</div>
+                            <div style="color:#fff;font-weight:500;margin-top:0.25rem;">${invoice.document_numero_commande || invoice.document_numero_order}</div>
                         </div>
                         ` : ''}
                         <div>
@@ -1524,66 +1685,66 @@ window.viewInvoiceChaimae = async function (id, documentType) {
                 const auditResult = await window.electron.dbChaimae.getAuditLog(id);
                 console.log('📥 [AUDIT LOG] Audit log result:', auditResult);
 
-                if (auditResult.success && auditResult.data && auditResult.data.length > 0) {
-                    const logs = auditResult.data;
-                    console.log('✅ [AUDIT LOG] Displaying audit logs:', logs);
+                let auditHTML = '<div style="max-height: 400px; overflow-y: auto; display: flex; flex-direction: column; gap: 0.75rem;">';
 
-                    let auditHTML = '<div style="max-height: 400px; overflow-y: auto;">';
-
-                    // Add creation info first
-                    if (invoice.created_by_user_name) {
-                        const createdDate = new Date(invoice.created_at).toLocaleDateString('fr-FR');
-                        auditHTML += `
-                            <div style="padding:0.75rem;background:#252526;border-radius:6px;margin-bottom:0.5rem;border-left:4px solid #4CAF50;">
-                                <div style="display:flex;justify-content:space-between;align-items:start;">
-                                    <div>
-                                        <div style="color:#4CAF50;font-weight:600;font-size:0.9rem;">➕ Création</div>
-                                        <div style="color:#fff;margin-top:0.25rem;">Par: <strong>${invoice.created_by_user_name}</strong></div>
-                                        ${invoice.created_by_user_email ? `<div style="color:#999;font-size:0.85rem;">${invoice.created_by_user_email}</div>` : ''}
-                                    </div>
-                                    <div style="color:#999;font-size:0.85rem;white-space:nowrap;">${createdDate}</div>
-                                </div>
+                // 1. ADD CREATION INFO (from invoice object)
+                const createdDate = new Date(invoice.created_at).toLocaleDateString('fr-FR', {
+                    day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit'
+                });
+                auditHTML += `
+                    <div style="padding:0.75rem;background:#252526;border-radius:8px;border-left:4px solid #2196f3;box-shadow: 0 2px 4px rgba(0,0,0,0.2);">
+                        <div style="display:flex;justify-content:space-between;align-items:start;">
+                            <div>
+                                <div style="color:#2196f3;font-weight:700;font-size:0.95rem;margin-bottom:0.25rem;">🔵 CRÉATION</div>
+                                <div style="color:#fff;">Document créé par: <strong>${invoice.created_by_user_name || 'Système'}</strong></div>
+                                ${invoice.created_by_user_email ? `<div style="color:#999;font-size:0.85rem;">${invoice.created_by_user_email}</div>` : ''}
                             </div>
-                        `;
-                    }
+                            <div style="color:#999;font-size:0.85rem;white-space:nowrap;background:#1e1e1e;padding:2px 6px;border-radius:4px;">${createdDate}</div>
+                        </div>
+                    </div>
+                `;
 
-                    // Add modification logs
-                    logs.forEach(log => {
-                        const logDate = new Date(log.created_at).toLocaleDateString('fr-FR');
-                        auditHTML += `
-                            <div style="padding:0.75rem;background:#252526;border-radius:6px;margin-bottom:0.5rem;border-left:4px solid #2196F3;">
-                                <div style="display:flex;justify-content:space-between;align-items:start;">
-                                    <div>
-                                        <div style="color:#2196F3;font-weight:600;font-size:0.9rem;">✏️ Mis à jour</div>
-                                        <div style="color:#fff;margin-top:0.25rem;">Par: <strong>${log.user_name}</strong></div>
-                                        ${log.user_email ? `<div style="color:#999;font-size:0.85rem;">${log.user_email}</div>` : ''}
-                                    </div>
-                                    <div style="color:#999;font-size:0.85rem;white-space:nowrap;">${logDate}</div>
-                                </div>
-                            </div>
-                        `;
-                    });
-
-                    auditHTML += '</div>';
-                    auditLogContent.innerHTML = auditHTML;
-                    auditLogContent.style.color = '#fff';
-                    auditLogContent.style.fontStyle = 'normal';
-                } else {
-                    console.log('ℹ️ [AUDIT LOG] No audit logs found');
-                    const createdDate = new Date(invoice.created_at).toLocaleDateString('fr-FR');
-                    auditLogContent.innerHTML = `
-                        <div style="padding:0.75rem;background:#252526;border-radius:6px;border-left:4px solid #4CAF50;">
+                // 2. ADD DELIVERY INFO (if exists)
+                if (invoice.delivered_by && invoice.delivered_by !== '-') {
+                    auditHTML += `
+                        <div style="padding:0.75rem;background:#252526;border-radius:8px;border-left:4px solid #ff9800;box-shadow: 0 2px 4px rgba(0,0,0,0.2);">
                             <div style="display:flex;justify-content:space-between;align-items:start;">
                                 <div>
-                                    <div style="color:#4CAF50;font-weight:600;font-size:0.9rem;">➕ Création</div>
-                                    <div style="color:#fff;margin-top:0.25rem;">Par: <strong>${invoice.created_by_user_name || 'Utilisateur inconnu'}</strong></div>
-                                    ${invoice.created_by_user_email ? `<div style="color:#999;font-size:0.85rem;">${invoice.created_by_user_email}</div>` : ''}
+                                    <div style="color:#ff9800;font-weight:700;font-size:0.95rem;margin-bottom:0.25rem;">🟠 LIVRAISON</div>
+                                    <div style="color:#fff;">Chargé de livraison: <strong>${invoice.delivered_by}</strong></div>
                                 </div>
-                                <div style="color:#999;font-size:0.85rem;white-space:nowrap;">${createdDate}</div>
+                                <div style="color:#999;font-size:0.85rem;font-style:italic;">Assigné à la création</div>
                             </div>
                         </div>
                     `;
                 }
+
+                // 3. ADD MODIFICATION LOGS
+                if (auditResult.success && auditResult.data && auditResult.data.length > 0) {
+                    auditResult.data.forEach(log => {
+                        const logDate = new Date(log.created_at).toLocaleDateString('fr-FR', {
+                            day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit'
+                        });
+                        auditHTML += `
+                            <div style="padding:0.75rem;background:#252526;border-radius:8px;border-left:4px solid #4CAF50;box-shadow: 0 2px 4px rgba(0,0,0,0.2);">
+                                <div style="display:flex;justify-content:space-between;align-items:start;">
+                                    <div>
+                                        <div style="color:#4CAF50;font-weight:700;font-size:0.95rem;margin-bottom:0.25rem;">✏️ MODIFICATION</div>
+                                        <div style="color:#fff;">Mis à jour par: <strong>${log.user_name}</strong></div>
+                                        ${log.user_email ? `<div style="color:#999;font-size:0.85rem;">${log.user_email}</div>` : ''}
+                                        ${log.action === 'update' ? '<div style="color:#888;font-size:0.8rem;margin-top:0.25rem;">Modifications apportées au document</div>' : ''}
+                                    </div>
+                                    <div style="color:#999;font-size:0.85rem;white-space:nowrap;background:#1e1e1e;padding:2px 6px;border-radius:4px;">${logDate}</div>
+                                </div>
+                            </div>
+                        `;
+                    });
+                }
+
+                auditHTML += '</div>';
+                auditLogContent.innerHTML = auditHTML;
+                auditLogContent.style.color = '#fff';
+                auditLogContent.style.fontStyle = 'normal';
             } catch (error) {
                 console.error('❌ [AUDIT LOG] Error loading audit log:', error);
                 auditLogContent.innerHTML = '<div style="color:#f44336;">Erreur lors du chargement de l\'historique</div>';
@@ -2416,7 +2577,7 @@ window.deleteEditAttachmentChaimae = async function (attachmentId, invoiceId) {
 }
 
 // Show input modal for conversion - CHAIMAE VERSION
-function showConvertInputModalChaimae(newType, newTypeLabel, prefillNumero = '', prefillBonLivraison = '', prefillNumeroOrder = '') {
+function showConvertInputModalChaimae(newType, newTypeLabel, prefillNumero = '', prefillBonLivraison = '', prefillNumeroOrder = '', prefillDeliveredBy = '') {
     return new Promise(async (resolve) => {
         // Close edit modal temporarily
         const editModal = document.querySelector('.modal-overlay');
@@ -2516,63 +2677,65 @@ function showConvertInputModalChaimae(newType, newTypeLabel, prefillNumero = '',
             
             <div style="margin-bottom:2rem;">
                 <label style="display:block;color:#9c27b0;margin-bottom:0.75rem;font-weight:600;font-size:1.1rem;">${numeroLabel}</label>
-                ${newType === 'bon_livraison' ? `
-                    <div style="display:flex;gap:0.5rem;align-items:flex-start;">
-                        <div style="position:relative;flex:0 0 auto;">
-                            <input type="text" id="prefixInputConvert" placeholder="MG" value="${extractedPrefix}"
-                                   style="width:80px;padding:1rem;background:#2d2d30;border:2px solid #3e3e42;border-radius:8px;color:#fff;font-size:1.1rem;outline:none;cursor:pointer;font-weight:600;"
-                                   readonly onclick="togglePrefixDropdownConvert()">
-                            <div id="prefixDropdownConvert" style="display:none;position:absolute;top:100%;left:0;background:linear-gradient(135deg, #1e1e1e 0%, #2d2d30 100%);border:2px solid #667eea;border-radius:12px;margin-top:0.5rem;box-shadow:0 8px 24px rgba(102, 126, 234, 0.3), 0 0 0 1px rgba(102, 126, 234, 0.1);z-index:1000;min-width:200px;max-height:350px;overflow:hidden;">
-                                <div style="padding:0.75rem 1rem;background:linear-gradient(90deg, #667eea 0%, #764ba2 100%);border-bottom:2px solid rgba(102, 126, 234, 0.3);">
-                                    <h4 style="margin:0;color:#fff;font-size:0.95rem;font-weight:600;letter-spacing:0.5px;">📋 Choisir un Prefix</h4>
-                                </div>
-                                <div id="prefixListConvert" style="max-height:200px;overflow-y:auto;padding:0.5rem;"></div>
-                                <div style="padding:0.75rem;border-top:2px solid rgba(102, 126, 234, 0.2);background:rgba(0,0,0,0.2);">
-                                    <input type="text" id="newPrefixInputConvert" placeholder="Nouveau prefix (ex: ABC)"
-                                           style="width:100%;padding:0.65rem;background:#1e1e1e;border:2px solid #3e3e42;border-radius:6px;color:#fff;font-size:0.9rem;outline:none;transition:all 0.3s;"
-                                           onfocus="this.style.borderColor='#667eea';this.style.boxShadow='0 0 0 3px rgba(102, 126, 234, 0.1)';"
-                                           onblur="this.style.borderColor='#3e3e42';this.style.boxShadow='none';"
-                                           onkeypress="if(event.key==='Enter'){addNewPrefixConvert();event.preventDefault();}">
-                                    <button type="button" onclick="addNewPrefixConvert()"
-                                            style="width:100%;margin-top:0.5rem;padding:0.65rem;background:linear-gradient(90deg, #667eea 0%, #764ba2 100%);color:#fff;border:none;border-radius:6px;cursor:pointer;font-size:0.9rem;font-weight:600;transition:all 0.3s;box-shadow:0 2px 8px rgba(102, 126, 234, 0.3);"
-                                            onmouseover="this.style.transform='translateY(-2px)';this.style.boxShadow='0 4px 12px rgba(102, 126, 234, 0.4)';"
-                                            onmouseout="this.style.transform='translateY(0)';this.style.boxShadow='0 2px 8px rgba(102, 126, 234, 0.3)';">
-                                        ➕ Ajouter le Prefix
-                                    </button>
+                <div style="position:relative;">
+                    <span style="position:absolute;left:12px;top:50%;transform:translateY(-50%);font-size:1.2rem;color:#9c27b0;pointer-events:none;z-index:5;">${newType === 'facture' ? '📄' : newType === 'devis' ? '📋' : '🚛'}</span>
+                    ${newType === 'bon_livraison' ? `
+                        <div style="display:flex;gap:0.5rem;align-items:flex-start;">
+                            <div style="position:relative;flex:0 0 auto;">
+                                <input type="text" id="prefixInputConvert" placeholder="MG" value="${extractedPrefix}"
+                                       style="width:80px;padding:1rem;background:#2d2d30;border:2px solid #3e3e42;border-radius:8px;color:#fff;font-size:1.1rem;outline:none;cursor:pointer;font-weight:600;"
+                                       readonly onclick="togglePrefixDropdownConvert()">
+                                <div id="prefixDropdownConvert" style="display:none;position:absolute;top:100%;left:0;background:linear-gradient(135deg, #1e1e1e 0%, #2d2d30 100%);border:2px solid #667eea;border-radius:12px;margin-top:0.5rem;box-shadow:0 8px 24px rgba(102, 126, 234, 0.3), 0 0 0 1px rgba(102, 126, 234, 0.1);z-index:1000;min-width:200px;max-height:350px;overflow:hidden;">
+                                    <div style="padding:0.75rem 1rem;background:linear-gradient(90deg, #667eea 0%, #764ba2 100%);border-bottom:2px solid rgba(102, 126, 234, 0.3);">
+                                        <h4 style="margin:0;color:#fff;font-size:0.95rem;font-weight:600;letter-spacing:0.5px;">📋 Choisir un Prefix</h4>
+                                    </div>
+                                    <div id="prefixListConvert" style="max-height:200px;overflow-y:auto;padding:0.5rem;"></div>
+                                    <div style="padding:0.75rem;border-top:2px solid rgba(102, 126, 234, 0.2);background:rgba(0,0,0,0.2);">
+                                        <input type="text" id="newPrefixInputConvert" placeholder="Nouveau..."
+                                               style="width:100%;padding:0.65rem;background:#1e1e1e;border:2px solid #3e3e42;border-radius:6px;color:#fff;font-size:0.9rem;outline:none;">
+                                        <button type="button" onclick="addNewPrefixConvert()"
+                                                style="width:100%;margin-top:0.5rem;padding:0.65rem;background:linear-gradient(90deg, #667eea 0%, #764ba2 100%);color:#fff;border:none;border-radius:6px;cursor:pointer;">
+                                            ➕ Ajouter
+                                        </button>
+                                    </div>
                                 </div>
                             </div>
+                            <input type="text" id="convertInput1Chaimae" placeholder="123/2025" value="${numeroWithoutPrefix}"
+                                   style="flex:1;padding:1rem 1rem 1rem 45px;background:#2d2d30;border:2px solid #3e3e42;border-radius:8px;color:#fff;font-size:1.1rem;box-sizing:border-box;outline:none;">
                         </div>
-                        <input type="text" id="convertInput1Chaimae" placeholder="123/2025" value="${numeroWithoutPrefix}"
-                               style="flex:1;padding:1rem;background:#2d2d30;border:2px solid #3e3e42;border-radius:8px;color:#fff;font-size:1.1rem;box-sizing:border-box;outline:none;transition:all 0.3s;"
-                               onfocus="this.style.borderColor='#9c27b0';this.style.background='#1e1e1e';"
-                               onblur="this.style.borderColor='#3e3e42';this.style.background='#2d2d30';formatBonNumeroWithPrefixConvert(this);">
-                    </div>
-                    <div style="margin-top:0.5rem;color:#9e9e9e;font-size:0.9rem;">Ex: 123 → <span id="prefixExampleConvert">${extractedPrefix}</span>123/${new Date().getFullYear()}</div>
-                    ${highestNumber !== 'Aucun' ? `<div style="margin-top:0.5rem;color:#ff9800;font-size:0.85rem;font-weight:500;">📌 Plus grand numéro actuel: ${highestNumber}</div>` : ''}
-                ` : `
-                    <input type="text" id="convertInput1Chaimae" placeholder="Exemple: 548" value="${prefillNumero}"
-                           style="width:100%;padding:1rem;background:#2d2d30;border:2px solid #3e3e42;border-radius:8px;color:#fff;font-size:1.1rem;box-sizing:border-box;outline:none;transition:all 0.3s;"
-                           onfocus="this.style.borderColor='#9c27b0';this.style.background='#1e1e1e';"
-                           onblur="this.style.borderColor='#3e3e42';this.style.background='#2d2d30';autoFormatDocumentNumberOnBlurChaimae(this);">
-                    <small style="color: #999; font-size: 0.85rem; display: block; margin-top: 0.5rem;">Ex: 123 → 123/2025</small>
-                    ${highestNumber !== 'Aucun' ? `<div style="margin-top:0.5rem;color:${newType === 'facture' ? '#4caf50' : '#9c27b0'};font-size:0.85rem;font-weight:500;">📌 Plus grand numéro actuel: ${highestNumber}</div>` : ''}
-                `}
+                    ` : `
+                        <input type="text" id="convertInput1Chaimae" placeholder="Ex: 548" value="${prefillNumero}"
+                               style="width:100%;padding:1rem 1rem 1rem 45px;background:#2d2d30;border:2px solid #3e3e42;border-radius:8px;color:#fff;font-size:1.1rem;box-sizing:border-box;outline:none;">
+                    `}
+                </div>
             </div>
-            
+
+            <div style="margin-bottom:2rem;">
+                <label style="display:block;color:#2196f3;margin-bottom:0.75rem;font-weight:600;font-size:1.1rem;">Date</label>
+                <div style="position:relative;">
+                    <span style="position:absolute;left:12px;top:50%;transform:translateY(-50%);font-size:1.2rem;color:#2196f3;pointer-events:none;z-index:5;">📅</span>
+                    <input type="date" id="convertInputDateChaimae" 
+                           style="width:100%;padding:1rem 1rem 1rem 45px;background:#2d2d30;border:2px solid #3e3e42;border-radius:8px;color:#fff;font-size:1.1rem;box-sizing:border-box;outline:none;"
+                           value="${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, '0')}-${String(new Date().getDate()).padStart(2, '0')}">
+                </div>
+            </div>
+
             ${newType === 'facture' ? `
             <div style="margin-bottom:1.5rem;">
                 <label style="display:block;color:#9e9e9e;margin-bottom:0.75rem;font-weight:500;font-size:1rem;">N° Order (optionnel)</label>
-                <input type="text" id="convertInput2Chaimae" placeholder="Exemple: 555" value="${prefillNumeroOrder}"
-                       style="width:100%;padding:1rem;background:#2d2d30;border:2px solid #3e3e42;border-radius:8px;color:#fff;font-size:1.1rem;box-sizing:border-box;outline:none;transition:all 0.3s;"
-                       onfocus="this.style.borderColor='#9c27b0';this.style.background='#1e1e1e';"
-                       onblur="this.style.borderColor='#3e3e42';this.style.background='#2d2d30';">
+                <div style="position:relative;">
+                    <span style="position:absolute;left:12px;top:50%;transform:translateY(-50%);font-size:1.2rem;color:#4caf50;pointer-events:none;z-index:5;">📝</span>
+                    <input type="text" id="convertInput2Chaimae" placeholder="Exemple: 555" value="${prefillNumeroOrder}"
+                           style="width:100%;padding:1rem 1rem 1rem 45px;background:#2d2d30;border:2px solid #3e3e42;border-radius:8px;color:#fff;font-size:1.1rem;box-sizing:border-box;outline:none;">
+                </div>
             </div>
             <div style="margin-bottom:2rem;">
                 <label style="display:block;color:#9e9e9e;margin-bottom:0.75rem;font-weight:500;font-size:1rem;">Bon de livraison (optionnel)</label>
-                <input type="text" id="convertInput3Chaimae" placeholder="Exemple: 123, 123/2025" value="${prefillBonLivraison}"
-                       style="width:100%;padding:1rem;background:#2d2d30;border:2px solid #3e3e42;border-radius:8px;color:#fff;font-size:1.1rem;box-sizing:border-box;outline:none;transition:all 0.3s;"
-                       onfocus="this.style.borderColor='#9c27b0';this.style.background='#1e1e1e';"
-                       onblur="this.style.borderColor='#3e3e42';this.style.background='#2d2d30';">
+                <div style="position:relative;">
+                    <span style="position:absolute;left:12px;top:50%;transform:translateY(-50%);font-size:1.2rem;color:#ff9800;pointer-events:none;z-index:5;">🚛</span>
+                    <input type="text" id="convertInput3Chaimae" placeholder="Exemple: 123, 123/2025" value="${prefillBonLivraison}"
+                           style="width:100%;padding:1rem 1rem 1rem 45px;background:#2d2d30;border:2px solid #3e3e42;border-radius:8px;color:#fff;font-size:1.1rem;box-sizing:border-box;outline:none;">
+                </div>
             </div>
             ` : ''}
             
@@ -2590,29 +2753,49 @@ function showConvertInputModalChaimae(newType, newTypeLabel, prefillNumero = '',
                             </div>
                             <div id="convertOrderPrefixList" style="max-height:200px;overflow-y:auto;padding:0.5rem;"></div>
                             <div style="padding:0.75rem;border-top:2px solid rgba(33, 150, 243, 0.2);background:rgba(0,0,0,0.2);">
-                                <input type="text" id="convertNewOrderPrefixInput" placeholder="Nouveau prefix (ex: BC)"
-                                       style="width:100%;padding:0.65rem;background:#1e1e1e;border:2px solid #3e3e42;border-radius:6px;color:#fff;font-size:0.9rem;outline:none;transition:all 0.3s;"
-                                       onfocus="this.style.borderColor='#2196f3';this.style.boxShadow='0 0 0 3px rgba(33, 150, 243, 0.1)';"
-                                       onblur="this.style.borderColor='#3e3e42';this.style.boxShadow='none';"
-                                       onkeypress="if(event.key==='Enter'){addConvertNewOrderPrefix();event.preventDefault();}">
+                                <input type="text" id="convertNewOrderPrefixInput" placeholder="Nouveau..."
+                                       style="width:100%;padding:0.65rem;background:#1e1e1e;border:2px solid #3e3e42;border-radius:6px;color:#fff;font-size:0.9rem;outline:none;">
                                 <button type="button" onclick="addConvertNewOrderPrefix()"
-                                        style="width:100%;margin-top:0.5rem;padding:0.65rem;background:linear-gradient(90deg, #2196f3 0%, #1976d2 100%);color:#fff;border:none;border-radius:6px;cursor:pointer;font-size:0.9rem;font-weight:600;transition:all 0.3s;box-shadow:0 2px 8px rgba(33, 150, 243, 0.3);"
-                                        onmouseover="this.style.transform='translateY(-2px)';this.style.boxShadow='0 4px 12px rgba(33, 150, 243, 0.4)';"
-                                        onmouseout="this.style.transform='translateY(0)';this.style.boxShadow='0 2px 8px rgba(33, 150, 243, 0.3)';">
-                                    ➕ Ajouter le Prefix
+                                        style="width:100%;margin-top:0.5rem;padding:0.65rem;background:linear-gradient(90deg, #2196f3 0%, #1976d2 100%);color:#fff;border:none;border-radius:6px;cursor:pointer;">
+                                    ➕ Ajouter
                                 </button>
                             </div>
                         </div>
                     </div>
-                    <input type="text" id="convertInput2Chaimae" placeholder="456"
-                           style="flex:1;padding:1rem;background:#2d2d30;border:2px solid #3e3e42;border-radius:8px;color:#fff;font-size:1.1rem;box-sizing:border-box;outline:none;transition:all 0.3s;"
-                           onfocus="this.style.borderColor='#9c27b0';this.style.background='#1e1e1e';"
-                           onblur="this.style.borderColor='#3e3e42';this.style.background='#2d2d30';">
+                    <div style="position:relative;flex:1;">
+                        <span style="position:absolute;left:12px;top:50%;transform:translateY(-50%);font-size:1.2rem;color:#2196f3;pointer-events:none;z-index:5;">📝</span>
+                        <input type="text" id="convertInput2Chaimae" placeholder="456"
+                               style="width:100%;padding:1rem 1rem 1rem 45px;background:#2d2d30;border:2px solid #3e3e42;border-radius:8px;color:#fff;font-size:1.1rem;box-sizing:border-box;outline:none;">
+                    </div>
                 </div>
-                <small style="color:#999;font-size:0.85rem;display:block;margin-top:0.5rem;">Ex: 456 → <span id="convertOrderPrefixExample">BC</span>456</small>
             </div>
             ` : ''}
+
+            <div style="margin-bottom:2rem;">
+                <label style="display:block;color:#2196f3;margin-bottom:0.75rem;font-weight:600;font-size:1.1rem;">Créé par</label>
+                <div style="position:relative;">
+                    <span style="position:absolute;left:12px;top:50%;transform:translateY(-50%);font-size:1.2rem;color:#2196f3;pointer-events:none;z-index:5;">👤</span>
+                    <input type="text" id="convertInputCreatedByChaimae" readonly
+                           style="width:100%;padding:1rem 1rem 1rem 45px;background:#2d2d30;border:2px solid #3e3e42;border-radius:8px;color:#999;font-size:1.1rem;box-sizing:border-box;outline:none;cursor:not-allowed;"
+                           value="${JSON.parse(localStorage.getItem('user'))?.name || ''}">
+                </div>
+            </div>
             
+            ${newType !== 'devis' ? `
+            <div style="margin-bottom:2rem;">
+                <label style="display:block;color:#9c27b0;margin-bottom:0.75rem;font-weight:600;font-size:1.1rem;">Livré par <span style="color:#f44336">*</span></label>
+                <div style="position:relative;">
+                    <span style="position:absolute;left:12px;top:50%;transform:translateY(-50%);font-size:1.2rem;color:#ff9800;pointer-events:none;z-index:5;">🚚</span>
+                    <input type="text" id="convertInputDeliveredByChaimae" placeholder="Nom du livreur" list="convertDeliveryPersonsList"
+                           value="${prefillDeliveredBy}"
+                           style="width:100%;padding:1rem 1rem 1rem 45px;background:#2d2d30;border:2px solid #3e3e42;border-radius:8px;color:#fff;font-size:1.1rem;box-sizing:border-box;outline:none;transition:all 0.3s;"
+                           onfocus="this.style.borderColor='#9c27b0';this.style.background='#1e1e1e';"
+                           onblur="this.style.borderColor='#3e3e42';this.style.background='#2d2d30';">
+                    <datalist id="convertDeliveryPersonsList"></datalist>
+                </div>
+            </div>
+            ` : ''}
+
             <div style="display:flex;gap:1rem;margin-top:2rem;">
                 <button id="convertBtnCancelChaimae" style="flex:1;padding:1rem;background:#fff;color:#333;border:2px solid #ddd;border-radius:8px;cursor:pointer;font-size:1.1rem;font-weight:600;transition:all 0.3s;"
                         onmouseover="this.style.background='#f5f5f5';this.style.borderColor='#bbb';" onmouseout="this.style.background='#fff';this.style.borderColor='#ddd';">
@@ -2623,7 +2806,7 @@ function showConvertInputModalChaimae(newType, newTypeLabel, prefillNumero = '',
                     ✓ Confirmer
                 </button>
             </div>
-        `;
+`;
 
         overlay.appendChild(container);
         document.body.appendChild(overlay);
@@ -2631,8 +2814,24 @@ function showConvertInputModalChaimae(newType, newTypeLabel, prefillNumero = '',
         const input1 = document.getElementById('convertInput1Chaimae');
         const input2 = document.getElementById('convertInput2Chaimae');
         const input3 = document.getElementById('convertInput3Chaimae');
+        const inputDeliveredBy = document.getElementById('convertInputDeliveredByChaimae');
         const btnConfirm = document.getElementById('convertBtnConfirmChaimae');
         const btnCancel = document.getElementById('convertBtnCancelChaimae');
+
+        // Load delivery persons for autocomplete
+        if (inputDeliveredBy) {
+            try {
+                const result = await window.electron.dbChaimae.getDeliveryPersons();
+                if (result.success && result.data) {
+                    const datalist = document.getElementById('convertDeliveryPersonsList');
+                    if (datalist) {
+                        datalist.innerHTML = result.data.map(name => `<option value="${name}">`).join('');
+                    }
+                }
+            } catch (error) {
+                console.error('Error loading delivery persons for conversion:', error);
+            }
+        }
 
         // Focus on first input
         setTimeout(() => {
@@ -2653,6 +2852,8 @@ function showConvertInputModalChaimae(newType, newTypeLabel, prefillNumero = '',
             let val1 = input1.value.trim();
             let val2 = input2 ? input2.value.trim() : '';
             let val3 = input3 ? input3.value.trim() : '';
+            let deliveredBy = inputDeliveredBy ? inputDeliveredBy.value.trim() : '';
+            const newDate = document.getElementById('convertInputDateChaimae')?.value || '';
 
             // For bon_livraison, check if already formatted
             const currentYear = new Date().getFullYear();
@@ -2662,7 +2863,7 @@ function showConvertInputModalChaimae(newType, newTypeLabel, prefillNumero = '',
                 const fullNumero = selectedPrefix + val1;
 
                 // Check if already formatted as PREFIX+XXX/YYYY (accept any prefix and any number of digits)
-                const prefixPattern = new RegExp(`^[A-Z]+\\d+\\/\\d{4}$`);
+                const prefixPattern = new RegExp(`^[A-Z]+\\d+/\\d{4}$`);
                 if (!fullNumero || !fullNumero.match(prefixPattern)) {
                     input1.style.borderColor = '#f44336';
                     input1.focus();
@@ -2705,12 +2906,24 @@ function showConvertInputModalChaimae(newType, newTypeLabel, prefillNumero = '',
                 return;
             }
 
+            // Check deliveredBy if required (for Facture and BL)
+            if (newType !== 'devis' && !deliveredBy) {
+                if (inputDeliveredBy) {
+                    inputDeliveredBy.style.borderColor = '#f44336';
+                    inputDeliveredBy.focus();
+                }
+                window.notify.warning('Champ requis', 'Veuillez indiquer le livreur', 3000);
+                return;
+            }
+
             cleanup();
             resolve({
                 newNumero: val1,
                 newNumeroOrder: val2 || null,
                 newBonLivraison: val3 || null,
-                newBonCommande: val2 || null
+                newBonCommande: val2 || null,
+                newDeliveredBy: deliveredBy || null,
+                newDate: newDate || null
             });
         };
 
@@ -2846,14 +3059,15 @@ window.convertInvoiceTypeChaimae = async function (invoiceId, currentType) {
             }
 
             // Show input modal for document numbers with pre-filled current number
-            const inputData = await showConvertInputModalChaimae(newType, newTypeLabel, currentNumero, prefillBonLivraison, prefillNumeroOrder);
+            const existingDeliveredBy = invoice.delivered_by || '';
+            const inputData = await showConvertInputModalChaimae(newType, newTypeLabel, currentNumero, prefillBonLivraison, prefillNumeroOrder, existingDeliveredBy);
 
             if (!inputData) {
                 window.notify.warning('Annulé', 'Conversion annulée', 3000);
                 return;
             }
 
-            const { newNumero, newNumeroOrder, newBonLivraison, newBonCommande } = inputData;
+            const { newNumero, newNumeroOrder, newBonLivraison, newBonCommande, newDeliveredBy, newDate } = inputData;
 
             // Check if numbers are unique
             const allInvoicesResult = await window.electron.dbChaimae.getAllInvoices();
@@ -2941,7 +3155,7 @@ window.convertInvoiceTypeChaimae = async function (invoiceId, currentType) {
                 },
                 document: {
                     type: newType,
-                    date: new Date().toISOString().split('T')[0],
+                    date: newDate || new Date().toISOString().split('T')[0],
                     numero: newType === 'facture' || newType === 'bon_livraison' ? newNumero : null,
                     numero_devis: newType === 'devis' ? newNumero : null,
                     numero_Order: newType === 'facture' ? newNumeroOrder : null,
@@ -2949,7 +3163,9 @@ window.convertInvoiceTypeChaimae = async function (invoiceId, currentType) {
                     numero_commande: newType === 'bon_livraison' ? newBonCommande : null,
                     created_by_user_id: user?.id || null,
                     created_by_user_name: user?.name || null,
-                    created_by_user_email: user?.email || null
+                    created_by_user_email: user?.email || null,
+                    delivered_by: newDeliveredBy || null,
+                    ar_status: 'sans_accuse'
                 },
                 products: invoice.products || [],
                 totals: {
@@ -3378,6 +3594,11 @@ window.downloadInvoicePDFChaimae = async function (invoiceId) {
             // Date
             doc.setTextColor(0, 0, 0);
             doc.text(`Date: ${dateStr}`, 150, 55);
+
+            // 👤 Added Fields: Créé par / Livrais par (Single Line)
+            doc.setFontSize(9);
+            doc.setFont(undefined, 'normal');
+            doc.text(`Créé par: ${invoice.created_by || '-'} / Livrais par: ${invoice.delivered_by || '-'}`, 195, 61, { align: 'right' });
 
             // Document Number
             doc.setFontSize(14);
@@ -6514,7 +6735,8 @@ window.selectClientEditChaimae = function (nom, ice) {
 
 // Delete a client from edit mode
 window.deleteClientEditChaimae = async function (clientId, clientName) {
-    if (!confirm(`هل أنت متأكد من حذف الزبون "${clientName}"؟`)) {
+    const confirmed = await customConfirm('Confirmation', `هل أنت متأكد من حذف الزبون "${clientName}"؟`, 'warning');
+    if (!confirmed) {
         return;
     }
 
@@ -6672,7 +6894,39 @@ async function generateSAAISSPDFForChaimae(invoice) {
         } else {
             window.notify.warning('Avertissement', 'La génération SAAISS personnalisée n\'est pas disponible');
         }
-    } else {
-        window.notify.error('Erreur', 'Le modal de personnalisation SAAISS n\'est pas disponible');
+    }
+}
+
+// Update AR Status for Chaimae invoice
+window.updateArStatusChaimae = async function (id, newStatus) {
+    try {
+        console.log(`🕒 Updating AR Status for invoice ${id} to: ${newStatus}`);
+
+        const result = await window.electron.dbChaimae.updateInvoice(id, {
+            document: {
+                ar_status: newStatus
+            }
+        });
+
+        if (result.success) {
+            window.notify.success('Succès', 'Statut AR mis à jour', 2000);
+            const invoice = allInvoicesChaimae.find(inv => inv.id === id);
+            if (invoice) invoice.ar_status = newStatus;
+
+            const selects = document.querySelectorAll('select');
+            for (const s of selects) {
+                if (s.getAttribute('onchange') && s.getAttribute('onchange').includes(`updateArStatusChaimae(${id}`)) {
+                    s.style.background = newStatus === 'accuse' ? '#1b5e20' :
+                        newStatus === 'en_attente' ? '#e65100' :
+                            '#424242';
+                }
+            }
+        } else {
+            window.notify.error('Erreur', 'Impossible de mettre à jour le statut', 3000);
+            loadInvoicesChaimae();
+        }
+    } catch (error) {
+        window.notify.error('Erreur', 'Une erreur est survenue', 3000);
+        loadInvoicesChaimae();
     }
 }

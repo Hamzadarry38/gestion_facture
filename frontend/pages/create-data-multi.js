@@ -106,14 +106,14 @@ function initCreateDataMultiPage() {
 
             // Here you can add logic to save the data
             console.log('Data to save:', { title, description, date });
-            
+
             // Show success message
             if (typeof customAlert === 'function') {
                 await customAlert('Succès', 'Les données ont été enregistrées avec succès!', 'success');
             } else {
-                alert('Les données ont été enregistrées avec succès!');
+                await customAlert('Succès', 'Les données ont été enregistrées avec succès!', 'success');
             }
-            
+
             // Clear form
             form.reset();
             if (dateInput) {

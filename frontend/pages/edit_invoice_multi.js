@@ -207,7 +207,7 @@ async function loadInvoiceDataMulti(invoiceId) {
 
         // Store current document type and N° Order
         currentDocumentTypeMulti = invoice.document_type;
-        currentNumeroOrderMulti = invoice.document_numero_Order?.trim() || null;
+        currentNumeroOrderMulti = invoice.document_numero_Order?.trim() || invoice.document_numero_order?.trim() || null;
 
         // Fill client info
         document.getElementById('editClientNomMulti').value = invoice.client_nom;
@@ -216,7 +216,7 @@ async function loadInvoiceDataMulti(invoiceId) {
         // Fill document info
         const docTypeDisplay = invoice.document_type === 'facture' ? 'Facture' : 'Devis';
         document.getElementById('editDocumentTypeMulti').value = docTypeDisplay;
-        document.getElementById('editDocumentDateMulti').value = invoice.document_date;
+        document.getElementById('editDocumentDateMulti').value = invoice.document_date ? invoice.document_date.split('T')[0] : '';
 
         // Update convert button text
         const convertBtnText = invoice.document_type === 'facture' ? 'Convertir en Devis' : 'Convertir en Facture';
@@ -235,7 +235,7 @@ async function loadInvoiceDataMulti(invoiceId) {
         // Show Order field if facture (always show for facture, even if empty)
         if (invoice.document_type === 'facture') {
             document.getElementById('editFieldOrderMulti').style.display = 'block';
-            document.getElementById('editDocumentNumeroOrderMulti').value = invoice.document_numero_Order || '';
+            document.getElementById('editDocumentNumeroOrderMulti').value = invoice.document_numero_Order || invoice.document_numero_order || '';
         } else {
             document.getElementById('editFieldOrderMulti').style.display = 'none';
         }
@@ -626,7 +626,8 @@ window.selectClientEditMulti = function (nom, ice) {
 
 // Delete a client from edit mode
 window.deleteClientEditMulti = async function (clientId, clientName) {
-    if (!confirm(`هل أنت متأكد من حذف الزبون "${clientName}"؟`)) {
+    const confirmed = await customConfirm('Confirmation', `هل أنت متأكد من حذف الزبون "${clientName}"؟`, 'warning');
+    if (!confirmed) {
         return;
     }
 
@@ -741,45 +742,20 @@ async function handleEditInvoiceSubmitMulti(e) {
             ? formData.document.numero
             : formData.document.numero_devis;
 
-        // Check for duplicate document number only if it changed
-        if (newNumero !== currentNumero) {
-            const allInvoicesResult = await window.electron.dbMulti.getAllInvoices();
-            if (allInvoicesResult.success) {
-                const duplicateNumero = allInvoicesResult.data.find(inv =>
-                    inv.id !== currentInvoiceIdMulti &&
-                    inv.document_type === currentDocumentTypeMulti &&
-                    (currentDocumentTypeMulti === 'facture'
-                        ? inv.document_numero === newNumero
-                        : inv.document_numero_devis === newNumero)
-                );
+        // Check uniqueness using shared helper
+        const isUnique = await window.checkDocumentNumberUniqueMulti(
+            currentDocumentTypeMulti,
+            newNumero,
+            // Only pass order number if it's a facture and has a value
+            currentDocumentTypeMulti === 'facture' ? document.getElementById('editDocumentNumeroOrderMulti')?.value : null,
+            parseInt(currentInvoiceIdMulti)
+        );
 
-                if (duplicateNumero) {
-                    const docLabel = currentDocumentTypeMulti === 'facture' ? 'Facture' : 'Devis';
-                    throw new Error(`Le N° ${docLabel} "${newNumero}" existe déjà pour ${docLabel.toLowerCase()} #${duplicateNumero.id}!`);
-                }
-            }
-        }
-
-        // Check for duplicate N° Order if provided (for FACTURE only)
-        if (currentDocumentTypeMulti === 'facture' && formData.document.numero_Order) {
-            const newOrder = formData.document.numero_Order.trim();
-
-            // Only check if the value actually changed
-            if (newOrder !== currentNumeroOrderMulti) {
-                const allInvoicesResult = await window.electron.dbMulti.getAllInvoices();
-                if (allInvoicesResult.success) {
-                    const duplicateOrder = allInvoicesResult.data.find(inv =>
-                        inv.id !== currentInvoiceIdMulti &&
-                        inv.document_type === 'facture' &&
-                        inv.document_numero_Order &&
-                        inv.document_numero_Order.trim() === newOrder
-                    );
-
-                    if (duplicateOrder) {
-                        throw new Error(`Le N° Order "${formData.document.numero_Order}" existe déjà pour la facture #${duplicateOrder.id}!`);
-                    }
-                }
-            }
+        if (!isUnique) {
+            window.notify.remove(loadingNotif);
+            submitBtn.innerHTML = originalText;
+            submitBtn.disabled = false;
+            return;
         }
 
         const result = await window.electron.dbMulti.updateInvoice(currentInvoiceIdMulti, formData);
@@ -1053,28 +1029,37 @@ window.showConvertDocumentTypeModal = async function () {
         // Check if numbers are unique
         const allInvoicesResult = await window.electron.dbMulti.getAllInvoices('MULTI');
         if (allInvoicesResult.success) {
-            const duplicateNumero = allInvoicesResult.data.find(inv => {
+            const invoices = allInvoicesResult.data;
+            const searchNewNum = (newNumero || '').toLowerCase().trim();
+
+            const duplicateNumero = invoices.find(inv => {
                 if (newType === 'facture') {
-                    return inv.document_type === 'facture' && inv.document_numero === newNumero;
+                    return inv.document_type === 'facture' &&
+                        inv.document_numero &&
+                        inv.document_numero.toLowerCase().trim() === searchNewNum;
                 } else {
-                    return inv.document_type === 'devis' && inv.document_numero_devis === newNumero;
+                    return inv.document_type === 'devis' &&
+                        inv.document_numero_devis &&
+                        inv.document_numero_devis.toLowerCase().trim() === searchNewNum;
                 }
             });
 
             if (duplicateNumero) {
                 const label = newType === 'facture' ? 'N° Facture' : 'N° Devis';
-                window.notify.error('Erreur', `Ce ${label} existe déjà`, 5000);
+                window.notify.error('Erreur', `Ce ${label} "${newNumero}" existe déjà (Insensible à la casse)`, 5000);
                 return;
             }
 
             if (newType === 'facture' && newNumeroOrder) {
-                const duplicateOrder = allInvoicesResult.data.find(inv =>
+                const searchOrder = newNumeroOrder.toLowerCase().trim();
+                const duplicateOrder = invoices.find(inv =>
                     inv.document_type === 'facture' &&
-                    inv.document_numero_Order === newNumeroOrder
+                    inv.document_numero_Order &&
+                    inv.document_numero_Order.toLowerCase().trim() === searchOrder
                 );
 
                 if (duplicateOrder) {
-                    window.notify.error('Erreur', `Ce N° Order existe déjà`, 5000);
+                    window.notify.error('Erreur', `Le N° Order "${newNumeroOrder}" existe déjà (Insensible à la casse)`, 5000);
                     return;
                 }
             }
@@ -1098,7 +1083,8 @@ window.showConvertDocumentTypeModal = async function () {
                 numero_Order: newType === 'facture' ? newNumeroOrder : null,
                 created_by_user_id: user?.id || null,
                 created_by_user_name: user?.name || null,
-                created_by_user_email: user?.email || null
+                created_by_user_email: user?.email || null,
+                creation_method: 'converted'
             },
             products: (invoice.products || []).map(p => ({
                 designation: p.designation || '',

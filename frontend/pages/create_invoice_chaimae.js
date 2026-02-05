@@ -1,6 +1,28 @@
 // Create Invoice Page - Chaimae Company
 function CreateInvoiceChaimaePage() {
     return `
+        <style>
+            .input-with-icon {
+                position: relative;
+                display: flex;
+                align-items: center;
+            }
+            .input-icon {
+                position: absolute;
+                left: 12px;
+                font-size: 1.2rem;
+                color: #2196f3;
+                pointer-events: none;
+                z-index: 5;
+            }
+            .input-with-icon input {
+                padding-left: 45px !important;
+            }
+            #suiviSectionChaimae {
+                border-left: 4px solid #2196f3;
+                background: rgba(33, 150, 243, 0.03);
+            }
+        </style>
         <div class="desktop-app">
             <div class="window-header">
                 <div class="window-title">
@@ -82,6 +104,34 @@ function CreateInvoiceChaimaePage() {
                             <div id="dynamicFieldsChaimae"></div>
                         </div>
                     </div>
+                    
+                    <!-- Section 3: Suivi & Logistique -->
+                    <div class="invoice-section" id="suiviSectionChaimae">
+                        <div class="section-header">
+                            <h2>👤 Suivi & Logistique</h2>
+                        </div>
+                        <div class="section-body">
+                            <div class="form-row">
+                                <div class="form-field">
+                                    <label>Créé par</label>
+                                    <div class="input-with-icon">
+                                        <span class="input-icon">👤</span>
+                                        <input type="text" id="createdByChaimae" readonly style="background: #1e1e1e; color: #aaa; cursor: not-allowed;" placeholder="Chargement...">
+                                    </div>
+                                </div>
+                                <div class="form-field" id="deliveredByContainerChaimae" style="position: relative;">
+                                    <label>Livré par <span class="required">*</span></label>
+                                    <div class="input-with-icon">
+                                        <span class="input-icon">🚚</span>
+                                        <input type="text" id="deliveredByChaimae" list="deliveryPersonsListChaimae" 
+                                               placeholder="Nom du livreur" autocomplete="off" required
+                                               oninput="searchDeliveryPersonsChaimae(this.value)">
+                                    </div>
+                                    <datalist id="deliveryPersonsListChaimae"></datalist>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
 
                     <!-- Section 3: Attachments -->
                     <div class="invoice-section">
@@ -150,7 +200,7 @@ function CreateInvoiceChaimaePage() {
                         </div>
                     </div>
 
-                    <!-- Section 5: Notes -->
+                    <!-- Section 6: Notes -->
                     <div class="invoice-section">
                         <div class="section-header">
                             <h2>📝 Notes</h2>
@@ -489,6 +539,21 @@ window.handleDocumentTypeChangeChaimae = async function () {
     }
 
     container.innerHTML = html;
+
+    // Show/Hide "Livrais par" field based on document type
+    const deliveredByContainer = document.getElementById('deliveredByContainerChaimae');
+    const deliveredByInput = document.getElementById('deliveredByChaimae');
+
+    if (deliveredByContainer && deliveredByInput) {
+        if (type === 'devis') {
+            deliveredByContainer.style.display = 'none';
+            deliveredByInput.required = false;
+            deliveredByInput.value = '';
+        } else {
+            deliveredByContainer.style.display = 'block';
+            deliveredByInput.required = true;
+        }
+    }
 }
 
 // Use suggested number for Chaimae (Global)
@@ -512,18 +577,22 @@ window.useSuggestedNumberChaimae = function (number) {
 window.toggleOptionalFieldChaimae = function (fieldName) {
     const checkbox = document.getElementById(`toggle${fieldName}Chaimae`);
     const field = document.getElementById(`field${fieldName}Chaimae`);
+    if (!field) return;
+
     const inputId = fieldName === 'Order' ? 'documentNumeroOrderChaimae' :
         fieldName === 'BonLivraison' ? 'documentBonLivraisonChaimae' :
             'documentBonCommandeChaimae';
     const input = document.getElementById(inputId);
 
-    if (checkbox.checked) {
+    if (checkbox && checkbox.checked) {
         field.style.display = 'block';
-        input.required = false;
+        if (input) input.required = false;
     } else {
         field.style.display = 'none';
-        input.value = '';
-        input.required = false;
+        if (input) {
+            input.value = '';
+            input.required = false;
+        }
     }
 }
 
@@ -1780,15 +1849,41 @@ window.initCreateInvoiceChaimaePage = function () {
     // Handle file input
     const fileInput = document.getElementById('fileInputChaimae');
     fileInput.addEventListener('change', handleFileSelectChaimae);
+
+    // 👤 Populate "Créé par" with current user name
+    try {
+        const currentUser = JSON.parse(localStorage.getItem('user'));
+        if (currentUser && currentUser.name) {
+            document.getElementById('createdByChaimae').value = currentUser.name;
+        }
+    } catch (e) {
+        console.error('Error getting user for Créé par:', e);
+    }
+
+    // Load delivery persons for autocomplete
+    loadDeliveryPersonsChaimae();
 }
 
 // Handle form submission for Chaimae (Global)
 async function handleFormSubmitChaimae(e) {
     e.preventDefault();
 
+    // Validation: Livré par is mandatory unless it's a Devis
+    const docType = document.getElementById('documentType').value;
+    const deliveredByValue = document.getElementById('deliveredByChaimae')?.value;
+    if (docType !== 'devis' && !deliveredByValue) {
+        window.notify.warning('Attention', 'Le champ "Livré par" est obligatoire', 3000);
+        return;
+    }
+
     try {
         // Get current user info
         const currentUser = JSON.parse(localStorage.getItem('user'));
+
+        // Determine validation status: automatic for specific super user or users with can_auto_validate permission
+        const validationStatus = (currentUser?.email === 'redouanerrebbahi99@gmail.com' || currentUser?.can_auto_validate === true)
+            ? 'validated'
+            : 'pending';
 
         // Collect form data
         const formData = {
@@ -1807,7 +1902,12 @@ async function handleFormSubmitChaimae(e) {
                 // 👤 Add user tracking
                 created_by_user_id: currentUser?.id || null,
                 created_by_user_name: currentUser?.name || 'Unknown',
-                created_by_user_email: currentUser?.email || null
+                created_by_user_email: currentUser?.email || null,
+                // 📦 Add Chaimae specific fields
+                created_by: document.getElementById('createdByChaimae')?.value || null,
+                delivered_by: document.getElementById('deliveredByChaimae')?.value || null,
+                // ✅ Add validation status
+                validation_status: validationStatus
             },
             products: [],
             totals: {
@@ -1936,59 +2036,37 @@ async function handleFormSubmitChaimae(e) {
 
             // Check main document number
             if (mainNumero) {
+                const searchNum = mainNumero.toLowerCase().trim();
                 const duplicateMain = invoices.find(inv => {
                     if (docType === 'facture') {
-                        return inv.document_type === 'facture' && inv.document_numero === mainNumero;
+                        return inv.document_type === 'facture' &&
+                            inv.document_numero &&
+                            inv.document_numero.toLowerCase().trim() === searchNum;
                     } else if (docType === 'devis') {
-                        return inv.document_type === 'devis' && inv.document_numero_devis === mainNumero;
+                        return inv.document_type === 'devis' &&
+                            inv.document_numero_devis &&
+                            inv.document_numero_devis.toLowerCase().trim() === searchNum;
                     } else if (docType === 'bon_livraison') {
-                        // For bon_livraison, check if it's the same type AND has the same numero
-                        // The numero is saved with prefix (e.g., "HA01/2025")
                         const selectedPrefix = window.selectedPrefix || 'MG';
-
-                        // 🔍 DEBUG: Check for duplicates
-                        console.log('🔴 [DUPLICATE CHECK] Selected Prefix:', selectedPrefix);
-                        console.log('🔴 [DUPLICATE CHECK] Main Numero:', mainNumero);
-                        console.log('🔴 [DUPLICATE CHECK] Main Numero contains prefix?', mainNumero?.startsWith(selectedPrefix));
-
-                        // ✅ FIX: Check if mainNumero already contains the prefix
                         let fullNumero;
                         if (mainNumero?.startsWith(selectedPrefix)) {
                             fullNumero = mainNumero;
-                            console.log('⚠️ [DUPLICATE CHECK] Using numero as-is:', fullNumero);
                         } else {
                             fullNumero = selectedPrefix + mainNumero;
-                            console.log('✅ [DUPLICATE CHECK] Adding prefix:', fullNumero);
                         }
-
-                        console.log('📝 [DUPLICATE CHECK] Checking against invoice:', {
-                            inv_type: inv.document_type,
-                            inv_numero: inv.document_numero,
-                            inv_numero_bl: inv.document_numero_bl,
-                            fullNumero: fullNumero
-                        });
+                        const searchFull = fullNumero.toLowerCase().trim();
 
                         return (inv.document_type === 'bon_livraison' || inv.document_type === 'bon de livraison') &&
-                            (inv.document_numero === fullNumero ||
-                                inv.document_numero_bl === fullNumero ||
-                                inv.document_bon_de_livraison === fullNumero);
+                            ((inv.document_numero && inv.document_numero.toLowerCase().trim() === searchFull) ||
+                                (inv.document_numero_bl && inv.document_numero_bl.toLowerCase().trim() === searchFull) ||
+                                (inv.document_bon_de_livraison && inv.document_bon_de_livraison.toLowerCase().trim() === searchFull));
                     }
                     return false;
                 });
 
                 if (duplicateMain) {
-                    console.log('❌ [DUPLICATE CHECK] Found duplicate:', {
-                        docType,
-                        mainNumero,
-                        duplicate: duplicateMain
-                    });
-                    window.notify.error('Erreur', `Le numéro "${mainNumero}" existe déjà pour le type ${docType}`, 5000);
+                    window.notify.error('Erreur', `Le numéro "${mainNumero}" existe déjà pour le type ${docType} (Insensible à la casse)`, 5000);
                     return;
-                } else {
-                    console.log('✅ [DUPLICATE CHECK] No duplicate found for:', {
-                        docType,
-                        mainNumero
-                    });
                 }
             }
         }
@@ -1997,12 +2075,13 @@ async function handleFormSubmitChaimae(e) {
         if (docType === 'facture' && mainNumero) {
             const allGlobalInvoicesResult = await window.electron.dbChaimae.getAllGlobalInvoices();
             if (allGlobalInvoicesResult.success) {
+                const searchNumGlobal = mainNumero.toLowerCase().trim();
                 const duplicateGlobal = allGlobalInvoicesResult.data.find(inv =>
-                    inv.document_numero === mainNumero
+                    inv.document_numero && inv.document_numero.toLowerCase().trim() === searchNumGlobal
                 );
 
                 if (duplicateGlobal) {
-                    window.notify.error('Erreur', `Le numéro "${mainNumero}" existe déjà dans une facture globale`, 5000);
+                    window.notify.error('Erreur', `Le numéro "${mainNumero}" existe déjà dans una facture globale (Insensible à la casse)`, 5000);
                     return;
                 }
             }
@@ -2013,35 +2092,39 @@ async function handleFormSubmitChaimae(e) {
 
             // Check N° Order if provided (for facture)
             if (docType === 'facture' && formData.document.numero_Order) {
+                const searchOrder = formData.document.numero_Order.toLowerCase().trim();
                 const duplicateOrder = invoices.find(inv =>
-                    inv.document_numero_Order === formData.document.numero_Order
+                    (inv.document_numero_Order || inv.document_numero_order) &&
+                    (inv.document_numero_Order || inv.document_numero_order).toLowerCase().trim() === searchOrder
                 );
                 if (duplicateOrder) {
-                    window.notify.error('Erreur', `Le N° Order "${formData.document.numero_Order}" existe déjà`, 5000);
+                    window.notify.error('Erreur', `Le N° Order "${formData.document.numero_Order}" existe déjà (Insensible à la casse)`, 5000);
                     return;
                 }
             }
 
             // Check Bon de livraison if provided (for facture)
             if (docType === 'facture' && formData.document.bon_de_livraison) {
+                const searchBL = formData.document.bon_de_livraison.toLowerCase().trim();
                 const duplicateBL = invoices.find(inv =>
-                    inv.document_bon_de_livraison === formData.document.bon_de_livraison
+                    inv.document_bon_de_livraison && inv.document_bon_de_livraison.toLowerCase().trim() === searchBL
                 );
                 if (duplicateBL) {
-                    window.notify.error('Erreur', `Le Bon de livraison "${formData.document.bon_de_livraison}" existe déjà`, 5000);
+                    window.notify.error('Erreur', `Le Bon de livraison "${formData.document.bon_de_livraison}" existe déjà (Insensible à la casse)`, 5000);
                     return;
                 }
             }
 
             // Check N° Order if provided (for bon_livraison)
             if (docType === 'bon_livraison' && formData.document.numero_commande) {
+                const searchBC = formData.document.numero_commande.toLowerCase().trim();
                 const duplicateBC = invoices.find(inv =>
                     (inv.document_type === 'bon_livraison' || inv.document_type === 'bon de livraison') &&
                     inv.document_numero_commande &&
-                    inv.document_numero_commande.trim() === formData.document.numero_commande.trim()
+                    inv.document_numero_commande.toLowerCase().trim() === searchBC
                 );
                 if (duplicateBC) {
-                    window.notify.error('Erreur', `Le N° Order "${formData.document.numero_commande}" existe déjà dans un autre Bon de livraison`, 5000);
+                    window.notify.error('Erreur', `Le N° Order "${formData.document.numero_commande}" existe déjà (Insensible à la casse)`, 5000);
                     return;
                 }
             }
@@ -2688,4 +2771,38 @@ window.removeFileChaimae = function (index) {
 
     fileInput.files = dt.files;
     handleFileSelectChaimae({ target: fileInput });
+}
+
+// Delivery Persons for Chaimae
+let allDeliveryPersonsChaimae = [];
+
+// Load delivery persons from API
+async function loadDeliveryPersonsChaimae() {
+    console.log('🔄 Loading delivery persons for Chaimae...');
+    try {
+        const result = await window.electron.dbChaimae.getDeliveryPersons('CHAIMAE');
+        if (result && result.success && result.data) {
+            allDeliveryPersonsChaimae = result.data;
+            console.log('✅ Loaded delivery persons:', allDeliveryPersonsChaimae.length);
+            populateDeliveryPersonsDatalistChaimae();
+        }
+    } catch (error) {
+        console.error('❌ Error loading delivery persons:', error);
+    }
+}
+
+// Populate datalist with delivery persons
+function populateDeliveryPersonsDatalistChaimae() {
+    const datalist = document.getElementById('deliveryPersonsListChaimae');
+    if (!datalist) return;
+
+    datalist.innerHTML = allDeliveryPersonsChaimae.map(person =>
+        `<option value="${person}">`
+    ).join('');
+}
+
+// Search delivery persons (used for filtering if needed)
+window.searchDeliveryPersonsChaimae = function (query) {
+    // The datalist already handles filtering, this is a placeholder for future enhancements
+    console.log('🔍 Searching delivery persons:', query);
 }

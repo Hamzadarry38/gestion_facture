@@ -593,10 +593,10 @@ window.showSituationAnnuelleClientsModalMRY = async function () {
                 </div>
             </div>
             
-            <div style="display:flex;gap:1.5rem;margin-bottom:1.5rem;">
+            <div style="display:flex;gap:1.5rem;margin-bottom:1.25rem;">
                 <div style="flex:1;">
                     <label style="display:block;color:#FF9800;margin-bottom:0.5rem;font-weight:600;font-size:0.9rem;text-transform:uppercase;letter-spacing:0.5px;">Année</label>
-                    <select id="situationAnnuelleMultiYearMRY" style="width:100%;padding:0.75rem 1rem;background:#2d2d30;border:1px solid #3e3e42;border-radius:10px;color:#fff;font-size:0.95rem;outline:none;cursor:pointer;transition:all 0.2s;">
+                    <select id="situationAnnuelleMultiYearMRY" style="width:100%;padding:0.75rem 1rem;background:#2d2d30;border:1px solid #3e3e42;border-radius:10px;color:#fff;font-size:0.95rem;outline:none;cursor:pointer;transition:all 0.2s;" onfocus="this.style.borderColor='#FF9800';this.style.boxShadow='0 0 0 3px rgba(255, 152, 0, 0.1)'" onblur="this.style.borderColor='#3e3e42';this.style.boxShadow='none'">
                         ${years.map(y => `<option value="${y}" ${y === currentYear ? 'selected' : ''}>${y}</option>`).join('')}
                     </select>
                 </div>
@@ -613,6 +613,24 @@ window.showSituationAnnuelleClientsModalMRY = async function () {
                             Devis
                         </label>
                     </div>
+                </div>
+            </div>
+
+            <div style="margin-bottom:1.5rem;">
+                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:0.75rem;">
+                    <label style="color:#FF9800;font-weight:600;font-size:0.9rem;text-transform:uppercase;letter-spacing:0.5px;">Mois à inclure</label>
+                    <div>
+                        <button type="button" onclick="toggleAllMonthsMRYGlobal(true)" style="background:none;border:none;color:#FF9800;cursor:pointer;font-size:0.85rem;margin-right:0.5rem;text-decoration:underline;">Tout sélectionner</button>
+                        <button type="button" onclick="toggleAllMonthsMRYGlobal(false)" style="background:none;border:none;color:#999;cursor:pointer;font-size:0.85rem;text-decoration:underline;">Tout désélectionner</button>
+                    </div>
+                </div>
+                <div style="display:grid;grid-template-columns:repeat(4, 1fr);gap:0.75rem;">
+                    ${['Janv', 'Févr', 'Mars', 'Avril', 'Mai', 'Juin', 'Juil', 'Août', 'Sept', 'Oct', 'Nov', 'Déc'].map((m, i) => `
+                        <label style="display:flex;align-items:center;background:#2d2d30;padding:0.6rem;border-radius:8px;border:1px solid #3e3e42;cursor:pointer;transition:all 0.2s;" onmouseover="this.style.borderColor='#FF9800'" onmouseout="this.style.borderColor='#3e3e42'">
+                            <input type="checkbox" class="month-checkbox-mry-global" value="${i + 1}" checked style="margin-right:0.5rem;accent-color:#FF9800;">
+                            <span style="color:#fff;font-size:0.85rem;">${m}</span>
+                        </label>
+                    `).join('')}
                 </div>
             </div>
             
@@ -640,6 +658,10 @@ window.showSituationAnnuelleClientsModalMRY = async function () {
             modal.querySelector('#selectedClientsCountMRY').innerText = count;
         };
 
+        window.toggleAllMonthsMRYGlobal = function (selectAll) {
+            modal.querySelectorAll('.month-checkbox-mry-global').forEach(cb => cb.checked = selectAll);
+        };
+
         modal.querySelector('#toggleAllClientsMRY_True').onclick = () => {
             modal.querySelectorAll('.client-checkbox-mry').forEach(cb => {
                 if (cb.closest('label').style.display !== 'none') cb.checked = true;
@@ -664,6 +686,7 @@ window.showSituationAnnuelleClientsModalMRY = async function () {
         modal.querySelector('#situationAnnuelleMultiCancelMRY').onclick = () => overlay.remove();
         modal.querySelector('#situationAnnuelleMultiGenerateMRY').onclick = async () => {
             const selectedClientIds = Array.from(modal.querySelectorAll('.client-checkbox-mry:checked')).map(cb => cb.value);
+            const selectedMonths = Array.from(modal.querySelectorAll('.month-checkbox-mry-global:checked')).map(cb => parseInt(cb.value));
             const year = parseInt(modal.querySelector('#situationAnnuelleMultiYearMRY').value);
             const includeFacture = modal.querySelector('#situationAnnuelleMultiTypeFactureMRY').checked;
             const includeDevis = modal.querySelector('#situationAnnuelleMultiTypeDevisMRY').checked;
@@ -672,8 +695,14 @@ window.showSituationAnnuelleClientsModalMRY = async function () {
                 window.notify.error('Erreur', 'Veuillez sélectionner au moins un client', 3000);
                 return;
             }
+
+            if (selectedMonths.length === 0) {
+                window.notify.error('Erreur', 'Veuillez sélectionner au moins un mois', 3000);
+                return;
+            }
+
             overlay.remove();
-            await generateSituationAnnuelleClientsMRY(selectedClientIds, year, includeFacture, includeDevis);
+            await generateSituationAnnuelleClientsMRY(selectedClientIds, year, selectedMonths, includeFacture, includeDevis);
         };
     } catch (error) {
         console.error('Error showing SITUATION Global modal:', error);
@@ -681,7 +710,7 @@ window.showSituationAnnuelleClientsModalMRY = async function () {
 };
 
 // Generate Global PDF for MRY
-window.generateSituationAnnuelleClientsMRY = async function (clientIds, year, includeFacture, includeDevis) {
+window.generateSituationAnnuelleClientsMRY = async function (clientIds, year, selectedMonths, includeFacture, includeDevis) {
     try {
         window.notify.info('Info', 'Génération en cours...', 2000);
         const invoicesResult = await window.electron.db.getAllInvoices('MRY');
@@ -690,7 +719,10 @@ window.generateSituationAnnuelleClientsMRY = async function (clientIds, year, in
 
         const yearInvoices = invoicesResult.data.filter(inv => {
             const invDate = new Date(inv.document_date);
-            return clientIds.includes(String(inv.client_id)) && invDate.getFullYear() === year;
+            const month = invDate.getMonth() + 1;
+            return clientIds.includes(String(inv.client_id)) &&
+                invDate.getFullYear() === year &&
+                selectedMonths.includes(month);
         });
 
         if (yearInvoices.length === 0) {
@@ -748,9 +780,36 @@ window.generateSituationAnnuelleClientsMRY = async function (clientIds, year, in
         const blueColor = [33, 97, 140];
         const greenColor = [16, 172, 132];
 
-        // Header and Title logic
+        // Generate Title String
+        const monthNamesUpper = ['', 'JANVIER', 'FÉVRIER', 'MARS', 'AVRIL', 'MAI', 'JUIN', 'JUILLET', 'AOÛT', 'SEPTEMBRE', 'OCTOBRE', 'NOVEMBRE', 'DÉCEMBRE'];
+        let dateRangeStr = `ANNÉE ${year}`;
+
+        if (selectedMonths.length > 0 && selectedMonths.length < 12) {
+            const sorted = [...selectedMonths].sort((a, b) => a - b);
+            let isContiguous = true;
+            for (let i = 0; i < sorted.length - 1; i++) {
+                if (sorted[i + 1] !== sorted[i] + 1) {
+                    isContiguous = false;
+                    break;
+                }
+            }
+
+            if (isContiguous) {
+                if (sorted.length === 1) {
+                    dateRangeStr = `${monthNamesUpper[sorted[0]]} ${year}`;
+                } else {
+                    const startMonthName = monthNamesUpper[sorted[0]];
+                    const endMonthName = monthNamesUpper[sorted[sorted.length - 1]];
+                    const prefix = ['AVRIL', 'AOÛT', 'OCTOBRE'].includes(startMonthName) ? "D'" : "DE ";
+                    dateRangeStr = `${prefix}${startMonthName} À ${endMonthName} ${year}`;
+                }
+            } else {
+                dateRangeStr = sorted.map(m => monthNamesUpper[m]).join(', ') + ` ${year}`;
+            }
+        }
+
         const clientLabel = clientIds.length === 1 ? null : { nom: `MULTI-CLIENTS (${clientIds.length})` };
-        addHeaderToPDFAnnuelleMRY(doc, clientLabel, `ANNÉE ${year}`, blueColor, greenColor);
+        addHeaderToPDFAnnuelleMRY(doc, clientLabel, dateRangeStr, blueColor, greenColor);
 
         // Table logic
         const startY = 85;

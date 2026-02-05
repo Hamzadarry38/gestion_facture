@@ -1,6 +1,29 @@
 // Edit Invoice Page - Chaimae Company
 window.EditInvoiceChaimaePage = function () {
     return `
+        <style>
+            .input-with-icon {
+                position: relative;
+                display: flex;
+                align-items: center;
+            }
+            .input-icon {
+                position: absolute;
+                left: 12px;
+                font-size: 1.2rem;
+                color: #2196f3;
+                pointer-events: none;
+                z-index: 5;
+            }
+            .input-with-icon input {
+                padding-left: 45px !important;
+            }
+            #editSuiviSectionChaimae {
+                border-left: 4px solid #2196f3;
+                background: rgba(33, 150, 243, 0.03);
+                margin-bottom: 2rem;
+            }
+        </style>
         <div class="desktop-app">
             <div class="window-header">
                 <div class="window-title">
@@ -105,8 +128,36 @@ window.EditInvoiceChaimaePage = function () {
                             </div>
                         </div>
                     </div>
+                    
+                    <!-- Section 3: Suivi & Logistique -->
+                    <div class="invoice-section" id="editSuiviSectionChaimae">
+                        <div class="section-header">
+                            <h2>👤 Suivi & Logistique</h2>
+                        </div>
+                        <div class="section-body">
+                            <div class="form-row">
+                                <div class="form-field">
+                                    <label>Créé par</label>
+                                    <div class="input-with-icon">
+                                        <span class="input-icon">👤</span>
+                                        <input type="text" id="editCreatedByChaimae" readonly style="background: #1e1e1e; color: #aaa; cursor: not-allowed;" placeholder="Chargement...">
+                                    </div>
+                                </div>
+                                <div class="form-field" id="editDeliveredByContainerChaimae" style="position: relative;">
+                                    <label>Livré par <span class="required">*</span></label>
+                                    <div class="input-with-icon">
+                                        <span class="input-icon">🚚</span>
+                                        <input type="text" id="editDeliveredByChaimae" list="editDeliveryPersonsListChaimae" 
+                                               placeholder="Nom du livreur" autocomplete="off" required
+                                               oninput="searchDeliveryPersonsEditChaimae(this.value)">
+                                    </div>
+                                    <datalist id="editDeliveryPersonsListChaimae"></datalist>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
 
-                    <!-- Section 3: Products -->
+                    <!-- Section 4: Products -->
                     <div class="invoice-section">
                         <div class="section-header">
                             <h2>📊 Produits et services</h2>
@@ -158,7 +209,7 @@ window.EditInvoiceChaimaePage = function () {
                         </div>
                     </div>
 
-                    <!-- Section 4: Notes -->
+                    <!-- Section 5: Notes -->
                     <div class="invoice-section">
                         <div class="section-header">
                             <h2>📝 Notes</h2>
@@ -227,7 +278,7 @@ window.loadInvoiceDataChaimae = async function (invoiceId) {
             docTypeDisplay = 'Bon de livraison';
         }
         document.getElementById('editDocumentTypeChaimae').value = docTypeDisplay;
-        document.getElementById('editDocumentDateChaimae').value = invoice.document_date;
+        document.getElementById('editDocumentDateChaimae').value = invoice.document_date ? invoice.document_date.split('T')[0] : '';
 
         const convertBtnText = invoice.document_type === 'facture' ? 'Convertir' : 'Convertir';
         const convertBtn = document.getElementById('convertButtonTextChaimae');
@@ -271,7 +322,7 @@ window.loadInvoiceDataChaimae = async function (invoiceId) {
             console.log('✅ [CHAIMAE EDIT] Showing facture optional fields');
             optionalFactureFields.style.display = 'block';
             optionalBLFields.style.display = 'none';
-            document.getElementById('editNumeroOrderChaimae').value = invoice.document_numero_Order || '';
+            document.getElementById('editNumeroOrderChaimae').value = invoice.document_numero_Order || invoice.document_numero_order || '';
             document.getElementById('editBonLivraisonChaimae').value = invoice.document_bon_de_livraison || '';
         } else if (invoice.document_type === 'bon_livraison') {
             console.log('✅ [CHAIMAE EDIT] Showing bon de livraison optional fields');
@@ -282,6 +333,20 @@ window.loadInvoiceDataChaimae = async function (invoiceId) {
             console.log('✅ [CHAIMAE EDIT] Hiding all optional fields (devis)');
             optionalFactureFields.style.display = 'none';
             optionalBLFields.style.display = 'none';
+        }
+
+        // Show/Hide "Livrais par" field based on document type
+        const editDeliveredByContainer = document.getElementById('editDeliveredByContainerChaimae');
+        let deliveredByInput = document.getElementById('editDeliveredByChaimae');
+        if (editDeliveredByContainer && deliveredByInput) {
+            if (invoice.document_type === 'devis') {
+                editDeliveredByContainer.style.display = 'none';
+                deliveredByInput.required = false;
+                deliveredByInput.value = '';
+            } else {
+                editDeliveredByContainer.style.display = 'block';
+                deliveredByInput.required = true;
+            }
         }
 
         document.getElementById('editTvaRateChaimae').value = invoice.tva_rate;
@@ -304,6 +369,19 @@ window.loadInvoiceDataChaimae = async function (invoiceId) {
                 noteTextarea.value = noteResult.data;
             }
         }
+
+        // Load created_by and delivered_by fields
+        const createdByInput = document.getElementById('editCreatedByChaimae');
+        const finalDeliveredByInput = document.getElementById('editDeliveredByChaimae');
+        if (createdByInput && invoice.created_by) {
+            createdByInput.value = invoice.created_by;
+        }
+        if (finalDeliveredByInput && invoice.delivered_by) {
+            finalDeliveredByInput.value = invoice.delivered_by;
+        }
+
+        // Load delivery persons for autocomplete
+        await loadDeliveryPersonsEditChaimae();
 
     } catch (error) {
         console.error('[Chaimae] Error loading invoice:', error);
@@ -659,6 +737,13 @@ window.selectClientEditChaimae = function (nom, ice) {
 window.handleEditInvoiceSubmitChaimae = async function (e) {
     e.preventDefault();
 
+    // Validation: Livré par is mandatory unless it's a Devis
+    const deliveredByValue = document.getElementById('editDeliveredByChaimae')?.value;
+    if (currentDocumentTypeChaimae !== 'devis' && !deliveredByValue) {
+        window.notify.warning('Attention', 'Le champ "Livré par" est obligatoire', 3000);
+        return;
+    }
+
     const loadingNotif = window.notify.loading('Mise à jour en cours...', 'Veuillez patienter');
 
     const submitBtn = e.target.querySelector('button[type="submit"]');
@@ -669,6 +754,9 @@ window.handleEditInvoiceSubmitChaimae = async function (e) {
     try {
         const documentNumeroValue = document.getElementById('editDocumentNumeroChaimae').value;
 
+        const currentUser = JSON.parse(localStorage.getItem('user'));
+        const autoValidate = (currentUser?.email === 'redouanerrebbahi99@gmail.com' || currentUser?.can_auto_validate === true);
+
         const formData = {
             client: {
                 nom: document.getElementById('editClientNomChaimae').value,
@@ -676,7 +764,16 @@ window.handleEditInvoiceSubmitChaimae = async function (e) {
             },
             document: {
                 type: currentDocumentTypeChaimae,
-                date: document.getElementById('editDocumentDateChaimae').value
+                date: document.getElementById('editDocumentDateChaimae').value,
+                // 📦 Add Chaimae specific fields
+                created_by: document.getElementById('editCreatedByChaimae')?.value || null,
+                delivered_by: document.getElementById('editDeliveredByChaimae')?.value || null,
+                // ✅ Add user tracking
+                updated_by_user_id: currentUser?.id || null,
+                updated_by_user_name: currentUser?.name || null,
+                updated_by_user_email: currentUser?.email || null,
+                // ✅ Add validation status if user has permissions
+                ...(autoValidate ? { validation_status: 'validated' } : {})
             },
             products: [],
             totals: {
@@ -742,20 +839,92 @@ window.handleEditInvoiceSubmitChaimae = async function (e) {
             ? formData.document.numero
             : formData.document.numero_devis;
 
-        if (newNumero !== currentNumero) {
+        if (true) { // Always check for duplicates when editing
             const allInvoicesResult = await window.electron.dbChaimae.getAllInvoices();
             if (allInvoicesResult.success) {
-                const duplicateNumero = allInvoicesResult.data.find(inv =>
-                    inv.id !== currentInvoiceIdChaimae &&
-                    inv.document_type === currentDocumentTypeChaimae &&
-                    (currentDocumentTypeChaimae === 'facture'
-                        ? inv.document_numero === newNumero
-                        : inv.document_numero_devis === newNumero)
-                );
+                const invoices = allInvoicesResult.data;
+                const searchNum = documentNumeroValue.toLowerCase().trim();
+
+                // 1. Check main document number
+                const duplicateNumero = invoices.find(inv => {
+                    if (inv.id === parseInt(currentInvoiceIdChaimae)) return false;
+
+                    if (currentDocumentTypeChaimae === 'facture') {
+                        return inv.document_type === 'facture' &&
+                            inv.document_numero &&
+                            inv.document_numero.toLowerCase().trim() === searchNum;
+                    } else if (currentDocumentTypeChaimae === 'devis') {
+                        return inv.document_type === 'devis' &&
+                            inv.document_numero_devis &&
+                            inv.document_numero_devis.toLowerCase().trim() === searchNum;
+                    } else if (currentDocumentTypeChaimae === 'bon_livraison') {
+                        return (inv.document_type === 'bon_livraison' || inv.document_type === 'bon de livraison') &&
+                            ((inv.document_numero && inv.document_numero.toLowerCase().trim() === searchNum) ||
+                                (inv.document_numero_bl && inv.document_numero_bl.toLowerCase().trim() === searchNum) ||
+                                (inv.document_bon_de_livraison && inv.document_bon_de_livraison.toLowerCase().trim() === searchNum));
+                    }
+                    return false;
+                });
 
                 if (duplicateNumero) {
-                    const docLabel = currentDocumentTypeChaimae === 'facture' ? 'Facture' : 'Devis';
-                    throw new Error(`Le N° ${docLabel} "${newNumero}" existe déjà pour ${docLabel.toLowerCase()} #${duplicateNumero.id}!`);
+                    const docLabel = currentDocumentTypeChaimae === 'facture' ? 'Facture' : (currentDocumentTypeChaimae === 'devis' ? 'Devis' : 'Bon de livraison');
+                    throw new Error(`Le N° ${docLabel} "${documentNumeroValue}" existe déjà (Insensible à la casse)!`);
+                }
+
+                // 2. Check for duplicate in global invoices (for facture only)
+                if (currentDocumentTypeChaimae === 'facture') {
+                    const allGlobalInvoicesResult = await window.electron.dbChaimae.getAllGlobalInvoices();
+                    if (allGlobalInvoicesResult.success) {
+                        const duplicateGlobal = allGlobalInvoicesResult.data.find(inv =>
+                            inv.document_numero && inv.document_numero.toLowerCase().trim() === searchNum
+                        );
+                        if (duplicateGlobal) {
+                            throw new Error(`Le numéro "${documentNumeroValue}" existe déjà dans une facture globale (Insensible à la casse)`);
+                        }
+                    }
+                }
+
+                // 3. Check N° Order if provided (for facture)
+                const orderVal = document.getElementById('editNumeroOrderChaimae')?.value;
+                if (currentDocumentTypeChaimae === 'facture' && orderVal) {
+                    const searchOrder = orderVal.toLowerCase().trim();
+                    const duplicateOrder = invoices.find(inv =>
+                        inv.id !== parseInt(currentInvoiceIdChaimae) &&
+                        (inv.document_numero_Order || inv.document_numero_order) &&
+                        (inv.document_numero_Order || inv.document_numero_order).toLowerCase().trim() === searchOrder
+                    );
+                    if (duplicateOrder) {
+                        throw new Error(`Le N° Order "${orderVal}" existe déjà (Insensible à la casse)`);
+                    }
+                }
+
+                // 4. Check Bon de livraison if provided (for facture)
+                const blVal = document.getElementById('editBonLivraisonChaimae')?.value;
+                if (currentDocumentTypeChaimae === 'facture' && blVal) {
+                    const searchBL = blVal.toLowerCase().trim();
+                    const duplicateBL = invoices.find(inv =>
+                        inv.id !== parseInt(currentInvoiceIdChaimae) &&
+                        inv.document_bon_de_livraison &&
+                        inv.document_bon_de_livraison.toLowerCase().trim() === searchBL
+                    );
+                    if (duplicateBL) {
+                        throw new Error(`Le Bon de livraison "${blVal}" existe déjà (Insensible à la casse)`);
+                    }
+                }
+
+                // 5. Check N° Order if provided (for bon_livraison)
+                const bcVal = document.getElementById('editBonCommandeChaimae')?.value;
+                if (currentDocumentTypeChaimae === 'bon_livraison' && bcVal) {
+                    const searchBC = bcVal.toLowerCase().trim();
+                    const duplicateBC = invoices.find(inv =>
+                        inv.id !== parseInt(currentInvoiceIdChaimae) &&
+                        (inv.document_type === 'bon_livraison' || inv.document_type === 'bon de livraison') &&
+                        inv.document_numero_commande &&
+                        inv.document_numero_commande.toLowerCase().trim() === searchBC
+                    );
+                    if (duplicateBC) {
+                        throw new Error(`Le N° Order "${bcVal}" existe déjà (Insensible à la casse)`);
+                    }
                 }
             }
         }
@@ -783,7 +952,7 @@ window.handleEditInvoiceSubmitChaimae = async function (e) {
                         user.id,
                         user.name,
                         user.email,
-                        JSON.stringify(changes)
+                        changes
                     );
                     console.log('✅ [AUDIT LOG Chaimae] Audit log entry added');
                 } catch (auditError) {
@@ -907,33 +1076,102 @@ window.showConvertDocumentTypeModalChaimae = async function () {
             existingBLNumber = invoice.document_bon_de_livraison || '';
         }
 
+        // Get existing Delivered by value - prioritize current form value if present
+        const existingDeliveredBy = document.getElementById('editDeliveredByChaimae')?.value || invoice.delivered_by || '';
+
         // Use current number as prefill (user can modify if needed)
-        const inputData = await showConvertInputModalChaimae(selectedNewType, newTypeText, currentNumero, existingOrderNumber, existingBLNumber);
+        const inputData = await showConvertInputModalChaimae(selectedNewType, newTypeText, currentNumero, existingOrderNumber, existingBLNumber, existingDeliveredBy);
 
         if (!inputData) {
             window.notify.warning('Annulé', 'Conversion annulée', 3000);
             return;
         }
 
-        const { newNumero, numeroOrder, bonLivraison, newDate } = inputData;
+        const { newNumero, numeroOrder, bonLivraison, newDate, createdBy, deliveredBy } = inputData;
 
         // Check for duplicate numbers
         const allInvoicesResult = await window.electron.dbChaimae.getAllInvoices();
         if (allInvoicesResult.success) {
-            const duplicateNumero = allInvoicesResult.data.find(inv => {
+            const invoices = allInvoicesResult.data;
+            const searchNewNum = newNumero.toLowerCase().trim();
+
+            // 1. Check main document number
+            const duplicateNumero = invoices.find(inv => {
                 if (selectedNewType === 'facture') {
-                    return inv.document_type === 'facture' && inv.document_numero === newNumero;
+                    return inv.document_type === 'facture' &&
+                        inv.document_numero &&
+                        inv.document_numero.toLowerCase().trim() === searchNewNum;
                 } else if (selectedNewType === 'devis') {
-                    return inv.document_type === 'devis' && inv.document_numero_devis === newNumero;
+                    return inv.document_type === 'devis' &&
+                        inv.document_numero_devis &&
+                        inv.document_numero_devis.toLowerCase().trim() === searchNewNum;
                 } else if (selectedNewType === 'bon_livraison') {
-                    return inv.document_type === 'bon_livraison' && inv.document_numero_bl === newNumero;
+                    return (inv.document_type === 'bon_livraison' || inv.document_type === 'bon de livraison') &&
+                        ((inv.document_numero && inv.document_numero.toLowerCase().trim() === searchNewNum) ||
+                            (inv.document_numero_bl && inv.document_numero_bl.toLowerCase().trim() === searchNewNum) ||
+                            (inv.document_bon_de_livraison && inv.document_bon_de_livraison.toLowerCase().trim() === searchNewNum));
                 }
+                return false;
             });
 
             if (duplicateNumero) {
                 const label = allTypes[selectedNewType].label;
-                window.notify.error('Erreur', `Ce ${label} existe déjà`, 5000);
+                window.notify.error('Erreur', `Ce ${label} "${newNumero}" existe déjà (Insensible à la casse)`, 5000);
                 return;
+            }
+
+            // 2. Check for duplicate in global invoices (for facture only)
+            if (selectedNewType === 'facture') {
+                const allGlobalInvoicesResult = await window.electron.dbChaimae.getAllGlobalInvoices();
+                if (allGlobalInvoicesResult.success) {
+                    const duplicateGlobal = allGlobalInvoicesResult.data.find(inv =>
+                        inv.document_numero && inv.document_numero.toLowerCase().trim() === searchNewNum
+                    );
+                    if (duplicateGlobal) {
+                        window.notify.error('Erreur', `Le numéro "${newNumero}" existe déjà dans une facture globale (Insensible à la casse)`, 5000);
+                        return;
+                    }
+                }
+            }
+
+            // 3. Check N° Order if provided (for facture)
+            if (selectedNewType === 'facture' && numeroOrder) {
+                const searchOrder = numeroOrder.toLowerCase().trim();
+                const duplicateOrder = invoices.find(inv =>
+                    (inv.document_numero_Order || inv.document_numero_order) &&
+                    (inv.document_numero_Order || inv.document_numero_order).toLowerCase().trim() === searchOrder
+                );
+                if (duplicateOrder) {
+                    window.notify.error('Erreur', `Le N° Order "${numeroOrder}" existe déjà (Insensible à la casse)`, 5000);
+                    return;
+                }
+            }
+
+            // 4. Check Bon de livraison if provided (for facture)
+            if (selectedNewType === 'facture' && bonLivraison) {
+                const searchBL = bonLivraison.toLowerCase().trim();
+                const duplicateBL = invoices.find(inv =>
+                    inv.document_bon_de_livraison &&
+                    inv.document_bon_de_livraison.toLowerCase().trim() === searchBL
+                );
+                if (duplicateBL) {
+                    window.notify.error('Erreur', `Le Bon de livraison "${bonLivraison}" existe déjà (Insensible à la casse)`, 5000);
+                    return;
+                }
+            }
+
+            // 5. Check N° Order if provided (for bon_livraison)
+            if (selectedNewType === 'bon_livraison' && numeroOrder) {
+                const searchBC = numeroOrder.toLowerCase().trim();
+                const duplicateBC = invoices.find(inv =>
+                    (inv.document_type === 'bon_livraison' || inv.document_type === 'bon de livraison') &&
+                    inv.document_numero_commande &&
+                    inv.document_numero_commande.toLowerCase().trim() === searchBC
+                );
+                if (duplicateBC) {
+                    window.notify.error('Erreur', `Le N° Order "${numeroOrder}" existe déjà (Insensible à la casse)`, 5000);
+                    return;
+                }
             }
         }
 
@@ -953,9 +1191,13 @@ window.showConvertDocumentTypeModalChaimae = async function () {
                 numero_Order: selectedNewType === 'facture' ? (numeroOrder || null) : null,
                 numero_commande: selectedNewType === 'bon_livraison' ? (numeroOrder || null) : null,
                 bon_de_livraison: selectedNewType === 'facture' ? (bonLivraison || null) : null,
+                created_by: createdBy || null,
+                delivered_by: deliveredBy || null,
                 created_by_user_id: user?.id || null,
                 created_by_user_name: user?.name || null,
-                created_by_user_email: user?.email || null
+                created_by_user_email: user?.email || null,
+                creation_method: 'converted',
+                ar_status: 'sans_accuse'
             },
             products: (invoice.products || []).map(p => ({
                 designation: p.designation || '',
@@ -1096,7 +1338,7 @@ window.showConfirmDialogChaimae = function (message) {
 }
 
 // Convert input modal - Step 2: Enter document details
-window.showConvertInputModalChaimae = function (newType, newTypeLabel, prefillNumero = '', prefillOrder = '', prefillBL = '') {
+window.showConvertInputModalChaimae = function (newType, newTypeLabel, prefillNumero = '', prefillOrder = '', prefillBL = '', prefillDeliveredBy = '') {
     return new Promise(async (resolve) => {
         let highestNumber = 'Aucun';
         try {
@@ -1162,88 +1404,145 @@ window.showConvertInputModalChaimae = function (newType, newTypeLabel, prefillNu
         overlay.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.85);display:flex;align-items:center;justify-content:center;z-index:10000;';
 
         const container = document.createElement('div');
-        container.style.cssText = 'background:#1e1e1e;border-radius:12px;padding:2.5rem;max-width:500px;width:90%;box-shadow:0 10px 40px rgba(0,0,0,0.5);';
+        container.style.cssText = 'background:#1e1e1e;border-radius:12px;padding:1.5rem;max-width:500px;width:90%;max-height:85vh;overflow-y:auto;box-shadow:0 10px 40px rgba(0,0,0,0.5);';
 
         // Determine label and color based on type
         const typeConfig = {
-            'facture': { label: 'N° Facture', color: '#4caf50' },
-            'devis': { label: 'N° Devis', color: '#9c27b0' },
-            'bon_livraison': { label: 'N° Bon de livraison', color: '#ff9800' }
+            'facture': { label: 'N° Facture', color: '#4caf50', icon: '📄' },
+            'devis': { label: 'N° Devis', color: '#9c27b0', icon: '📋' },
+            'bon_livraison': { label: 'N° Bon de livraison', color: '#ff9800', icon: '🚛' }
         };
 
-        const config = typeConfig[newType] || { label: 'N° Document', color: '#2196f3' };
+        const config = typeConfig[newType] || { label: 'N° Document', color: '#2196f3', icon: '📝' };
 
         container.innerHTML = `
             <div style="text-align:center;margin-bottom:2rem;">
                 <div style="font-size:3rem;margin-bottom:0.5rem;">🔄</div>
                 <h2 style="color:#fff;margin:0;font-size:1.5rem;font-weight:600;">Convertir en ${newTypeLabel}</h2>
             </div>
-            
+
+
             ${newType !== 'bon_livraison' ? `
             <div style="margin-bottom:2rem;">
                 <label style="display:block;color:${config.color};margin-bottom:0.75rem;font-weight:600;font-size:1.1rem;">${config.label}</label>
-                <input type="text" id="convertInputChaimae1" placeholder="Exemple: 548" value="${prefillNumero}"
-                       style="width:100%;padding:1rem;background:#2d2d30;border:2px solid #3e3e42;border-radius:8px;color:#fff;font-size:1.1rem;box-sizing:border-box;outline:none;transition:all 0.3s;"
-                       onfocus="this.style.borderColor='${config.color}';this.style.background='#1e1e1e';"
-                       onblur="this.style.borderColor='#3e3e42';this.style.background='#2d2d30';">
+                <div style="position:relative;">
+                    <span style="position:absolute;left:12px;top:50%;transform:translateY(-50%);font-size:1.2rem;color:${config.color};pointer-events:none;z-index:5;">${config.icon}</span>
+                    <input type="text" id="convertInputChaimae1" placeholder="Exemple: 548" value="${prefillNumero}"
+                           style="width:100%;padding:1rem 1rem 1rem 45px;background:#2d2d30;border:2px solid #3e3e42;border-radius:8px;color:#fff;font-size:1.1rem;box-sizing:border-box;outline:none;transition:all 0.3s;"
+                           onfocus="this.style.borderColor='${config.color}';this.style.background='#1e1e1e';"
+                           onblur="this.style.borderColor='#3e3e42';this.style.background='#2d2d30';">
+                </div>
                 <small style="color: #999; font-size: 0.85rem; display: block; margin-top: 0.5rem;">Ex: 123 → 123/2025</small>
                 ${highestNumber !== 'Aucun' ? `<div style="margin-top:0.5rem;color:${config.color};font-size:0.85rem;font-weight:500;">📌 Plus grand numéro actuel: ${highestNumber}</div>` : ''}
             </div>
-
             ` : ''}
 
             <div style="margin-bottom:2rem;">
                 <label style="display:block;color:#2196F3;margin-bottom:0.75rem;font-weight:600;font-size:1.1rem;">Date</label>
-                <input type="date" id="convertInputDateChaimae" 
-                       style="width:100%;padding:1rem;background:#2d2d30;border:2px solid #3e3e42;border-radius:8px;color:#fff;font-size:1.1rem;box-sizing:border-box;outline:none;transition:all 0.3s;"
-                       value="${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, '0')}-${String(new Date().getDate()).padStart(2, '0')}">
+                <div style="position:relative;">
+                    <span style="position:absolute;left:12px;top:50%;transform:translateY(-50%);font-size:1.2rem;color:#2196F3;pointer-events:none;z-index:5;">📅</span>
+                    <input type="date" id="convertInputDateChaimae" 
+                           style="width:100%;padding:1rem 1rem 1rem 45px;background:#2d2d30;border:2px solid #3e3e42;border-radius:8px;color:#fff;font-size:1.1rem;box-sizing:border-box;outline:none;transition:all 0.3s;"
+                           value="${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, '0')}-${String(new Date().getDate()).padStart(2, '0')}">
+                </div>
             </div>
+
+            ${newType === 'facture' ? `
+            <div style="margin-bottom:2rem;">
+                <label style="display:block;color:#9e9e9e;margin-bottom:0.75rem;font-weight:500;font-size:1rem;">N° Order (optionnel)</label>
+                <div style="position:relative;">
+                    <span style="position:absolute;left:12px;top:50%;transform:translateY(-50%);font-size:1.2rem;color:#4caf50;pointer-events:none;z-index:5;">📝</span>
+                    <input type="text" id="convertInputChaimae2" placeholder="Exemple: 555" value="${prefillOrder}"
+                           style="width:100%;padding:1rem 1rem 1rem 45px;background:#2d2d30;border:2px solid #3e3e42;border-radius:8px;color:#fff;font-size:1.1rem;box-sizing:border-box;outline:none;transition:all 0.3s;"
+                           onfocus="this.style.borderColor='#4caf50';this.style.background='#1e1e1e';"
+                           onblur="this.style.borderColor='#3e3e42';this.style.background='#2d2d30';">
+                </div>
+            </div>
+            <div style="margin-bottom:2rem;">
+                <label style="display:block;color:#ff9800;margin-bottom:0.75rem;font-weight:500;font-size:1rem;">Bon de livraison (optionnel)</label>
+                <div style="position:relative;">
+                    <span style="position:absolute;left:12px;top:50%;transform:translateY(-50%);font-size:1.2rem;color:#ff9800;pointer-events:none;z-index:5;">🚛</span>
+                    <input type="text" id="convertInputChaimae3" placeholder="Exemple: MG123/2025" value="${prefillBL}"
+                           style="width:100%;padding:1rem 1rem 1rem 45px;background:#2d2d30;border:2px solid #3e3e42;border-radius:8px;color:#fff;font-size:1.1rem;box-sizing:border-box;outline:none;transition:all 0.3s;"
+                           onfocus="this.style.borderColor='#ff9800';this.style.background='#1e1e1e';"
+                           onblur="this.style.borderColor='#3e3e42';this.style.background='#2d2d30';">
+                </div>
+            </div>
+            ` : ''}
+
             
             ${newType === 'bon_livraison' ? `
             <div style="margin-bottom:2rem;">
                 <label style="display:block;color:#ff9800;margin-bottom:0.75rem;font-weight:600;font-size:1.1rem;">📋 N° Bon de livraison</label>
-                <div style="display:flex;gap:0.5rem;align-items:flex-start;">
-                    <div style="position:relative;flex:0 0 auto;">
-                        <input type="text" id="convertPrefixInputChaimae" placeholder="MG" value="${window.selectedPrefix || 'MG'}"
-                               style="width:80px;padding:1rem;background:#2d2d30;border:2px solid #3e3e42;border-radius:8px;color:#fff;font-size:1.1rem;outline:none;cursor:pointer;font-weight:600;"
-                               readonly onclick="toggleConvertPrefixDropdownChaimae()">
-                        <div id="convertPrefixDropdownChaimae" style="display:none;position:absolute;top:100%;left:0;background:linear-gradient(135deg, #1e1e1e 0%, #2d2d30 100%);border:2px solid #667eea;border-radius:12px;margin-top:0.5rem;box-shadow:0 8px 24px rgba(102, 126, 234, 0.3), 0 0 0 1px rgba(102, 126, 234, 0.1);z-index:1000;min-width:200px;max-height:350px;overflow:hidden;">
-                            <div style="padding:0.75rem 1rem;background:linear-gradient(90deg, #667eea 0%, #764ba2 100%);border-bottom:2px solid rgba(102, 126, 234, 0.3);">
-                                <h4 style="margin:0;color:#fff;font-size:0.95rem;font-weight:600;letter-spacing:0.5px;">📋 Choisir un Prefix</h4>
-                            </div>
-                            <div id="convertPrefixListChaimae" style="max-height:200px;overflow-y:auto;padding:0.5rem;"></div>
-                            <div style="padding:0.75rem;border-top:2px solid rgba(102, 126, 234, 0.2);background:rgba(0,0,0,0.2);">
-                                <input type="text" id="convertNewPrefixInputChaimae" placeholder="Nouveau prefix (ex: ABC)"
-                                       style="width:100%;padding:0.65rem;background:#1e1e1e;border:2px solid #3e3e42;border-radius:6px;color:#fff;font-size:0.9rem;outline:none;transition:all 0.3s;"
-                                       onfocus="this.style.borderColor='#667eea';this.style.boxShadow='0 0 0 3px rgba(102, 126, 234, 0.1)';"
-                                       onblur="this.style.borderColor='#3e3e42';this.style.boxShadow='none';"
-                                       onkeypress="if(event.key==='Enter'){addConvertNewPrefixChaimae();event.preventDefault();}">
-                                <button type="button" onclick="addConvertNewPrefixChaimae()"
-                                        style="width:100%;margin-top:0.5rem;padding:0.65rem;background:linear-gradient(90deg, #667eea 0%, #764ba2 100%);color:#fff;border:none;border-radius:6px;cursor:pointer;font-size:0.9rem;font-weight:600;transition:all 0.3s;box-shadow:0 2px 8px rgba(102, 126, 234, 0.3);"
-                                        onmouseover="this.style.transform='translateY(-2px)';this.style.boxShadow='0 4px 12px rgba(102, 126, 234, 0.4)';"
-                                        onmouseout="this.style.transform='translateY(0)';this.style.boxShadow='0 2px 8px rgba(102, 126, 234, 0.3)';">
-                                    ➕ Ajouter le Prefix
-                                </button>
+                    <div style="display:flex;gap:0.5rem;align-items:flex-start;">
+                        <div style="position:relative;flex:0 0 auto;">
+                            <input type="text" id="convertPrefixInputChaimae" placeholder="MG" value="${window.selectedPrefix || 'MG'}"
+                                   style="width:80px;padding:1rem;background:#2d2d30;border:2px solid #3e3e42;border-radius:8px;color:#fff;font-size:1.1rem;outline:none;cursor:pointer;font-weight:600;"
+                                   readonly onclick="toggleConvertPrefixDropdownChaimae()">
+                            <div id="convertPrefixDropdownChaimae" style="display:none;position:absolute;top:100%;left:0;background:linear-gradient(135deg, #1e1e1e 0%, #2d2d30 100%);border:2px solid #667eea;border-radius:12px;margin-top:0.5rem;box-shadow:0 8px 24px rgba(102, 124, 232, 0.3), 0 0 0 1px rgba(102, 124, 232, 0.1);z-index:1000;min-width:200px;max-height:350px;overflow:hidden;">
+                                <div style="padding:0.75rem 1rem;background:linear-gradient(90deg, #667eea 0%, #764ba2 100%);border-bottom:2px solid rgba(102, 124, 232, 0.3);">
+                                    <h4 style="margin:0;color:#fff;font-size:0.95rem;font-weight:600;letter-spacing:0.5px;">📋 Choisir un Prefix</h4>
+                                </div>
+                                <div id="convertPrefixListChaimae" style="max-height:200px;overflow-y:auto;padding:0.5rem;"></div>
+                                <div style="padding:0.75rem;border-top:2px solid rgba(102, 124, 232, 0.2);background:rgba(0,0,0,0.2);">
+                                    <input type="text" id="convertNewPrefixInputChaimae" placeholder="Nouveau..."
+                                           style="width:100%;padding:0.65rem;background:#1e1e1e;border:2px solid #3e3e42;border-radius:6px;color:#fff;font-size:0.9rem;outline:none;"
+                                           onkeypress="if(event.key==='Enter'){addConvertNewPrefixChaimae();event.preventDefault();}">
+                                    <button type="button" onclick="addConvertNewPrefixChaimae()"
+                                            style="width:100%;margin-top:0.5rem;padding:0.65rem;background:linear-gradient(90deg, #667eea 0%, #764ba2 100%);color:#fff;border:none;border-radius:6px;cursor:pointer;font-size:0.9rem;font-weight:600;">
+                                        ➕ Ajouter
+                                    </button>
+                                </div>
                             </div>
                         </div>
+                        <div style="position:relative;flex:1;">
+                            <span style="position:absolute;left:12px;top:50%;transform:translateY(-50%);font-size:1.2rem;color:#ff9800;pointer-events:none;z-index:5;">🚛</span>
+                            <input type="text" id="convertInputChaimae1" placeholder="123/2025" value="${prefillNumero}"
+                                   style="width:100%;padding:1rem 1rem 1rem 45px;background:#2d2d30;border:2px solid #3e3e42;border-radius:8px;color:#fff;font-size:1.1rem;box-sizing:border-box;outline:none;transition:all 0.3s;"
+                                   onfocus="this.style.borderColor='#ff9800';this.style.background='#1e1e1e';"
+                                   onblur="this.style.borderColor='#3e3e42';this.style.background='#2d2d30';">
+                        </div>
                     </div>
-                    <input type="text" id="convertInputChaimae1" placeholder="123/2025" value="${prefillNumero}"
-                           style="flex:1;padding:1rem;background:#2d2d30;border:2px solid #3e3e42;border-radius:8px;color:#fff;font-size:1.1rem;box-sizing:border-box;outline:none;transition:all 0.3s;"
-                           onfocus="this.style.borderColor='#ff9800';this.style.background='#1e1e1e';"
-                           onblur="this.style.borderColor='#3e3e42';this.style.background='#2d2d30';">
-                </div>
                 <small style="color:#999;font-size:0.85rem;display:block;margin-top:0.5rem;">Ex: 123 → <span id="convertPrefixExampleChaimae">${window.selectedPrefix || 'MG'}</span>123/2025</small>
                 <div id="convertHighestNumberContainerChaimae" style="margin-top:0.5rem;color:#ff9800;font-size:0.85rem;font-weight:500;${highestNumber === 'Aucun' ? 'display:none;' : ''}">📌 Plus grand numéro actuel: <span id="convertHighestNumberChaimae">${highestNumber}</span></div>
             </div>
             <div style="margin-bottom:2rem;">
                 <label style="display:block;color:#9e9e9e;margin-bottom:0.75rem;font-weight:500;font-size:1rem;">N° Order (optionnel)</label>
-                <input type="text" id="convertInputChaimae2" placeholder="Exemple: 555" value="${prefillOrder}"
-                       style="width:100%;padding:1rem;background:#2d2d30;border:2px solid #3e3e42;border-radius:8px;color:#fff;font-size:1.1rem;box-sizing:border-box;outline:none;transition:all 0.3s;"
-                       onfocus="this.style.borderColor='#ff9800';this.style.background='#1e1e1e';"
-                       onblur="this.style.borderColor='#3e3e42';this.style.background='#2d2d30';">
+                <div style="position:relative;">
+                    <span style="position:absolute;left:12px;top:50%;transform:translateY(-50%);font-size:1.2rem;color:#ff9800;pointer-events:none;z-index:5;">📝</span>
+                    <input type="text" id="convertInputChaimae2" placeholder="Exemple: 555" value="${prefillOrder}"
+                           style="width:100%;padding:1rem 1rem 1rem 45px;background:#2d2d30;border:2px solid #3e3e42;border-radius:8px;color:#fff;font-size:1.1rem;box-sizing:border-box;outline:none;transition:all 0.3s;"
+                           onfocus="this.style.borderColor='#ff9800';this.style.background='#1e1e1e';"
+                           onblur="this.style.borderColor='#3e3e42';this.style.background='#2d2d30';">
+                </div>
+            </div>
+            
+            ` : ''}
+
+            <div style="margin-bottom:2rem;">
+                <label style="display:block;color:#2196F3;margin-bottom:0.75rem;font-weight:600;font-size:1.1rem;">Créé par</label>
+                <div style="position:relative;">
+                    <span style="position:absolute;left:12px;top:50%;transform:translateY(-50%);font-size:1.2rem;color:#2196F3;pointer-events:none;z-index:5;">👤</span>
+                    <input type="text" id="convertInputCreatedByChaimae" value="${JSON.parse(localStorage.getItem('user'))?.name || ''}" readonly
+                           style="width:100%;padding:1rem 1rem 1rem 45px;background:#2d2d30;border:2px solid #3e3e42;border-radius:8px;color:#999;font-size:1.1rem;box-sizing:border-box;outline:none;cursor:not-allowed;">
+                </div>
+            </div>
+
+            ${newType !== 'devis' ? `
+            <div style="margin-bottom:2rem;">
+                <label style="display:block;color:#2196F3;margin-bottom:0.75rem;font-weight:600;font-size:1.1rem;">Livré par <span style="color:#f44336">*</span></label>
+                <div style="position:relative;">
+                    <span style="position:absolute;left:12px;top:50%;transform:translateY(-50%);font-size:1.2rem;color:#ff9800;pointer-events:none;z-index:5;">🚚</span>
+                    <input type="text" id="convertInputDeliveredByChaimae" placeholder="Nom du livreur" list="convertDeliveryPersonsList"
+                           value="${prefillDeliveredBy}"
+                           style="width:100%;padding:1rem 1rem 1rem 45px;background:#2d2d30;border:2px solid #3e3e42;border-radius:8px;color:#fff;font-size:1.1rem;box-sizing:border-box;outline:none;transition:all 0.3s;"
+                           onfocus="this.style.borderColor='#2196F3';this.style.background='#1e1e1e';"
+                           onblur="this.style.borderColor='#3e3e42';this.style.background='#2d2d30';">
+                    <datalist id="convertDeliveryPersonsList"></datalist>
+                </div>
             </div>
             ` : ''}
-            
+
             <div style="display:flex;gap:1rem;margin-top:2rem;">
                 <button id="convertBtnCancelChaimae" style="flex:1;padding:1rem;background:#3e3e42;color:#fff;border:none;border-radius:8px;cursor:pointer;font-size:1.1rem;font-weight:600;transition:all 0.3s;"
                         onmouseover="this.style.background='#4e4e52';" onmouseout="this.style.background='#3e3e42';">
@@ -1265,10 +1564,18 @@ window.showConvertInputModalChaimae = function (newType, newTypeLabel, prefillNu
         const btnConfirm = document.getElementById('convertBtnConfirmChaimae');
         const btnCancel = document.getElementById('convertBtnCancelChaimae');
 
-        // Load prefixes if converting to bon_livraison
         if (newType === 'bon_livraison') {
             await loadConvertPrefixesChaimae();
             renderConvertPrefixListChaimae();
+        }
+
+        // Load delivery persons for datalist
+        const deliveryResult = await window.electron.dbChaimae.getDeliveryPersons('CHAIMAE');
+        if (deliveryResult.success && deliveryResult.data) {
+            const datalist = document.getElementById('convertDeliveryPersonsList');
+            if (datalist) {
+                datalist.innerHTML = deliveryResult.data.map(p => `<option value="${p}">`).join('');
+            }
         }
 
         setTimeout(() => input1?.focus(), 100);
@@ -1293,11 +1600,27 @@ window.showConvertInputModalChaimae = function (newType, newTypeLabel, prefillNu
 
             const numeroOrder = input2 ? input2.value.trim() : '';
             const bonLivraison = input3 ? input3.value.trim() : '';
-            const dateEl = document.getElementById('convertInputDateChaimae');
-            const newDate = dateEl ? dateEl.value : '';
+
+            const dateInput = document.getElementById('convertInputDateChaimae');
+            if (!dateInput) {
+                window.notify.error('Erreur', 'Champ date introuvable', 3000);
+                return;
+            }
+
+            const newDate = dateInput.value;
+
 
             if (!newDate) {
                 window.notify.error('Erreur', 'Veuillez saisir une date', 3000);
+                return;
+            }
+
+            const createdBy = document.getElementById('convertInputCreatedByChaimae')?.value || '';
+            const deliveredByInput = document.getElementById('convertInputDeliveredByChaimae');
+            const deliveredBy = deliveredByInput ? deliveredByInput.value.trim() : '';
+
+            if (newType !== 'devis' && !deliveredBy) {
+                window.notify.warning('Attention', 'Le champ "Livré par" est obligatoire', 3000);
                 return;
             }
 
@@ -1306,7 +1629,9 @@ window.showConvertInputModalChaimae = function (newType, newTypeLabel, prefillNu
                 newNumero,
                 numeroOrder: numeroOrder || null,
                 bonLivraison: bonLivraison || null,
-                newDate
+                newDate,
+                createdBy,
+                deliveredBy
             });
         };
 
@@ -1498,3 +1823,37 @@ window.initEditInvoiceChaimaePage = function () {
         loadInvoiceDataChaimae(parseInt(currentInvoiceIdChaimae));
     }, 100);
 };
+
+// Delivery Persons for Edit Chaimae
+let allDeliveryPersonsEditChaimae = [];
+
+// Load delivery persons from API
+async function loadDeliveryPersonsEditChaimae() {
+    console.log('🔄 Loading delivery persons for Chaimae edit...');
+    try {
+        const result = await window.electron.dbChaimae.getDeliveryPersons('CHAIMAE');
+        if (result && result.success && result.data) {
+            allDeliveryPersonsEditChaimae = result.data;
+            console.log('✅ Loaded delivery persons:', allDeliveryPersonsEditChaimae.length);
+            populateDeliveryPersonsDatalistEditChaimae();
+        }
+    } catch (error) {
+        console.error('❌ Error loading delivery persons:', error);
+    }
+}
+
+// Populate datalist with delivery persons
+function populateDeliveryPersonsDatalistEditChaimae() {
+    const datalist = document.getElementById('editDeliveryPersonsListChaimae');
+    if (!datalist) return;
+
+    datalist.innerHTML = allDeliveryPersonsEditChaimae.map(person =>
+        `<option value="${person}">`
+    ).join('');
+}
+
+// Search delivery persons (used for filtering if needed)
+window.searchDeliveryPersonsEditChaimae = function (query) {
+    // The datalist already handles filtering, this is a placeholder for future enhancements
+    console.log('🔍 Searching delivery persons:', query);
+}

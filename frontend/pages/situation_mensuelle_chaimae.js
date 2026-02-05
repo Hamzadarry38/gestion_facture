@@ -932,8 +932,8 @@ window.generateSituationMensuelle = async function (clientId, month, year, sortB
             if (inv.document_type === 'facture') {
                 typeLabel = 'FACTURE';
                 mainNumero = inv.document_numero || '-';
-                if (includeOrder && inv.document_numero_Order) {
-                    details.push('N° Order: ' + inv.document_numero_Order);
+                if (includeOrder && (inv.document_numero_Order || inv.document_numero_order)) {
+                    details.push('N° Order: ' + (inv.document_numero_Order || inv.document_numero_order));
                 }
                 if (includeBL && inv.document_bon_de_livraison) {
                     details.push('Bon de livraison: ' + inv.document_bon_de_livraison);
@@ -2004,7 +2004,8 @@ async function showAddManualInvoiceModalChaimae(existingInvoices = []) {
         }
 
         // Confirm deletion
-        if (!confirm(`Supprimer le prefix "${prefix}" ?`)) {
+        const confirmed = await customConfirm('Confirmation', `Supprimer le prefix "${prefix}" ?`, 'warning');
+        if (!confirmed) {
             return;
         }
 
@@ -2181,28 +2182,18 @@ async function showAddManualInvoiceModalChaimae(existingInvoices = []) {
     // Toggle optional field visibility
     window.toggleOptionalFieldManualChaimae = function (fieldName) {
         const checkbox = document.getElementById(`toggle${fieldName}ChaimaeManual`);
-        console.log('🔄 Toggle field:', fieldName, 'Checked:', checkbox?.checked);
+        if (!checkbox) return;
 
         // For BonCommande, use the container instead of direct input
         if (fieldName === 'BonCommande') {
             const container = document.getElementById('bonCommandeInputContainerChaimae');
             const input = document.getElementById(`manualInvoice${fieldName}Chaimae`);
-            console.log('📦 Container found:', !!container, 'Input found:', !!input);
 
-            if (checkbox && checkbox.checked) {
-                if (container) {
-                    container.style.display = 'block';
-                    console.log('✅ Container displayed');
-                }
-                if (input) {
-                    input.style.display = 'block';
-                    console.log('✅ Input displayed');
-                }
+            if (checkbox.checked) {
+                if (container) container.style.display = 'block';
+                if (input) input.style.display = 'block';
             } else {
-                if (container) {
-                    container.style.display = 'none';
-                    console.log('❌ Container hidden');
-                }
+                if (container) container.style.display = 'none';
                 if (input) {
                     input.style.display = 'none';
                     input.value = '';
@@ -2214,12 +2205,14 @@ async function showAddManualInvoiceModalChaimae(existingInvoices = []) {
             const hint = document.getElementById(`hint${fieldName}Chaimae`);
 
             if (checkbox.checked) {
-                input.style.display = 'block';
+                if (input) input.style.display = 'block';
                 if (hint) hint.style.display = 'block';
             } else {
-                input.style.display = 'none';
+                if (input) {
+                    input.style.display = 'none';
+                    input.value = '';
+                }
                 if (hint) hint.style.display = 'none';
-                input.value = '';
             }
         }
     };

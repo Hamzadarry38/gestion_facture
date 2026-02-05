@@ -713,8 +713,8 @@ async function generatePDFBlobMulti(invoice, includeOrder = true) {
             doc.text(`Numéro de facture : ${invoice.document_numero || '-'}`, 195, 26, { align: 'right' });
 
             // Add Order number on new line below invoice number if exists and includeOrder is true
-            if (includeOrder && invoice.document_numero_Order && invoice.document_numero_Order.trim() !== '') {
-                doc.text(`N° Order : ${invoice.document_numero_Order}`, 195, 31, { align: 'right' });
+            if (includeOrder && (invoice.document_numero_Order || invoice.document_numero_order) && (invoice.document_numero_Order || invoice.document_numero_order).trim() !== '') {
+                doc.text(`N° Order : ${invoice.document_numero_Order || invoice.document_numero_order}`, 195, 31, { align: 'right' });
                 doc.text(`Date de facture : ${dateStr}`, 195, 36, { align: 'right' });
             } else {
                 doc.text(`Date de facture : ${dateStr}`, 195, 31, { align: 'right' });

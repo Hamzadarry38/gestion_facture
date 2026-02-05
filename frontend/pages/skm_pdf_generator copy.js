@@ -17,7 +17,7 @@ window.downloadSKMDevisPDF = async function (invoiceId) {
 
         // Only allow for devis type
         if (invoice.document_type !== 'devis') {
-            alert('Cette fonction est disponible uniquement pour les devis');
+            await customAlert('Type incorrect', 'Cette fonction est disponible uniquement pour les devis', 'warning');
             return;
         }
 
@@ -193,7 +193,7 @@ async function showSimpleSKMModal(invoice) {
                 const customDevisNumber = devisInput.value.trim();
 
                 if (!customDevisNumber) {
-                    alert('Veuillez saisir un numéro de Devis');
+                    await customAlert('Champ requis', 'Veuillez saisir un numéro de Devis', 'warning');
                     return;
                 }
 
@@ -201,7 +201,7 @@ async function showSimpleSKMModal(invoice) {
                 const currentYear = new Date().getFullYear();
                 const existsResult = await window.electron.dbSkm.checkDevisExists(customDevisNumber, currentYear);
                 if (existsResult.success && existsResult.data) {
-                    alert('❌ Ce numéro de Devis a déjà été utilisé!\nVeuillez choisir un autre numéro.');
+                    await customAlert('Numéro utilisé', '❌ Ce numéro de Devis a déjà été utilisé!\nVeuillez choisir un autre numéro.', 'error');
                     devisInput.focus();
                     devisInput.style.borderColor = '#ff4444';
                     return;
@@ -219,7 +219,7 @@ async function showSimpleSKMModal(invoice) {
 
             } catch (error) {
                 console.error('Error in modal:', error);
-                alert('Erreur: ' + error.message);
+                await customAlert('Erreur', 'Erreur: ' + error.message, 'error');
             }
         };
 
@@ -732,23 +732,7 @@ async function loadSKMImage(imagePath) {
         img.src = imagePath;
     });
 }
-return new Promise((resolve) => {
-    const img = new Image();
-    img.onload = function () {
-        const canvas = document.createElement('canvas');
-        const ctx = canvas.getContext('2d');
-        canvas.width = img.width;
-        canvas.height = img.height;
-        ctx.drawImage(img, 0, 0);
-        resolve(canvas.toDataURL('image/png'));
-    };
-    img.onerror = function () {
-        console.warn(`Could not load SKM image: ${imagePath}`);
-        resolve(null);
-    };
-    img.src = imagePath;
-});
-}
+
 
 // Format number for PDF (reuse from main file)
 function formatNumberForPDF(number) {

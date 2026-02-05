@@ -851,8 +851,8 @@ window.generateSituationMensuelleMRY = async function (clientId, month, year, so
             if (inv.document_type === 'facture') {
                 typeLabel = 'FACTURE';
                 mainNumero = inv.document_numero || '-';
-                if (includeOrder && inv.document_numero_Order) {
-                    details.push('N° Order: ' + inv.document_numero_Order);
+                if (includeOrder && (inv.document_numero_Order || inv.document_numero_order)) {
+                    details.push('N° Order: ' + (inv.document_numero_Order || inv.document_numero_order));
                 }
                 if (includeBL && inv.document_bon_de_livraison) {
                     details.push('Bon de livraison: ' + inv.document_bon_de_livraison);

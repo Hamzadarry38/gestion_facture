@@ -116,10 +116,10 @@ function loadDataListMulti() {
     // Here you can add logic to fetch data from database
     // For now, it will show "No data available"
     console.log('Loading data list for Multi Company...');
-    
+
     // Example data structure (you can replace this with actual database calls)
     const sampleData = [];
-    
+
     updateDataTableMulti(sampleData);
     updateStatsMulti(sampleData);
 }
@@ -127,7 +127,7 @@ function loadDataListMulti() {
 // Update the data table
 function updateDataTableMulti(data) {
     const tableBody = document.getElementById('dataTableBody');
-    
+
     if (!data || data.length === 0) {
         tableBody.innerHTML = `
             <tr>
@@ -140,7 +140,7 @@ function updateDataTableMulti(data) {
         `;
         return;
     }
-    
+
     tableBody.innerHTML = data.map((item, index) => `
         <tr>
             <td>${index + 1}</td>
@@ -198,10 +198,11 @@ async function deleteDataMulti(id) {
             loadDataListMulti();
         }
     } else {
-        if (confirm('Êtes-vous sûr de vouloir supprimer cette donnée?')) {
+        const confirmed = await customConfirm('Confirmation', 'Êtes-vous sûr de vouloir supprimer cette donnée?', 'warning');
+        if (confirmed) {
             console.log('Deleting data:', id);
             // Add your delete logic here
-            alert('Donnée supprimée avec succès!');
+            await customAlert('Succès', 'Donnée supprimée avec succès!', 'success');
             loadDataListMulti();
         }
     }

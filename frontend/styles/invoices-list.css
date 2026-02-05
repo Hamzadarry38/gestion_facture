@@ -234,6 +234,14 @@
     background: #1e1e1e;
 }
 
+.row-converted {
+    background-color: rgba(255, 152, 0, 0.1) !important;
+}
+
+.row-converted:hover {
+    background-color: rgba(255, 152, 0, 0.2) !important;
+}
+
 .invoices-table td {
     padding: 0.875rem 1rem;
     color: #cccccc;

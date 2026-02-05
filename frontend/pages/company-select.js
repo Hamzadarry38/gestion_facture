@@ -80,6 +80,10 @@ function CompanySelectPage() {
                             </svg>
                             <span>Importer MULTI</span>
                         </button>
+                        <button id="migrateToPostgresBtn" style="background: #9c27b0; color: white; padding: 0.75rem 1.5rem; border: none; border-radius: 8px; cursor: pointer; font-weight: 600; display: flex; align-items: center; gap: 0.5rem; width: 100%; justify-content: center;">
+                            <span class="icon">🚀</span>
+                            <span>Migrer vers PostgreSQL (Online Mode)</span>
+                        </button>
                     </div>
                 </div>
 
@@ -108,6 +112,10 @@ function CompanySelectPage() {
 
                 <div class="window-footer">
                     <div class="footer-buttons-group">
+                        <button class="footer-btn" id="manageUsersBtn" style="display: none;">
+                            <span class="icon">👥</span>
+                            <span>Gérer les utilisateurs</span>
+                        </button>
                         <button class="footer-btn" id="changePasswordBtn">
                             <span class="icon">🔐</span>
                             <span>Change Password</span>
@@ -152,6 +160,57 @@ function CompanySelectPage() {
                         </div>
                     </div>
                 </div>
+
+                <!-- Manage Users Modal -->
+                <div id="manageUsersModal" class="modal" style="display: none;">
+                    <div class="modal-content" style="max-width: 800px;">
+                        <div class="modal-header">
+                            <h2>User Management</h2>
+                            <button class="modal-close" onclick="document.getElementById('manageUsersModal').style.display = 'none';">&times;</button>
+                        </div>
+                        <div class="modal-body" style="padding: 1.5rem;">
+                            <div style="display: flex; justify-content: flex-end; margin-bottom: 1.5rem;">
+                                <button class="btn btn-primary" onclick="router.navigate('/register')" style="background: #4caf50; border: none; padding: 0.6rem 1.2rem; border-radius: 6px; color: white; cursor: pointer; font-weight: 600; display: flex; align-items: center; gap: 0.5rem;">
+                                    <span>➕ Add New User</span>
+                                </button>
+                            </div>
+                            <div id="adminUsersList" style="background: #1e1e1e; border-radius: 8px; border: 1px solid #333; overflow: hidden;">
+                                <div style="padding: 2rem; text-align: center; color: #999;">Chargement des utilisateurs...</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Postgres Migration Modal -->
+                <div id="pgMigrationModal" class="modal" style="display: none;">
+                    <div class="modal-content">
+                        <div class="modal-header">
+                            <h2>Migration PostgreSQL</h2>
+                            <button class="modal-close" onclick="document.getElementById('pgMigrationModal').style.display = 'none';">&times;</button>
+                        </div>
+                        <div class="modal-body">
+                            <p style="margin-bottom: 1rem; color: #ccc;">Veuillez entrer votre mot de passe PostgreSQL pour commencer le transfert des données.</p>
+                            <div class="form-group">
+                                <label for="pgPass">Mot de passe Postgres</label>
+                                <input type="password" id="pgPass" placeholder="Ex: 123456" style="width: 100%; padding: 0.75rem; border-radius: 4px; background: #333; border: 1px solid #444; color: white;">
+                            </div>
+                            <div class="form-group" style="margin-top: 1.5rem; display: flex; gap: 1rem;">
+                                <button id="confirmMigrateBtn" class="btn btn-primary" style="flex: 1;">Démarrer la Migration</button>
+                                <button type="button" class="btn btn-secondary" onclick="document.getElementById('pgMigrationModal').style.display = 'none';" style="flex: 1;">Annuler</button>
+                            </div>
+                            <div style="margin-top: 2rem; padding-top: 1.5rem; border-top: 1px solid #333;">
+                                <h4 style="margin-bottom: 1rem; color: #888; font-size: 0.85rem; text-transform: uppercase;">Transfert Complet (Nouveau PC)</h4>
+                                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+                                    <button id="exportEverythingBtn" class="btn btn-primary" style="background: #007acc; border: none; padding: 0.5rem; font-size: 0.85rem;">📦 Exporter Pack</button>
+                                    <button id="importEverythingBtn" class="btn btn-primary" style="background: #d32f2f; border: none; padding: 0.5rem; font-size: 0.85rem;">📥 Importer Pack</button>
+                                </div>
+                                <p style="margin-top: 0.8rem; font-size: 0.75rem; color: #666; font-style: italic;">
+                                    * Le pack inclut toutes les bases, PDFs et pièces jointes.
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
             </div>
         </div>
     `;
@@ -164,6 +223,16 @@ function initCompanySelectPage() {
     const welcomeElement = document.getElementById('welcomeUserName');
     if (welcomeElement) {
         welcomeElement.textContent = `Welcome, ${userName}`;
+    }
+
+    // Show Manage Users button if admin
+    const manageUsersBtn = document.getElementById('manageUsersBtn');
+
+    // Check permission (either superuser email OR can_auto_validate permission)
+    const canManageUsers = (user.email === 'redouanerrebbahi99@gmail.com' || user.can_auto_validate === true);
+
+    if (canManageUsers) {
+        if (manageUsersBtn) manageUsersBtn.style.display = 'flex';
     }
 }
 
@@ -230,6 +299,16 @@ if (!window.companySelectInitialized) {
             if (modal) {
                 modal.style.display = 'flex';
                 console.log('🔐 [Company Select] Modal opened');
+            }
+        }
+
+        if (e.target.closest('#manageUsersBtn')) {
+            console.log('👥 [Company Select] Manage users button clicked');
+            e.preventDefault();
+            const modal = document.getElementById('manageUsersModal');
+            if (modal) {
+                modal.style.display = 'flex';
+                loadAdminUsersList();
             }
         }
     }, true);
@@ -325,4 +404,187 @@ if (!window.companySelectInitialized) {
     // Store handler reference and add new one
     window.companySelectPasswordHandler = handlePasswordFormSubmit;
     document.addEventListener('submit', window.companySelectPasswordHandler, true);
+
+    // Handle Migrate to Postgres button click
+    document.addEventListener('click', async function (e) {
+        if (e.target.closest('#migrateToPostgresBtn')) {
+            const modal = document.getElementById('pgMigrationModal');
+            if (modal) {
+                modal.style.display = 'flex';
+                document.getElementById('pgPass').focus();
+            }
+        }
+
+        if (e.target.id === 'confirmMigrateBtn') {
+            const btn = document.getElementById('migrateToPostgresBtn');
+            const password = document.getElementById('pgPass').value;
+
+            if (!password) {
+                await customAlert("Erreur", "Veuillez entrer le mot de passe.", "error");
+                return;
+            }
+
+            document.getElementById('pgMigrationModal').style.display = 'none';
+            btn.disabled = true;
+            btn.innerHTML = `<span class="icon">⌛</span> <span>Migration en cours...</span>`;
+
+            try {
+                const pgConfig = {
+                    user: 'postgres',
+                    host: 'localhost',
+                    database: 'facture_db',
+                    password: password,
+                    port: 5432
+                };
+
+                const result = await window.electron.db.migrateToPostgres(pgConfig);
+
+                if (result.success) {
+                    const totalInvoices = result.results.reduce((acc, r) => acc + (r.count || 0), 0);
+                    await customAlert("Succès", `✅ Migration terminée avec succès!\n\n${result.results.map(r => `- ${r.name}: ${r.count || 0} factures`).join('\n')}\n\nTotal: ${totalInvoices} factures transférées.`, "success");
+                    window.showPasswordNotification('success', 'Migration réussie!');
+                } else {
+                    await customAlert("Erreur", `❌ Échec de la migration: ${result.error}`, "error");
+                    window.showPasswordNotification('error', 'Échec de la migration');
+                }
+            } catch (error) {
+                console.error('Migration UI Error:', error);
+                await customAlert("Erreur", "❌ Une erreur est survenue lors de la migration.", "error");
+            } finally {
+                btn.disabled = false;
+                btn.innerHTML = `<span class="icon">🚀</span> <span>Migrer vers PostgreSQL (Online Mode)</span>`;
+                document.getElementById('pgPass').value = '';
+            }
+        }
+    }, true);
 }
+
+// Load users list for admin management
+async function loadAdminUsersList() {
+    const listContainer = document.getElementById('adminUsersList');
+    if (!listContainer) return;
+
+    try {
+        const result = await window.electron.users.getAll();
+        if (result.success && result.users) {
+            if (result.users.length === 0) {
+                listContainer.innerHTML = '<div style="padding: 2rem; text-align: center; color: #999;">Aucun utilisateur trouvé</div>';
+                return;
+            }
+
+            listContainer.innerHTML = `
+                <table style="width: 100%; border-collapse: collapse; color: #ccc; font-size: 0.9rem;">
+                    <thead>
+                        <tr style="background: #2d2d30; border-bottom: 1px solid #333;">
+                            <th style="padding: 1rem; text-align: left;">Nom</th>
+                            <th style="padding: 1rem; text-align: left;">Email</th>
+                            <th style="padding: 1rem; text-align: center;">Validation Automatique</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${result.users.map(user => `
+                            <tr style="border-bottom: 1px solid #2d2d30; transition: background 0.2s;" onmouseover="this.style.background='#252526'" onmouseout="this.style.background='transparent'">
+                                <td style="padding: 1rem; font-weight: 600;">${user.name}</td>
+                                <td style="padding: 1rem; color: #999;">${user.email}</td>
+                                <td style="padding: 1rem; text-align: center;">
+                                    <label class="switch" style="position: relative; display: inline-block; width: 44px; height: 24px; ${user.email === 'redouanerrebbahi99@gmail.com' ? 'opacity: 0.8; cursor: not-allowed;' : ''}">
+                                        <input type="checkbox" 
+                                            class="permission-toggle"
+                                            ${user.can_auto_validate || user.email === 'redouanerrebbahi99@gmail.com' ? 'checked' : ''} 
+                                            ${user.email === 'redouanerrebbahi99@gmail.com' ? 'disabled' : ''}
+                                            onchange="if('${user.email}' !== 'redouanerrebbahi99@gmail.com') updateUserPermission(${user.id}, 'can_auto_validate', this.checked)"
+                                            style="opacity: 0; width: 0; height: 0; position: absolute;">
+                                        <span class="slider round" style="position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: #444; transition: .4s; border-radius: 24px;"></span>
+                                        <style>
+                                            .permission-toggle:checked + .slider { background-color: #4caf50 !important; }
+                                            .permission-toggle:disabled + .slider { background-color: #4caf50 !important; cursor: not-allowed; }
+                                            .permission-toggle:focus + .slider { box-shadow: 0 0 1px #4caf50; }
+                                            .permission-toggle:checked + .slider:before { transform: translateX(20px); }
+                                            .slider:before { position: absolute; content: ""; height: 18px; width: 18px; left: 3px; bottom: 3px; background-color: white; transition: .4s; border-radius: 50%; }
+                                        </style>
+                                    </label>
+                                </td>
+                            </tr>
+                        `).join('')}
+                    </tbody>
+                </table>
+            `;
+        } else {
+            listContainer.innerHTML = `<div style="padding: 2rem; text-align: center; color: #f44336;">Erreur: ${result.error}</div>`;
+        }
+    } catch (error) {
+        console.error('Error loading admin users list:', error);
+        listContainer.innerHTML = '<div style="padding: 2rem; text-align: center; color: #f44336;">Erreur lors du chargement des utilisateurs</div>';
+    }
+}
+
+// Update user permission
+async function updateUserPermission(userId, permission, value) {
+    try {
+        console.log(`🔄 Updating permission ${permission} for user ${userId} to ${value}`);
+        const result = await window.electron.users.updatePermission(userId, permission, value);
+
+        if (result.success) {
+            window.showPasswordNotification('success', 'Permission mise à jour');
+        } else {
+            window.showPasswordNotification('error', 'Erreur lors de la mise à jour');
+            // Revert toggle if failed (optional, but good UX)
+            loadAdminUsersList();
+        }
+    } catch (error) {
+        console.error('Error updating permission:', error);
+        window.showPasswordNotification('error', 'Erreur serveur');
+    }
+}
+
+// Global Sync Listeners
+document.addEventListener('click', async (e) => {
+    if (e.target.id === 'exportEverythingBtn') {
+        try {
+            const btn = e.target;
+            const originalText = btn.innerHTML;
+            btn.disabled = true;
+            btn.innerHTML = `⌛ Exportation...`;
+
+            const result = await window.electron.pdf.exportEverything();
+            if (result.success) {
+                await customAlert("Succès", `✅ Pack complet exporté avec succès!\n\nEmplacement: ${result.path}`, "success");
+            } else if (!result.canceled) {
+                await customAlert("Erreur", `❌ Échec de l'exportation: ${result.error}`, "error");
+            }
+        } catch (err) {
+            console.error('Export Everything Error:', err);
+            await customAlert("Erreur", "❌ Une erreur est survenue.", "error");
+        } finally {
+            const btn = document.getElementById('exportEverythingBtn');
+            if (btn) {
+                btn.disabled = false;
+                btn.innerHTML = `📦 Exporter Pack`;
+            }
+        }
+    }
+
+    if (e.target.id === 'importEverythingBtn') {
+        const confirmed = await customConfirm(
+            "Restauration Complète",
+            "⚠️ ATTENTION: L'importation d'un pack complet remplacera TOUTES vos données actuelles et redémarrera l'application.\n\nVoulez-vous continuer ?",
+            "warning"
+        );
+
+        if (confirmed) {
+            try {
+                const result = await window.electron.pdf.importEverything();
+                if (result && !result.success && !result.canceled) {
+                    await customAlert("Erreur", `❌ Échec de l'importation: ${result.error}`, "error");
+                }
+            } catch (err) {
+                console.error('Import Everything Error:', err);
+                await customAlert("Erreur", "❌ Une erreur est survenue.", "error");
+            }
+        }
+    }
+});
+
+// Export for global access
+window.loadAdminUsersList = loadAdminUsersList;
+window.updateUserPermission = updateUserPermission;

@@ -536,7 +536,9 @@ function addHeaderToPDFAnnuelleMulti(doc, client, dateRangeStr, redColor, blueCo
 
     doc.setTextColor(...redColor);
     doc.setFontSize(13);
-    doc.text(` ${dateRangeStr}`, 105, 77, { align: 'center' });
+    const splitTitle = doc.splitTextToSize(dateRangeStr, 170);
+    doc.text(splitTitle, 105, 77, { align: 'center' });
+    return splitTitle.length;
 }
 // ==========================================
 // PART 2: Global Clients Annual Report (New Logic)
@@ -604,7 +606,7 @@ window.showSituationAnnuelleClientsModalMulti = async function () {
                 </div>
             </div>
             
-            <div style="display:flex;gap:1.5rem;margin-bottom:1.5rem;">
+            <div style="display:flex;gap:1.5rem;margin-bottom:1.25rem;">
                 <div style="flex:1;">
                     <label style="display:block;color:#ef5350;margin-bottom:0.5rem;font-weight:600;font-size:0.9rem;text-transform:uppercase;letter-spacing:0.5px;">Année</label>
                     <select id="situationAnnuelleMultiYearMulti" style="width:100%;padding:0.75rem 1rem;background:#2d2d30;border:1px solid #3e3e42;border-radius:10px;color:#fff;font-size:0.95rem;outline:none;cursor:pointer;transition:all 0.2s;" onfocus="this.style.borderColor='#ef5350';this.style.boxShadow='0 0 0 3px rgba(239, 83, 80, 0.1)'" onblur="this.style.borderColor='#3e3e42';this.style.boxShadow='none'">
@@ -612,7 +614,7 @@ window.showSituationAnnuelleClientsModalMulti = async function () {
                     </select>
                 </div>
                 
-                <div style="flex:1;">
+                <div style="flex:1.2;">
                     <label style="display:block;color:#ef5350;margin-bottom:0.5rem;font-weight:600;font-size:0.9rem;text-transform:uppercase;letter-spacing:0.5px;">Types de documents</label>
                     <div style="display:flex;gap:1rem;padding:0.55rem 0;">
                         <label style="display:flex;align-items:center;color:#fff;cursor:pointer;font-size:0.95rem;">
@@ -624,6 +626,24 @@ window.showSituationAnnuelleClientsModalMulti = async function () {
                             Devis
                         </label>
                     </div>
+                </div>
+            </div>
+
+            <div style="margin-bottom:1.5rem;">
+                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:0.75rem;">
+                    <label style="color:#ef5350;font-weight:600;font-size:0.9rem;text-transform:uppercase;letter-spacing:0.5px;">Mois à inclure</label>
+                    <div>
+                        <button type="button" onclick="toggleAllMonthsMultiGlobal(true)" style="background:none;border:none;color:#ef5350;cursor:pointer;font-size:0.85rem;margin-right:0.5rem;text-decoration:underline;">Tout sélectionner</button>
+                        <button type="button" onclick="toggleAllMonthsMultiGlobal(false)" style="background:none;border:none;color:#999;cursor:pointer;font-size:0.85rem;text-decoration:underline;">Tout désélectionner</button>
+                    </div>
+                </div>
+                <div style="display:grid;grid-template-columns:repeat(4, 1fr);gap:0.75rem;">
+                    ${['Janv', 'Févr', 'Mars', 'Avril', 'Mai', 'Juin', 'Juil', 'Août', 'Sept', 'Oct', 'Nov', 'Déc'].map((m, i) => `
+                        <label style="display:flex;align-items:center;background:#2d2d30;padding:0.6rem;border-radius:8px;border:1px solid #3e3e42;cursor:pointer;transition:all 0.2s;" onmouseover="this.style.borderColor='#ef5350'" onmouseout="this.style.borderColor='#3e3e42'">
+                            <input type="checkbox" class="month-checkbox-multi-global" value="${i + 1}" checked style="margin-right:0.5rem;accent-color:#ef5350;">
+                            <span style="color:#fff;font-size:0.85rem;">${m}</span>
+                        </label>
+                    `).join('')}
                 </div>
             </div>
             
@@ -686,6 +706,7 @@ window.showSituationAnnuelleClientsModalMulti = async function () {
 
         document.getElementById('situationAnnuelleMultiGenerateMulti').onclick = async () => {
             const selectedClientIds = Array.from(document.querySelectorAll('.client-checkbox-multi:checked')).map(cb => cb.value);
+            const selectedMonths = Array.from(document.querySelectorAll('.month-checkbox-multi-global:checked')).map(cb => parseInt(cb.value));
             const year = parseInt(document.getElementById('situationAnnuelleMultiYearMulti').value);
             const includeFacture = document.getElementById('situationAnnuelleMultiTypeFactureMulti').checked;
             const includeDevis = document.getElementById('situationAnnuelleMultiTypeDevisMulti').checked;
@@ -700,8 +721,13 @@ window.showSituationAnnuelleClientsModalMulti = async function () {
                 return;
             }
 
+            if (selectedMonths.length === 0) {
+                window.notify.error('Erreur', 'Veuillez sélectionner au moins un mois', 3000);
+                return;
+            }
+
             overlay.remove();
-            await generateSituationAnnuelleClientsMulti(selectedClientIds, year, includeFacture, includeDevis);
+            await generateSituationAnnuelleClientsMulti(selectedClientIds, year, selectedMonths, includeFacture, includeDevis);
         };
 
         // Prevent closing on overlay click
@@ -716,7 +742,7 @@ window.showSituationAnnuelleClientsModalMulti = async function () {
 };
 
 // Generate SITUATION PDF for Multiple Clients (Multi) - Client-based aggregation
-window.generateSituationAnnuelleClientsMulti = async function (clientIds, year, includeFacture, includeDevis) {
+window.generateSituationAnnuelleClientsMulti = async function (clientIds, year, selectedMonths, includeFacture, includeDevis) {
     try {
         window.notify.info('Info', 'Génération du rapport global en cours...', 2000);
 
@@ -731,10 +757,13 @@ window.generateSituationAnnuelleClientsMulti = async function (clientIds, year, 
         const clientsResult = await window.electron.dbMulti.getAllClients();
         const allClients = clientsResult.success ? clientsResult.data : [];
 
-        // Filter invoices for the selected year and SELECTED CLIENTS
+        // Filter invoices for the selected year and SELECTED CLIENTS and MONTHS
         const yearInvoices = invoicesResult.data.filter(inv => {
             const invDate = new Date(inv.document_date);
-            return clientIds.includes(String(inv.client_id)) && invDate.getFullYear() === year;
+            const month = invDate.getMonth() + 1;
+            return clientIds.includes(String(inv.client_id)) &&
+                invDate.getFullYear() === year &&
+                selectedMonths.includes(month);
         });
 
         if (yearInvoices.length === 0) {
@@ -817,7 +846,32 @@ window.generateSituationAnnuelleClientsMulti = async function (clientIds, year, 
         const blueColor = [21, 101, 192];  // #1565c0
 
         // Generate Title String
-        const dateRangeStr = `ANNÉE ${year}`;
+        const monthNamesUpper = ['', 'JANVIER', 'FÉVRIER', 'MARS', 'AVRIL', 'MAI', 'JUIN', 'JUILLET', 'AOÛT', 'SEPTEMBRE', 'OCTOBRE', 'NOVEMBRE', 'DÉCEMBRE'];
+        let dateRangeStr = `ANNÉE ${year}`;
+
+        if (selectedMonths.length > 0 && selectedMonths.length < 12) {
+            const sorted = [...selectedMonths].sort((a, b) => a - b);
+            let isContiguous = true;
+            for (let i = 0; i < sorted.length - 1; i++) {
+                if (sorted[i + 1] !== sorted[i] + 1) {
+                    isContiguous = false;
+                    break;
+                }
+            }
+
+            if (isContiguous) {
+                if (sorted.length === 1) {
+                    dateRangeStr = `${monthNamesUpper[sorted[0]]} ${year}`;
+                } else {
+                    const startMonthName = monthNamesUpper[sorted[0]];
+                    const endMonthName = monthNamesUpper[sorted[sorted.length - 1]];
+                    const prefix = ['AVRIL', 'AOÛT', 'OCTOBRE'].includes(startMonthName) ? "D'" : "DE ";
+                    dateRangeStr = `${prefix}${startMonthName} À ${endMonthName} ${year}`;
+                }
+            } else {
+                dateRangeStr = sorted.map(m => monthNamesUpper[m]).join(', ') + ` ${year}`;
+            }
+        }
 
         // Helper to add header (multi-client)
         const addGlobalHeaderMulti = async (doc, clientNames, dateRangeStr) => {
@@ -864,7 +918,9 @@ window.generateSituationAnnuelleClientsMulti = async function (clientIds, year, 
 
             doc.setTextColor(...redColor);
             doc.setFontSize(13);
-            doc.text(` ${dateRangeStr}`, 105, 77, { align: 'center' });
+            const splitTitle = doc.splitTextToSize(dateRangeStr, 170);
+            doc.text(splitTitle, 105, 77, { align: 'center' });
+            return splitTitle.length;
         };
 
         const clientLabel = clientIds.length === 1 ? 'UN SEUL CLIENT' : `MULTI-CLIENTS (${clientIds.length})`;
@@ -906,25 +962,26 @@ window.generateSituationAnnuelleClientsMulti = async function (clientIds, year, 
         doc.setFont(undefined, 'normal');
         let currentY = startY + 10;
 
-        clientsData.forEach((row, index) => {
+        for (const [index, row] of clientsData.entries()) {
             // Check if we need a new page
             if (currentY > 250) {
                 doc.addPage();
-                addGlobalHeaderMulti(doc, clientLabel, dateRangeStr);
+                const lines = await addGlobalHeaderMulti(doc, clientLabel, dateRangeStr);
+                const tableStartY = 85 + (lines > 1 ? (lines - 1) * 7 : 0);
 
                 // Re-draw table header
                 doc.setFillColor(...redColor);
-                doc.rect(14, 85, 182, 10, 'F');
+                doc.rect(14, tableStartY, 182, 10, 'F');
                 doc.setTextColor(255, 255, 255);
                 doc.setFontSize(9);
                 doc.setFont(undefined, 'bold');
-                doc.text('CLIENT', 20, 85 + 6.5);
+                doc.text('CLIENT', 20, tableStartY + 6.5);
                 activeColumns.forEach(col => {
-                    doc.text(col.label, col.x, 85 + 6.5, { align: 'center' });
+                    doc.text(col.label, col.x, tableStartY + 6.5, { align: 'center' });
                 });
-                doc.text('TOTAL H.T', 160, 85 + 6.5, { align: 'right' });
-                doc.text('TOTAL T.T.C', 190, 85 + 6.5, { align: 'right' });
-                currentY = 100;
+                doc.text('TOTAL H.T', 160, tableStartY + 6.5, { align: 'right' });
+                doc.text('TOTAL T.T.C', 190, tableStartY + 6.5, { align: 'right' });
+                currentY = tableStartY + 10;
             }
 
             // Alternating row background
@@ -944,7 +1001,7 @@ window.generateSituationAnnuelleClientsMulti = async function (clientIds, year, 
             doc.text(formatAmountMulti(row.totalTTC), 190, currentY + 5.5, { align: 'right' });
 
             currentY += 8;
-        });
+        }
 
         // Totals Footer
         currentY += 10;

@@ -109,6 +109,10 @@ async function initDatabase() {
                 db.run(`ALTER TABLE invoices ADD COLUMN updated_by_user_email TEXT`);
                 columnsAdded.push('updated_by_user_email');
             }
+            if (!columns.includes('creation_method')) {
+                db.run(`ALTER TABLE invoices ADD COLUMN creation_method TEXT DEFAULT 'normal'`);
+                columnsAdded.push('creation_method');
+            }
 
             if (columnsAdded.length > 0) {
                 console.log('✅ [MULTI] Added user tracking columns:', columnsAdded);
@@ -379,8 +383,9 @@ const invoiceOps = {
                 document_numero_devis, document_order_devis, document_bon_de_livraison,
                 document_numero_commande, year, sequential_id,
                 total_ht, tva_rate, montant_tva, total_ttc,
-                created_by_user_id, created_by_user_name, created_by_user_email
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                created_by_user_id, created_by_user_name, created_by_user_email,
+                creation_method
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         `, [
             invoiceData.company_code,
             client.id,
@@ -401,7 +406,8 @@ const invoiceOps = {
             invoiceData.totals.total_ttc,
             invoiceData.document.created_by_user_id || null,
             invoiceData.document.created_by_user_name || null,
-            invoiceData.document.created_by_user_email || null
+            invoiceData.document.created_by_user_email || null,
+            invoiceData.document.creation_method || 'normal'
         ]);
 
         // Get invoice ID
@@ -466,6 +472,7 @@ const invoiceOps = {
             updated_by_user_id: row[23],
             updated_by_user_name: row[24],
             updated_by_user_email: row[25],
+            creation_method: row[row.length - 2] || 'normal', // Handle potential index shifts if columns added
             client_nom: row[26],
             client_ice: row[27]
         };
@@ -561,6 +568,7 @@ const invoiceOps = {
                 client_nom: row[26],
                 client_ice: row[27],
                 attachment_count: row[row.length - 1] || 0,
+                creation_method: row[row.length - 2] || 'normal',
                 products: products
             };
         });
@@ -612,6 +620,7 @@ const invoiceOps = {
                 tva_rate = ?,
                 montant_tva = ?,
                 total_ttc = ?,
+                creation_method = COALESCE(?, creation_method),
                 updated_at = datetime('now')
             WHERE id = ?
         `, [
@@ -625,6 +634,7 @@ const invoiceOps = {
             invoiceData.totals.tva_rate,
             invoiceData.totals.montant_tva,
             invoiceData.totals.total_ttc,
+            invoiceData.document.creation_method || null,
             id
         ]);
 

@@ -321,6 +321,16 @@ async function generateBenAliPDF(invoiceId, sourceDb) {
 
         if (saveResult.success) {
             console.log(`✅ BEN ALI PDF saved to disk (${saveFolder}):`, saveResult.filePath);
+
+            // Record PDF path in database for metadata tracking
+            try {
+                const currentYear = new Date().getFullYear();
+                await window.electron.dbBenAli.savePdfPath(invoiceNumber, currentYear, saveResult.filePath, createdBy);
+                console.log('✅ BEN ALI PDF metadata synced to PostgreSQL');
+            } catch (dbErr) {
+                console.error('⚠️ Failed to sync BEN ALI PDF metadata to PostgreSQL:', dbErr);
+            }
+
             // Also download in browser
             doc.save(fileName);
             window.notify.success('Succès', `PDF BEN ALI généré et sauvegardé: ${fileName}`, 3000);

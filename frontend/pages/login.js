@@ -45,12 +45,6 @@ function LoginPage() {
                             <div id="usersList" class="users-grid">
                                 <!-- Users will be loaded here -->
                             </div>
-                            <div class="add-account-section">
-                                <a href="#" onclick="router.navigate('/register'); return false;" class="add-account-btn">
-                                    <span class="add-icon">➕</span>
-                                    <span class="add-text">Add New Account</span>
-                                </a>
-                            </div>
                         </div>
 
                         <!-- Password Screen -->
@@ -90,10 +84,10 @@ let selectedUser = null;
 // Initialize login page
 async function initializeLoginPage() {
     const usersList = document.getElementById('usersList');
-    
+
     try {
         const result = await window.electron.users.getAll();
-        
+
         if (result.success && result.users && result.users.length > 0) {
             // Display users
             usersList.innerHTML = result.users.map(user => `
@@ -120,17 +114,17 @@ async function initializeLoginPage() {
 // Select user and show password form
 function selectUser(userId, userName, userEmail) {
     selectedUser = { id: userId, name: userName, email: userEmail };
-    
+
     // Hide users list, show password form
     document.getElementById('usersListScreen').style.display = 'none';
     document.getElementById('passwordForm').style.display = 'block';
     document.getElementById('formTitle').textContent = 'Sign In';
-    
+
     // Update selected user display
     const avatar = document.getElementById('selectedUserAvatar');
     avatar.textContent = userName.charAt(0).toUpperCase();
     avatar.style.display = 'flex';
-    
+
     document.getElementById('selectedUserName').textContent = userName;
     document.getElementById('password').value = '';
     document.getElementById('password').focus();
@@ -149,12 +143,12 @@ function goBackToUsersList() {
 document.addEventListener('submit', async (e) => {
     if (e.target.id === 'passwordForm') {
         e.preventDefault();
-        
+
         if (!selectedUser) {
             showError('Please select a user first');
             return;
         }
-        
+
         const password = document.getElementById('password').value;
 
         if (!password) {
@@ -164,16 +158,16 @@ document.addEventListener('submit', async (e) => {
 
         try {
             const result = await window.electron.users.login(selectedUser.email, password);
-            
+
             if (result.success) {
                 // Save user data
-                localStorage.setItem('user', JSON.stringify({ 
+                localStorage.setItem('user', JSON.stringify({
                     id: result.user.id,
                     name: result.user.name,
                     email: result.user.email
                 }));
                 localStorage.setItem('isAuthenticated', 'true');
-                
+
                 // Navigate to company selection
                 router.navigate('/company-select');
             } else {
@@ -210,7 +204,7 @@ function showError(message) {
             <span class="error-message">${message}</span>
         </div>
     `;
-    
+
     document.body.appendChild(errorDiv);
 
     // Auto remove after 3 seconds

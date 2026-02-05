@@ -1,35 +1,41 @@
 const { ipcMain } = require('electron');
-const { initDatabase, clientOps, invoiceOps, attachmentOps, mryOrderPrefixOps, auditLogOps, getMissingMRYInvoiceNumbers, getMissingMRYDevisNumbers } = require('./db');
+const { initDatabase, clientOps, invoiceOps, attachmentOps, mryOrderPrefixOps, getMissingMRYInvoiceNumbers, getMissingMRYDevisNumbers } = require('./db');
+const apiClient = require('./api-client');
 
-// Register all IPC handlers
+// Register all IPC handlers for MRY
 async function registerDatabaseHandlers() {
-    // Initialize database first
+    // Initialize database first - REQUIRED for legacy features (Notes, Audit Logs etc.)
     await initDatabase();
+    console.log('🔌 Registering MRY handlers with API Backend (Postgres) + SQLite Fallback');
+
     // Client handlers
     ipcMain.handle('db:clients:search', async (event, query) => {
         try {
-            return { success: true, data: clientOps.search(query) };
+            // Standard approach: Get all for MRY and filter
+            const result = await apiClient.getClients('MRY');
+            if (!result.success) throw new Error(result.error);
+            const clients = result.data.filter(c => c.nom.toLowerCase().includes(query.toLowerCase()));
+            return { success: true, data: clients };
         } catch (error) {
-            console.error('❌ Error searching clients:', error);
+            console.error('❌ Error searching MRY clients (API):', error);
             return { success: false, error: error.message };
         }
     });
 
     ipcMain.handle('db:clients:getAll', async () => {
         try {
-            return { success: true, data: clientOps.getAll() };
+            return await apiClient.getClients('MRY');
         } catch (error) {
-            console.error('❌ Error getting clients:', error);
+            console.error('❌ Error getting MRY clients (API):', error);
             return { success: false, error: error.message };
         }
     });
 
     ipcMain.handle('db:clients:delete', async (event, clientId) => {
         try {
-            clientOps.delete(clientId);
-            return { success: true };
+            return await apiClient.deleteClient(clientId);
         } catch (error) {
-            console.error('❌ Error deleting client:', error);
+            console.error('❌ Error deleting MRY client (API):', error);
             return { success: false, error: error.message };
         }
     });
@@ -37,65 +43,98 @@ async function registerDatabaseHandlers() {
     // Invoice handlers
     ipcMain.handle('db:invoices:create', async (event, invoiceData) => {
         try {
-            // console.log('📝 Creating invoice:', invoiceData);
-            const invoiceId = invoiceOps.create(invoiceData);
-            // console.log('✅ Invoice created with ID:', invoiceId);
-            return { success: true, data: { id: invoiceId } };
+            if (!invoiceData.company_code) invoiceData.company_code = 'MRY';
+            return await apiClient.createInvoice(invoiceData);
         } catch (error) {
-            console.error('❌ Error creating invoice:', error);
+            console.error('❌ Error creating MRY invoice (API):', error);
             return { success: false, error: error.message };
         }
     });
 
     ipcMain.handle('db:invoices:getById', async (event, id) => {
         try {
-            const invoice = invoiceOps.getById(id);
-            return { success: true, data: invoice };
+            return await apiClient.getInvoiceById(id);
         } catch (error) {
-            console.error('❌ Error getting invoice:', error);
+            console.error('❌ Error getting MRY invoice (API):', error);
             return { success: false, error: error.message };
         }
     });
 
     ipcMain.handle('db:invoices:getAll', async (event, companyCode) => {
         try {
-            const invoices = invoiceOps.getAll(companyCode);
-            return { success: true, data: invoices };
+            // MRY might pass a sub-company code like 'MRY' or something else
+            const code = companyCode || 'MRY';
+            return await apiClient.getInvoices(code);
         } catch (error) {
-            console.error('❌ Error getting invoices:', error);
+            console.error('❌ Error getting MRY invoices (API):', error);
             return { success: false, error: error.message };
         }
     });
 
     ipcMain.handle('db:invoices:update', async (event, id, invoiceData) => {
         try {
-            // console.log('📝 Updating invoice:', id, invoiceData);
-            invoiceOps.update(id, invoiceData);
-            // console.log('✅ Invoice updated:', id);
-            return { success: true };
+            return await apiClient.updateInvoice(id, invoiceData);
         } catch (error) {
-            console.error('❌ Error updating invoice:', error);
+            console.error('❌ Error updating MRY invoice (API):', error);
             return { success: false, error: error.message };
         }
     });
 
     ipcMain.handle('db:invoices:delete', async (event, id) => {
         try {
-            invoiceOps.delete(id);
-            // console.log('✅ Invoice deleted:', id);
-            return { success: true };
+            return await apiClient.deleteInvoice(id);
         } catch (error) {
-            console.error('❌ Error deleting invoice:', error);
+            console.error('❌ Error deleting MRY invoice (API):', error);
             return { success: false, error: error.message };
         }
     });
 
     ipcMain.handle('db:invoices:getNextNumber', async (event, companyCode, documentType, year) => {
         try {
-            const nextNumber = invoiceOps.getNextInvoiceNumber(companyCode, documentType, year);
-            return { success: true, data: nextNumber };
+            const code = companyCode || 'MRY';
+            return await apiClient.getNextInvoiceNumber(code, year, documentType);
         } catch (error) {
-            console.error('❌ Error getting next invoice number:', error);
+            console.error('❌ Error getting next MRY invoice number (API):', error);
+            return { success: false, error: error.message };
+        }
+    });
+
+    // Validation Handlers
+    ipcMain.handle('db:invoices:getPending', async (event, company) => {
+        try {
+            const targetCompany = company || 'MRY';
+            const result = await apiClient.getPendingInvoices(targetCompany);
+            return result;
+        } catch (error) {
+            console.error('❌ Error getting pending MRY invoices (API):', error);
+            return { success: false, error: error.message };
+        }
+    });
+
+    ipcMain.handle('db:invoices:validate', async (event, id, status) => {
+        try {
+            return await apiClient.validateInvoice(id, status);
+        } catch (error) {
+            console.error('❌ Error validating invoice:', error);
+            return { success: false, error: error.message };
+        }
+    });
+
+    // Delivery Person handlers
+    ipcMain.handle('db:deliveryPersons:getAll', async (event, company) => {
+        try {
+            return await apiClient.getDeliveryPersons(company || 'MRY');
+        } catch (error) {
+            console.error('❌ Error getting delivery persons (API):', error);
+            return { success: false, error: error.message };
+        }
+    });
+
+    ipcMain.handle('db:deliveryPersons:add', async (event, name, company) => {
+        try {
+            return await apiClient.addDeliveryPerson(name, company || 'MRY');
+        } catch (error) {
+            console.error('❌ Error adding delivery person (API):', error);
             return { success: false, error: error.message };
         }
     });
@@ -103,51 +142,63 @@ async function registerDatabaseHandlers() {
     // Attachment handlers
     ipcMain.handle('db:attachments:add', async (event, invoiceId, filename, fileType, fileData, filePath, fileSize) => {
         try {
-            // console.log(`📎 Adding attachment: ${filename} (${fileType})`);
-            const id = attachmentOps.add(invoiceId, filename, fileType, fileData ? Buffer.from(fileData) : null, filePath, fileSize || 0);
-            // console.log('✅ Attachment added with ID:', id);
-            return { success: true, data: { id } };
+            console.log(`🔵 [IPC] db:attachments:add called for invoice ${invoiceId}, file: ${filename}`);
+
+            let base64Data = fileData;
+            if (Buffer.isBuffer(fileData)) {
+                base64Data = fileData.toString('base64');
+            } else if (fileData instanceof Uint8Array) {
+                base64Data = Buffer.from(fileData).toString('base64');
+            }
+
+            const attachmentData = {
+                invoice_id: invoiceId,
+                filename,
+                file_type: fileType,
+                file_size: fileSize,
+                file_data: base64Data,
+                file_path: filePath
+            };
+
+            console.log(`📤 [IPC] Calling apiClient.addAttachment...`);
+            const result = await apiClient.addAttachment(attachmentData);
+            console.log(`📥 [IPC] API response:`, result);
+
+            return result;
         } catch (error) {
-            console.error('❌ Error adding attachment:', error);
+            console.error('❌ Error adding MRY attachment (API):', error);
             return { success: false, error: error.message };
         }
     });
 
     ipcMain.handle('db:attachments:get', async (event, id) => {
         try {
-            const attachment = attachmentOps.get(id);
-            if (attachment && attachment.file_data) {
-                // Convert Uint8Array to Buffer then to base64
-                const buffer = Buffer.from(attachment.file_data);
-                attachment.file_data = buffer.toString('base64');
-            }
-            return { success: true, data: attachment };
+            return await apiClient.getAttachment(id);
         } catch (error) {
-            console.error('❌ Error getting attachment:', error);
+            console.error('❌ Error getting MRY attachment (API):', error);
             return { success: false, error: error.message };
         }
     });
 
     ipcMain.handle('db:attachments:delete', async (event, id) => {
         try {
-            attachmentOps.delete(id);
-            // console.log('✅ Attachment deleted:', id);
-            return { success: true };
+            return await apiClient.deleteAttachment(id);
         } catch (error) {
-            console.error('❌ Error deleting attachment:', error);
+            console.error('❌ Error deleting MRY attachment (API):', error);
             return { success: false, error: error.message };
         }
     });
 
     ipcMain.handle('db:attachments:getByInvoice', async (event, invoiceId) => {
         try {
-            const attachments = attachmentOps.getByInvoice(invoiceId);
-            return { success: true, data: attachments };
+            return await apiClient.getAttachments(invoiceId);
         } catch (error) {
-            console.error('❌ Error getting attachments:', error);
+            console.error('❌ Error getting MRY attachments (API):', error);
             return { success: false, error: error.message };
         }
     });
+
+    // --- LEGACY SQLITE HANDLERS (Unchanged) ---
 
     // MRY Order Prefix handlers
     ipcMain.handle('db:mryOrderPrefixes:getAll', async () => {
@@ -180,24 +231,22 @@ async function registerDatabaseHandlers() {
         }
     });
 
-    // MRY Missing Numbers handler
+    // MRY Missing Numbers handler (Postgres Sync)
     ipcMain.handle('db:mry:getMissingNumbers', async (event, year) => {
         try {
-            const result = await getMissingMRYInvoiceNumbers(year);
-            return result;
+            return await apiClient.getMissingNumbers('MRY', year, 'facture');
         } catch (error) {
-            console.error('❌ Error getting MRY missing numbers:', error);
+            console.error('❌ [MRY] Error getting missing numbers (API):', error);
             return { success: false, error: error.message };
         }
     });
 
-    // MRY Missing Devis Numbers handler
+    // MRY Missing Devis Numbers handler (Postgres Sync)
     ipcMain.handle('db:mry:getMissingDevisNumbers', async (event, year) => {
         try {
-            const result = await getMissingMRYDevisNumbers(year);
-            return result;
+            return await apiClient.getMissingNumbers('MRY', year, 'devis');
         } catch (error) {
-            console.error('❌ Error getting MRY missing devis numbers:', error);
+            console.error('❌ [MRY] Error getting missing devis numbers (API):', error);
             return { success: false, error: error.message };
         }
     });
@@ -207,7 +256,7 @@ async function registerDatabaseHandlers() {
         try {
             const { deleteAllData } = require('./db');
             deleteAllData();
-            return { success: true, message: 'Toutes les données ont été supprimées' };
+            return { success: true, message: 'Toutes les données LOCALES ont été supprimées' };
         } catch (error) {
             console.error('❌ Error deleting all data:', error);
             return { success: false, error: error.message };
@@ -248,23 +297,28 @@ async function registerDatabaseHandlers() {
         }
     });
 
-    // Audit Log handlers
+    // Audit Log handlers (PostgreSQL via API)
     ipcMain.handle('db:auditLog:add', async (event, invoiceId, action, userId, userName, userEmail, changes) => {
         try {
-            const result = await auditLogOps.addLog(invoiceId, action, userId, userName, userEmail, changes);
-            return result;
+            return await apiClient.addAuditLog({
+                invoice_id: invoiceId,
+                action,
+                user_id: userId,
+                user_name: userName,
+                user_email: userEmail,
+                changes
+            });
         } catch (error) {
-            console.error('[MRY] Error adding audit log:', error);
+            console.error('[MRY] Error adding audit log (API):', error);
             return { success: false, error: error.message };
         }
     });
 
     ipcMain.handle('db:auditLog:getForInvoice', async (event, invoiceId) => {
         try {
-            const result = await auditLogOps.getLogsForInvoice(invoiceId);
-            return result;
+            return await apiClient.getAuditLog(invoiceId);
         } catch (error) {
-            console.error('[MRY] Error getting audit logs:', error);
+            console.error('[MRY] Error getting audit logs (API):', error);
             return { success: false, error: error.message };
         }
     });
@@ -272,15 +326,12 @@ async function registerDatabaseHandlers() {
     // Alias for getForInvoice
     ipcMain.handle('db:getAuditLog', async (event, invoiceId) => {
         try {
-            const result = await auditLogOps.getLogsForInvoice(invoiceId);
-            return result;
+            return await apiClient.getAuditLog(invoiceId);
         } catch (error) {
-            console.error('[MRY] Error getting audit logs:', error);
+            console.error('[MRY] Error getting audit logs (API):', error);
             return { success: false, error: error.message };
         }
     });
-
-    // console.log('✅ Database IPC handlers registered');
 }
 
 module.exports = { registerDatabaseHandlers };

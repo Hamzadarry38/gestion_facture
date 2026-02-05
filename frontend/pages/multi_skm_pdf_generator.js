@@ -17,7 +17,7 @@ window.downloadMultiSKMDevisPDF = async function (invoiceId) {
 
         // Only allow for devis type
         if (invoice.document_type !== 'devis') {
-            showSKMWarningModal('Type de document incorrect', 'Cette fonction est disponible uniquement pour les devis.');
+            await customAlert('Type de document incorrect', 'Cette fonction est disponible uniquement pour les devis.', 'warning');
             return;
         }
 
@@ -100,7 +100,7 @@ window.downloadMultiSKMDevisPDF = async function (invoiceId) {
 
     } catch (error) {
         console.error('❌ Error generating SKM PDF:', error);
-        showSKMErrorModal('Erreur de génération', 'Une erreur est survenue lors de la génération du PDF SMART SERVICES: ' + error.message);
+        await customAlert('Erreur de génération', 'Une erreur est survenue lors de la génération du PDF SMART SERVICES: ' + error.message, 'error');
     }
 };
 
@@ -205,20 +205,29 @@ window.generateSKMPDFWithCustomization = async function (invoice, customizationD
 
         if (saveResult.success) {
             console.log(`✅ SKM PDF saved to disk (${saveFolder}):`, saveResult.filePath);
+
+            // Record PDF path in database for metadata tracking
+            try {
+                const currentYear = new Date().getFullYear();
+                await window.electron.dbSmartS.savePdfPath(customizedInvoice.document_numero_devis, currentYear, saveResult.filePath, createdBy);
+                console.log('✅ PDF metadata synced to PostgreSQL');
+            } catch (dbErr) {
+                console.error('⚠️ Failed to sync PDF metadata to PostgreSQL:', dbErr);
+            }
+
             // Also save to downloads
             doc.save(fileName);
             console.log('✅ SKM PDF generated successfully:', fileName);
 
-            // Show success modal only if checking from Multi, or use generic notify
             if (context === 'multi') {
-                showSKMSuccessModal('PDF généré avec succès', `Le fichier ${fileName} a été téléchargé et sauvegardé avec succès !`);
+                await customAlert('PDF généré avec succès', `Le fichier ${fileName} a été téléchargé et sauvegardé avec succès !`, 'success');
             } else {
                 window.notify.success('Succès', `PDF SMART SERVICES généré et sauvegardé avec succès !`);
             }
         } else {
             console.error('❌ Error saving PDF to disk:', saveResult.error);
             if (context === 'multi') {
-                showSKMWarningModal('Avertissement', 'PDF généré mais erreur lors de la sauvegarde: ' + saveResult.error);
+                await customAlert('Avertissement', 'PDF généré mais erreur lors de la sauvegarde: ' + saveResult.error, 'warning');
             } else {
                 window.notify.warning('Avertissement', 'PDF généré mais non sauvegardé: ' + saveResult.error);
                 doc.save(fileName); // Fallback download
@@ -381,7 +390,7 @@ window.showSimpleSKMModal = async function (invoice) {
                 const customDevisNumber = devisInput.value.trim();
 
                 if (!customDevisNumber) {
-                    showSKMWarningModal('Champ requis', 'Veuillez saisir un numéro de Devis avant de continuer.');
+                    await customAlert('Champ requis', 'Veuillez saisir un numéro de Devis avant de continuer.', 'warning');
                     devisInput.focus();
                     return;
                 }
@@ -390,7 +399,7 @@ window.showSimpleSKMModal = async function (invoice) {
                 const currentYear = new Date().getFullYear();
                 const existsResult = await window.electron.dbSmartS.checkDevisExists(customDevisNumber, currentYear);
                 if (existsResult.success && existsResult.data) {
-                    showSKMErrorModal('Numéro de Devis déjà utilisé', 'Ce numéro de Devis a déjà été utilisé cette année. Veuillez choisir un autre numéro unique.');
+                    await customAlert('Numéro de Devis déjà utilisé', 'Ce numéro de Devis a déjà été utilisé cette année. Veuillez choisir un autre numéro unique.', 'error');
                     devisInput.focus();
                     devisInput.style.borderColor = '#ff4444';
                     return;
@@ -415,7 +424,7 @@ window.showSimpleSKMModal = async function (invoice) {
 
             } catch (error) {
                 console.error('Error in modal:', error);
-                showSKMErrorModal('Erreur', 'Une erreur est survenue: ' + error.message);
+                await customAlert('Erreur', 'Une erreur est survenue: ' + error.message, 'error');
             }
         };
 

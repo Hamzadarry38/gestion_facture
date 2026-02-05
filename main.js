@@ -8,7 +8,10 @@ const { registerMultiHandlers } = require('./database/ipc-handlers-multi');
 const { registerSmartSHandlers } = require('./database/ipc-handlers-smarts');
 const { registerMsh3Handlers } = require('./database/ipc-handlers-msh3');
 const { registerBenAliHandlers } = require('./database/ipc-handlers-benali');
+const { registerSAAISSHandlers } = require('./database/ipc-handlers-saaiss');
+const { registerSKMHandlers } = require('./database/ipc-handlers-skm');
 const { initAutoUpdater, checkForUpdates, setLanguage } = require('./updater');
+const { migrateAllToPostgres } = require('./database/migration-utils');
 
 let mainWindow;
 
@@ -242,7 +245,7 @@ function setupPdfHandlers() {
 
       const files = fs.readdirSync(pdfDir);
       let pdfFiles = files.filter(f => f.endsWith('.pdf')).map(f => {
-        // Extract creator from filename (e.g., "[MRY]_..." -> "MRY")
+        // Extract creator from filename as fallback
         const creatorMatch = f.match(/^\[([^\]]+)\]/);
         const creator = creatorMatch ? creatorMatch[1] : 'Unknown';
 
@@ -254,6 +257,48 @@ function setupPdfHandlers() {
           creator: creator
         };
       });
+
+      // For secondary companies, try to get more accurate metadata from DB
+      const secondaryCompanies = {
+        'skm': 'SMARTS',
+        'chaimae_skm': 'SMARTS',
+        'saaiss': 'MSH3',
+        'chaimae_saaiss': 'MSH3',
+        'benali': 'BENALI',
+        'chaimae_benali': 'BENALI'
+      };
+
+      if (secondaryCompanies[company]) {
+        try {
+          const apiClient = require('./database/api-client');
+          const dbResult = await apiClient.getAllPdfPaths(secondaryCompanies[company]);
+
+          if (dbResult.success && dbResult.data) {
+            const dbMap = new Map();
+            dbResult.data.forEach(item => {
+              // Normalize path for comparison - replace \ with /
+              const normalizedDbPath = item.file_path.replace(/\\/g, '/').toLowerCase();
+              dbMap.set(normalizedDbPath, item);
+            });
+
+            pdfFiles = pdfFiles.map(file => {
+              const normalizedFilePath = file.path.replace(/\\/g, '/').toLowerCase();
+              const dbRecord = dbMap.get(normalizedFilePath);
+
+              if (dbRecord) {
+                return {
+                  ...file,
+                  creator: dbRecord.created_by || file.creator,
+                  dbRecord: true
+                };
+              }
+              return file;
+            });
+          }
+        } catch (dbErr) {
+          console.error('⚠️ Failed to fetch PDF metadata from DB:', dbErr);
+        }
+      }
 
       // Filter by creator if specified
       if (createdBy) {
@@ -543,6 +588,17 @@ function setupBackupHandlers() {
     return importDatabaseWithAttachments('mry', 'invoices.db');
   });
 
+  ipcMain.handle('db:migrate:postgres', async (event, pgConfig) => {
+    try {
+      const appDataPath = app.getPath('userData');
+      const results = await migrateAllToPostgres(pgConfig, appDataPath);
+      return { success: true, results };
+    } catch (error) {
+      console.error('Migration error:', error);
+      return { success: false, error: error.message };
+    }
+  });
+
 
 
   // Helper function for ZIP Export
@@ -750,6 +806,8 @@ app.whenReady().then(async () => {
   await registerSmartSHandlers(); // SMART SERVICES database
   await registerMsh3Handlers(); // MSH3 SERVICES database
   await registerBenAliHandlers(); // BEN ALI database
+  await registerSAAISSHandlers(); // SAAISS database
+  await registerSKMHandlers(); // SKM database
 
   // Setup IPC handlers after window is ready
   createWindow();

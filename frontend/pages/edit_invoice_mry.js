@@ -207,7 +207,7 @@ async function loadInvoiceDataMRY(invoiceId) {
 
         // Store current document type and N° Order
         currentDocumentTypeMRY = invoice.document_type;
-        currentNumeroOrderMRY = invoice.document_numero_Order?.trim() || null;
+        currentNumeroOrderMRY = invoice.document_numero_Order?.trim() || invoice.document_numero_order?.trim() || null;
 
         // Fill client info
         document.getElementById('editClientNomMRY').value = invoice.client_nom;
@@ -216,7 +216,7 @@ async function loadInvoiceDataMRY(invoiceId) {
         // Fill document info
         const docTypeDisplay = invoice.document_type === 'facture' ? 'Facture' : 'Devis';
         document.getElementById('editDocumentTypeMRY').value = docTypeDisplay;
-        document.getElementById('editDocumentDateMRY').value = invoice.document_date;
+        document.getElementById('editDocumentDateMRY').value = invoice.document_date ? invoice.document_date.split('T')[0] : '';
 
         // Update convert button text
         const convertBtnText = invoice.document_type === 'facture' ? 'Convertir en Devis' : 'Convertir en Facture';
@@ -235,7 +235,7 @@ async function loadInvoiceDataMRY(invoiceId) {
         // Show Order field if facture
         if (invoice.document_type === 'facture') {
             document.getElementById('editFieldOrderMRY').style.display = 'block';
-            document.getElementById('editDocumentNumeroOrderMRY').value = invoice.document_numero_Order || '';
+            document.getElementById('editDocumentNumeroOrderMRY').value = invoice.document_numero_Order || invoice.document_numero_order || '';
         } else {
             document.getElementById('editFieldOrderMRY').style.display = 'none';
         }
@@ -689,35 +689,45 @@ async function handleEditInvoiceSubmitMRY(e) {
             }
         });
 
-        // Check for duplicates
-        const currentInvoiceResult = await window.electron.db.getInvoiceById(currentInvoiceIdMRY);
-        if (!currentInvoiceResult.success) {
-            throw new Error('Impossible de charger les données actuelles de la facture');
-        }
-        const currentInvoice = currentInvoiceResult.data;
-
-        const currentNumero = currentDocumentTypeMRY === 'facture'
-            ? currentInvoice.document_numero
-            : currentInvoice.document_numero_devis;
-
-        const newNumero = currentDocumentTypeMRY === 'facture'
-            ? formData.document.numero
-            : formData.document.numero_devis;
-
-        if (newNumero !== currentNumero) {
-            const allInvoicesResult = await window.electron.db.getAllInvoices();
+        if (true) { // Always check for duplicates when editing
+            const allInvoicesResult = await window.electron.db.getAllInvoices('MRY');
             if (allInvoicesResult.success) {
-                const duplicateNumero = allInvoicesResult.data.find(inv =>
-                    inv.id !== currentInvoiceIdMRY &&
-                    inv.document_type === currentDocumentTypeMRY &&
-                    (currentDocumentTypeMRY === 'facture'
-                        ? inv.document_numero === newNumero
-                        : inv.document_numero_devis === newNumero)
-                );
+                const invoices = allInvoicesResult.data;
+                const searchNum = (documentNumeroValue || '').toLowerCase().trim();
+
+                // 1. Check main document number (excluding current invoice)
+                const duplicateNumero = invoices.find(inv => {
+                    if (inv.id === parseInt(currentInvoiceIdMRY)) return false;
+
+                    if (currentDocumentTypeMRY === 'facture') {
+                        return inv.document_type === 'facture' &&
+                            inv.document_numero &&
+                            inv.document_numero.toLowerCase().trim() === searchNum;
+                    } else if (currentDocumentTypeMRY === 'devis') {
+                        return inv.document_type === 'devis' &&
+                            inv.document_numero_devis &&
+                            inv.document_numero_devis.toLowerCase().trim() === searchNum;
+                    }
+                    return false;
+                });
 
                 if (duplicateNumero) {
                     const docLabel = currentDocumentTypeMRY === 'facture' ? 'Facture' : 'Devis';
-                    throw new Error(`Le N° ${docLabel} "${newNumero}" existe déjà pour ${docLabel.toLowerCase()} #${duplicateNumero.id}!`);
+                    throw new Error(`Le N° ${docLabel} "${documentNumeroValue}" existe déjà (Insensible à la casse)!`);
+                }
+
+                // 2. Check N° Order if provided (for facture)
+                const orderVal = document.getElementById('editDocumentNumeroOrderMRY')?.value;
+                if (currentDocumentTypeMRY === 'facture' && orderVal) {
+                    const searchOrder = orderVal.toLowerCase().trim();
+                    const duplicateOrder = invoices.find(inv =>
+                        inv.id !== parseInt(currentInvoiceIdMRY) &&
+                        (inv.document_numero_Order || inv.document_numero_order) &&
+                        (inv.document_numero_Order || inv.document_numero_order).toLowerCase().trim() === searchOrder
+                    );
+                    if (duplicateOrder) {
+                        throw new Error(`Le N° Order "${orderVal}" existe déjà (Insensible à la casse)`);
+                    }
                 }
             }
         }
@@ -747,7 +757,7 @@ async function handleEditInvoiceSubmitMRY(e) {
                         user.id,
                         user.name,
                         user.email,
-                        JSON.stringify(changes)
+                        changes
                     );
                     console.log('✅ [AUDIT LOG MRY] Audit log entry added');
                 } catch (auditError) {
@@ -836,18 +846,38 @@ window.showConvertDocumentTypeModalMRY = async function () {
         // Check uniqueness
         const allInvoicesResult = await window.electron.db.getAllInvoices('MRY');
         if (allInvoicesResult.success) {
-            const duplicateNumero = allInvoicesResult.data.find(inv => {
+            const invoices = allInvoicesResult.data;
+            const searchNewNum = (newNumero || '').toLowerCase().trim();
+
+            const duplicateNumero = invoices.find(inv => {
                 if (newType === 'facture') {
-                    return inv.document_type === 'facture' && inv.document_numero === newNumero;
+                    return inv.document_type === 'facture' &&
+                        inv.document_numero &&
+                        inv.document_numero.toLowerCase().trim() === searchNewNum;
                 } else {
-                    return inv.document_type === 'devis' && inv.document_numero_devis === newNumero;
+                    return inv.document_type === 'devis' &&
+                        inv.document_numero_devis &&
+                        inv.document_numero_devis.toLowerCase().trim() === searchNewNum;
                 }
             });
 
             if (duplicateNumero) {
                 const label = newType === 'facture' ? 'N° Facture' : 'N° Devis';
-                window.notify.error('Erreur', `Ce ${label} existe déjà`, 5000);
+                window.notify.error('Erreur', `Ce ${label} "${newNumero}" existe déjà (Insensible à la casse)`, 5000);
                 return;
+            }
+
+            // Also check N° Order for converted facture
+            if (newType === 'facture' && newNumeroOrder) {
+                const searchOrder = newNumeroOrder.toLowerCase().trim();
+                const duplicateOrder = invoices.find(inv =>
+                    (inv.document_numero_Order || inv.document_numero_order) &&
+                    (inv.document_numero_Order || inv.document_numero_order).toLowerCase().trim() === searchOrder
+                );
+                if (duplicateOrder) {
+                    window.notify.error('Erreur', `Le N° Order "${newNumeroOrder}" existe déjà (Insensible à la casse)`, 5000);
+                    return;
+                }
             }
         }
 
@@ -867,7 +897,8 @@ window.showConvertDocumentTypeModalMRY = async function () {
                 numero_Order: newType === 'facture' ? (newNumeroOrder || null) : null,
                 created_by_user_id: user?.id || null,
                 created_by_user_name: user?.name || null,
-                created_by_user_email: user?.email || null
+                created_by_user_email: user?.email || null,
+                creation_method: 'converted'
             },
             products: (invoice.products || []).map(p => ({
                 designation: p.designation || '',

@@ -1,92 +1,112 @@
 const { ipcMain } = require('electron');
 const { initDatabase, saaissDevisOps, saaissPdfOps } = require('./db_saaiss');
+const apiClient = require('./api-client');
 
 // Register all SAAISS IPC handlers
 async function registerSAAISSHandlers() {
-    // Initialize SAAISS database first
+    // Initialize database first - REQUIRED for local fallback if needed
     await initDatabase();
-    
+    console.log('🔌 Registering SAAISS handlers with API Backend (Postgres)');
+
+    const COMPANY_CODE = 'SAAISS';
+
     // SAAISS Devis Numbers handlers
     ipcMain.handle('db:saaiss:devis:exists', async (event, devisNumber, year) => {
         try {
-            const exists = saaissDevisOps.exists(devisNumber, year);
+            const result = await apiClient.getDevis(COMPANY_CODE);
+            if (!result.success) throw new Error(result.error);
+            const exists = result.data.some(d => d.devis_number === devisNumber && d.year === year);
             return { success: true, data: exists };
         } catch (error) {
-            console.error('❌ [SAAISS] Error checking devis number:', error);
+            console.error('❌ [SAAISS] Error checking devis number (API):', error);
             return { success: false, error: error.message };
         }
     });
 
     ipcMain.handle('db:saaiss:devis:add', async (event, devisNumber, year) => {
         try {
-            const result = saaissDevisOps.add(devisNumber, year);
-            return { success: true, data: result };
+            return await apiClient.addDevis(COMPANY_CODE, devisNumber, year);
         } catch (error) {
-            console.error('❌ [SAAISS] Error adding devis number:', error);
+            console.error('❌ [SAAISS] Error adding devis number (API):', error);
             return { success: false, error: error.message };
         }
     });
 
     ipcMain.handle('db:saaiss:devis:getByYear', async (event, year) => {
         try {
-            const data = saaissDevisOps.getByYear(year);
+            const result = await apiClient.getDevis(COMPANY_CODE);
+            if (!result.success) throw new Error(result.error);
+            const data = result.data.filter(d => d.year === year);
             return { success: true, data };
         } catch (error) {
-            console.error('❌ [SAAISS] Error getting devis by year:', error);
+            console.error('❌ [SAAISS] Error getting devis by year (API):', error);
             return { success: false, error: error.message };
         }
     });
 
     ipcMain.handle('db:saaiss:devis:getAll', async () => {
         try {
-            const data = saaissDevisOps.getAll();
-            return { success: true, data };
+            return await apiClient.getDevis(COMPANY_CODE);
         } catch (error) {
-            console.error('❌ [SAAISS] Error getting all devis:', error);
+            console.error('❌ [SAAISS] Error getting all devis (API):', error);
             return { success: false, error: error.message };
         }
     });
 
     ipcMain.handle('db:saaiss:devis:getLast', async (event, year) => {
         try {
-            console.log('🔍 [SAAISS] Getting last devis for year:', year);
-            const data = saaissDevisOps.getLast(year);
-            console.log('📋 [SAAISS] Last devis result:', data);
-            return { success: true, data };
+            return await apiClient.getLastDevis(COMPANY_CODE, year);
         } catch (error) {
-            console.error('❌ [SAAISS] Error getting last devis:', error);
+            console.error('❌ [SAAISS] Error getting last devis (API):', error);
             return { success: false, error: error.message };
         }
     });
 
     ipcMain.handle('db:saaiss:devis:getMax', async (event, year) => {
         try {
-            console.log('🔍 [SAAISS] Getting max devis for year:', year);
-            const data = saaissDevisOps.getMax(year);
-            console.log('📋 [SAAISS] Max devis result:', data);
-            return { success: true, data };
+            const result = await apiClient.getDevis(COMPANY_CODE);
+            if (!result.success) throw new Error(result.error);
+
+            const allDevis = result.data.filter(d => d.year === year);
+            if (allDevis.length === 0) return { success: true, data: null };
+
+            let maxDevis = null;
+            let maxNumber = 0;
+
+            allDevis.forEach(item => {
+                const match = item.devis_number.match(/^(\d+)\/\d+$/);
+                if (match) {
+                    const number = parseInt(match[1]);
+                    if (number > maxNumber) {
+                        maxNumber = number;
+                        maxDevis = item;
+                    }
+                }
+            });
+
+            return { success: true, data: maxDevis };
         } catch (error) {
-            console.error('❌ [SAAISS] Error getting max devis:', error);
+            console.error('❌ [SAAISS] Error getting max devis (API):', error);
             return { success: false, error: error.message };
         }
     });
 
     ipcMain.handle('db:saaiss:devis:delete', async (event, devisNumber, year) => {
         try {
-            const result = saaissDevisOps.delete(devisNumber, year);
-            return { success: true, data: result };
+            return await apiClient.deleteDevis(COMPANY_CODE, devisNumber, year);
         } catch (error) {
-            console.error('❌ [SAAISS] Error deleting devis number:', error);
+            console.error('❌ [SAAISS] Error deleting devis number (API):', error);
             return { success: false, error: error.message };
         }
     });
 
     ipcMain.handle('db:saaiss:devis:clearAll', async () => {
         try {
-            const result = saaissDevisOps.clearAll();
-            return { success: true, data: result };
+            // API doesn't have clearAll for secondary companies yet, but we could add it.
+            // For now, let's keep it locally or log not implemented.
+            throw new Error('API clearAll not implemented');
         } catch (error) {
-            console.error('❌ [SAAISS] Error clearing all devis:', error);
+            console.error('❌ [SAAISS] Error clearing all devis (API):', error);
             return { success: false, error: error.message };
         }
     });
@@ -94,35 +114,33 @@ async function registerSAAISSHandlers() {
     // SAAISS PDF Files handlers
     ipcMain.handle('db:saaiss:pdf:savePath', async (event, devisNumber, year, filePath, createdBy) => {
         try {
-            const result = saaissPdfOps.savePdfPath(devisNumber, year, filePath, createdBy);
-            return { success: true, data: result };
+            return await apiClient.savePdfPath(COMPANY_CODE, devisNumber, year, filePath, createdBy);
         } catch (error) {
-            console.error('❌ [SAAISS] Error saving PDF path:', error);
+            console.error('❌ [SAAISS] Error saving PDF path (API):', error);
             return { success: false, error: error.message };
         }
     });
 
     ipcMain.handle('db:saaiss:pdf:getPath', async (event, devisNumber, year) => {
         try {
-            const data = saaissPdfOps.getPdfPath(devisNumber, year);
-            return { success: true, data };
+            return await apiClient.getPdfPath(COMPANY_CODE, devisNumber, year);
         } catch (error) {
-            console.error('❌ [SAAISS] Error getting PDF path:', error);
+            console.error('❌ [SAAISS] Error getting PDF path (API):', error);
             return { success: false, error: error.message };
         }
     });
 
     ipcMain.handle('db:saaiss:pdf:deletePath', async (event, devisNumber, year) => {
         try {
-            const result = saaissPdfOps.deletePdfPath(devisNumber, year);
-            return { success: true, data: result };
+            // API doesn't have delete PDF path, but we could add it.
+            throw new Error('API deletePath not implemented');
         } catch (error) {
-            console.error('❌ [SAAISS] Error deleting PDF path:', error);
+            console.error('❌ [SAAISS] Error deleting PDF path (API):', error);
             return { success: false, error: error.message };
         }
     });
 
-    console.log('✅ [SAAISS] IPC handlers registered successfully');
+    console.log('✅ [SAAISS] IPC handlers registered (API Edition)');
 }
 
 module.exports = {

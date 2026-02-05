@@ -805,7 +805,7 @@ window.generateSituationMensuelleMulti = async function (clientId, month, year, 
             }
 
             // Increase row height if Order number or BL exists
-            const hasOrderOrBL = (includeOrder && inv.document_numero_Order) || (includeBL && inv.document_numero_BL);
+            const hasOrderOrBL = (includeOrder && (inv.document_numero_Order || inv.document_numero_order)) || (includeBL && inv.document_numero_BL);
             const rowHeight = hasOrderOrBL ? 10 : 8;
 
             // Check if we need a new page BEFORE drawing
@@ -853,17 +853,17 @@ window.generateSituationMensuelleMulti = async function (clientId, month, year, 
             doc.text(mainNumero, 55, currentY + 3);
 
             // Add Order number and/or BL below if exists (smaller font)
-            if (includeOrder && inv.document_numero_Order && includeBL && inv.document_numero_BL) {
+            if (includeOrder && (inv.document_numero_Order || inv.document_numero_order) && includeBL && inv.document_numero_BL) {
                 doc.setFontSize(6.5);
                 doc.setTextColor(33, 150, 243);
-                doc.text(`Order: ${inv.document_numero_Order}`, 55, currentY + 6);
+                doc.text(`Order: ${inv.document_numero_Order || inv.document_numero_order}`, 55, currentY + 6);
                 doc.setTextColor(76, 175, 80);
-                doc.text(`| BL: ${inv.document_numero_BL}`, 55 + doc.getTextWidth(`Order: ${inv.document_numero_Order} `) + 1, currentY + 6);
+                doc.text(`| BL: ${inv.document_numero_BL}`, 55 + doc.getTextWidth(`Order: ${inv.document_numero_Order || inv.document_numero_order} `) + 1, currentY + 6);
                 doc.setTextColor(0, 0, 0);
-            } else if (includeOrder && inv.document_numero_Order) {
+            } else if (includeOrder && (inv.document_numero_Order || inv.document_numero_order)) {
                 doc.setFontSize(6.5);
                 doc.setTextColor(33, 150, 243);
-                doc.text(`Order: ${inv.document_numero_Order}`, 55, currentY + 6);
+                doc.text(`Order: ${inv.document_numero_Order || inv.document_numero_order}`, 55, currentY + 6);
                 doc.setTextColor(0, 0, 0);
             } else if (includeBL && inv.document_numero_BL) {
                 doc.setFontSize(6.5);

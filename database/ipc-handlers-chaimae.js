@@ -1,36 +1,44 @@
 const { ipcMain } = require('electron');
 const { initDatabase, clientOps, invoiceOps, attachmentOps, globalInvoiceOps, prefixOps, orderPrefixOps, simpleOrderPrefixOps, auditLogOps, getMissingInvoiceNumbers, getMissingDevisNumbers, getMissingOrderNumbers, getMissingBonLivraisonNumbers } = require('./db_chaimae');
+const apiClient = require('./api-client');
 
 // Register all IPC handlers for CHAIMAE
 async function registerChaimaeHandlers() {
-    // Initialize CHAIMAE database first
+    // Initialize CHAIMAE database first - REQUIRED for legacy features (Global Invoices etc.)
     await initDatabase();
+    console.log('🔌 Registering CHAIMAE handlers with API Backend (Postgres) + SQLite Fallback');
+
+    const COMPANY_CODE = 'CHAIMAE';
 
     // Client handlers for CHAIMAE
     ipcMain.handle('db:chaimae:clients:search', async (event, query) => {
         try {
-            return { success: true, data: clientOps.search(query) };
+            // API doesn't have search yet, but we can getAll and filter.
+            const result = await apiClient.getClients(COMPANY_CODE);
+            if (!result.success) throw new Error(result.error);
+            const clients = result.data.filter(c => c.nom.toLowerCase().includes(query.toLowerCase()));
+            return { success: true, data: clients };
         } catch (error) {
-            console.error('❌ Error searching CHAIMAE clients:', error);
+            console.error('❌ Error searching CHAIMAE clients (API):', error);
             return { success: false, error: error.message };
         }
     });
 
     ipcMain.handle('db:chaimae:clients:getAll', async () => {
         try {
-            return { success: true, data: clientOps.getAll() };
+            const result = await apiClient.getClients(COMPANY_CODE);
+            return result; // result is { success: true, data: [...] }
         } catch (error) {
-            console.error('❌ Error getting CHAIMAE clients:', error);
+            console.error('❌ Error getting CHAIMAE clients (API):', error);
             return { success: false, error: error.message };
         }
     });
 
     ipcMain.handle('db:chaimae:clients:delete', async (event, clientId) => {
         try {
-            clientOps.delete(clientId);
-            return { success: true };
+            return await apiClient.deleteClient(clientId);
         } catch (error) {
-            console.error('❌ Error deleting CHAIMAE client:', error);
+            console.error('❌ Error deleting CHAIMAE client (API):', error);
             return { success: false, error: error.message };
         }
     });
@@ -38,80 +46,64 @@ async function registerChaimaeHandlers() {
     // Invoice handlers for CHAIMAE
     ipcMain.handle('db:chaimae:invoices:create', async (event, invoiceData) => {
         try {
-            // console.log('📝 Creating CHAIMAE invoice:', invoiceData);
-            const invoiceId = invoiceOps.create(invoiceData);
-            // console.log('✅ CHAIMAE Invoice created with ID:', invoiceId);
-            return { success: true, data: { id: invoiceId } };
+            invoiceData.company_code = COMPANY_CODE;
+            return await apiClient.createInvoice(invoiceData);
         } catch (error) {
-            console.error('❌ Error creating CHAIMAE invoice:', error);
+            console.error('❌ Error creating CHAIMAE invoice (API):', error);
             return { success: false, error: error.message };
         }
     });
 
     ipcMain.handle('db:chaimae:invoices:getById', async (event, id) => {
         try {
-            const invoice = invoiceOps.getById(id);
-            return { success: true, data: invoice };
+            return await apiClient.getInvoiceById(id);
         } catch (error) {
-            console.error('❌ Error getting CHAIMAE invoice:', error);
+            console.error('❌ Error getting CHAIMAE invoice (API):', error);
             return { success: false, error: error.message };
         }
     });
 
     ipcMain.handle('db:chaimae:invoices:getAll', async () => {
         try {
-            const invoices = invoiceOps.getAll();
-            console.log('🔍 [IPC CHAIMAE] Retrieved invoices count:', invoices.length);
-            if (invoices.length > 0) {
-                console.log('🔍 [IPC CHAIMAE] First invoice keys:', Object.keys(invoices[0]));
-                console.log('🔍 [IPC CHAIMAE] First invoice:', invoices[0]);
-            }
-            return { success: true, data: invoices };
+            return await apiClient.getInvoices(COMPANY_CODE);
         } catch (error) {
-            console.error('❌ Error getting CHAIMAE invoices:', error);
+            console.error('❌ Error getting CHAIMAE invoices (API):', error);
             return { success: false, error: error.message };
         }
     });
 
     ipcMain.handle('db:chaimae:invoices:update', async (event, id, invoiceData) => {
         try {
-            // console.log('📝 Updating CHAIMAE invoice:', id, invoiceData);
-            invoiceOps.update(id, invoiceData);
-            // console.log('✅ CHAIMAE Invoice updated:', id);
-            return { success: true };
+            return await apiClient.updateInvoice(id, invoiceData);
         } catch (error) {
-            console.error('❌ Error updating CHAIMAE invoice:', error);
+            console.error('❌ Error updating CHAIMAE invoice (API):', error);
             return { success: false, error: error.message };
         }
     });
 
     ipcMain.handle('db:chaimae:invoices:delete', async (event, id) => {
         try {
-            invoiceOps.delete(id);
-            // console.log('✅ CHAIMAE Invoice deleted:', id);
-            return { success: true };
+            return await apiClient.deleteInvoice(id);
         } catch (error) {
-            console.error('❌ Error deleting CHAIMAE invoice:', error);
+            console.error('❌ Error deleting CHAIMAE invoice (API):', error);
             return { success: false, error: error.message };
         }
     });
 
     ipcMain.handle('db:chaimae:invoices:getNextNumber', async (event, documentType, year) => {
         try {
-            const nextNumber = invoiceOps.getNextInvoiceNumber(documentType, year);
-            return { success: true, data: nextNumber };
+            return await apiClient.getNextInvoiceNumber(COMPANY_CODE, year, documentType);
         } catch (error) {
-            console.error('❌ Error getting next CHAIMAE invoice number:', error);
+            console.error('❌ Error getting next CHAIMAE invoice number (API):', error);
             return { success: false, error: error.message };
         }
     });
 
     ipcMain.handle('db:chaimae:invoices:getAvailableYears', async () => {
         try {
-            const years = invoiceOps.getAvailableYears();
-            return { success: true, data: years };
+            return await apiClient.getAvailableYears(COMPANY_CODE);
         } catch (error) {
-            console.error('❌ Error getting CHAIMAE available years:', error);
+            console.error('❌ Error getting CHAIMAE available years (API):', error);
             return { success: false, error: error.message };
         }
     });
@@ -119,51 +111,56 @@ async function registerChaimaeHandlers() {
     // Attachment handlers for CHAIMAE
     ipcMain.handle('db:chaimae:attachments:add', async (event, invoiceId, filename, fileType, fileData, filePath, fileSize) => {
         try {
-            // console.log(`📎 Adding CHAIMAE attachment: ${filename} (${fileType})`);
-            const id = attachmentOps.add(invoiceId, filename, fileType, fileData ? Buffer.from(fileData) : null, filePath, fileSize || 0);
-            // console.log('✅ CHAIMAE Attachment added with ID:', id);
-            return { success: true, data: { id } };
+            let base64Data = fileData;
+            if (Buffer.isBuffer(fileData)) {
+                base64Data = fileData.toString('base64');
+            } else if (fileData instanceof Uint8Array) {
+                base64Data = Buffer.from(fileData).toString('base64');
+            }
+
+            const attachmentData = {
+                invoice_id: invoiceId,
+                filename,
+                file_type: fileType,
+                file_size: fileSize,
+                file_data: base64Data,
+                file_path: filePath
+            };
+            return await apiClient.addAttachment(attachmentData);
         } catch (error) {
-            console.error('❌ Error adding CHAIMAE attachment:', error);
+            console.error('❌ Error adding CHAIMAE attachment (API):', error);
             return { success: false, error: error.message };
         }
     });
 
     ipcMain.handle('db:chaimae:attachments:get', async (event, id) => {
         try {
-            const attachment = attachmentOps.get(id);
-            if (attachment && attachment.file_data) {
-                // Convert Uint8Array to Buffer then to base64
-                const buffer = Buffer.from(attachment.file_data);
-                attachment.file_data = buffer.toString('base64');
-            }
-            return { success: true, data: attachment };
+            return await apiClient.getAttachment(id);
         } catch (error) {
-            console.error('❌ Error getting CHAIMAE attachment:', error);
+            console.error('❌ Error getting CHAIMAE attachment (API):', error);
             return { success: false, error: error.message };
         }
     });
 
     ipcMain.handle('db:chaimae:attachments:delete', async (event, id) => {
         try {
-            attachmentOps.delete(id);
-            // console.log('✅ CHAIMAE Attachment deleted:', id);
-            return { success: true };
+            return await apiClient.deleteAttachment(id);
         } catch (error) {
-            console.error('❌ Error deleting CHAIMAE attachment:', error);
+            console.error('❌ Error deleting CHAIMAE attachment (API):', error);
             return { success: false, error: error.message };
         }
     });
 
     ipcMain.handle('db:chaimae:attachments:getByInvoice', async (event, invoiceId) => {
         try {
-            const attachments = attachmentOps.getByInvoice(invoiceId);
-            return { success: true, data: attachments };
+            return await apiClient.getAttachments(invoiceId);
         } catch (error) {
-            console.error('❌ Error getting CHAIMAE attachments:', error);
+            console.error('❌ Error getting CHAIMAE attachments (API):', error);
             return { success: false, error: error.message };
         }
     });
+
+    // --- LEGACY SQLITE HANDLERS (Unchanged) ---
 
     // Global Invoice handlers for CHAIMAE
     ipcMain.handle('db:chaimae:globalInvoices:create', async (event, globalInvoiceData) => {
@@ -337,35 +334,31 @@ async function registerChaimaeHandlers() {
     // Get missing invoice numbers
     ipcMain.handle('db:chaimae:getMissingNumbers', async (event, year) => {
         try {
-            const result = await getMissingInvoiceNumbers(year);
-            return result;
+            return await apiClient.getMissingNumbers(COMPANY_CODE, year, 'facture');
         } catch (error) {
-            console.error('❌ Error getting missing numbers:', error);
+            console.error('❌ Error getting missing numbers (API):', error);
             return { success: false, error: error.message };
         }
     });
 
     // Get missing devis numbers
     ipcMain.handle('db:chaimae:getMissingDevisNumbers', async (event, year) => {
-        console.log('🔍 [IPC] getMissingDevisNumbers handler called with year:', year);
         try {
-            console.log('🔍 [IPC] Calling getMissingDevisNumbers function...');
-            const result = await getMissingDevisNumbers(year);
-            console.log('🔍 [IPC] Result from getMissingDevisNumbers:', result);
-            return result;
+            return await apiClient.getMissingNumbers(COMPANY_CODE, year, 'devis');
         } catch (error) {
-            console.error('❌ Error getting missing devis numbers:', error);
+            console.error('❌ Error getting missing devis numbers (API):', error);
             return { success: false, error: error.message };
         }
     });
 
     // Get missing order numbers
     ipcMain.handle('db:chaimae:getMissingOrderNumbers', async () => {
+        // Order numbers handle differently in legacy, but for Postgres we'll use same logic if applicable
+        // Or if 'order' is a docType
         try {
-            const result = await getMissingOrderNumbers();
-            return result;
+            return await apiClient.getMissingNumbers(COMPANY_CODE, new Date().getFullYear(), 'order');
         } catch (error) {
-            console.error('❌ Error getting missing order numbers:', error);
+            console.error('❌ Error getting missing order numbers (API):', error);
             return { success: false, error: error.message };
         }
     });
@@ -373,20 +366,22 @@ async function registerChaimaeHandlers() {
     // Get missing Bon de livraison numbers
     ipcMain.handle('db:chaimae:getMissingBonLivraisonNumbers', async (event, year) => {
         try {
-            const result = await getMissingBonLivraisonNumbers(year);
-            return result;
+            return await apiClient.getMissingNumbers(COMPANY_CODE, year, 'bon_livraison');
         } catch (error) {
-            console.error('❌ Error getting missing Bon de livraison numbers:', error);
+            console.error('❌ Error getting missing Bon de livraison numbers (API):', error);
             return { success: false, error: error.message };
         }
     });
 
-    // Delete all data handler for CHAIMAE
+    // Delete all data handler for CHAIMAE - WARNING: THIS DELETES SQLITE DATA.
+    // IF WE WANT TO DELETE POSTGRES DATA, WE SHOULD UPDATE THIS.
+    // User asked to dispense with old files, but global features still use SQLite.
+    // We should probably leave this as SQLite delete for now or implement API delete All.
     ipcMain.handle('db:chaimae:deleteAllData', async () => {
         try {
             const { deleteAllData } = require('./db_chaimae');
             deleteAllData();
-            return { success: true, message: 'Toutes les données ont été supprimées' };
+            return { success: true, message: 'Toutes les données LOCALES ont été supprimées' };
         } catch (error) {
             console.error('❌ Error deleting all CHAIMAE data:', error);
             return { success: false, error: error.message };
@@ -430,33 +425,81 @@ async function registerChaimaeHandlers() {
     // Audit Log handlers
     ipcMain.handle('db:chaimae:auditLog:add', async (event, invoiceId, action, userId, userName, userEmail, changes) => {
         try {
-            const result = await auditLogOps.addLog(invoiceId, action, userId, userName, userEmail, changes);
-            return result;
+            return await apiClient.addAuditLog({
+                invoice_id: invoiceId,
+                action,
+                user_id: userId,
+                user_name: userName,
+                user_email: userEmail,
+                changes
+            });
         } catch (error) {
-            console.error('[CHAIMAE] Error adding audit log:', error);
+            console.error('[CHAIMAE] Error adding audit log (API):', error);
             return { success: false, error: error.message };
         }
     });
 
-    ipcMain.handle('db:chaimae:auditLog:getForInvoice', async (event, invoiceId) => {
-        try {
-            const result = await auditLogOps.getLogsForInvoice(invoiceId);
-            return result;
-        } catch (error) {
-            console.error('[CHAIMAE] Error getting audit logs:', error);
-            return { success: false, error: error.message };
-        }
-    });
-
-    // Alias for getForInvoice
     ipcMain.handle('db:chaimae:getAuditLog', async (event, invoiceId) => {
         try {
-            console.log('📋 [IPC CHAIMAE] Getting audit log for invoice:', invoiceId);
-            const result = await auditLogOps.getLogsForInvoice(invoiceId);
-            console.log('📋 [IPC CHAIMAE] Audit log result:', result);
-            return result;
+            return await apiClient.getAuditLog(invoiceId);
         } catch (error) {
-            console.error('[CHAIMAE] Error getting audit logs:', error);
+            console.error('[CHAIMAE] Error getting audit logs (API):', error);
+            return { success: false, error: error.message };
+        }
+    });
+
+    // Delivery Persons Handlers
+    ipcMain.handle('db:chaimae:deliveryPersons:getAll', async (event, company) => {
+        try {
+            return await apiClient.getDeliveryPersons(company);
+        } catch (error) {
+            console.error('❌ Error getting CHAIMAE delivery persons (API):', error);
+            return { success: false, error: error.message };
+        }
+    });
+
+    ipcMain.handle('db:chaimae:deliveryPersons:add', async (event, name, company) => {
+        try {
+            return await apiClient.addDeliveryPerson(name, company);
+        } catch (error) {
+            console.error('❌ Error adding CHAIMAE delivery person (API):', error);
+            return { success: false, error: error.message };
+        }
+    });
+
+    // Validation & Permissions Handlers
+    ipcMain.handle('db:chaimae:invoices:getPending', async () => {
+        try {
+            return await apiClient.getPendingInvoices(COMPANY_CODE);
+        } catch (error) {
+            console.error('❌ Error getting pending CHAIMAE invoices (API):', error);
+            return { success: false, error: error.message };
+        }
+    });
+
+    ipcMain.handle('db:chaimae:invoices:validate', async (event, id, status) => {
+        try {
+            return await apiClient.validateInvoice(id, status);
+        } catch (error) {
+            console.error('❌ Error validating CHAIMAE invoice (API):', error);
+            return { success: false, error: error.message };
+        }
+    });
+
+    ipcMain.handle('db:chaimae:users:getAll', async () => {
+        try {
+            return await apiClient.getUsers();
+        } catch (error) {
+            console.error('❌ Error getting users (API):', error);
+            return { success: false, error: error.message };
+        }
+    });
+
+    ipcMain.handle('db:chaimae:users:updatePermissions', async (event, id, can_auto_validate) => {
+        try {
+            return await apiClient.updateUserPermissions(id, can_auto_validate);
+        } catch (error) {
+            console.error('❌ Error updating user permissions (API):', error);
             return { success: false, error: error.message };
         }
     });

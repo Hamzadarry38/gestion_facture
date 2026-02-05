@@ -204,13 +204,15 @@ window.toggleOptionalFieldMulti = function (fieldName) {
     const field = document.getElementById(`field${fieldName}Multi`);
     const input = document.getElementById(`documentNumero${fieldName}Multi`);
 
-    if (checkbox.checked) {
-        field.style.display = 'block';
-        input.required = false;
+    if (checkbox && checkbox.checked) {
+        if (field) field.style.display = 'block';
+        if (input) input.required = false;
     } else {
-        field.style.display = 'none';
-        input.value = '';
-        input.required = false;
+        if (field) field.style.display = 'none';
+        if (input) {
+            input.value = '';
+            input.required = false;
+        }
     }
 }
 
@@ -797,35 +799,53 @@ function updateFilesListMulti() {
     });
 }
 
-async function checkDocumentNumberUniqueMulti(type, numero, numeroOrder = null) {
+window.checkDocumentNumberUniqueMulti = async function (type, numero, numeroOrder = null, excludeInvoiceId = null) {
     try {
         const result = await window.electron.dbMulti.getAllInvoices('MULTI');
         if (!result.success) return true;
 
-        const invoices = result.data;
+        let invoices = result.data;
+
+        // Exclude current invoice if editing
+        if (excludeInvoiceId) {
+            invoices = invoices.filter(inv => inv.id !== excludeInvoiceId);
+        }
+
+        const searchNum = (numero || '').toLowerCase().trim();
 
         if (type === 'facture') {
             const duplicateFacture = invoices.find(inv =>
-                inv.document_type === 'facture' && inv.document_numero === numero
+                inv.document_type === 'facture' &&
+                inv.document_numero &&
+                inv.document_numero.toLowerCase().trim() === searchNum
             );
             if (duplicateFacture) {
-                window.notify.error('Numéro de facture déjà utilisé', `Le N° Facture "${numero}" existe déjà.`, 5000);
+                window.notify.error('Numéro de facture déjà utilisé', `Le N° Facture "${numero}" existe déjà (Insensible à la casse).`, 5000);
                 return false;
             }
 
             if (numeroOrder) {
-                const duplicateOrder = invoices.find(inv => inv.document_numero_Order === numeroOrder);
+                const searchOrder = (numeroOrder || '').toLowerCase().trim();
+
+                const duplicateOrder = invoices.find(inv => {
+                    // Check both casing (API returns lowercase, Legacy might be different)
+                    const invOrder = (inv.document_numero_Order || inv.document_numero_order || '').toLowerCase().trim();
+                    return invOrder === searchOrder;
+                });
+
                 if (duplicateOrder) {
-                    window.notify.error('Numéro de commande déjà utilisé', `Le N° Order "${numeroOrder}" existe déjà.`, 5000);
+                    window.notify.error('Numéro de commande déjà utilisé', `Le N° Order "${numeroOrder}" existe déjà (Insensible à la casse).`, 5000);
                     return false;
                 }
             }
         } else if (type === 'devis') {
             const duplicateDevis = invoices.find(inv =>
-                inv.document_type === 'devis' && inv.document_numero_devis === numero
+                inv.document_type === 'devis' &&
+                inv.document_numero_devis &&
+                inv.document_numero_devis.toLowerCase().trim() === searchNum
             );
             if (duplicateDevis) {
-                window.notify.error('Numéro de devis déjà utilisé', `Le N° Devis "${numero}" existe déjà.`, 5000);
+                window.notify.error('Numéro de devis déjà utilisé', `Le N° Devis "${numero}" existe déjà (Insensible à la casse).`, 5000);
                 return false;
             }
         }
@@ -864,7 +884,8 @@ async function handleInvoiceSubmitMulti(e) {
                 // 👤 Add user tracking
                 created_by_user_id: currentUser?.id || null,
                 created_by_user_name: currentUser?.name || 'Unknown',
-                created_by_user_email: currentUser?.email || null
+                created_by_user_email: currentUser?.email || null,
+                validation_status: (currentUser?.email === 'redouanerrebbahi99@gmail.com') ? 'validated' : 'pending'
             },
             products: [],
             totals: {
@@ -886,7 +907,7 @@ async function handleInvoiceSubmitMulti(e) {
             }
         }
 
-        const isUnique = await checkDocumentNumberUniqueMulti(
+        const isUnique = await window.checkDocumentNumberUniqueMulti(
             formData.document.type,
             formData.document.numero,
             formData.document.numero_Order

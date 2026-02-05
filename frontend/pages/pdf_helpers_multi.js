@@ -556,64 +556,91 @@ window.downloadInvoicePDFMulti = async function (invoiceId) {
         // Products Table
         const startY = 65;
 
+        // Table Layout - Percentage Based (Total Width = 180)
+        // Description: 55% (~99 width)
+        // Quantity: 15% (~27 width)
+        // Unit Price: 15% (~27 width)
+        // Total: 15% (~27 width)
+
+        const TABLE_X = 15;
+        const TABLE_WIDTH = 180;
+
+        const COL_1_WIDTH = TABLE_WIDTH * 0.55;
+        const COL_2_WIDTH = TABLE_WIDTH * 0.15;
+        const COL_3_WIDTH = TABLE_WIDTH * 0.15;
+        const COL_4_WIDTH = TABLE_WIDTH * 0.15;
+
+        // X Positions (Start of each column)
+        const POS_DESC = TABLE_X + 2; // Padding left
+        const POS_QTY = TABLE_X + COL_1_WIDTH + 2; // Left aligned with padding
+        const POS_PU = TABLE_X + COL_1_WIDTH + COL_2_WIDTH + 2; // Left aligned with padding
+        const POS_TOTAL = TABLE_X + COL_1_WIDTH + COL_2_WIDTH + COL_3_WIDTH + 2; // Left aligned with padding
+
+        const DESC_MAX_WIDTH = COL_1_WIDTH - 4; // Padding
+
         // Table Header - Gray background
         doc.setFillColor(...darkGrayColor);
-        doc.rect(15, startY, 180, 7, 'F');
+        doc.rect(TABLE_X, startY, TABLE_WIDTH, 7, 'F');
         doc.setTextColor(255, 255, 255);
         doc.setFontSize(9);
         doc.setFont(undefined, 'bold');
-        doc.text('Description', 18, startY + 5);
-        doc.text('Quantité', 115, startY + 5, { align: 'center' });
-        doc.text('Prix unitaire HT', 150, startY + 5, { align: 'right' });
-        doc.text('Prix total HT', 188, startY + 5, { align: 'right' });
+
+        // Headers
+        doc.text('Description', POS_DESC, startY + 5);
+        doc.text('Quantité', POS_QTY, startY + 5);
+        doc.text('Prix unitaire HT', POS_PU, startY + 5);
+        doc.text('Prix total HT', POS_TOTAL, startY + 5);
 
         // Table Body
-        let currentY = startY + 10;
+        let currentY = startY + 7; // Start exactly where header ends
         doc.setTextColor(0, 0, 0);
         doc.setFont(undefined, 'normal');
-        doc.setFontSize(9);
+        doc.setFontSize(7.5); // Set font size before splitTextToSize
 
         let pageCount = 1;
         const pages = [];
 
         invoice.products.forEach((product, index) => {
-            // Wrap long text - limit width to 75 for description column only
+            // Description wrapping
             const designation = product.designation || '';
-            const lines = doc.splitTextToSize(designation, 75);
+            const lines = doc.splitTextToSize(designation, DESC_MAX_WIDTH);
 
-            // Calculate row height based on text lines - more space per line
+            // Calculate row height based on text lines
             const rowHeight = Math.max(8, (lines.length * 4.5) + 4);
 
-            // Split very long products across multiple pages if needed
+            // Handle page breaks for long items
             let remainingLines = [...lines];
             let isFirstPart = true;
 
             while (remainingLines.length > 0) {
                 const availableSpace = 220 - currentY;
 
-                // If not enough space for even one line, create new page first
+                // New page if space is too tight
                 if (availableSpace < 15) {
                     pages.push(pageCount);
                     doc.addPage();
-                    addHeader(false);
+                    addHeader(false); // Helper function adds logo, company info etc.
                     pageCount++;
 
                     let newStartY = 65;
 
+                    // Draw Header on new page
                     doc.setFillColor(...darkGrayColor);
-                    doc.rect(15, newStartY, 180, 7, 'F');
+                    doc.rect(TABLE_X, newStartY, TABLE_WIDTH, 7, 'F');
                     doc.setTextColor(255, 255, 255);
                     doc.setFontSize(9);
                     doc.setFont(undefined, 'bold');
-                    doc.text('Description', 18, newStartY + 5);
-                    doc.text('Quantité', 115, newStartY + 5, { align: 'center' });
-                    doc.text('Prix unitaire HT', 150, newStartY + 5, { align: 'right' });
-                    doc.text('Prix total HT', 188, newStartY + 5, { align: 'right' });
+                    doc.text('Description', POS_DESC, newStartY + 5);
+                    doc.text('Quantité', POS_QTY, newStartY + 5);
+                    doc.text('Prix unitaire HT', POS_PU, newStartY + 5);
+                    doc.text('Prix total HT', POS_TOTAL, newStartY + 5);
 
-                    currentY = newStartY + 10;
+                    currentY = newStartY + 7;
                     doc.setTextColor(0, 0, 0);
                     doc.setFont(undefined, 'normal');
                     doc.setFontSize(9);
+
+                    // IMPORTANT: continue loop with new page set up
                     continue;
                 }
 
@@ -621,67 +648,56 @@ window.downloadInvoicePDFMulti = async function (invoiceId) {
                 const linesToDraw = remainingLines.splice(0, Math.max(1, maxLinesPerPage));
                 const partialRowHeight = Math.max(8, (linesToDraw.length * 4.5) + 4);
 
-                // Alternate row colors (only for first part)
+                // Row border and Alternate row colors
+                doc.setDrawColor(200, 200, 200);
+                doc.setLineWidth(0.1);
+                doc.rect(TABLE_X, currentY, TABLE_WIDTH, partialRowHeight);
+
                 if (isFirstPart && index % 2 === 0) {
                     doc.setFillColor(245, 245, 245);
-                    doc.rect(15, currentY - 3, 180, partialRowHeight, 'F');
+                    doc.rect(TABLE_X, currentY, TABLE_WIDTH, partialRowHeight, 'F');
+                    doc.rect(TABLE_X, currentY, TABLE_WIDTH, partialRowHeight); // Redraw border over background
                 }
 
-                doc.setFontSize(7.5);
-                // Draw lines
+                // Vertical Column Lines
+                doc.line(TABLE_X + COL_1_WIDTH, currentY, TABLE_X + COL_1_WIDTH, currentY + partialRowHeight);
+                doc.line(TABLE_X + COL_1_WIDTH + COL_2_WIDTH, currentY, TABLE_X + COL_1_WIDTH + COL_2_WIDTH, currentY + partialRowHeight);
+                doc.line(TABLE_X + COL_1_WIDTH + COL_2_WIDTH + COL_3_WIDTH, currentY, TABLE_X + COL_1_WIDTH + COL_2_WIDTH + COL_3_WIDTH, currentY + partialRowHeight);
+
+                // No need to set font size here again as it's set before the loop
+
+                // Draw Description Lines
                 linesToDraw.forEach((line, lineIndex) => {
-                    doc.text(line, 18, currentY + 3 + (lineIndex * 4.5));
+                    doc.text(line, POS_DESC, currentY + 5 + (lineIndex * 4.5));
                 });
 
-                // Only show quantity, price, and total on the first part
+                // Draw numeric values (Only on the first part of the row)
                 if (isFirstPart) {
+                    // Center vertically relative to the text lines
                     const centerOffset = (linesToDraw.length > 1) ? ((linesToDraw.length - 1) * 2.25) : 0;
 
+                    // Quantité
                     doc.setFontSize(8);
                     const qty = parseFloat(product.quantite);
                     if (showZeroValues || qty !== 0) {
-                        doc.text(String(product.quantite || ''), 115, currentY + 3 + centerOffset, { align: 'center' });
+                        doc.text(String(product.quantite || ''), POS_QTY, currentY + 5 + centerOffset);
                     }
 
+                    // Prices
                     doc.setFontSize(7.5);
                     const price = parseFloat(product.prix_unitaire_ht);
                     if (showZeroValues || price !== 0) {
-                        doc.text(`${formatNumberForPDF(product.prix_unitaire_ht)} DH`, 150, currentY + 3 + centerOffset, { align: 'right' });
+                        doc.text(`${formatNumberForPDF(product.prix_unitaire_ht)} DH`, POS_PU, currentY + 5 + centerOffset);
                     }
 
                     const total = parseFloat(product.total_ht);
                     if (showZeroValues || total !== 0) {
-                        doc.text(`${formatNumberForPDF(product.total_ht)} DH`, 188, currentY + 3 + centerOffset, { align: 'right' });
+                        doc.text(`${formatNumberForPDF(product.total_ht)} DH`, POS_TOTAL, currentY + 5 + centerOffset);
                     }
                 }
 
                 currentY += partialRowHeight;
                 isFirstPart = false;
-
-                // If there are more lines and we're near the bottom, create new page
-                if (remainingLines.length > 0 && currentY > 200) {
-                    pages.push(pageCount);
-                    doc.addPage();
-                    addHeader(false);
-                    pageCount++;
-
-                    let newStartY = 65;
-
-                    doc.setFillColor(...darkGrayColor);
-                    doc.rect(15, newStartY, 180, 7, 'F');
-                    doc.setTextColor(255, 255, 255);
-                    doc.setFontSize(9);
-                    doc.setFont(undefined, 'bold');
-                    doc.text('Description', 18, newStartY + 5);
-                    doc.text('Quantité', 115, newStartY + 5, { align: 'center' });
-                    doc.text('Prix unitaire HT', 150, newStartY + 5, { align: 'right' });
-                    doc.text('Prix total HT', 188, newStartY + 5, { align: 'right' });
-
-                    currentY = newStartY + 10;
-                    doc.setTextColor(0, 0, 0);
-                    doc.setFont(undefined, 'normal');
-                    doc.setFontSize(9);
-                }
             }
         });
 
@@ -711,7 +727,7 @@ window.downloadInvoicePDFMulti = async function (invoiceId) {
         doc.setFillColor(...darkGrayColor);
         doc.rect(110, fixedBottomY, 85, 6, 'F');
         doc.setTextColor(255, 255, 255);
-        doc.setFontSize(9);
+        doc.setFontSize(8);
         doc.setFont(undefined, 'bold');
         doc.text('TOTAL HT', 113, fixedBottomY + 4);
         doc.text(`${formatNumberForPDF(invoice.total_ht)} DH`, 192, fixedBottomY + 4, { align: 'right' });

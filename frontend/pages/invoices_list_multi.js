@@ -94,6 +94,39 @@ function InvoicesListMultiPage() {
                         </div>
                     </div>
 
+                    <!-- Validation Queue (Super User Only) -->
+                    <div id="validationQueueSectionMulti" style="display: none; margin-bottom: 2rem; background: #2d2d30; border-radius: 8px; border: 1px solid #3e3e42; overflow: hidden; box-shadow: 0 4px 20px rgba(0,0,0,0.3);">
+                        <div style="padding: 1rem 1.5rem; background: #2196f3; color: white; display: flex; justify-content: space-between; align-items: center; cursor: pointer;" onclick="toggleValidationQueueMulti()">
+                            <h3 style="margin: 0; font-size: 1.1rem; display: flex; align-items: center; gap: 0.5rem;">
+                                🛡️ Factures en attente de validation (<span id="pendingInvoicesCountMulti">0</span>)
+                            </h3>
+                            <div style="display: flex; align-items: center; gap: 1rem;">
+                                <span style="font-size: 0.8rem; background: rgba(255,255,255,0.2); padding: 0.2rem 0.6rem; border-radius: 20px;">Section Administrateur</span>
+                                <span id="toggleValidationIconMulti">▼</span>
+                            </div>
+                        </div>
+                        <div id="validationQueueContentMulti" style="display: none; padding: 1rem;">
+                            <div class="table-container" style="max-height: 400px; overflow-y: auto;">
+                                <table class="invoices-table" style="margin-bottom: 0;">
+                                    <thead>
+                                        <tr>
+                                            <th>Type</th>
+                                            <th>N° Document</th>
+                                            <th>Client</th>
+                                            <th>Date</th>
+                                            <th>Montant TTC</th>
+                                            <th>Créé par</th>
+                                            <th style="text-align: center;">Actions</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="pendingInvoicesTableBodyMulti">
+                                        <!-- Pending invoices will be loaded here -->
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+
                     <!-- Filters -->
                     <div class="filters-section" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem; margin-bottom: 1.5rem;">
                         <div class="filter-group">
@@ -163,6 +196,26 @@ function InvoicesListMultiPage() {
                                 <option value="all">Tous</option>
                                 <option value="with">Avec P.J</option>
                                 <option value="without">Sans P.J</option>
+                            </select>
+                        </div>
+
+                        <div class="filter-group">
+                            <label>🛠️ Méthode de création:</label>
+                            <select id="filterCreationMethodMulti" onchange="filterInvoicesMulti()">
+                                <option value="all">Tous</option>
+                                <option value="normal">Normal</option>
+                                <option value="converted">Conversion</option>
+                            </select>
+                        </div>
+                        
+                        <!-- AR Status Filter -->
+                        <div class="filter-group">
+                            <label>🕒 Accusé de Réception:</label>
+                            <select id="filterArStatusMulti" onchange="filterInvoicesMulti()">
+                                <option value="all">Tous</option>
+                                <option value="sans_accuse">Sans accusé</option>
+                                <option value="en_attente">En attente</option>
+                                <option value="accuse">Accusé</option>
                             </select>
                         </div>
                         
@@ -248,6 +301,7 @@ function InvoicesListMultiPage() {
                                     <th onclick="sortTableMulti('total_ttc')" style="cursor: pointer; user-select: none;" title="Cliquer pour trier">
                                         Total TTC <span id="sortIconTTC">⇅</span>
                                     </th>
+                                    <th style="width: 140px; text-align: center;">Accusé R.</th>
                                     <th style="width: 50px; text-align: center;">P.J</th>
                                     <th>Actions</th>
                                 </tr>
@@ -295,6 +349,8 @@ let allInvoicesMulti = [];
 let filteredInvoicesMulti = [];
 let currentPageMulti = 1;
 let itemsPerPageMulti = 10;
+
+let isSuperUserMulti = false;
 
 // Column visibility state for Multi - ICE hidden by default
 let columnVisibilityMulti = {
@@ -359,10 +415,143 @@ function applyColumnVisibilityMulti() {
     });
 }
 
+// Validation Queue Functions for Multi
+async function loadPendingInvoicesMulti() {
+    try {
+        const result = await window.electron.dbMulti.getPendingInvoices();
+        if (result.success) {
+            displayPendingInvoicesMulti(result.data);
+            const countSpan = document.getElementById('pendingInvoicesCountMulti');
+            if (countSpan) countSpan.textContent = result.data.length;
+        }
+    } catch (error) {
+        console.error('Error loading pending invoices Multi:', error);
+    }
+}
+
+// Helper to format numbers
+function formatNumberMulti(num) {
+    if (num === null || num === undefined) return '0.00';
+    return parseFloat(num).toFixed(2);
+}
+
+function displayPendingInvoicesMulti(invoices) {
+    const tableBody = document.getElementById('pendingInvoicesTableBodyMulti');
+    if (!tableBody) return;
+
+    if (invoices.length === 0) {
+        tableBody.innerHTML = '<tr><td colspan="7" style="text-align:center;padding:2rem;color:#999;">Aucune facture en attente de validation</td></tr>';
+        return;
+    }
+
+    tableBody.innerHTML = invoices.map(inv => `
+        <tr>
+            <td><span class="badge badge-${inv.document_type}">${inv.document_type}</span></td>
+            <td><strong>${inv.document_numero}</strong></td>
+            <td>${inv.client_nom || '-'}</td>
+            <td>${new Date(inv.document_date).toLocaleDateString('fr-FR')}</td>
+            <td><strong>${formatNumberMulti(inv.total_ttc)}</strong> DH</td>
+            <td><span style="color:#2196f3;">${inv.created_by_user_name || '-'}</span></td>
+            <td style="text-align:center;">
+                <div style="display:flex;gap:0.5rem;justify-content:center;">
+                    <button onclick="handleValidateInvoiceMulti('${inv.id}', 'validated')" class="btn-action btn-validate" title="Valider" style="background:#4caf50;color:white;border:none;padding:0.4rem 0.8rem;border-radius:4px;cursor:pointer;">
+                        ✅ Valider
+                    </button>
+                    <button onclick="handleValidateInvoiceMulti('${inv.id}', 'rejected')" class="btn-action btn-reject" title="Rejeter" style="background:#f44336;color:white;border:none;padding:0.4rem 0.8rem;border-radius:4px;cursor:pointer;">
+                        ❌ Rejeter
+                    </button>
+                </div>
+            </td>
+        </tr>
+    `).join('');
+}
+
+window.toggleValidationQueueMulti = function () {
+    const content = document.getElementById('validationQueueContentMulti');
+    const icon = document.getElementById('toggleValidationIconMulti');
+    if (content.style.display === 'none') {
+        content.style.display = 'block';
+        icon.textContent = '▲';
+    } else {
+        content.style.display = 'none';
+        icon.textContent = '▼';
+    }
+};
+
+// Update AR Status Multi
+window.updateArStatusMulti = async function (id, status) {
+    try {
+        // Using generic update but mapping to Multi DB context if needed, 
+        // however preload.js 'dbMulti' logic usually points to specific chaimae/multi handlers?
+        // Wait, preload.js lines for 'dbMulti' (Multi Company) are needed. 
+        // Let's assume window.electron.dbMulti.updateInvoice maps to generic update or we use 'db:multi:invoices:update'
+        // Checking existing code usage: window.electron.dbMulti.createInvoice...
+
+        // Actually, looking at Multi logic, it shares many handlers or has specific ones.
+        // Let's use window.electron.dbMulti.updateInvoice.
+
+        const result = await window.electron.dbMulti.updateInvoice(id, {
+            ar_status: status
+        });
+
+        if (result.success) {
+            window.notify.success('Succès', 'Statut Accusé R. mis à jour');
+
+            // Update local state
+            const inv = allInvoicesMulti.find(i => i.id == id);
+            if (inv) {
+                inv.ar_status = status;
+                // Refresh list to update UI colors
+                loadInvoicesMulti();
+            }
+        } else {
+            console.error('Update AR error:', result.error);
+            window.notify.error('Erreur', 'Échec de la mise à jour: ' + result.error);
+        }
+    } catch (error) {
+        console.error('Update AR exception:', error);
+        window.notify.error('Erreur', 'Une erreur est survenue');
+    }
+};
+
+window.handleValidateInvoiceMulti = async function (id, status) {
+    const action = status === 'validated' ? 'valider' : 'rejeter';
+    const confirmMessage = `Êtes-vous sûr de vouloir ${action} ce document ?`;
+
+    const confirmed = await customConfirm('Confirmation', confirmMessage, status === 'validated' ? 'info' : 'warning');
+
+    if (confirmed) {
+        try {
+            const result = await window.electron.dbMulti.validateInvoice(id, status);
+            if (result.success) {
+                window.notify.success('Succès', `Le document a été ${status === 'validated' ? 'validé' : 'rejeté'}.`);
+                loadInvoicesMulti(); // Reload everything
+            } else {
+                window.notify.error('Erreur', result.error);
+            }
+        } catch (error) {
+            console.error('Error validating invoice Multi:', error);
+            window.notify.error('Erreur', error.message);
+        }
+    }
+};
+
 // Load invoices
 async function loadInvoicesMulti() {
     // Load column visibility preferences
     loadColumnVisibilityMulti();
+
+    // Check user identity
+    const user = JSON.parse(localStorage.getItem('user') || '{}');
+    isSuperUserMulti = (user.email === 'redouanerrebbahi99@gmail.com' || user.can_auto_validate === true);
+
+    // Update UI based on identity
+    const validationSection = document.getElementById('validationQueueSectionMulti');
+    if (validationSection) validationSection.style.display = isSuperUserMulti ? 'block' : 'none';
+
+    if (isSuperUserMulti) {
+        loadPendingInvoicesMulti();
+    }
 
     const spinner = document.getElementById('loadingSpinnerMulti');
     const tableBody = document.getElementById('invoicesTableBodyMulti');
@@ -400,7 +589,9 @@ async function loadInvoicesMulti() {
                 created_by_user_name: inv.created_by_user_name || '-'
             }));
 
-            allInvoicesMulti = enrichedInvoices;
+            // Filter: Main list should ONLY show validated invoices (or rejected/modified)
+            // Pending invoices should ONLY appear in the Validation Queue at the top for admins.
+            allInvoicesMulti = enrichedInvoices.filter(inv => inv.validation_status !== 'pending');
             filteredInvoicesMulti = [...allInvoicesMulti];
 
             populateFiltersMulti();
@@ -442,7 +633,9 @@ function filterInvoicesMulti() {
     const yearFilter = document.getElementById('filterYearMulti')?.value || '';
     const monthFilter = document.getElementById('filterMonthMulti')?.value || '';
     const clientFilter = document.getElementById('filterClientMulti')?.value || '';
-    const filterAttachments = document.getElementById('filterAttachmentsMulti')?.checked || false;
+    const filterAttachments = document.getElementById('filterAttachmentsMulti')?.value || 'all';
+    const filterCreationMethod = document.getElementById('filterCreationMethodMulti')?.value || 'all';
+    const arStatusFilter = document.getElementById('filterArStatusMulti')?.value || 'all'; // Added AR Status Filter
     const searchType = document.getElementById('searchTypeMulti')?.value || 'all';
     const searchInput = document.getElementById('searchInputMulti')?.value.toLowerCase() || '';
 
@@ -458,6 +651,20 @@ function filterInvoicesMulti() {
             matchAttachments = (invoice.attachment_count || 0) > 0;
         } else if (attachmentFilter === 'without') {
             matchAttachments = (invoice.attachment_count || 0) === 0;
+        }
+
+        let matchCreationMethod = true;
+        if (filterCreationMethod === 'normal') {
+            matchCreationMethod = !invoice.creation_method || invoice.creation_method === 'normal';
+        } else if (filterCreationMethod === 'converted') {
+            matchCreationMethod = invoice.creation_method === 'converted';
+        }
+
+        // AR Status Match
+        let matchAR = true;
+        if (arStatusFilter !== 'all') {
+            const status = invoice.ar_status || 'sans_accuse';
+            matchAR = status === arStatusFilter;
         }
 
         let searchMatch = true;
@@ -482,9 +689,11 @@ function filterInvoicesMulti() {
                     );
                     break;
                 case 'price':
-                    searchMatch = invoice.products && invoice.products.some(p =>
-                        p.prix_unitaire_ht && p.prix_unitaire_ht.toString().includes(searchInput)
+                    const productMatchPrice = invoice.products && invoice.products.some(p =>
+                        (p.prix_unitaire_ht && p.prix_unitaire_ht.toString().includes(searchInput)) ||
+                        (p.total_ht && p.total_ht.toString().includes(searchInput))
                     );
+                    searchMatch = productMatchPrice;
                     break;
                 case 'total_ht':
                     searchMatch = invoice.total_ht.toString().includes(searchInput);
@@ -511,7 +720,7 @@ function filterInvoicesMulti() {
             }
         }
 
-        return matchType && matchYear && matchMonth && matchClient && matchAttachments && searchMatch;
+        return matchType && matchYear && matchMonth && matchClient && matchAttachments && matchCreationMethod && matchAR && searchMatch;
     });
 
     displayInvoicesMulti();
@@ -572,6 +781,9 @@ function displayInvoicesMulti() {
             created_by_user_id: invoice.created_by_user_id
         });
 
+        const rowClass = invoice.creation_method === 'converted' ? 'row-converted' : '';
+        row.className = rowClass;
+
         row.innerHTML = `
             <td>
                 <input type="checkbox" class="invoice-checkbox-multi" data-invoice-id="${invoice.id}" 
@@ -581,7 +793,7 @@ function displayInvoicesMulti() {
             <td><span class="badge badge-${invoice.document_type}">${typeLabel}</span></td>
             <td>
                 <strong>${docNumber || 'N/A'}</strong>
-                ${invoice.document_numero_Order ? `<div style="font-size:0.75rem;color:#999;margin-top:0.25rem;">Order: ${invoice.document_numero_Order}</div>` : ''}
+                ${(invoice.document_numero_Order || invoice.document_numero_order) ? `<div style="font-size:0.75rem;color:#2196f3;font-weight:500;margin-top:0.25rem;">N° Order: ${invoice.document_numero_Order || invoice.document_numero_order}</div>` : ''}
             </td>
             <td>${invoice.client_nom}</td>
             <td class="col-ice-multi-body" style="${columnVisibilityMulti.ice ? '' : 'display: none;'}">${invoice.client_ice}</td>
@@ -589,6 +801,15 @@ function displayInvoicesMulti() {
             <td><small style="color: #2196f3;">${invoice.created_by_user_name || '-'}</small></td>
             <td>${invoice.total_ht.toFixed(2)} DH</td>
             <td><strong>${invoice.total_ttc.toFixed(2)} DH</strong></td>
+            <td>
+                <select onchange="window.updateArStatusMulti('${invoice.id}', this.value)"
+                        style="padding: 0.4rem; background: ${invoice.ar_status === 'accuse' ? '#4caf50' : (invoice.ar_status === 'en_attente' ? '#ff9800' : '#424242')}; color: white; border: none; border-radius: 4px; font-size: 0.85rem; cursor: pointer; width: 100%; transition: background 0.3s;"
+                        onclick="event.stopPropagation()">
+                    <option value="sans_accuse" ${(!invoice.ar_status || invoice.ar_status === 'sans_accuse') ? 'selected' : ''} style="background: #424242;">Sans accusé</option>
+                    <option value="en_attente" ${invoice.ar_status === 'en_attente' ? 'selected' : ''} style="background: #ff9800;">En attente</option>
+                    <option value="accuse" ${invoice.ar_status === 'accuse' ? 'selected' : ''} style="background: #4caf50;">Accusé</option>
+                </select>
+            </td>
             <td style="text-align: center; color: #757575;">
                 <span style="${invoice.attachment_count > 0 ? 'color: #2196f3; font-weight: bold;' : ''}">${invoice.attachment_count || 0}</span>
             </td>
@@ -727,10 +948,10 @@ window.viewInvoiceMulti = async function (id) {
                             <span style="color:#999;font-size:0.9rem;">N°:</span>
                             <div style="color:#fff;font-weight:500;margin-top:0.25rem;">${docNumber}</div>
                         </div>
-                        ${invoice.document_numero_Order ? `
+                        ${(invoice.document_numero_Order || invoice.document_numero_order) ? `
                         <div style="margin-bottom:0.75rem;">
                             <span style="color:#999;font-size:0.9rem;">N° Order:</span>
-                            <div style="color:#fff;font-weight:500;margin-top:0.25rem;">${invoice.document_numero_Order}</div>
+                            <div style="color:#fff;font-weight:500;margin-top:0.25rem;">${invoice.document_numero_Order || invoice.document_numero_order}</div>
                         </div>
                         ` : ''}
                         <div>
@@ -1395,9 +1616,9 @@ window.downloadBonDeTravaux = async function (invoiceId) {
         doc.setFontSize(9);
         doc.setFont(undefined, 'bold');
         doc.text('Description', 18, startY + 5);
-        doc.text('Quantité', 115, startY + 5, { align: 'center' });
-        doc.text('Prix unitaire HT', 150, startY + 5, { align: 'right' });
-        doc.text('Prix total HT', 188, startY + 5, { align: 'right' });
+        doc.text('Quantité', 130, startY + 5, { align: 'center' });
+        doc.text('Prix unitaire HT', 165, startY + 5, { align: 'right' });
+        doc.text('Prix total HT', 192, startY + 5, { align: 'right' });
 
         // Table Body
         let currentY = startY + 10;
@@ -1410,7 +1631,7 @@ window.downloadBonDeTravaux = async function (invoiceId) {
 
         invoice.products.forEach((product, index) => {
             const designation = product.designation || '';
-            const lines = doc.splitTextToSize(designation, 75);
+            const lines = doc.splitTextToSize(designation, 95);
             const rowHeight = Math.max(8, (lines.length * 4.5) + 4);
 
             // Check if we need a new page
@@ -1427,9 +1648,9 @@ window.downloadBonDeTravaux = async function (invoiceId) {
                 doc.setFontSize(9);
                 doc.setFont(undefined, 'bold');
                 doc.text('Description', 18, newStartY + 5);
-                doc.text('Quantité', 115, newStartY + 5, { align: 'center' });
-                doc.text('Prix unitaire HT', 150, newStartY + 5, { align: 'right' });
-                doc.text('Prix total HT', 188, newStartY + 5, { align: 'right' });
+                doc.text('Quantité', 130, newStartY + 5, { align: 'center' });
+                doc.text('Prix unitaire HT', 165, newStartY + 5, { align: 'right' });
+                doc.text('Prix total HT', 192, newStartY + 5, { align: 'right' });
 
                 currentY = newStartY + 10;
                 doc.setTextColor(0, 0, 0);
@@ -1454,20 +1675,20 @@ window.downloadBonDeTravaux = async function (invoiceId) {
             // Show quantity only if it's not zero OR if user chose to show zero values
             const qty = parseFloat(product.quantite);
             if (showZeroValues || qty !== 0) {
-                doc.text(String(product.quantite || ''), 115, currentY + 3 + centerOffset, { align: 'center' });
+                doc.text(String(product.quantite || ''), 130, currentY + 3 + centerOffset, { align: 'center' });
             }
 
             doc.setFontSize(7.5);
             // Show price only if it's not zero OR if user chose to show zero values
             const price = parseFloat(product.prix_unitaire_ht);
             if (showZeroValues || price !== 0) {
-                doc.text(`${formatNumberForPDF(product.prix_unitaire_ht)} DH`, 150, currentY + 3 + centerOffset, { align: 'right' });
+                doc.text(`${formatNumberForPDF(product.prix_unitaire_ht)} DH`, 165, currentY + 3 + centerOffset, { align: 'right' });
             }
 
             // Show total only if it's not zero OR if user chose to show zero values
             const total = parseFloat(product.total_ht);
             if (showZeroValues || total !== 0) {
-                doc.text(`${formatNumberForPDF(product.total_ht)} DH`, 188, currentY + 3 + centerOffset, { align: 'right' });
+                doc.text(`${formatNumberForPDF(product.total_ht)} DH`, 192, currentY + 3 + centerOffset, { align: 'right' });
             }
 
             currentY += rowHeight;
@@ -1708,9 +1929,9 @@ window.downloadInvoicePDFMulti = async function (invoiceId) {
         doc.setFontSize(9);
         doc.setFont(undefined, 'bold');
         doc.text('Description', 18, startY + 5);
-        doc.text('Quantité', 115, startY + 5, { align: 'center' });
-        doc.text('Prix unitaire HT', 150, startY + 5, { align: 'right' });
-        doc.text('Prix total HT', 188, startY + 5, { align: 'right' });
+        doc.text('Quantité', 162, startY + 5, { align: 'center' });
+        doc.text('Prix unitaire HT', 183, startY + 5, { align: 'right' });
+        doc.text('Prix total HT', 195, startY + 5, { align: 'right' });
 
         // Table Body
         let currentY = startY + 10;
@@ -1724,7 +1945,7 @@ window.downloadInvoicePDFMulti = async function (invoiceId) {
         invoice.products.forEach((product, index) => {
             // Wrap long text - limit width to 75 for description column only
             const designation = product.designation || '';
-            const lines = doc.splitTextToSize(designation, 75);
+            const lines = doc.splitTextToSize(designation, 140);
 
             // Calculate row height based on text lines - more space per line
             const rowHeight = Math.max(8, (lines.length * 4.5) + 4);
@@ -1745,9 +1966,9 @@ window.downloadInvoicePDFMulti = async function (invoiceId) {
                 doc.setFontSize(9);
                 doc.setFont(undefined, 'bold');
                 doc.text('Description', 18, newStartY + 5);
-                doc.text('Quantité', 115, newStartY + 5, { align: 'center' });
-                doc.text('Prix unitaire HT', 150, newStartY + 5, { align: 'right' });
-                doc.text('Prix total HT', 188, newStartY + 5, { align: 'right' });
+                doc.text('Quantité', 162, newStartY + 5, { align: 'center' });
+                doc.text('Prix unitaire HT', 183, newStartY + 5, { align: 'right' });
+                doc.text('Prix total HT', 195, newStartY + 5, { align: 'right' });
 
                 currentY = newStartY + 10;
                 doc.setTextColor(0, 0, 0);
@@ -1771,12 +1992,12 @@ window.downloadInvoicePDFMulti = async function (invoiceId) {
             const centerOffset = (lines.length > 1) ? ((lines.length - 1) * 2.25) : 0;
 
             doc.setFontSize(8);
-            doc.text(String(product.quantite || ''), 115, currentY + 3 + centerOffset, { align: 'center' });
+            doc.text(String(product.quantite || ''), 162, currentY + 3 + centerOffset, { align: 'center' });
 
             // Use smaller font for large numbers
             doc.setFontSize(7.5);
-            doc.text(`${formatNumberForPDF(product.prix_unitaire_ht)} DH`, 150, currentY + 3 + centerOffset, { align: 'right' });
-            doc.text(`${formatNumberForPDF(product.total_ht)} DH`, 188, currentY + 3 + centerOffset, { align: 'right' });
+            doc.text(`${formatNumberForPDF(product.prix_unitaire_ht)} DH`, 183, currentY + 3 + centerOffset, { align: 'right' });
+            doc.text(`${formatNumberForPDF(product.total_ht)} DH`, 195, currentY + 3 + centerOffset, { align: 'right' });
 
             currentY += rowHeight;
         });

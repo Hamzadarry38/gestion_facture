@@ -17,7 +17,7 @@ window.downloadSKMDevisPDF = async function (invoiceId) {
 
         // Only allow for devis type
         if (invoice.document_type !== 'devis') {
-            alert('Cette fonction est disponible uniquement pour les devis');
+            await customAlert('Type incorrect', 'Cette fonction est disponible uniquement pour les devis', 'warning');
             return;
         }
 
@@ -97,11 +97,11 @@ window.downloadSKMDevisPDF = async function (invoiceId) {
         doc.save(fileName);
 
         console.log('✅ SKM PDF generated successfully:', fileName);
-        alert(`✅ PDF généré avec succès!\nFichier: ${fileName}`);
+        await customAlert('Succès', `✅ PDF généré avec succès!\nFichier: ${fileName}`, 'success');
 
     } catch (error) {
         console.error('❌ Error generating SKM PDF:', error);
-        alert('Erreur lors de la génération du PDF: ' + error.message);
+        await customAlert('Erreur', 'Erreur lors de la génération du PDF: ' + error.message, 'error');
     }
 };
 
@@ -193,7 +193,7 @@ async function showSimpleSKMModal(invoice) {
                 const customDevisNumber = devisInput.value.trim();
 
                 if (!customDevisNumber) {
-                    alert('Veuillez saisir un numéro de Devis');
+                    await customAlert('Attention', 'Veuillez saisir un numéro de Devis', 'warning');
                     return;
                 }
 
@@ -201,7 +201,7 @@ async function showSimpleSKMModal(invoice) {
                 const currentYear = new Date().getFullYear();
                 const existsResult = await window.electron.dbSkm.checkDevisExists(customDevisNumber, currentYear);
                 if (existsResult.success && existsResult.data) {
-                    alert('❌ Ce numéro de Devis a déjà été utilisé!\nVeuillez choisir un autre numéro.');
+                    await customAlert('Erreur', '❌ Ce numéro de Devis a déjà été utilisé!\nVeuillez choisir un autre numéro.', 'error');
                     devisInput.focus();
                     devisInput.style.borderColor = '#ff4444';
                     return;
@@ -219,7 +219,7 @@ async function showSimpleSKMModal(invoice) {
 
             } catch (error) {
                 console.error('Error in modal:', error);
-                alert('Erreur: ' + error.message);
+                await customAlert('Erreur', 'Erreur: ' + error.message, 'error');
             }
         };
 

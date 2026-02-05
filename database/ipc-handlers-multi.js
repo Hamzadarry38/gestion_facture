@@ -1,23 +1,24 @@
 const { ipcMain } = require('electron');
 const dbMulti = require('./db_multi');
 const { getMissingMultiInvoiceNumbers, getMissingMultiDevisNumbers, auditLogOps } = require('./db_multi');
+const apiClient = require('./api-client');
 
 async function registerMultiHandlers() {
-    console.log('🔄 [MULTI] Registering Multi Company database handlers...');
+    console.log('🔄 [MULTI] Registering Multi Company database handlers (API Edition)...');
 
-    // Initialize database
+    // Initialize database - REQUIRED for legacy features
     await dbMulti.initDatabase();
-    console.log('✅ [MULTI] Multi Company database initialized');
+    console.log('✅ [MULTI] Multi Company database initialized (Lite Fallback)');
+
+    const COMPANY_CODE = 'MULTI';
 
     // Create invoice
     ipcMain.handle('dbMulti:createInvoice', async (event, invoiceData) => {
         try {
-            console.log('[MULTI] Received invoice data:', JSON.stringify(invoiceData, null, 2));
-            const invoiceId = dbMulti.invoiceOps.create(invoiceData);
-            return { success: true, data: { id: invoiceId } };
+            invoiceData.company_code = COMPANY_CODE;
+            return await apiClient.createInvoice(invoiceData);
         } catch (error) {
-            console.error('[MULTI] Error creating invoice:', error);
-            console.error('[MULTI] Error stack:', error.stack);
+            console.error('[MULTI] Error creating invoice (API):', error);
             return { success: false, error: error.message };
         }
     });
@@ -25,10 +26,9 @@ async function registerMultiHandlers() {
     // Get invoice by ID
     ipcMain.handle('dbMulti:getInvoice', async (event, id) => {
         try {
-            const invoice = dbMulti.invoiceOps.getById(id);
-            return { success: true, data: invoice };
+            return await apiClient.getInvoiceById(id);
         } catch (error) {
-            console.error('[MULTI] Error getting invoice:', error);
+            console.error('[MULTI] Error getting invoice (API):', error);
             return { success: false, error: error.message };
         }
     });
@@ -36,10 +36,10 @@ async function registerMultiHandlers() {
     // Get all invoices
     ipcMain.handle('dbMulti:getAllInvoices', async (event, companyCode) => {
         try {
-            const invoices = dbMulti.invoiceOps.getAll(companyCode);
-            return { success: true, data: invoices };
+            const code = companyCode || COMPANY_CODE;
+            return await apiClient.getInvoices(code);
         } catch (error) {
-            console.error('[MULTI] Error getting all invoices:', error);
+            console.error('[MULTI] Error getting all invoices (API):', error);
             return { success: false, error: error.message };
         }
     });
@@ -47,10 +47,9 @@ async function registerMultiHandlers() {
     // Update invoice
     ipcMain.handle('dbMulti:updateInvoice', async (event, id, invoiceData) => {
         try {
-            const result = dbMulti.invoiceOps.update(id, invoiceData);
-            return { success: true, data: result };
+            return await apiClient.updateInvoice(id, invoiceData);
         } catch (error) {
-            console.error('[MULTI] Error updating invoice:', error);
+            console.error('[MULTI] Error updating invoice (API):', error);
             return { success: false, error: error.message };
         }
     });
@@ -58,10 +57,9 @@ async function registerMultiHandlers() {
     // Delete invoice
     ipcMain.handle('dbMulti:deleteInvoice', async (event, id) => {
         try {
-            const result = dbMulti.invoiceOps.delete(id);
-            return { success: true, data: result };
+            return await apiClient.deleteInvoice(id);
         } catch (error) {
-            console.error('[MULTI] Error deleting invoice:', error);
+            console.error('[MULTI] Error deleting invoice (API):', error);
             return { success: false, error: error.message };
         }
     });
@@ -69,10 +67,10 @@ async function registerMultiHandlers() {
     // Get next invoice number
     ipcMain.handle('dbMulti:getNextInvoiceNumber', async (event, companyCode, documentType, year) => {
         try {
-            const result = dbMulti.invoiceOps.getNextInvoiceNumber(companyCode, documentType, year);
-            return { success: true, data: result };
+            const code = companyCode || COMPANY_CODE;
+            return await apiClient.getNextInvoiceNumber(code, year, documentType);
         } catch (error) {
-            console.error('[MULTI] Error getting next invoice number:', error);
+            console.error('[MULTI] Error getting next invoice number (API):', error);
             return { success: false, error: error.message };
         }
     });
@@ -80,30 +78,30 @@ async function registerMultiHandlers() {
     // Client operations
     ipcMain.handle('dbMulti:getAllClients', async () => {
         try {
-            const clients = dbMulti.clientOps.getAll();
-            return { success: true, data: clients };
+            return await apiClient.getClients(COMPANY_CODE);
         } catch (error) {
-            console.error('[MULTI] Error getting all clients:', error);
+            console.error('[MULTI] Error getting all clients (API):', error);
             return { success: false, error: error.message };
         }
     });
 
     ipcMain.handle('dbMulti:searchClients', async (event, query) => {
         try {
-            const clients = dbMulti.clientOps.search(query);
+            const result = await apiClient.getClients(COMPANY_CODE);
+            if (!result.success) throw new Error(result.error);
+            const clients = result.data.filter(c => c.nom.toLowerCase().includes(query.toLowerCase()));
             return { success: true, data: clients };
         } catch (error) {
-            console.error('[MULTI] Error searching clients:', error);
+            console.error('[MULTI] Error searching clients (API):', error);
             return { success: false, error: error.message };
         }
     });
 
     ipcMain.handle('dbMulti:deleteClient', async (event, clientId) => {
         try {
-            dbMulti.clientOps.delete(clientId);
-            return { success: true };
+            return await apiClient.deleteClient(clientId);
         } catch (error) {
-            console.error('[MULTI] Error deleting client:', error);
+            console.error('[MULTI] Error deleting client (API):', error);
             return { success: false, error: error.message };
         }
     });
@@ -111,45 +109,56 @@ async function registerMultiHandlers() {
     // Attachment operations
     ipcMain.handle('dbMulti:addAttachment', async (event, invoiceId, filename, fileType, fileData, filePath, fileSize) => {
         try {
-            const attachmentId = dbMulti.attachmentOps.add(invoiceId, filename, fileType, fileData ? Buffer.from(fileData) : null, filePath, fileSize || 0);
-            return { success: true, data: { id: attachmentId } };
+            let base64Data = fileData;
+            if (Buffer.isBuffer(fileData)) {
+                base64Data = fileData.toString('base64');
+            } else if (fileData instanceof Uint8Array) {
+                base64Data = Buffer.from(fileData).toString('base64');
+            }
+
+            const attachmentData = {
+                invoice_id: invoiceId,
+                filename,
+                file_type: fileType,
+                file_size: fileSize,
+                file_data: base64Data,
+                file_path: filePath
+            };
+            return await apiClient.addAttachment(attachmentData);
         } catch (error) {
-            console.error('[MULTI] Error adding attachment:', error);
+            console.error('[MULTI] Error adding attachment (API):', error);
             return { success: false, error: error.message };
         }
     });
 
     ipcMain.handle('dbMulti:getAttachment', async (event, id) => {
         try {
-            const attachment = dbMulti.attachmentOps.get(id);
-            return { success: true, data: attachment };
+            return await apiClient.getAttachment(id);
         } catch (error) {
-            console.error('[MULTI] Error getting attachment:', error);
+            console.error('[MULTI] Error getting attachment (API):', error);
             return { success: false, error: error.message };
         }
     });
 
     ipcMain.handle('dbMulti:deleteAttachment', async (event, id) => {
         try {
-            const result = dbMulti.attachmentOps.delete(id);
-            return { success: true, data: result };
+            return await apiClient.deleteAttachment(id);
         } catch (error) {
-            console.error('[MULTI] Error deleting attachment:', error);
+            console.error('[MULTI] Error deleting attachment (API):', error);
             return { success: false, error: error.message };
         }
     });
 
     ipcMain.handle('dbMulti:getAttachmentsByInvoice', async (event, invoiceId) => {
         try {
-            const attachments = dbMulti.attachmentOps.getByInvoice(invoiceId);
-            return { success: true, data: attachments };
+            return await apiClient.getAttachments(invoiceId);
         } catch (error) {
-            console.error('[MULTI] Error getting attachments by invoice:', error);
+            console.error('[MULTI] Error getting attachments by invoice (API):', error);
             return { success: false, error: error.message };
         }
     });
 
-    // MULTI Order Prefix handlers
+    // MULTI Order Prefix handlers (Legacy)
     ipcMain.handle('dbMulti:multiOrderPrefixes:getAll', async () => {
         try {
             const prefixes = dbMulti.multiOrderPrefixOps.getAll();
@@ -180,24 +189,22 @@ async function registerMultiHandlers() {
         }
     });
 
-    // MULTI Missing Numbers handler
+    // MULTI Missing Numbers handler (Postgres Sync)
     ipcMain.handle('dbMulti:getMissingNumbers', async (event, year) => {
         try {
-            const result = await getMissingMultiInvoiceNumbers(year);
-            return result;
+            return await apiClient.getMissingNumbers(COMPANY_CODE, year, 'facture');
         } catch (error) {
-            console.error('❌ [MULTI] Error getting missing numbers:', error);
+            console.error('❌ [MULTI] Error getting missing numbers (API):', error);
             return { success: false, error: error.message };
         }
     });
 
-    // MULTI Missing Devis Numbers handler
+    // MULTI Missing Devis Numbers handler (Postgres Sync)
     ipcMain.handle('dbMulti:getMissingDevisNumbers', async (event, year) => {
         try {
-            const result = await getMissingMultiDevisNumbers(year);
-            return result;
+            return await apiClient.getMissingNumbers(COMPANY_CODE, year, 'devis');
         } catch (error) {
-            console.error('❌ [MULTI] Error getting missing devis numbers:', error);
+            console.error('❌ [MULTI] Error getting missing devis numbers (API):', error);
             return { success: false, error: error.message };
         }
     });
@@ -206,7 +213,7 @@ async function registerMultiHandlers() {
     ipcMain.handle('dbMulti:deleteAllData', async () => {
         try {
             dbMulti.deleteAllData();
-            return { success: true };
+            return { success: true, message: 'Toutes les données LOCALES ont été supprimées' };
         } catch (error) {
             console.error('[MULTI] Error deleting all data:', error);
             return { success: false, error: error.message };
@@ -276,7 +283,7 @@ async function registerMultiHandlers() {
         }
     });
 
-    console.log('✅ [MULTI] All Multi Company handlers registered successfully');
+    console.log('✅ [MULTI] All Multi Company handlers registered successfully (API Edition)');
 }
 
 module.exports = { registerMultiHandlers };

@@ -567,8 +567,9 @@ function addHeaderToPDFAnnuelleChaimae(doc, client, dateRangeStr, purpleColor, o
 
     doc.setTextColor(...purpleColor);
     doc.setFontSize(13);
-    const splitTitle = doc.splitTextToSize(` ${dateRangeStr}`, 170);
+    const splitTitle = doc.splitTextToSize(dateRangeStr, 170);
     doc.text(splitTitle, 105, 82, { align: 'center' });
+    return splitTitle.length;
 }
 
 // Footer Function (New)
@@ -654,7 +655,7 @@ window.showSituationAnnuelleClientsModalChaimae = async function () {
                 </div>
             </div>
             
-            <div style="display:flex;gap:1.5rem;margin-bottom:1.5rem;">
+            <div style="display:flex;gap:1.5rem;margin-bottom:1.25rem;">
                 <div style="flex:1;">
                     <label style="display:block;color:#FF9800;margin-bottom:0.5rem;font-weight:600;font-size:0.9rem;text-transform:uppercase;letter-spacing:0.5px;">Année</label>
                     <select id="situationAnnuelleMultiYearChaimae" style="width:100%;padding:0.75rem 1rem;background:#2d2d30;border:1px solid #3e3e42;border-radius:10px;color:#fff;font-size:0.95rem;outline:none;cursor:pointer;transition:all 0.2s;" onfocus="this.style.borderColor='#FF9800';this.style.boxShadow='0 0 0 3px rgba(255, 152, 0, 0.1)'" onblur="this.style.borderColor='#3e3e42';this.style.boxShadow='none'">
@@ -678,6 +679,24 @@ window.showSituationAnnuelleClientsModalChaimae = async function () {
                             Bon de Livraison
                         </label>
                     </div>
+                </div>
+            </div>
+
+            <div style="margin-bottom:1.5rem;">
+                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:0.75rem;">
+                    <label style="color:#FF9800;font-weight:600;font-size:0.9rem;text-transform:uppercase;letter-spacing:0.5px;">Mois à inclure</label>
+                    <div>
+                        <button type="button" onclick="toggleAllMonthsChaimaeGlobal(true)" style="background:none;border:none;color:#FF9800;cursor:pointer;font-size:0.85rem;margin-right:0.5rem;text-decoration:underline;">Tout sélectionner</button>
+                        <button type="button" onclick="toggleAllMonthsChaimaeGlobal(false)" style="background:none;border:none;color:#999;cursor:pointer;font-size:0.85rem;text-decoration:underline;">Tout désélectionner</button>
+                    </div>
+                </div>
+                <div style="display:grid;grid-template-columns:repeat(4, 1fr);gap:0.75rem;">
+                    ${['Janv', 'Févr', 'Mars', 'Avril', 'Mai', 'Juin', 'Juil', 'Août', 'Sept', 'Oct', 'Nov', 'Déc'].map((m, i) => `
+                        <label style="display:flex;align-items:center;background:#2d2d30;padding:0.6rem;border-radius:8px;border:1px solid #3e3e42;cursor:pointer;transition:all 0.2s;" onmouseover="this.style.borderColor='#FF9800'" onmouseout="this.style.borderColor='#3e3e42'">
+                            <input type="checkbox" class="month-checkbox-chaimae-global" value="${i + 1}" checked style="margin-right:0.5rem;accent-color:#FF9800;">
+                            <span style="color:#fff;font-size:0.85rem;">${m}</span>
+                        </label>
+                    `).join('')}
                 </div>
             </div>
 
@@ -710,8 +729,8 @@ window.showSituationAnnuelleClientsModalChaimae = async function () {
             updateSelectedCountChaimae();
         };
 
-        window.toggleAllMonthsMultiChaimae = function (selectAll) {
-            // Deprecated for Global Report
+        window.toggleAllMonthsChaimaeGlobal = function (selectAll) {
+            document.querySelectorAll('.month-checkbox-chaimae-global').forEach(cb => cb.checked = selectAll);
         };
 
         window.filterSituationClientsListChaimae = function (query) {
@@ -740,6 +759,7 @@ window.showSituationAnnuelleClientsModalChaimae = async function () {
 
         document.getElementById('situationAnnuelleMultiGenerateChaimae').onclick = async () => {
             const selectedClientIds = Array.from(document.querySelectorAll('.client-checkbox-chaimae:checked')).map(cb => cb.value);
+            const selectedMonths = Array.from(document.querySelectorAll('.month-checkbox-chaimae-global:checked')).map(cb => parseInt(cb.value));
             const year = parseInt(document.getElementById('situationAnnuelleMultiYearChaimae').value);
             const includeFacture = document.getElementById('situationAnnuelleMultiTypeFactureChaimae').checked;
             const includeDevis = document.getElementById('situationAnnuelleMultiTypeDevisChaimae').checked;
@@ -755,8 +775,13 @@ window.showSituationAnnuelleClientsModalChaimae = async function () {
                 return;
             }
 
+            if (selectedMonths.length === 0) {
+                window.notify.error('Erreur', 'Veuillez sélectionner au moins un mois', 3000);
+                return;
+            }
+
             overlay.remove();
-            await generateSituationAnnuelleClientsChaimae(selectedClientIds, year, includeFacture, includeDevis, includeBL);
+            await generateSituationAnnuelleClientsChaimae(selectedClientIds, year, selectedMonths, includeFacture, includeDevis, includeBL);
         };
 
         // Prevent closing on overlay click
@@ -771,7 +796,7 @@ window.showSituationAnnuelleClientsModalChaimae = async function () {
 };
 
 // Generate SITUATION PDF for Multiple Clients (Chaimae) - Client-based aggregation
-window.generateSituationAnnuelleClientsChaimae = async function (clientIds, year, includeFacture, includeDevis, includeBL) {
+window.generateSituationAnnuelleClientsChaimae = async function (clientIds, year, selectedMonths, includeFacture, includeDevis, includeBL) {
     try {
         window.notify.info('Info', 'Génération du rapport global en cours...', 2000);
 
@@ -786,10 +811,13 @@ window.generateSituationAnnuelleClientsChaimae = async function (clientIds, year
         const clientsResult = await window.electron.dbChaimae.getAllClients();
         const allClients = clientsResult.success ? clientsResult.data : [];
 
-        // Filter invoices for the selected year and SELECTED CLIENTS
+        // Filter invoices for the selected year and SELECTED CLIENTS and MONTHS
         const yearInvoices = invoicesResult.data.filter(inv => {
             const invDate = new Date(inv.document_date);
-            return clientIds.includes(String(inv.client_id)) && invDate.getFullYear() === year;
+            const month = invDate.getMonth() + 1;
+            return clientIds.includes(String(inv.client_id)) &&
+                invDate.getFullYear() === year &&
+                selectedMonths.includes(month);
         });
 
         if (yearInvoices.length === 0) {
@@ -876,66 +904,94 @@ window.generateSituationAnnuelleClientsChaimae = async function (clientIds, year
         const greenColor = [16, 172, 132]; // MRY Green
 
         // Generate Title String
-        const dateRangeStr = `ANNÉE ${year}`;
+        const monthNamesUpper = ['', 'JANVIER', 'FÉVRIER', 'MARS', 'AVRIL', 'MAI', 'JUIN', 'JUILLET', 'AOÛT', 'SEPTEMBRE', 'OCTOBRE', 'NOVEMBRE', 'DÉCEMBRE'];
+        let dateRangeStr = `ANNÉE ${year}`;
 
-        // Logo
-        try {
-            const logoImg = document.querySelector('img[src*="chaimae.png"]') ||
-                document.querySelector('img[data-asset="chaimae"]') ||
-                document.querySelector('img[src^="data:image"]');
-            if (logoImg && logoImg.src && logoImg.src.startsWith('data:')) {
-                doc.addImage(logoImg.src, 'PNG', 15, 10, 35, 35);
+        if (selectedMonths.length > 0 && selectedMonths.length < 12) {
+            const sorted = [...selectedMonths].sort((a, b) => a - b);
+            let isContiguous = true;
+            for (let i = 0; i < sorted.length - 1; i++) {
+                if (sorted[i + 1] !== sorted[i] + 1) {
+                    isContiguous = false;
+                    break;
+                }
             }
-        } catch (error) {
-            console.log('Logo not added:', error);
+
+            if (isContiguous) {
+                if (sorted.length === 1) {
+                    dateRangeStr = `${monthNamesUpper[sorted[0]]} ${year}`;
+                } else {
+                    const startMonthName = monthNamesUpper[sorted[0]];
+                    const endMonthName = monthNamesUpper[sorted[sorted.length - 1]];
+                    const prefix = ['AVRIL', 'AOÛT', 'OCTOBRE'].includes(startMonthName) ? "D'" : "DE ";
+                    dateRangeStr = `${prefix}${startMonthName} À ${endMonthName} ${year}`;
+                }
+            } else {
+                dateRangeStr = sorted.map(m => monthNamesUpper[m]).join(', ') + ` ${year}`;
+            }
         }
 
-        // Company Header (Chaimae)
-        doc.setFontSize(18);
-        doc.setTextColor(...blueColor);
-        doc.setFont(undefined, 'bold');
-        doc.text('CHAIMAE ERRBAHI MDIQ sarl (AU)', 105, 20, { align: 'center' });
+        // Helper to add header (multi-client)
+        const addGlobalHeaderChaimae = async (doc, clientNames, dateRangeStr) => {
+            // Logo
+            try {
+                const logoImg = document.querySelector('img[src*="chaimae.png"]') ||
+                    document.querySelector('img[data-asset="chaimae"]') ||
+                    document.querySelector('img[src^="data:image"]');
+                if (logoImg && logoImg.src && logoImg.src.startsWith('data:')) {
+                    doc.addImage(logoImg.src, 'PNG', 15, 10, 35, 35);
+                }
+            } catch (error) {
+                console.log('Logo not added:', error);
+            }
 
-        doc.setFontSize(10);
-        doc.setFont(undefined, 'normal');
-        doc.setTextColor(0, 0, 0);
-        doc.text('Patente N° 52003366 - NIF : 40190505', 105, 27, { align: 'center' });
-        doc.text('RC N° : 10487 - CNSS : 8721591', 105, 32, { align: 'center' });
-        doc.text('ICE : 001544861000014', 105, 37, { align: 'center' });
+            // Company Header
+            doc.setFontSize(18);
+            doc.setTextColor(...blueColor);
+            doc.setFont(undefined, 'bold');
+            doc.text('CHAIMAE ERRBAHI MDIQ sarl (AU)', 105, 20, { align: 'center' });
 
-        // Client Info
-        doc.setFontSize(11);
-        doc.setFont(undefined, 'bold');
-        doc.text('CLIENT :', 15, 50);
-        doc.setTextColor(...greenColor);
+            doc.setFontSize(10);
+            doc.setFont(undefined, 'normal');
+            doc.setTextColor(0, 0, 0);
+            doc.text('Patente N° 52003366 - NIF : 40190505', 105, 27, { align: 'center' });
+            doc.text('RC N° : 10487 - CNSS : 8721591', 105, 32, { align: 'center' });
+            doc.text('ICE : 001544861000014', 105, 37, { align: 'center' });
 
+            // Client Info
+            doc.setFontSize(11);
+            doc.setFont(undefined, 'bold');
+            doc.text('CLIENT :', 15, 55);
+            doc.setTextColor(...greenColor);
+            doc.text(clientNames, 40, 55);
+
+            // Date
+            doc.setTextColor(0, 0, 0);
+            doc.text(`Date: ${new Date().toLocaleDateString('fr-FR')}`, 150, 55);
+
+            // Title
+            doc.setFontSize(15);
+            doc.setFont(undefined, 'bold');
+            doc.setTextColor(0, 0, 0);
+            doc.text('SITUATION GLOBALE', 105, 75, { align: 'center' });
+
+            doc.setTextColor(...blueColor);
+            doc.setFontSize(13);
+            const splitTitle = doc.splitTextToSize(dateRangeStr, 170);
+            doc.text(splitTitle, 105, 82, { align: 'center' });
+            return splitTitle.length;
+        };
+
+        const clientLabel = (clientIds.length === 1) ? 'NOM DU CLIENT' : `MULTI-CLIENTS (${clientIds.length})`;
+        // We need to fetch the client name if only 1 client
+        let finalClientLabel = clientLabel;
         if (clientIds.length === 1) {
             const clientsResult = await window.electron.dbChaimae.getAllClients();
-            const client = clientsResult.data.find(c => c.id == clientIds[0]);
-            doc.text(client ? client.nom.toUpperCase() : 'UNKNOWN', 40, 50);
-            if (client && client.ice && client.ice !== '0') {
-                doc.setTextColor(0, 0, 0);
-                doc.text('ICE :', 15, 57);
-                doc.setTextColor(...greenColor);
-                doc.text(client.ice, 40, 57);
-            }
-        } else {
-            doc.text('MULTI-CLIENTS (' + clientIds.length + ')', 40, 50);
+            const clnt = clientsResult.data.find(c => c.id == clientIds[0]);
+            if (clnt) finalClientLabel = clnt.nom.toUpperCase();
         }
 
-        // Date
-        doc.setTextColor(0, 0, 0);
-        doc.text(`Date: ${new Date().toLocaleDateString('fr-FR')}`, 150, 50);
-
-        // Title
-        doc.setFontSize(15);
-        doc.setFont(undefined, 'bold');
-        doc.setTextColor(0, 0, 0);
-        doc.text('SITUATION GLOBALE', 105, 75, { align: 'center' });
-
-        doc.setTextColor(...blueColor);
-        doc.setFontSize(13);
-        doc.text(` ${dateRangeStr}`, 105, 82, { align: 'center' });
+        const titleLinesCount = await addGlobalHeaderChaimae(doc, finalClientLabel, dateRangeStr);
 
         // Dynamic Column Positioning
         const startX = 65; // Increased to avoid overlap
@@ -954,7 +1010,7 @@ window.generateSituationAnnuelleClientsChaimae = async function (clientIds, year
         });
 
         // Table Header
-        const startY = 90;
+        const startY = 90 + (titleLinesCount > 1 ? (titleLinesCount - 1) * 7 : 0);
         doc.setFillColor(...blueColor);
         doc.rect(14, startY, 182, 10, 'F');
 
@@ -973,33 +1029,26 @@ window.generateSituationAnnuelleClientsChaimae = async function (clientIds, year
         // Table Content
         doc.setFont(undefined, 'normal');
         let currentY = startY + 10;
-        let pageNumberInGlobal = 1;
 
-        clientsData.forEach((row, index) => {
+        for (const [index, row] of clientsData.entries()) {
             if (currentY > 250) {
                 doc.addPage();
-                pageNumberInGlobal++;
-                // Header on new page
-                try {
-                    const logoImg = document.querySelector('img[src*="chaimae.png"]') ||
-                        document.querySelector('img[data-asset="chaimae"]') ||
-                        document.querySelector('img[src^="data:image"]');
-                    if (logoImg && logoImg.src && logoImg.src.startsWith('data:')) {
-                        doc.addImage(logoImg.src, 'PNG', 15, 10, 35, 35);
-                    }
-                } catch (e) { }
-                doc.setFontSize(18); doc.setTextColor(...blueColor); doc.setFont(undefined, 'bold');
-                doc.text('CHAIMAE ERRBAHI MDIQ sarl (AU)', 105, 20, { align: 'center' });
+                const lines = await addGlobalHeaderChaimae(doc, finalClientLabel, dateRangeStr);
+                const tableStartY = 90 + (lines > 1 ? (lines - 1) * 7 : 0);
 
+                // Re-draw table header
                 doc.setFillColor(...blueColor);
-                doc.rect(14, 85, 182, 10, 'F');
+                doc.rect(14, tableStartY, 182, 10, 'F');
                 doc.setTextColor(255, 255, 255);
                 doc.setFontSize(9);
-                doc.text('CLIENT', 20, 85 + 6.5);
-                activeColumns.forEach(col => { doc.text(col.label, col.x, 85 + 6.5, { align: 'center' }); });
-                doc.text('TOTAL H.T', 160, 85 + 6.5, { align: 'right' });
-                doc.text('TOTAL T.T.C', 190, 85 + 6.5, { align: 'right' });
-                currentY = 100;
+                doc.setFont(undefined, 'bold');
+                doc.text('CLIENT', 20, tableStartY + 6.5);
+                activeColumns.forEach(col => {
+                    doc.text(col.label, col.x, tableStartY + 6.5, { align: 'center' });
+                });
+                doc.text('TOTAL H.T', 160, tableStartY + 6.5, { align: 'right' });
+                doc.text('TOTAL T.T.C', 190, tableStartY + 6.5, { align: 'right' });
+                currentY = tableStartY + 10;
             }
 
             if (index % 2 === 1) {

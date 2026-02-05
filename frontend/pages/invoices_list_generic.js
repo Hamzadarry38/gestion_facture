@@ -409,7 +409,7 @@ function displayInvoices(invoices) {
         const typeLabel = invoice.document_type === 'facture' ? '📄 Facture' : '📋 Devis';
         const typeBadge = invoice.document_type === 'facture' ? 'badge-facture' : 'badge-devis';
         const numero = invoice.document_numero || invoice.document_numero_devis || '-';
-        const numeroOrder = invoice.document_numero_Order;
+        const numeroOrder = invoice.document_numero_Order || invoice.document_numero_order;
 
         console.log('📊 [DISPLAY] Displaying numero:', numero, 'for invoice', invoice.id);
         const date = new Date(invoice.document_date).toLocaleDateString('fr-FR');
@@ -684,7 +684,7 @@ window.filterInvoices = async function () {
 
         filtered = invoicesWithProducts.filter(inv => {
             const numero = (inv.document_numero || inv.document_numero_devis || '').toLowerCase();
-            const numeroOrder = (inv.document_numero_Order || '').toLowerCase();
+            const numeroOrder = (inv.document_numero_Order || inv.document_numero_order || '').toLowerCase();
             const client = inv.client_nom.toLowerCase();
             const ice = inv.client_ice.toLowerCase();
             const totalTTC = inv.total_ttc.toString();
@@ -4119,7 +4119,8 @@ window.selectClientEdit = function (nom, ice) {
 
 // Delete a client from edit mode
 window.deleteClientEdit = async function (clientId, clientName) {
-    if (!confirm(`هل أنت متأكد من حذف الزبون "${clientName}"؟`)) {
+    const confirmed = await customConfirm('Confirmation', `هل أنت متأكد من حذف الزبون "${clientName}"؟`, 'warning');
+    if (!confirmed) {
         return;
     }
 

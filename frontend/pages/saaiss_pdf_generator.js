@@ -173,6 +173,16 @@ window.downloadSAAISSDevisPDF = async function (invoiceId) {
 
         if (saveResult.success) {
             console.log('✅ SAAISS PDF saved to disk:', saveResult.filePath);
+
+            // Record PDF path in database for metadata tracking
+            try {
+                const currentYear = new Date().getFullYear();
+                await window.electron.dbMsh3.savePdfPath(customizedInvoice.document_numero_devis, currentYear, saveResult.filePath, createdBy);
+                console.log('✅ PDF metadata synced to PostgreSQL');
+            } catch (dbErr) {
+                console.error('⚠️ Failed to sync PDF metadata to PostgreSQL:', dbErr);
+            }
+
             // Also save to downloads
             doc.save(fileName);
             console.log('✅ SAAISS PDF generated successfully:', fileName);
@@ -327,13 +337,13 @@ async function showSimpleSAAISSModal(invoice) {
             }
         });
 
-        generateBtn.addEventListener('click', () => {
+        generateBtn.addEventListener('click', async () => {
             const percentage = parseFloat(percentageInput.value) || 0;
             const customDate = dateInput.value;
             const customDevisNumber = devisInput.value.trim();
 
             if (!customDevisNumber) {
-                alert('Veuillez saisir un numéro de devis');
+                await customAlert('Attention', 'Veuillez saisir un numéro de devis', 'warning');
                 return;
             }
 

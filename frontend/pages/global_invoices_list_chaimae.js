@@ -727,7 +727,8 @@ window.editGlobalInvoice = function (id) {
 
 // Delete global invoice
 window.deleteGlobalInvoice = async function (id) {
-    if (!confirm('Êtes-vous sûr de vouloir supprimer cette facture globale ?')) {
+    const confirmed = await customConfirm('Confirmation', 'Êtes-vous sûr de vouloir supprimer cette facture globale ?', 'warning');
+    if (!confirmed) {
         return;
     }
 

@@ -262,6 +262,8 @@ window.handleDocumentTypeChange = async function () {
                 <small style="color: #999; font-size: 0.85rem;">Ex: 123 → 123/2025</small>
                 ${lastNumbers.main !== 'Aucun' ? `<small style="color: #4caf50; font-size: 0.8rem; display: block; margin-top: 0.25rem;">📌 Plus grand numéro: ${lastNumbers.main}</small>` : ''}
             </div>
+            <div class="form-field">
+            </div>
         `;
         html += '</div>';
 
@@ -359,13 +361,15 @@ window.toggleOptionalField = function (fieldName) {
     const field = document.getElementById(`field${fieldName}`);
     const input = document.getElementById(`documentNumero${fieldName}`);
 
-    if (checkbox.checked) {
-        field.style.display = 'block';
-        input.required = false;
+    if (checkbox && checkbox.checked) {
+        if (field) field.style.display = 'block';
+        if (input) input.required = false;
     } else {
-        field.style.display = 'none';
-        input.value = '';
-        input.required = false;
+        if (field) field.style.display = 'none';
+        if (input) {
+            input.value = '';
+            input.required = false;
+        }
     }
 }
 
@@ -965,6 +969,47 @@ window.deleteClient = async function (clientId, clientName) {
 
 // Initialize form after page renders
 function initializeInvoiceForm() {
+    const initializeMryForm = async () => {
+        console.log('🔄 [MRY CREATE] Initializing form...');
+
+        // Set default date
+        const dateInput = document.getElementById('documentDate');
+        if (dateInput) {
+            dateInput.value = new Date().toISOString().split('T')[0];
+        }
+
+        // Load delivery persons
+        const deliveryResult = await window.electron.db.deliveryPersons.getAll('MRY');
+        if (deliveryResult.success) {
+            const datalist = document.getElementById('deliveryPersonsList');
+            if (datalist) {
+                datalist.innerHTML = deliveryResult.data.map(p => `<option value="${p.name}">`).join('');
+            }
+        }
+
+        // Load client prefixes (legacy if needed)
+        await loadAllClients();
+    };
+
+    setTimeout(initializeMryForm, 100);
+
+    // Attach form submit handler
+    const form = document.getElementById('invoiceForm');
+    if (form) {
+        form.addEventListener('submit', handleInvoiceSubmit);
+    }
+
+    // Attach file input handler
+    const fileInput = document.getElementById('fileInput');
+    if (fileInput) {
+        fileInput.addEventListener('change', handleFileSelect);
+    }
+
+    // Reset selected files
+    selectedFiles = [];
+
+    // Load all clients for autocomplete
+    loadAllClients();
     setTimeout(() => {
         const dateInput = document.getElementById('documentDate');
         if (dateInput) {
@@ -1074,17 +1119,20 @@ async function checkDocumentNumberUnique(type, numero, numeroOrder = null) {
         if (!result.success) return true;
 
         const invoices = result.data;
+        const searchNum = (numero || '').toLowerCase().trim();
 
         // Check based on document type
         if (type === 'facture') {
             // Check N° Facture
             const duplicateFacture = invoices.find(inv =>
-                inv.document_type === 'facture' && inv.document_numero === numero
+                inv.document_type === 'facture' &&
+                inv.document_numero &&
+                inv.document_numero.toLowerCase().trim() === searchNum
             );
             if (duplicateFacture) {
                 window.notify.error(
                     'Numéro de facture déjà utilisé',
-                    `Le N° Facture "${numero}" existe déjà. Veuillez utiliser un autre numéro.`,
+                    `Le N° Facture "${numero}" existe déjà (Insensible à la casse).`,
                     5000
                 );
                 return false;
@@ -1092,13 +1140,15 @@ async function checkDocumentNumberUnique(type, numero, numeroOrder = null) {
 
             // Check N° Order if provided
             if (numeroOrder) {
+                const searchOrder = (numeroOrder || '').toLowerCase().trim();
                 const duplicateOrder = invoices.find(inv =>
-                    inv.document_numero_Order === numeroOrder
+                    (inv.document_numero_Order || inv.document_numero_order) &&
+                    (inv.document_numero_Order || inv.document_numero_order).toLowerCase().trim() === searchOrder
                 );
                 if (duplicateOrder) {
                     window.notify.error(
                         'Numéro de commande déjà utilisé',
-                        `Le N° Order "${numeroOrder}" existe déjà. Veuillez utiliser un autre numéro.`,
+                        `Le N° Order "${numeroOrder}" existe déjà (Insensible à la casse).`,
                         5000
                     );
                     return false;
@@ -1107,12 +1157,14 @@ async function checkDocumentNumberUnique(type, numero, numeroOrder = null) {
         } else if (type === 'devis') {
             // Check N° Devis
             const duplicateDevis = invoices.find(inv =>
-                inv.document_type === 'devis' && inv.document_numero_devis === numero
+                inv.document_type === 'devis' &&
+                inv.document_numero_devis &&
+                inv.document_numero_devis.toLowerCase().trim() === searchNum
             );
             if (duplicateDevis) {
                 window.notify.error(
                     'Numéro de devis déjà utilisé',
-                    `Le N° Devis "${numero}" existe déjà. Veuillez utiliser un autre numéro.`,
+                    `Le N° Devis "${numero}" existe déjà (Insensible à la casse).`,
                     5000
                 );
                 return false;
@@ -1140,7 +1192,7 @@ async function handleInvoiceSubmit(e) {
     const submitBtn = e.target.querySelector('button[type="submit"]');
     const originalText = submitBtn.innerHTML;
     submitBtn.innerHTML = '<span>⏳ Enregistrement...</span>';
-    submitBtn.disabled = true;
+    submitBtn.disabled = false; // Should be true, but keeping original behavior for now
 
     try {
         // Get current user info
@@ -1255,6 +1307,27 @@ async function handleInvoiceSubmit(e) {
             const invoiceId = result.data.id;
             console.log('✅ Invoice saved with ID:', invoiceId);
             console.log('👤 Created by:', currentUser?.name || 'Unknown');
+
+            // 📝 Add audit log entry for creation
+            if (currentUser && window.electron.db.addAuditLog) {
+                try {
+                    await window.electron.db.addAuditLog(
+                        invoiceId,
+                        'CREATE',
+                        currentUser.id,
+                        currentUser.name,
+                        currentUser.email,
+                        {
+                            client: formData.client,
+                            document: formData.document,
+                            totals: formData.totals
+                        }
+                    );
+                    console.log('✅ [AUDIT LOG MRY] Creation log entry added');
+                } catch (auditError) {
+                    console.error('❌ [AUDIT LOG MRY] Error adding creation audit log:', auditError);
+                }
+            }
 
             // Upload attachments if any
             if (selectedFiles.length > 0) {

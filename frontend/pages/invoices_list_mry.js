@@ -90,6 +90,40 @@ function InvoicesListMRYPage() {
                             </button>
                         </div>
                     </div>
+                    
+                    <!-- Validation Queue (Super User Only) -->
+                    <div id="validationQueueSectionMRY" style="display: none; margin-bottom: 2rem; background: #2d2d30; border-radius: 8px; border: 1px solid #3e3e42; overflow: hidden; box-shadow: 0 4px 20px rgba(0,0,0,0.3);">
+                        <div style="padding: 1rem 1.5rem; background: #2196f3; color: white; display: flex; justify-content: space-between; align-items: center; cursor: pointer;" onclick="toggleValidationQueueMRY()">
+                            <h3 style="margin: 0; font-size: 1.1rem; display: flex; align-items: center; gap: 0.5rem;">
+                                🛡️ Factures en attente de validation (<span id="pendingInvoicesCountMRY">0</span>)
+                            </h3>
+                            <div style="display: flex; align-items: center; gap: 1rem;">
+                                <span style="font-size: 0.8rem; background: rgba(255,255,255,0.2); padding: 0.2rem 0.6rem; border-radius: 20px;">Section Administrateur</span>
+                                <span id="toggleValidationIconMRY">▼</span>
+                            </div>
+                        </div>
+                        <div id="validationQueueContentMRY" style="display: none; padding: 1rem;">
+                            <div class="table-container" style="max-height: 400px; overflow-y: auto;">
+                                <table class="invoices-table" style="margin-bottom: 0;">
+                                    <thead>
+                                        <tr>
+                                            <th>Type</th>
+                                            <th>N° Document</th>
+                                            <th>Client</th>
+                                            <th>Date</th>
+                                            <th>Montant TTC</th>
+                                            <th>Créé par</th>
+                                            <th style="text-align: center;">Actions</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="pendingInvoicesTableBodyMRY">
+                                        <!-- Pending invoices will be loaded here -->
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+
 
                     <!-- Filters -->
                     <div class="filters-section" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem; margin-bottom: 1.5rem;">
@@ -160,6 +194,26 @@ function InvoicesListMRYPage() {
                                 <option value="all">Tous</option>
                                 <option value="with">Avec P.J</option>
                                 <option value="without">Sans P.J</option>
+                            </select>
+                        </div>
+
+                        <div class="filter-group">
+                            <label>🛠️ Méthode:</label>
+                            <select id="filterMethod" onchange="filterInvoices()">
+                                <option value="all">Tous</option>
+                                <option value="normal">Normal</option>
+                                <option value="converted">Conversion</option>
+                            </select>
+                        </div>
+                        
+                        <!-- AR Status Filter -->
+                        <div class="filter-group">
+                            <label>🕒 Accusé de Réception:</label>
+                            <select id="filterArStatusMRY" onchange="filterInvoices()">
+                                <option value="all">Tous</option>
+                                <option value="sans_accuse">Sans accusé</option>
+                                <option value="en_attente">En attente</option>
+                                <option value="accuse">Accusé</option>
                             </select>
                         </div>
                         
@@ -245,6 +299,7 @@ function InvoicesListMRYPage() {
                                     <th onclick="sortTableMry('total_ttc')" style="cursor: pointer; user-select: none;" title="Cliquez pour trier">
                                         Total TTC <span id="sortIconTotalTTCMry">⇅</span>
                                     </th>
+                                    <th style="width: 140px; text-align: center;">Accusé R.</th>
                                     <th style="width: 50px; text-align: center;">P.J</th>
                                     <th>Actions</th>
                                 </tr>
@@ -290,6 +345,7 @@ let allInvoices = [];
 let filteredInvoices = [];
 let currentPage = 1;
 let itemsPerPage = 10;
+let isSuperUserMRY = false;
 
 // Column visibility state for MRY - ICE hidden by default
 let columnVisibilityMRY = {
@@ -363,10 +419,108 @@ function formatNumber(number) {
     });
 }
 
+// Validation Queue Functions
+async function loadPendingInvoicesMRY() {
+    try {
+        const result = await window.electron.db.getPendingInvoices();
+
+        if (result.success) {
+            displayPendingInvoicesMRY(result.data);
+            const countSpan = document.getElementById('pendingInvoicesCountMRY');
+            if (countSpan) countSpan.textContent = result.data.length;
+        } else {
+            console.error('❌ [VALIDATION LOAD] Failed to load:', result.error);
+        }
+    } catch (error) {
+        console.error('Error loading pending invoices MRY:', error);
+    }
+}
+
+function displayPendingInvoicesMRY(invoices) {
+    const tableBody = document.getElementById('pendingInvoicesTableBodyMRY');
+    if (!tableBody) return;
+
+    if (invoices.length === 0) {
+        tableBody.innerHTML = '<tr><td colspan="7" style="text-align:center;padding:2rem;color:#999;">Aucune facture en attente de validation</td></tr>';
+        return;
+    }
+
+    tableBody.innerHTML = invoices.map(inv => `
+        <tr>
+            <td><span class="badge badge-${inv.document_type}">${inv.document_type}</span></td>
+            <td><strong>${inv.document_numero}</strong></td>
+            <td>${inv.client_nom || '-'}</td>
+            <td>${new Date(inv.document_date).toLocaleDateString('fr-FR')}</td>
+            <td><strong>${formatNumber(inv.total_ttc)}</strong> DH</td>
+            <td><span style="color:#2196f3;">${inv.created_by_user_name || '-'}</span></td>
+            <td style="text-align:center;">
+                <div style="display:flex;gap:0.5rem;justify-content:center;">
+                    <button onclick="handleValidateInvoiceMRY('${inv.id}', 'validated')" class="btn-action btn-validate" title="Valider" style="background:#4caf50;color:white;border:none;padding:0.4rem 0.8rem;border-radius:4px;cursor:pointer;">
+                        ✅ Valider
+                    </button>
+                    <button onclick="handleValidateInvoiceMRY('${inv.id}', 'rejected')" class="btn-action btn-reject" title="Rejeter" style="background:#f44336;color:white;border:none;padding:0.4rem 0.8rem;border-radius:4px;cursor:pointer;">
+                        ❌ Rejeter
+                    </button>
+                </div>
+            </td>
+        </tr>
+    `).join('');
+}
+
+window.toggleValidationQueueMRY = function () {
+    const content = document.getElementById('validationQueueContentMRY');
+    const icon = document.getElementById('toggleValidationIconMRY');
+    if (content.style.display === 'none') {
+        content.style.display = 'block';
+        icon.textContent = '▲';
+    } else {
+        content.style.display = 'none';
+        icon.textContent = '▼';
+    }
+};
+
+window.handleValidateInvoiceMRY = async function (id, status) {
+    const action = status === 'validated' ? 'valider' : 'rejeter';
+    const confirmMessage = `Êtes-vous sûr de vouloir ${action} ce document ?`;
+
+    const confirmed = await customConfirm('Confirmation', confirmMessage, status === 'validated' ? 'info' : 'warning');
+
+    if (confirmed) {
+        try {
+            const result = await window.electron.db.validateInvoice(id, status);
+            if (result.success) {
+                // Update UI
+                loadPendingInvoicesMRY(); // Refresh pending
+                loadInvoices();       // Refresh main list
+                window.notify?.success('Succès', `Document ${status === 'validated' ? 'validé' : 'rejeté'} avec succès`);
+            } else {
+                console.error('Validation error:', result.error);
+                window.notify?.error('Erreur', 'Échec de la validation: ' + result.error);
+            }
+        } catch (error) {
+            console.error('Validation exception:', error);
+            window.notify?.error('Erreur', 'Une erreur est survenue');
+        }
+    }
+};
+
+
 // Load invoices from database
 window.loadInvoices = async function () {
     // Load column visibility preferences
     loadColumnVisibilityMRY();
+
+    // Check user identity
+    const user = JSON.parse(localStorage.getItem('user') || '{}');
+    isSuperUserMRY = (user.email === 'redouanerrebbahi99@gmail.com' || user.can_auto_validate === true);
+
+    // Update UI based on identity
+    const validationSection = document.getElementById('validationQueueSectionMRY');
+    if (validationSection) validationSection.style.display = isSuperUserMRY ? 'block' : 'none';
+
+    if (isSuperUserMRY) {
+        loadPendingInvoicesMRY();
+    }
 
     console.log('🔄 [LOAD] Starting to load invoices from database...');
     const loadingSpinner = document.getElementById('loadingSpinner');
@@ -415,8 +569,11 @@ window.loadInvoices = async function () {
                 created_by_user_name: inv.created_by_user_name || '-'
             }));
 
-            allInvoices = enrichedInvoices;
-            console.log('✅ [LOAD] All invoices stored in memory:', allInvoices.length);
+            // Filter: Main list should ONLY show validated invoices (or rejected/modified)
+            // Pending invoices should ONLY appear in the Validation Queue at the top.
+            // So we filter out 'pending' for EVERYONE from this main table.
+            allInvoices = enrichedInvoices.filter(inv => inv.validation_status !== 'pending');
+            console.log('✅ [LOAD] All invoices stored in memory (excluding pending):', allInvoices.length);
 
             // Log first 3 invoices for debugging
             if (allInvoices.length > 0) {
@@ -424,7 +581,8 @@ window.loadInvoices = async function () {
                     id: inv.id,
                     type: inv.document_type,
                     numero: inv.document_numero,
-                    numero_devis: inv.document_numero_devis
+                    numero_devis: inv.document_numero_devis,
+                    status: inv.validation_status
                 })));
             }
 
@@ -454,6 +612,7 @@ window.loadInvoices = async function () {
         );
     }
 }
+
 
 // Display invoices in table with pagination
 function displayInvoices(invoices) {
@@ -498,7 +657,7 @@ function displayInvoices(invoices) {
         const typeLabel = invoice.document_type === 'facture' ? '📄 Facture' : '📋 Devis';
         const typeBadge = invoice.document_type === 'facture' ? 'badge-facture' : 'badge-devis';
         const numero = invoice.document_numero || invoice.document_numero_devis || '-';
-        const numeroOrder = invoice.document_numero_Order;
+        const numeroOrder = invoice.document_numero_Order || invoice.document_numero_order;
 
         console.log('📊 [DISPLAY] Displaying numero:', numero, 'for invoice', invoice.id);
         const date = new Date(invoice.document_date).toLocaleDateString('fr-FR');
@@ -522,10 +681,16 @@ function displayInvoices(invoices) {
             created_by_user_id: invoice.created_by_user_id
         });
 
+        // Ensure AR status is valid
+        const arStatus = invoice.ar_status || 'sans_accuse';
+        const arBg = arStatus === 'accuse' ? '#4caf50' : (arStatus === 'en_attente' ? '#ff9800' : '#424242');
+
+        const rowClass = invoice.creation_method === 'converted' ? 'row-converted' : '';
+
         return `
-            <tr>
+            <tr class="${rowClass}">
                 <td>
-                    <input type="checkbox" class="invoice-checkbox" data-invoice-id="${invoice.id}" 
+                    <input type="checkbox" class="invoice-checkbox" data-invoice-id="${invoice.id}"
                            style="width: 18px; height: 18px; cursor: pointer;">
                 </td>
                 <td><span class="badge ${typeBadge}">${typeLabel}</span></td>
@@ -533,9 +698,22 @@ function displayInvoices(invoices) {
                 <td>${invoice.client_nom}</td>
                 <td class="col-ice-mry-body" style="${columnVisibilityMRY.ice ? '' : 'display: none;'}">${invoice.client_ice}</td>
                 <td>${date}</td>
-                <td><small style="color: #2196f3;">${invoice.created_by_user_name || '-'}</small></td>
+                <td>
+                    <div style="display: flex; align-items: center; gap: 0.5rem;">
+                        <small style="color: #2196f3; font-weight: 600;">👤 ${invoice.created_by_user_name || '-'}</small>
+                    </div>
+                </td>
                 <td>${formatNumber(invoice.total_ht)} DH</td>
                 <td><strong>${formatNumber(invoice.total_ttc)} DH</strong></td>
+                <td>
+                    <select onchange="window.updateArStatusMRY('${invoice.id}', this.value)"
+                            style="padding: 0.4rem; background: ${arBg}; color: white; border: none; border-radius: 4px; font-size: 0.85rem; cursor: pointer; width: 100%; transition: background 0.3s;"
+                            onclick="event.stopPropagation()">
+                        <option value="sans_accuse" ${arStatus === 'sans_accuse' ? 'selected' : ''} style="background: #424242;">Sans accusé</option>
+                        <option value="en_attente" ${arStatus === 'en_attente' ? 'selected' : ''} style="background: #ff9800;">En attente</option>
+                        <option value="accuse" ${arStatus === 'accuse' ? 'selected' : ''} style="background: #4caf50;">Accusé</option>
+                    </select>
+                </td>
                 <td style="text-align: center; color: #757575;">
                     <span style="${invoice.attachment_count > 0 ? 'color: #2196f3; font-weight: bold;' : ''}">${invoice.attachment_count || 0}</span>
                 </td>
@@ -724,6 +902,8 @@ window.filterInvoices = async function () {
     const filterMonth = document.getElementById('filterMonth').value;
     const filterClient = document.getElementById('filterClient').value;
     const filterAttachments = document.getElementById('filterAttachments').value;
+    const filterMethod = document.getElementById('filterMethod')?.value || 'all';
+    const arStatusFilter = document.getElementById('filterArStatusMRY').value;
     const searchInput = document.getElementById('searchInput').value.toLowerCase();
 
     // Show loading if search is active
@@ -766,6 +946,23 @@ window.filterInvoices = async function () {
         filtered = filtered.filter(inv => (inv.attachment_count || 0) > 0);
     } else if (filterAttachments === 'without') {
         filtered = filtered.filter(inv => (inv.attachment_count || 0) === 0);
+    }
+
+    // Filter by method
+    if (filterMethod === 'normal') {
+        filtered = filtered.filter(inv => !inv.creation_method || inv.creation_method === 'normal');
+    } else if (filterMethod === 'converted') {
+        filtered = filtered.filter(inv => inv.creation_method === 'converted');
+    }
+
+    // Filter by AR Status
+    if (arStatusFilter !== 'all') {
+        filtered = filtered.filter(inv => {
+            const status = inv.ar_status || 'sans_accuse';
+            return status === arStatusFilter;
+        });
+    } else if (filterMethod === 'converted') {
+        filtered = filtered.filter(inv => inv.creation_method === 'converted');
     }
 
     // Advanced search
@@ -1055,10 +1252,10 @@ window.viewInvoice = async function (id) {
                             <span style="color:#999;font-size:0.9rem;">N°:</span>
                             <div style="color:#fff;font-weight:500;margin-top:0.25rem;">${docNumber}</div>
                         </div>
-                        ${invoice.document_numero_Order ? `
+                        ${(invoice.document_numero_Order || invoice.document_numero_order) ? `
                         <div style="margin-bottom:0.75rem;">
                             <span style="color:#999;font-size:0.9rem;">N° Order:</span>
-                            <div style="color:#fff;font-weight:500;margin-top:0.25rem;">${invoice.document_numero_Order}</div>
+                            <div style="color:#fff;font-weight:500;margin-top:0.25rem;">${invoice.document_numero_Order || invoice.document_numero_order}</div>
                         </div>
                         ` : ''}
                         <div>
@@ -1222,80 +1419,86 @@ window.viewInvoice = async function (id) {
         console.log('📋 [AUDIT LOG MRY] Loading audit log for invoice:', id);
         const auditLogSection = document.getElementById(`auditLogSectionMRY${id}`);
         if (auditLogSection) {
-            const auditLogContent = auditLogSection.querySelector('div > div');
+            const auditLogContent = auditLogSection.querySelector('div');
             try {
-                // Check if function exists
                 if (!window.electron.db.getAuditLog) {
-                    console.error('❌ [AUDIT LOG MRY] getAuditLog function not found');
                     throw new Error('getAuditLog function not available');
                 }
 
                 const auditResult = await window.electron.db.getAuditLog(id);
                 console.log('📥 [AUDIT LOG MRY] Audit log result:', auditResult);
 
-                if (auditResult.success && auditResult.data && auditResult.data.length > 0) {
-                    const logs = auditResult.data;
-                    console.log('✅ [AUDIT LOG MRY] Displaying audit logs:', logs);
+                if (auditResult.success) {
+                    const logs = auditResult.data || [];
 
-                    let auditHTML = '<div style="max-height: 400px; overflow-y: auto;">';
+                    let auditHTML = '<div style="display: flex; flex-direction: column; gap: 12px; max-height: 400px; overflow-y: auto; padding-right: 5px;">';
 
-                    // Add creation info first
-                    if (invoice.created_by_user_name) {
-                        const createdDate = new Date(invoice.created_at).toLocaleDateString('fr-FR');
+                    // 1. ADD CREATION BLOCK (always first)
+                    const creationDate = new Date(invoice.created_at || invoice.document_date).toLocaleDateString('fr-FR', {
+                        day: '2-digit', month: '2-digit', year: 'numeric',
+                        hour: '2-digit', minute: '2-digit'
+                    });
+
+                    auditHTML += `
+                        <div style="background: rgba(76, 175, 80, 0.1); border-left: 4px solid #4CAF50; border-radius: 6px; padding: 12px; border: 1px solid rgba(76, 175, 80, 0.2); border-left-width: 4px;">
+                            <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 4px;">
+                                <span style="background: #4CAF50; color: white; padding: 2px 8px; border-radius: 4px; font-size: 0.75rem; font-weight: 700; text-transform: uppercase;">Création</span>
+                                <span style="color: #999; font-size: 0.8rem; font-family: monospace;">${creationDate}</span>
+                            </div>
+                            <div style="color: #fff; font-size: 0.95rem; font-weight: 500;">👤 ${invoice.created_by_user_name || 'Système'}</div>
+                            ${invoice.created_by_user_email ? `<div style="color: #999; font-size: 0.8rem; margin-top: 2px;">✉️ ${invoice.created_by_user_email}</div>` : ''}
+                        </div>
+                    `;
+
+                    // 2. ADD DELIVERY BLOCK (if exists)
+                    if (invoice.delivered_by) {
                         auditHTML += `
-                            <div style="padding:0.75rem;background:#252526;border-radius:6px;margin-bottom:0.5rem;border-left:4px solid #4CAF50;">
-                                <div style="display:flex;justify-content:space-between;align-items:start;">
-                                    <div>
-                                        <div style="color:#4CAF50;font-weight:600;font-size:0.9rem;">➕ Création</div>
-                                        <div style="color:#fff;margin-top:0.25rem;">Par: <strong>${invoice.created_by_user_name}</strong></div>
-                                        ${invoice.created_by_user_email ? `<div style="color:#999;font-size:0.85rem;">${invoice.created_by_user_email}</div>` : ''}
-                                    </div>
-                                    <div style="color:#999;font-size:0.85rem;white-space:nowrap;">${createdDate}</div>
+                            <div style="background: rgba(33, 150, 243, 0.1); border-left: 4px solid #2196F3; border-radius: 6px; padding: 12px; border: 1px solid rgba(33, 150, 243, 0.2); border-left-width: 4px;">
+                                <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 4px;">
+                                    <span style="background: #2196F3; color: white; padding: 2px 8px; border-radius: 4px; font-size: 0.75rem; font-weight: 700; text-transform: uppercase;">Livraison</span>
+                                    <span style="color: #999; font-size: 0.8rem; font-family: monospace;">-</span>
                                 </div>
+                                <div style="color: #fff; font-size: 0.95rem; font-weight: 500;">🚚 Livré par: <strong>${invoice.delivered_by}</strong></div>
                             </div>
                         `;
                     }
 
-                    // Add modification logs
+                    // 3. ADD MODIFICATION LOGS
                     logs.forEach(log => {
-                        const logDate = new Date(log.created_at).toLocaleDateString('fr-FR');
+                        if (log.action === 'CREATE') return; // Skip creation as we handled it separately
+
+                        const logDate = new Date(log.created_at).toLocaleDateString('fr-FR', {
+                            day: '2-digit', month: '2-digit', year: 'numeric',
+                            hour: '2-digit', minute: '2-digit'
+                        });
+
+                        const actionColor = log.action === 'UPDATE' ? '#FF9800' : '#f44336';
+                        const actionLabel = log.action === 'UPDATE' ? 'Modification' : log.action;
+
                         auditHTML += `
-                            <div style="padding:0.75rem;background:#252526;border-radius:6px;margin-bottom:0.5rem;border-left:4px solid #2196F3;">
-                                <div style="display:flex;justify-content:space-between;align-items:start;">
-                                    <div>
-                                        <div style="color:#2196F3;font-weight:600;font-size:0.9rem;">✏️ Mis à jour</div>
-                                        <div style="color:#fff;margin-top:0.25rem;">Par: <strong>${log.user_name}</strong></div>
-                                        ${log.user_email ? `<div style="color:#999;font-size:0.85rem;">${log.user_email}</div>` : ''}
-                                    </div>
-                                    <div style="color:#999;font-size:0.85rem;white-space:nowrap;">${logDate}</div>
+                            <div style="background: rgba(255, 152, 0, 0.05); border-left: 4px solid ${actionColor}; border-radius: 6px; padding: 12px; border: 1px solid rgba(255, 152, 0, 0.1); border-left-width: 4px;">
+                                <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 4px;">
+                                    <span style="background: ${actionColor}; color: white; padding: 2px 8px; border-radius: 4px; font-size: 0.75rem; font-weight: 700; text-transform: uppercase;">${actionLabel}</span>
+                                    <span style="color: #999; font-size: 0.8rem; font-family: monospace;">${logDate}</span>
                                 </div>
+                                <div style="color: #fff; font-size: 0.95rem; font-weight: 500;">👤 ${log.user_name}</div>
+                                ${log.user_email ? `<div style="color: #999; font-size: 0.8rem; margin-top: 2px;">✉️ ${log.user_email}</div>` : ''}
                             </div>
                         `;
                     });
 
                     auditHTML += '</div>';
                     auditLogContent.innerHTML = auditHTML;
-                    auditLogContent.style.color = '#fff';
-                    auditLogContent.style.fontStyle = 'normal';
                 } else {
-                    console.log('ℹ️ [AUDIT LOG MRY] No audit logs found');
-                    const createdDate = new Date(invoice.created_at).toLocaleDateString('fr-FR');
-                    auditLogContent.innerHTML = `
-                        <div style="padding:0.75rem;background:#252526;border-radius:6px;border-left:4px solid #4CAF50;">
-                            <div style="display:flex;justify-content:space-between;align-items:start;">
-                                <div>
-                                    <div style="color:#4CAF50;font-weight:600;font-size:0.9rem;">➕ Création</div>
-                                    <div style="color:#fff;margin-top:0.25rem;">Par: <strong>${invoice.created_by_user_name || 'Utilisateur inconnu'}</strong></div>
-                                    ${invoice.created_by_user_email ? `<div style="color:#999;font-size:0.85rem;">${invoice.created_by_user_email}</div>` : ''}
-                                </div>
-                                <div style="color:#999;font-size:0.85rem;white-space:nowrap;">${createdDate}</div>
-                            </div>
-                        </div>
-                    `;
+                    throw new Error(auditResult.error || 'Erreur inconnue');
                 }
             } catch (error) {
                 console.error('❌ [AUDIT LOG MRY] Error loading audit log:', error);
-                auditLogContent.innerHTML = '<div style="color:#f44336;">Erreur lors du chargement de l\'historique</div>';
+                auditLogSection.querySelector('div').innerHTML = `
+                    <div style="background: rgba(244, 67, 54, 0.1); border-radius: 8px; padding: 1rem; border: 1px solid rgba(244, 67, 54, 0.2); color: #f44336; text-align: center;">
+                        ⚠️ Erreur lors du chargement de l'historique
+                    </div>
+                `;
             }
         }
 
@@ -4069,6 +4272,37 @@ window.importDatabaseMRY = async function () {
 }
 
 // Handle bulk delete for MRY
+// Update AR Status
+window.updateArStatusMRY = async function (id, status) {
+    try {
+        const result = await window.electron.db.updateInvoice(id, {
+            ar_status: status
+        });
+
+        if (result.success) {
+            // Update UI feedback immediately
+            window.notify.success('Succès', 'Statut Accusé R. mis à jour');
+
+            // Update local state without full reload to keep scroll position
+            const inv = allInvoices.find(i => i.id == id);
+            if (inv) {
+                inv.ar_status = status;
+                // Force background color update if needed (optional since select has logic)
+                // But full reload is safer for consistency? 
+                // Let's just reload to be safe or re-render row?
+                // For now, let's just reload to update the background color of the select in the row
+                loadInvoices();
+            }
+        } else {
+            console.error('Update AR error:', result.error);
+            window.notify.error('Erreur', 'Échec de la mise à jour: ' + result.error);
+        }
+    } catch (error) {
+        console.error('Update AR exception:', error);
+        window.notify.error('Erreur', 'Une erreur est survenue');
+    }
+};
+
 window.handleBulkDeleteMRY = async function () {
     const checkedBoxes = document.querySelectorAll('.invoice-checkbox:checked');
 
@@ -4261,7 +4495,8 @@ window.selectClientEdit = function (nom, ice) {
 
 // Delete a client from edit mode
 window.deleteClientEdit = async function (clientId, clientName) {
-    if (!confirm(`هل أنت متأكد من حذف الزبون "${clientName}"؟`)) {
+    const confirmed = await customConfirm('Confirmation', `هل أنت متأكد من حذف الزبون "${clientName}"؟`, 'warning');
+    if (!confirmed) {
         return;
     }
 

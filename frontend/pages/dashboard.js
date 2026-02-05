@@ -82,12 +82,12 @@ function DashboardPage() {
 }
 
 // Navigation functions
-function navigateToCreateInvoice() {
-    alert('Créer une nouvelle facture - En cours de développement');
+async function navigateToCreateInvoice() {
+    await customAlert('Info', 'Créer une nouvelle facture - En cours de développement', 'info');
 }
 
-function navigateToViewInvoices() {
-    alert('Afficher les factures - En cours de développement');
+async function navigateToViewInvoices() {
+    await customAlert('Info', 'Afficher les factures - En cours de développement', 'info');
 }
 
 function backToCompanySelect() {

@@ -17,7 +17,7 @@ window.downloadSKMDevisPDF = async function (invoiceId) {
 
         // Only allow for devis type
         if (invoice.document_type !== 'devis') {
-            showSKMWarningModal('Type de document incorrect', 'Cette fonction est disponible uniquement pour les devis.');
+            await customAlert('Type de document incorrect', 'Cette fonction est disponible uniquement pour les devis.', 'warning');
             return;
         }
 
@@ -179,18 +179,28 @@ window.downloadSKMDevisPDF = async function (invoiceId) {
 
         if (saveResult.success) {
             console.log('✅ SKM PDF saved to disk:', saveResult.filePath);
+
+            // Record PDF path in database for metadata tracking
+            try {
+                const currentYear = new Date().getFullYear();
+                await window.electron.dbSmartS.savePdfPath(customizedInvoice.document_numero_devis, currentYear, saveResult.filePath, createdBy);
+                console.log('✅ PDF metadata synced to PostgreSQL');
+            } catch (dbErr) {
+                console.error('⚠️ Failed to sync PDF metadata to PostgreSQL:', dbErr);
+            }
+
             // Also save to downloads
             doc.save(fileName);
             console.log('✅ SKM PDF generated successfully:', fileName);
-            showSKMSuccessModal('PDF généré avec succès', `Le fichier ${fileName} a été téléchargé et sauvegardé avec succès !`);
+            await customAlert('PDF généré avec succès', `Le fichier ${fileName} a été téléchargé et sauvegardé avec succès !`, 'success');
         } else {
             console.error('❌ Error saving PDF to disk:', saveResult.error);
-            showSKMWarningModal('Avertissement', 'PDF généré mais erreur lors de la sauvegarde: ' + saveResult.error);
+            await customAlert('Avertissement', 'PDF généré mais erreur lors de la sauvegarde: ' + saveResult.error, 'warning');
         }
 
     } catch (error) {
         console.error('❌ Error generating SKM PDF:', error);
-        showSKMErrorModal('Erreur de génération', 'Une erreur est survenue lors de la génération du PDF SKM: ' + error.message);
+        await customAlert('Erreur de génération', 'Une erreur est survenue lors de la génération du PDF SKM: ' + error.message, 'error');
     }
 };
 
@@ -327,7 +337,7 @@ async function showSimpleSKMModal(invoice) {
                 const customDevisNumber = devisInput.value.trim();
 
                 if (!customDevisNumber) {
-                    showSKMWarningModal('Champ requis', 'Veuillez saisir un numéro de Devis avant de continuer.');
+                    await customAlert('Champ requis', 'Veuillez saisir un numéro de Devis avant de continuer.', 'warning');
                     devisInput.focus();
                     return;
                 }
@@ -336,7 +346,7 @@ async function showSimpleSKMModal(invoice) {
                 const currentYear = new Date().getFullYear();
                 const existsResult = await window.electron.dbSkm.checkDevisExists(customDevisNumber, currentYear);
                 if (existsResult.success && existsResult.data) {
-                    showSKMErrorModal('Numéro de Devis déjà utilisé', 'Ce numéro de Devis a déjà été utilisé cette année. Veuillez choisir un autre numéro unique.');
+                    await customAlert('Numéro de Devis déjà utilisé', 'Ce numéro de Devis a déjà été utilisé cette année. Veuillez choisir un autre numéro unique.', 'error');
                     devisInput.focus();
                     devisInput.style.borderColor = '#ff4444';
                     return;
@@ -354,7 +364,7 @@ async function showSimpleSKMModal(invoice) {
 
             } catch (error) {
                 console.error('Error in modal:', error);
-                showSKMErrorModal('Erreur', 'Une erreur est survenue: ' + error.message);
+                await customAlert('Erreur', 'Une erreur est survenue: ' + error.message, 'error');
             }
         };
 
@@ -1031,146 +1041,4 @@ async function loadJsPDF() {
 }
 
 // Beautiful SKM Modal Functions
-function showSKMSuccessModal(title, message) {
-    const overlay = document.createElement('div');
-    overlay.className = 'custom-modal-overlay';
-    overlay.style.cssText = `
-        position: fixed; top: 0; left: 0; width: 100%; height: 100%; 
-        background: rgba(0,0,0,0.7); display: flex; align-items: center; 
-        justify-content: center; z-index: 10000; backdrop-filter: blur(5px);
-    `;
 
-    const modal = document.createElement('div');
-    modal.style.cssText = `
-        background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
-        border-radius: 20px; padding: 2rem; max-width: 450px; width: 90%;
-        box-shadow: 0 20px 60px rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.1);
-        transform: scale(0.9); opacity: 0; transition: all 0.3s ease;
-    `;
-
-    modal.innerHTML = `
-        <div style="text-align: center;">
-            <div style="width: 80px; height: 80px; background: linear-gradient(135deg, #4CAF50, #45a049); 
-                        border-radius: 50%; display: flex; align-items: center; justify-content: center; 
-                        margin: 0 auto 1.5rem; box-shadow: 0 10px 30px rgba(76,175,80,0.3);">
-                <span style="font-size: 2.5rem;">✅</span>
-            </div>
-            <h3 style="color: #fff; margin: 0 0 1rem; font-size: 1.5rem; font-weight: 600;">${title}</h3>
-            <p style="color: rgba(255,255,255,0.9); margin: 0 0 2rem; line-height: 1.6; font-size: 1rem;">${message}</p>
-            <button onclick="this.closest('.custom-modal-overlay').remove()" 
-                    style="background: linear-gradient(135deg, #4CAF50, #45a049); color: white; border: none; 
-                           padding: 0.75rem 2rem; border-radius: 10px; font-size: 1rem; font-weight: 600; 
-                           cursor: pointer; transition: all 0.3s ease; box-shadow: 0 5px 15px rgba(76,175,80,0.3);">
-                Parfait !
-            </button>
-        </div>
-    `;
-
-    overlay.appendChild(modal);
-    document.body.appendChild(overlay);
-
-    setTimeout(() => {
-        modal.style.transform = 'scale(1)';
-        modal.style.opacity = '1';
-    }, 10);
-
-    overlay.onclick = (e) => {
-        if (e.target === overlay) overlay.remove();
-    };
-}
-
-function showSKMErrorModal(title, message) {
-    const overlay = document.createElement('div');
-    overlay.className = 'custom-modal-overlay';
-    overlay.style.cssText = `
-        position: fixed; top: 0; left: 0; width: 100%; height: 100%; 
-        background: rgba(0,0,0,0.7); display: flex; align-items: center; 
-        justify-content: center; z-index: 10000; backdrop-filter: blur(5px);
-    `;
-
-    const modal = document.createElement('div');
-    modal.style.cssText = `
-        background: linear-gradient(135deg, #c62828 0%, #d32f2f 100%);
-        border-radius: 20px; padding: 2rem; max-width: 450px; width: 90%;
-        box-shadow: 0 20px 60px rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.1);
-        transform: scale(0.9); opacity: 0; transition: all 0.3s ease;
-    `;
-
-    modal.innerHTML = `
-        <div style="text-align: center;">
-            <div style="width: 80px; height: 80px; background: linear-gradient(135deg, #f44336, #d32f2f); 
-                        border-radius: 50%; display: flex; align-items: center; justify-content: center; 
-                        margin: 0 auto 1.5rem; box-shadow: 0 10px 30px rgba(244,67,54,0.3);">
-                <span style="font-size: 2.5rem;">❌</span>
-            </div>
-            <h3 style="color: #fff; margin: 0 0 1rem; font-size: 1.5rem; font-weight: 600;">${title}</h3>
-            <p style="color: rgba(255,255,255,0.9); margin: 0 0 2rem; line-height: 1.6; font-size: 1rem;">${message}</p>
-            <button onclick="this.closest('.custom-modal-overlay').remove()" 
-                    style="background: linear-gradient(135deg, #f44336, #d32f2f); color: white; border: none; 
-                           padding: 0.75rem 2rem; border-radius: 10px; font-size: 1rem; font-weight: 600; 
-                           cursor: pointer; transition: all 0.3s ease; box-shadow: 0 5px 15px rgba(244,67,54,0.3);">
-                Compris
-            </button>
-        </div>
-    `;
-
-    overlay.appendChild(modal);
-    document.body.appendChild(overlay);
-
-    setTimeout(() => {
-        modal.style.transform = 'scale(1)';
-        modal.style.opacity = '1';
-    }, 10);
-
-    overlay.onclick = (e) => {
-        if (e.target === overlay) overlay.remove();
-    };
-}
-
-function showSKMWarningModal(title, message) {
-    const overlay = document.createElement('div');
-    overlay.className = 'custom-modal-overlay';
-    overlay.style.cssText = `
-        position: fixed; top: 0; left: 0; width: 100%; height: 100%; 
-        background: rgba(0,0,0,0.7); display: flex; align-items: center; 
-        justify-content: center; z-index: 10000; backdrop-filter: blur(5px);
-    `;
-
-    const modal = document.createElement('div');
-    modal.style.cssText = `
-        background: linear-gradient(135deg, #f57c00 0%, #ff9800 100%);
-        border-radius: 20px; padding: 2rem; max-width: 450px; width: 90%;
-        box-shadow: 0 20px 60px rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.1);
-        transform: scale(0.9); opacity: 0; transition: all 0.3s ease;
-    `;
-
-    modal.innerHTML = `
-        <div style="text-align: center;">
-            <div style="width: 80px; height: 80px; background: linear-gradient(135deg, #ff9800, #f57c00); 
-                        border-radius: 50%; display: flex; align-items: center; justify-content: center; 
-                        margin: 0 auto 1.5rem; box-shadow: 0 10px 30px rgba(255,152,0,0.3);">
-                <span style="font-size: 2.5rem;">⚠️</span>
-            </div>
-            <h3 style="color: #fff; margin: 0 0 1rem; font-size: 1.5rem; font-weight: 600;">${title}</h3>
-            <p style="color: rgba(255,255,255,0.9); margin: 0 0 2rem; line-height: 1.6; font-size: 1rem;">${message}</p>
-            <button onclick="this.closest('.custom-modal-overlay').remove()" 
-                    style="background: linear-gradient(135deg, #ff9800, #f57c00); color: white; border: none; 
-                           padding: 0.75rem 2rem; border-radius: 10px; font-size: 1rem; font-weight: 600; 
-                           cursor: pointer; transition: all 0.3s ease; box-shadow: 0 5px 15px rgba(255,152,0,0.3);">
-                D'accord
-            </button>
-        </div>
-    `;
-
-    overlay.appendChild(modal);
-    document.body.appendChild(overlay);
-
-    setTimeout(() => {
-        modal.style.transform = 'scale(1)';
-        modal.style.opacity = '1';
-    }, 10);
-
-    overlay.onclick = (e) => {
-        if (e.target === overlay) overlay.remove();
-    };
-}

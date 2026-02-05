@@ -55,7 +55,23 @@ contextBridge.exposeInMainWorld('electron', {
     importDatabase: () => ipcRenderer.invoke('db:backup:import'),
 
     // Delete all data
-    deleteAllData: () => ipcRenderer.invoke('db:deleteAllData')
+    deleteAllData: () => ipcRenderer.invoke('db:deleteAllData'),
+
+    // Migration to Postgres
+    migrateToPostgres: (pgConfig) => ipcRenderer.invoke('db:migrate:postgres', pgConfig),
+
+    // Validation & Users
+    getPendingInvoices: () => ipcRenderer.invoke('db:invoices:getPending', 'MRY'),
+    validateInvoice: (id, status) => ipcRenderer.invoke('db:invoices:validate', id, status),
+    getUsers: () => ipcRenderer.invoke('users:getAll'),
+    getUsers: () => ipcRenderer.invoke('users:getAll'),
+    updateUserPermissions: (id, canAutoValidate) => ipcRenderer.invoke('users:updatePermissions', id, canAutoValidate),
+
+    // Delivery Persons
+    deliveryPersons: {
+      getAll: (company) => ipcRenderer.invoke('db:deliveryPersons:getAll', company),
+      add: (name, company) => ipcRenderer.invoke('db:deliveryPersons:add', name, company)
+    }
   },
 
   // Users API
@@ -65,7 +81,8 @@ contextBridge.exposeInMainWorld('electron', {
     hasUsers: () => ipcRenderer.invoke('users:hasUsers'),
     getAll: () => ipcRenderer.invoke('users:getAll'),
     count: () => ipcRenderer.invoke('users:count'),
-    updatePassword: (email, oldPassword, newPassword) => ipcRenderer.invoke('users:updatePassword', { email, oldPassword, newPassword })
+    updatePassword: (email, oldPassword, newPassword) => ipcRenderer.invoke('users:updatePassword', { email, oldPassword, newPassword }),
+    updatePermission: (id, permission, value) => ipcRenderer.invoke('users:updatePermissions', id, value)
   },
 
   // Database API for CHAIMAE
@@ -137,7 +154,17 @@ contextBridge.exposeInMainWorld('electron', {
     importDatabase: () => ipcRenderer.invoke('db:chaimae:backup:import'),
 
     // Delete all data
-    deleteAllData: () => ipcRenderer.invoke('db:chaimae:deleteAllData')
+    deleteAllData: () => ipcRenderer.invoke('db:chaimae:deleteAllData'),
+
+    // Delivery Persons
+    getDeliveryPersons: (company) => ipcRenderer.invoke('db:chaimae:deliveryPersons:getAll', company),
+    addDeliveryPerson: (name, company) => ipcRenderer.invoke('db:chaimae:deliveryPersons:add', name, company),
+
+    // Validation & Users
+    getPendingInvoices: () => ipcRenderer.invoke('db:chaimae:invoices:getPending'),
+    validateInvoice: (id, status) => ipcRenderer.invoke('db:chaimae:invoices:validate', id, status),
+    getUsers: () => ipcRenderer.invoke('users:getAll'),
+    updateUserPermissions: (id, canAutoValidate) => ipcRenderer.invoke('users:updatePermissions', id, canAutoValidate)
   },
 
   // Database API for MULTI
@@ -187,7 +214,13 @@ contextBridge.exposeInMainWorld('electron', {
     importDatabase: () => ipcRenderer.invoke('db:multi:backup:import'),
 
     // Delete all data
-    deleteAllData: () => ipcRenderer.invoke('dbMulti:deleteAllData')
+    deleteAllData: () => ipcRenderer.invoke('dbMulti:deleteAllData'),
+
+    // Validation & Users
+    getPendingInvoices: () => ipcRenderer.invoke('db:invoices:getPending', 'MULTI'),
+    validateInvoice: (id, status) => ipcRenderer.invoke('db:invoices:validate', id, status),
+    getUsers: () => ipcRenderer.invoke('users:getAll'),
+    updateUserPermissions: (id, canAutoValidate) => ipcRenderer.invoke('users:updatePermissions', id, canAutoValidate)
   },
 
   // Database API for SMART SERVICES
@@ -280,7 +313,9 @@ contextBridge.exposeInMainWorld('electron', {
     openPdf: (filePath) => ipcRenderer.invoke('pdf:openPdf', filePath),
     deletePdf: (filePath) => ipcRenderer.invoke('pdf:deletePdf', filePath),
     exportAll: (company, userCompany) => ipcRenderer.invoke('pdf:exportAll', company, userCompany),
-    importAll: (company) => ipcRenderer.invoke('pdf:importAll', company)
+    importAll: (company) => ipcRenderer.invoke('pdf:importAll', company),
+    exportEverything: () => ipcRenderer.invoke('pdf:exportEverything'),
+    importEverything: () => ipcRenderer.invoke('pdf:importEverything')
   },
 
   // Attachments Storage API
