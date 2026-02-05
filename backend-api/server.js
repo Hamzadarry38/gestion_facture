@@ -390,6 +390,8 @@ app.get('/invoices/:company', async (req, res) => {
 app.get('/invoices/id/:id', async (req, res) => {
   try {
     const { id } = req.params;
+    console.log(`[SERVER] GET /invoices/id/${id} - Searching for invoice...`);
+
     const invoiceRes = await pool.query(`
       SELECT i.*, c.nom as client_nom, c.ice as client_ice 
       FROM invoices i 
@@ -398,10 +400,13 @@ app.get('/invoices/id/:id', async (req, res) => {
     `, [id]);
 
     if (invoiceRes.rows.length === 0) {
+      console.warn(`[SERVER] GET /invoices/id/${id} - NOT FOUND in database`);
       return res.status(404).json({ success: false, message: 'Invoice not found' });
     }
 
     const invoice = invoiceRes.rows[0];
+    console.log(`[SERVER] GET /invoices/id/${id} - Found: ${invoice.document_type} ${invoice.document_numero || invoice.document_numero_devis}`);
+
     const productsRes = await pool.query('SELECT * FROM invoice_products WHERE invoice_id = $1', [id]);
     invoice.products = productsRes.rows;
 
@@ -412,9 +417,11 @@ app.get('/invoices/id/:id', async (req, res) => {
 
     res.json({ success: true, data: invoice });
   } catch (err) {
+    console.error(`[SERVER] GET /invoices/id/${req.params.id} - ERROR:`, err.message);
     res.status(500).json({ success: false, error: err.message });
   }
 });
+
 
 app.post('/invoices', async (req, res) => {
   const client = await pool.connect();
