@@ -1,5 +1,5 @@
 const { Pool } = require('pg');
-const sqlite3 = require('sqlite3').verbose();
+// const sqlite3 = require('sqlite3').verbose();
 const path = require('path');
 const fs = require('fs');
 
@@ -27,6 +27,9 @@ async function migrate() {
     console.log('🚀 Starting Migration...');
 
     for (const sqlite of SQLITE_DBs) {
+        console.warn("Skipping migration for " + sqlite.name + " as SQLite support is removed.");
+        continue;
+        /*
         if (!fs.existsSync(sqlite.path)) {
             console.log(`⚠️ Skipping ${sqlite.name}: File not found at ${sqlite.path}`);
             continue;
@@ -34,6 +37,7 @@ async function migrate() {
 
         console.log(`\n📦 Migrating: ${sqlite.name}...`);
         const db = new sqlite3.Database(sqlite.path);
+        */
 
         try {
             // 1. Migrate Clients
