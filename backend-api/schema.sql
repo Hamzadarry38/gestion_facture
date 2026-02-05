@@ -44,12 +44,22 @@ CREATE TABLE IF NOT EXISTS invoices (
     montant_tva DECIMAL(15, 3),
     total_ttc DECIMAL(15, 3),
     
-    validation_status VARCHAR(50) DEFAULT 'draft', -- 'draft', 'validated'
+    validation_status VARCHAR(50) DEFAULT 'pending', -- 'pending', 'validated'
     
+    -- Chaimae & Validation specific fields
+    ar_status VARCHAR(50) DEFAULT 'sans_accuse',
+    creation_method VARCHAR(50) DEFAULT 'normal',
     created_by VARCHAR(255),
+    delivered_by VARCHAR(255),
+    attachment_count INTEGER DEFAULT 0,
+
+    -- User Identification fields
     created_by_user_id INTEGER,
     created_by_user_name VARCHAR(255),
     created_by_user_email VARCHAR(255),
+    updated_by_user_id INTEGER,
+    updated_by_user_name VARCHAR(255),
+    updated_by_user_email VARCHAR(255),
     
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
@@ -65,19 +75,40 @@ CREATE TABLE IF NOT EXISTS invoice_products (
     total_ht DECIMAL(15, 3)
 );
 
--- 5. Attachments Table
-CREATE TABLE IF NOT EXISTS attachments (
+-- 5. Invoice Attachments Table
+CREATE TABLE IF NOT EXISTS invoice_attachments (
     id SERIAL PRIMARY KEY,
     invoice_id INTEGER REFERENCES invoices(id) ON DELETE CASCADE,
     filename VARCHAR(255) NOT NULL,
     file_type VARCHAR(50),
     file_size INTEGER,
-    file_data BYTEA, -- Optional if storing constraints allow
+    file_data BYTEA,
     file_path TEXT,
-    uploaded_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
--- 6. Devis Number Tracking (for Secondary Companies)
+-- 6. Audit Log Table
+CREATE TABLE IF NOT EXISTS audit_log (
+    id SERIAL PRIMARY KEY,
+    invoice_id INTEGER NOT NULL REFERENCES invoices(id) ON DELETE CASCADE,
+    action TEXT NOT NULL,
+    user_id INTEGER,
+    user_name TEXT,
+    user_email TEXT,
+    changes TEXT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- 7. Delivery Persons Table
+CREATE TABLE IF NOT EXISTS delivery_persons (
+    id SERIAL PRIMARY KEY,
+    name TEXT NOT NULL,
+    company_code VARCHAR(50) NOT NULL,
+    created_at TIMESTAMP DEFAULT NOW(),
+    UNIQUE(name, company_code)
+);
+
+-- 8. Devis Number Tracking (for Secondary Companies)
 -- Used for SAAISS, SMARTS, MSH3, BENALI, SKM
 CREATE TABLE IF NOT EXISTS saaiss_devis_numbers (
     devis_number VARCHAR(50),
@@ -124,7 +155,7 @@ CREATE TABLE IF NOT EXISTS skm_devis_numbers (
     PRIMARY KEY (devis_number, year)
 );
 
--- 7. PDF Files Tracking (for Secondary Companies)
+-- 9. PDF Files Tracking (for Secondary Companies)
 CREATE TABLE IF NOT EXISTS saaiss_pdf_files (
     devis_number VARCHAR(50),
     year INTEGER,
@@ -169,3 +200,8 @@ CREATE TABLE IF NOT EXISTS skm_pdf_files (
     created_at TIMESTAMP,
     PRIMARY KEY (devis_number, year)
 );
+
+-- Indexes
+CREATE INDEX IF NOT EXISTS idx_invoices_delivered_by ON invoices(company_code, delivered_by);
+CREATE INDEX IF NOT EXISTS idx_audit_log_invoice_id ON audit_log(invoice_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_invoices_created_by_user ON invoices(created_by_user_id);

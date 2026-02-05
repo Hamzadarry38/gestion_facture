@@ -3,15 +3,6 @@ const sqlite3 = require('sqlite3').verbose();
 const path = require('path');
 const fs = require('fs');
 
-async function all(db, sql, params = []) {
-    return new Promise((resolve, reject) => {
-        db.all(sql, params, (err, rows) => {
-            if (err) reject(err);
-            else resolve(rows);
-        });
-    });
-}
-
 async function migrateAllToPostgres(pgConfig, appDataPath) {
     const pool = new Pool(pgConfig);
     const results = [];
@@ -21,10 +12,16 @@ async function migrateAllToPostgres(pgConfig, appDataPath) {
     if (fs.existsSync(usersDbPath)) {
         console.log("Migrating USERS from SQLite...");
         const udb = new sqlite3.Database(usersDbPath);
+        
         try {
-            const rows = await all(udb, 'SELECT * FROM users');
-            for (const user of rows) {
-                // Check if user exists
+            const users = await new Promise((resolve, reject) => {
+                udb.all('SELECT * FROM users', (err, rows) => {
+                    if (err) reject(err);
+                    else resolve(rows);
+                });
+            });
+
+            for (const user of users) {
                 const existing = await pool.query('SELECT id FROM users WHERE email = $1', [user.email]);
                 if (existing.rows.length === 0) {
                     await pool.query(
@@ -33,7 +30,7 @@ async function migrateAllToPostgres(pgConfig, appDataPath) {
                     );
                 }
             }
-            results.push({ name: 'USERS', status: 'success', count: rows.length });
+            results.push({ name: 'USERS', status: 'success', count: users.length });
         } catch (err) {
             results.push({ name: 'USERS', status: 'error', message: err.message });
         } finally {
@@ -53,19 +50,14 @@ async function migrateAllToPostgres(pgConfig, appDataPath) {
         let adminRes = await pool.query("SELECT id, name, email FROM users WHERE email = $1", [adminEmail]);
 
         if (adminRes.rows.length === 0) {
-            console.log(`⚠️ Admin user (${adminEmail}) not found in PG. Creating...`);
             await pool.query(
                 "INSERT INTO users (name, email, password, can_auto_validate) VALUES ($1, $2, $3, $4) ON CONFLICT (email) DO NOTHING",
                 ['Admin', adminEmail, 'admin123', true]
             );
             adminRes = await pool.query("SELECT id, name, email FROM users WHERE email = $1", [adminEmail]);
-        } else {
-            // Ensure permissions are enabled
-            await pool.query("UPDATE users SET can_auto_validate = TRUE WHERE id = $1", [adminRes.rows[0].id]);
         }
-
-        const adminUser = adminRes.rows.length > 0 ? adminRes.rows[0] : null;
-
+        
+        const admin = adminRes.rows[0];
 
         for (const sqlite of SQLITE_DBs) {
             if (!fs.existsSync(sqlite.path)) {
@@ -74,14 +66,20 @@ async function migrateAllToPostgres(pgConfig, appDataPath) {
             }
 
             const db = new sqlite3.Database(sqlite.path);
+            
             try {
                 // 1. Migrate Clients
-                const clients = await all(db, 'SELECT * FROM clients');
+                const clients = await new Promise((resolve, reject) => {
+                    db.all('SELECT * FROM clients', (err, rows) => {
+                        if (err) reject(err);
+                        else resolve(rows);
+                    });
+                });
+
                 console.log(`[${sqlite.name}] Found ${clients.length} clients`);
-                const clientMap = new Map(); // Old ID -> New ID
+                const clientMap = new Map();
 
                 for (const client of clients) {
-                    // Check existing
                     const existing = await pool.query('SELECT id FROM clients WHERE ice = $1 AND company_code = $2', [client.ice, sqlite.name]);
                     let newClientId;
                     if (existing.rows.length > 0) {
@@ -97,36 +95,51 @@ async function migrateAllToPostgres(pgConfig, appDataPath) {
                 }
 
                 // 2. Migrate Invoices
-                const invoices = await all(db, 'SELECT * FROM invoices');
+                const invoices = await new Promise((resolve, reject) => {
+                    db.all('SELECT * FROM invoices', (err, rows) => {
+                        if (err) reject(err);
+                        else resolve(rows);
+                    });
+                });
+
                 console.log(`[${sqlite.name}] Found ${invoices.length} invoices`);
                 let invoicesMigrated = 0;
 
                 for (const inv of invoices) {
                     const newClientId = clientMap.get(inv.client_id);
-                    if (!newClientId) continue; // Should not happen if data consistent
+                    if (!newClientId) continue;
 
-                    // Insert Invoice
                     const res = await pool.query(
                         `INSERT INTO invoices (
                             company_code, client_id, document_type, document_date, 
                             document_numero, document_numero_order, document_numero_bl, 
                             document_numero_devis, document_order_devis, document_bon_de_livraison, 
                             document_numero_commande, year, sequential_id, total_ht, tva_rate, 
-                            montant_tva, total_ttc, created_at, updated_at
-                        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19) RETURNING id`,
+                            montant_tva, total_ttc, created_at, updated_at,
+                            created_by, created_by_user_id, created_by_user_name, created_by_user_email,
+                            validation_status, creation_method, ar_status, attachment_count
+                        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, 0) RETURNING id`,
                         [
                             sqlite.name, newClientId, inv.document_type, inv.document_date,
                             inv.document_numero, inv.document_numero_Order, inv.document_numero_bl,
                             inv.document_numero_devis, inv.document_order_devis, inv.document_bon_de_livraison,
                             inv.document_numero_commande, inv.year, inv.sequential_id, inv.total_ht,
-                            inv.tva_rate, inv.montant_tva, inv.total_ttc, inv.created_at, inv.updated_at
+                            inv.tva_rate, inv.montant_tva, inv.total_ttc, inv.created_at, inv.updated_at,
+                            admin.email, admin.id, admin.name, admin.email,
+                            'validated', 'normal', 'sans_accuse'
                         ]
                     );
                     const newInvoiceId = res.rows[0].id;
                     invoicesMigrated++;
 
                     // 3. Products
-                    const products = await all(db, 'SELECT * FROM invoice_products WHERE invoice_id = ?', [inv.id]);
+                    const products = await new Promise((resolve, reject) => {
+                        db.all('SELECT * FROM invoice_products WHERE invoice_id = ?', [inv.id], (err, rows) => {
+                            if (err) reject(err);
+                            else resolve(rows);
+                        });
+                    });
+
                     for (const prod of products) {
                         await pool.query(
                             'INSERT INTO invoice_products (invoice_id, designation, quantite, prix_unitaire_ht, total_ht) VALUES ($1, $2, $3, $4, $5)',
@@ -142,33 +155,6 @@ async function migrateAllToPostgres(pgConfig, appDataPath) {
             } finally {
                 db.close();
             }
-        }
-
-        // --- SECONDARY COMPANIES MIGRATION (Devis & PDF Tracks) ---
-        const SECONDARY_DBs = [
-            { name: 'SAAISS', path: path.join(appDataPath, 'saaiss.db') },
-            { name: 'SMARTS', path: path.join(appDataPath, 'smarts.db') },
-            { name: 'MSH3', path: path.join(appDataPath, 'msh3.db') },
-            { name: 'BENALI', path: path.join(appDataPath, 'benali.db') },
-            { name: 'SKM', path: path.join(appDataPath, 'skm.db') },
-        ];
-
-
-        for (const sec of SECONDARY_DBs) {
-            console.warn(`Skipping migration for ${sec.name} as SQLite support is removed.`);
-            /*
-            if (!fs.existsSync(sec.path)) {
-                results.push({ name: sec.name, status: 'skipped', message: 'File not found' });
-                continue;
-            }
-
-            const db = new sqlite3.Database(sec.path);
-            try {
-                // ... logic ...
-            } finally {
-                db.close();
-            }
-            */
         }
     } catch (globalErr) {
         throw globalErr;

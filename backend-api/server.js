@@ -802,50 +802,7 @@ app.get('/attachments/invoice/:invoiceId', async (req, res) => {
   }
 });
 
-app.post('/attachments', async (req, res) => {
-  console.log('🔵 [API] POST /attachments called');
-  const client = await pool.connect();
-  try {
-    const { invoice_id, filename, file_type, file_size, file_data, file_path } = req.body;
-
-    console.log(`📝 [API] Attempting to add attachment: ${filename} for invoice: ${invoice_id}`);
-
-    await client.query('BEGIN');
-
-    // Convert base64 to buffer if provided
-    let dataBuffer = null;
-    if (file_data) {
-      dataBuffer = Buffer.from(file_data, 'base64');
-      console.log(`📊 [API] Converted file_data to buffer (${dataBuffer.length} bytes)`);
-    }
-
-    const result = await client.query(
-      `INSERT INTO invoice_attachments (invoice_id, filename, file_type, file_size, file_path, file_data, created_at)
-       VALUES ($1, $2, $3, $4, $5, $6, NOW())
-       RETURNING id`,
-      [invoice_id, filename, file_type, file_size, file_path, dataBuffer]
-    );
-
-    const attachmentId = result.rows[0].id;
-    console.log(`✅ [API] Inserted attachment record ID: ${attachmentId}`);
-
-    // Update attachment_count in invoices for performance (if column exists)
-    await client.query(
-      'UPDATE invoices SET attachment_count = (SELECT COUNT(*) FROM invoice_attachments WHERE invoice_id = $1) WHERE id = $1',
-      [invoice_id]
-    );
-
-    await client.query('COMMIT');
-    console.log(`✨ [API] Transaction committed successfully for invoice ${invoice_id}`);
-    res.json({ success: true, data: { id: attachmentId } });
-  } catch (err) {
-    if (client) await client.query('ROLLBACK');
-    console.error('❌ [API] Transaction ERROR:', err);
-    res.status(500).json({ success: false, error: err.message });
-  } finally {
-    client.release();
-  }
-});
+// --- Deleted Redundant Attachment Route ---
 
 app.delete('/attachments/:id', async (req, res) => {
   try {
