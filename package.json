@@ -101,7 +101,6 @@
     "electron-updater": "^6.1.7",
     "extract-zip": "^2.0.1",
     "pg": "^8.17.2",
-    "sql.js": "^1.13.0",
-    "sqlite3": "^5.1.7"
+    "sql.js": "^1.13.0"
   }
 }

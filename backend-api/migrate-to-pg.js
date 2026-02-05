@@ -1,5 +1,5 @@
 const { Pool } = require('pg');
-const sqlite3 = require('sqlite3').verbose();
+const initSqlJs = require('sql.js');
 const path = require('path');
 const fs = require('fs');
 
@@ -21,9 +21,12 @@ const SQLITE_DBs = [
 const pool = new Pool(POSTGRES_CONFIG);
 
 async function migrate() {
-    console.log('🚀 Starting Migration...');
+    console.log('🚀 Starting Migration (via sql.js)...');
 
     try {
+        // Initialize SQL.js
+        const SQL = await initSqlJs();
+
         // --- Fetch or Create Admin User for Attribution ---
         const adminEmail = 'redouanerrebbahi99@gmail.com';
         let adminRes = await pool.query("SELECT id, name, email FROM users WHERE email = $1", [adminEmail]);
@@ -36,7 +39,7 @@ async function migrate() {
             );
             adminRes = await pool.query("SELECT id, name, email FROM users WHERE email = $1", [adminEmail]);
         }
-        
+
         const admin = adminRes.rows[0];
 
         for (const sqlite of SQLITE_DBs) {
@@ -46,21 +49,25 @@ async function migrate() {
             }
 
             console.log(`\n📦 Migrating: ${sqlite.name}...`);
-            const db = new sqlite3.Database(sqlite.path);
+            const fileBuffer = fs.readFileSync(sqlite.path);
+            const db = new SQL.Database(fileBuffer);
 
             try {
                 // 1. Migrate Clients
-                const clients = await new Promise((resolve, reject) => {
-                    db.all('SELECT * FROM clients', (err, rows) => {
-                        if (err) reject(err);
-                        else resolve(rows);
-                    });
+                const clientData = db.exec('SELECT * FROM clients')[0];
+                const clients = clientData?.values || [];
+                const clientCols = clientData?.columns || [];
+
+                const clientObjects = clients.map(row => {
+                    const obj = {};
+                    clientCols.forEach((col, i) => obj[col] = row[i]);
+                    return obj;
                 });
 
-                console.log(`   - Found ${clients.length} clients`);
+                console.log(`   - Found ${clientObjects.length} clients`);
                 const clientMap = new Map();
 
-                for (const client of clients) {
+                for (const client of clientObjects) {
                     const res = await pool.query(
                         'INSERT INTO clients (nom, ice, company_code, created_at) VALUES ($1, $2, $3, $4) RETURNING id',
                         [client.nom, client.ice, sqlite.name, client.created_at]
@@ -69,17 +76,21 @@ async function migrate() {
                 }
 
                 // 2. Migrate Invoices
-                const invoices = await new Promise((resolve, reject) => {
-                    db.all('SELECT * FROM invoices', (err, rows) => {
-                        if (err) reject(err);
-                        else resolve(rows);
-                    });
+                const invoiceData = db.exec('SELECT * FROM invoices')[0];
+                const invoices = invoiceData?.values || [];
+                const invoiceCols = invoiceData?.columns || [];
+
+                const invoiceObjects = invoices.map(row => {
+                    const obj = {};
+                    invoiceCols.forEach((col, i) => obj[col] = row[i]);
+                    return obj;
                 });
 
-                console.log(`   - Found ${invoices.length} invoices`);
+                console.log(`   - Found ${invoiceObjects.length} invoices`);
 
-                for (const inv of invoices) {
+                for (const inv of invoiceObjects) {
                     const newClientId = clientMap.get(inv.client_id);
+                    if (!newClientId) continue;
 
                     const res = await pool.query(
                         `INSERT INTO invoices (
@@ -93,7 +104,7 @@ async function migrate() {
                         ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, 0) RETURNING id`,
                         [
                             sqlite.name, newClientId, inv.document_type, inv.document_date,
-                            inv.document_numero, inv.document_numero_Order, inv.document_numero_bl,
+                            inv.document_numero, inv.document_numero_Order || inv.document_numero_order, inv.document_numero_bl,
                             inv.document_numero_devis, inv.document_order_devis, inv.document_bon_de_livraison,
                             inv.document_numero_commande, inv.year, inv.sequential_id, inv.total_ht,
                             inv.tva_rate, inv.montant_tva, inv.total_ttc, inv.created_at, inv.updated_at,
@@ -104,14 +115,17 @@ async function migrate() {
                     const newInvoiceId = res.rows[0].id;
 
                     // 3. Products
-                    const products = await new Promise((resolve, reject) => {
-                        db.all('SELECT * FROM invoice_products WHERE invoice_id = ?', [inv.id], (err, rows) => {
-                            if (err) reject(err);
-                            else resolve(rows);
-                        });
+                    const productData = db.exec('SELECT * FROM invoice_products WHERE invoice_id = ' + inv.id)[0];
+                    const products = productData?.values || [];
+                    const productCols = productData?.columns || [];
+
+                    const productObjects = products.map(row => {
+                        const obj = {};
+                        productCols.forEach((col, i) => obj[col] = row[i]);
+                        return obj;
                     });
 
-                    for (const prod of products) {
+                    for (const prod of productObjects) {
                         await pool.query(
                             'INSERT INTO invoice_products (invoice_id, designation, quantite, prix_unitaire_ht, total_ht) VALUES ($1, $2, $3, $4, $5)',
                             [newInvoiceId, prod.designation, prod.quantite, prod.prix_unitaire_ht, prod.total_ht]
