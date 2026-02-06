@@ -3,8 +3,9 @@ const axios = require('axios');
 // Configuration
 // In Electron, we can use a global window variable or localStorage to set the API URL
 // Fallback logic: local dev -> DDNS production
-const DEFAULT_LOCAL_API = 'http://localhost:8001';
-const PRODUCTION_API = 'https://anpe-web-api.ddns.net/api-facture';
+const DEFAULT_LOCAL_API = 'https://redouan.ddns.net/facture';
+const PRODUCTION_API = 'https://anpe-web-api.ddns.net/facture/api';
+const WEB_PORTAL_URL = 'https://anpe-web-api.ddns.net/facture/';
 
 // Safe way to check for localStorage in both Node (Main) and Browser (Renderer) environments
 let configuredApiUrl = null;
@@ -216,6 +217,32 @@ const service = {
 
     getMissingNumbers: async (companyCode, year, docType) => {
         const res = await apiClient.get(`/invoices/missing-numbers/${companyCode}/${year}/${docType}`);
+        return res.data;
+    },
+
+    // Global Invoices
+    getGlobalInvoices: async (companyCode) => {
+        const res = await apiClient.get(`/global-invoices/${companyCode}`);
+        return res.data;
+    },
+
+    getGlobalInvoiceById: async (id) => {
+        const res = await apiClient.get(`/global-invoices/id/${id}`);
+        return res.data;
+    },
+
+    createGlobalInvoice: async (giData) => {
+        const res = await apiClient.post('/global-invoices', giData);
+        return res.data;
+    },
+
+    updateGlobalInvoice: async (id, giData) => {
+        const res = await apiClient.put(`/global-invoices/${id}`, giData);
+        return res.data;
+    },
+
+    deleteGlobalInvoice: async (id) => {
+        const res = await apiClient.delete(`/global-invoices/${id}`);
         return res.data;
     }
 };

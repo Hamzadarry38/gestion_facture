@@ -80,16 +80,7 @@ function InvoicesListChaimaePage() {
                                 <span>Nouvelle</span>
                             </button>
 
-                            <button class="action-btn" onclick="triggerMigration('CHAIMAE')" style="background: #FF9800; color: white; border: none; font-weight: 600;">
-                                🚀 Migrer P.J
-                            </button>
 
-                            <button class="action-btn" onclick="handleManualMigration()" style="background: #795548; color: white; border: none; font-weight: 600; display: flex; align-items: center; gap: 0.5rem;">
-                                <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor">
-                                    <path d="M1 11.5a.5.5 0 0 0 .5.5h11.793l-3.147 3.146a.5.5 0 0 0 .708.708l4-4a.5.5 0 0 0 0-.708l-4-4a.5.5 0 0 0-.708.708L13.293 11H1.5a.5.5 0 0 0-.5.5zm14-7a.5.5 0 0 0-.5-.5H2.707l3.147 3.146a.5.5 0 1 0-.708.708l-4-4a.5.5 0 0 0 0-.708l4-4a.5.5 0 1 0 .708.708L2.707 4H14.5a.5.5 0 0 0 .5-.5z"/>
-                                </svg>
-                                📥 Import Old Data
-                            </button>
                             
                             <button class="action-btn action-btn-secondary" onclick="router.navigate('/dashboard-chaimae')">
                                 <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor">
@@ -255,8 +246,7 @@ function InvoicesListChaimaePage() {
                                         <th>N° Facture</th>
                                         <th>Client</th>
                                         <th>Date</th>
-                                        <th>Bons</th>
-                                        <th>Total TTC</th>
+                                        <th style="text-align: left;">Total TTC</th>
                                         <th>Actions</th>
                                     </tr>
                                 </thead>
@@ -320,25 +310,26 @@ function InvoicesListChaimaePage() {
                                                style="width: 18px; height: 18px; cursor: pointer;"
                                                title="Sélectionner tout">
                                     </th>
-                                    <th class="col-type-chaimae">Type</th>
+                                    <th style="width: 60px;">ID</th>
+                                    <th class="col-type-chaimae" style="width: 100px;">Type</th>
                                     <th onclick="sortTableChaimae('numero')" style="cursor: pointer; user-select: none;" title="Cliquez pour trier">
                                         N° Document <span id="sortIconNumeroChaimae">⇅</span>
                                     </th>
                                     <th>Client</th>
                                     <th class="col-ice-chaimae">ICE</th>
-                                    <th class="col-date-chaimae" onclick="sortTableChaimae('date')" style="cursor: pointer; user-select: none;" title="Cliquez pour trier">
+                                    <th class="col-date-chaimae" onclick="sortTableChaimae('date')" style="cursor: pointer; user-select: none; width: 120px;" title="Cliquez pour trier">
                                         Date <span id="sortIconDateChaimae">⇅</span>
                                     </th>
-                                    <th class="col-createdByCombined-chaimae" style="width: 150px; text-align: center;">Créé / Livré</th>
-                                    <th class="col-totalHT-chaimae" onclick="sortTableChaimae('total_ht')" style="cursor: pointer; user-select: none;" title="Cliquez pour trier">
-                                        Total HT <span id="sortIconTotalHTChaimae">⇅</span>
-                                    </th>
-                                    <th onclick="sortTableChaimae('total_ttc')" style="cursor: pointer; user-select: none;" title="Cliquez pour trier">
+                                    <th onclick="sortTableChaimae('total_ttc')" style="cursor: pointer; user-select: none; width: 150px;" title="Cliquez pour trier">
                                         Total TTC <span id="sortIconTotalTTCChaimae">⇅</span>
                                     </th>
+                                    <th class="col-totalHT-chaimae" onclick="sortTableChaimae('total_ht')" style="cursor: pointer; user-select: none; width: 130px;" title="Cliquez pour trier">
+                                        Total HT <span id="sortIconTotalHTChaimae">⇅</span>
+                                    </th>
+                                    <th class="col-createdByCombined-chaimae" style="width: 150px; text-align: center;">Par / Livré</th>
                                     <th style="width: 140px; text-align: center;">Accusé R.</th>
                                     <th style="width: 50px; text-align: center;">P.J</th>
-                                    <th>Actions</th>
+                                    <th style="width: 150px; text-align: center;">Actions</th>
                                 </tr>
                             </thead>
                             <tbody id="invoicesTableBodyChaimae">
@@ -768,7 +759,6 @@ function displayGlobalInvoicesChaimae(globalInvoices) {
                 <td style="padding: 0.75rem;"><strong style="color: #9c27b0;">${invoice.document_numero}</strong></td>
                 <td style="padding: 0.75rem; color: #cccccc;">${invoice.client_nom}</td>
                 <td style="padding: 0.75rem; color: #cccccc;">${date}</td>
-                <td style="text-align: center; padding: 0.75rem;"><span style="color: #9c27b0; font-weight: 600;">${invoice.bon_count || 0}</span></td>
                 <td style="padding: 0.75rem;"><strong style="color: #4caf50;">${totalTTC} DH</strong></td>
                 <td style="padding: 0.75rem;">
                     <div style="display: flex; gap: 0.5rem; justify-content: center;">
@@ -972,11 +962,24 @@ function displayInvoicesChaimae(invoices) {
         // Determine row class based on creation method
         const rowClass = invoice.creation_method === 'converted' ? 'row-converted' : '';
 
+        // Validation status badge
+        let validationBadge = '';
+        if (invoice.validation_status === 'validated') {
+            validationBadge = '<span class="badge badge-validated" style="background:#2e7d32;color:white;font-size:0.7rem;margin-left:0.5rem;">Validé</span>';
+        } else if (invoice.validation_status === 'rejected') {
+            validationBadge = '<span class="badge badge-rejected" style="background:#c62828;color:white;font-size:0.7rem;margin-left:0.5rem;">Rejeté</span>';
+        } else {
+            validationBadge = '<span class="badge badge-pending" style="background:#f57c00;color:white;font-size:0.7rem;margin-left:0.5rem;">En attente</span>';
+        }
+
         return `
             <tr class="${rowClass}">
                 <td style="text-align: center; padding: 1rem 0.75rem; border-right: 1px solid #3e3e42;">
                     <input type="checkbox" class="invoice-checkbox-chaimae" data-invoice-id="${invoice.id}" 
                            style="width: 18px; height: 18px; cursor: pointer;">
+                </td>
+                <td style="padding: 1rem 0.75rem; border-right: 1px solid #3e3e42; text-align: center;">
+                    <strong style="color: #999;">#${displayId}</strong>
                 </td>
                 <td style="padding: 1rem 0.75rem; border-right: 1px solid #3e3e42;"><span class="badge ${typeBadge}">${typeLabel}</span></td>
                 <td style="padding: 1rem 0.75rem; border-right: 1px solid #3e3e42;">
@@ -986,13 +989,13 @@ function displayInvoicesChaimae(invoices) {
                 <td style="padding: 1rem 0.75rem; border-right: 1px solid #3e3e42; color: #cccccc;">${invoice.client_nom}</td>
                 <td class="col-ice-chaimae-body" style="padding: 1rem 0.75rem; border-right: 1px solid #3e3e42; ${columnVisibilityChaimae.ice ? '' : 'display: none;'}"><small style="color: #999;">${invoice.client_ice || '-'}</small></td>
                 <td style="padding: 1rem 0.75rem; border-right: 1px solid #3e3e42; color: #cccccc;">${date}</td>
-                <td style="padding: 0.5rem; border-right: 1px solid #3e3e42; text-align: center; white-space: nowrap; font-size: 0.85rem;">
+                <td style="padding: 1rem 0.75rem; border-right: 1px solid #3e3e42;"><strong style="color: #4caf50;">${totalTTC} DH</strong></td>
+                <td style="text-align: left; padding: 1rem 0.75rem; border-right: 1px solid #3e3e42;" class="col-totalHT-chaimae"><strong style="color: #cccccc;">${totalHT} DH</strong></td>
+                <td style="padding: 0.5rem; border-right: 1px solid #3e3e42; text-align: center; white-space: nowrap; font-size: 0.85rem;" class="col-createdByCombined-chaimae">
                     <span style="color: #2196f3; font-weight: bold;">${invoice.created_by || '-'}</span>
                     <span style="color: #666; margin: 0 2px;">/</span>
                     <span style="color: #ff9800; font-weight: bold;">${invoice.delivered_by || '-'}</span>
                 </td>
-                <td style="text-align: left; padding: 1rem 0.75rem; border-right: 1px solid #3e3e42;"><strong style="color: #cccccc;">${totalHT} DH</strong></td>
-                <td style="text-align: left; padding: 1rem 0.75rem; border-right: 1px solid #3e3e42;"><strong style="color: #4caf50;">${totalTTC} DH</strong></td>
                 <td style="padding: 1rem 0.75rem; border-right: 1px solid #3e3e42; text-align: center;">
                     <select onchange="updateArStatusChaimae(${invoice.id}, this.value)" 
                             style="padding: 0.4rem; background: ${invoice.ar_status === 'accuse' ? '#1b5e20' : invoice.ar_status === 'en_attente' ? '#e65100' : '#424242'}; color: white; border: none; border-radius: 4px; font-size: 0.85rem; cursor: pointer; width: 100%;">
@@ -1001,21 +1004,33 @@ function displayInvoicesChaimae(invoices) {
                         <option value="accuse" ${invoice.ar_status === 'accuse' ? 'selected' : ''}>Accusé</option>
                     </select>
                 </td>
-                <td style="text-align: center; padding: 1rem 0.75rem; border-right: 1px solid #3e3e42;">
-                    ${invoice.attachment_count > 0 ?
-                `<span style="background:rgba(33, 150, 243, 0.1); color:#2196f3; padding:2px 6px; border-radius:4px; font-weight:600; font-size:0.85rem;">${invoice.attachment_count}</span>` :
-                `<span style="color:#666;">0</span>`
+                <td style="padding: 1rem 0.75rem; border-right: 1px solid #3e3e42; text-align: center;">
+                    <div id="attachmentIndicator-${invoice.id}" onclick="viewAttachmentsChaimae(${invoice.id})" style="cursor: pointer;">
+                        ${(invoice.attachment_count || 0) > 0 ?
+                `<div style="position: relative; display: inline-block;">
+                            <svg width="20" height="20" viewBox="0 0 16 16" fill="#2196f3">
+                                <path d="M4.5 3a2.5 2.5 0 0 1 5 0v9a1.5 1.5 0 0 1-3 0V5a.5.5 0 0 1 1 0v7a.5.5 0 0 0 1 0V3a1.5 1.5 0 1 0-3 0v9a2.5 2.5 0 0 0 5 0V5a.5.5 0 0 1 1 0v7a3.5 3.5 0 1 1-7 0V3z"/>
+                            </svg>
+                            <span style="position: absolute; top: -8px; right: -8px; background: #f44336; color: white; border-radius: 50%; width: 16px; height: 16px; font-size: 10px; display: flex; align-items: center; justify-content: center; font-weight: bold; border: 1px solid #1e1e1e;">
+                                ${invoice.attachment_count}
+                            </span>
+                        </div>` :
+                `<svg width="20" height="20" viewBox="0 0 16 16" fill="#666" style="opacity: 0.5;">
+                            <path d="M4.5 3a2.5 2.5 0 0 1 5 0v9a1.5 1.5 0 0 1-3 0V5a.5.5 0 0 1 1 0v7a.5.5 0 0 0 1 0V3a1.5 1.5 0 1 0-3 0v9a2.5 2.5 0 0 0 5 0V5a.5.5 0 0 1 1 0v7a3.5 3.5 0 1 1-7 0V3z"/>
+                        </svg>`
             }
+                    </div>
                 </td>
-                <td style="padding: 1rem 0.75rem;">
-                    <div style="display: flex; gap: 0.5rem; justify-content: center;">
-                        <button class="btn-icon btn-view" onclick="viewInvoiceChaimae(${invoice.id}, '${invoice.document_type}')" title="Voir">
+                <td style="padding: 1rem 0.75rem; text-align: center;">
+                    ${validationBadge}
+                    <div style="display: flex; gap: 0.5rem; justify-content: center; margin-top: 0.5rem;">
+                        <button class="btn-icon btn-view" onclick="viewInvoiceChaimae(${invoice.id})" title="Voir">
                             <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
                                 <path d="M16 8s-3-5.5-8-5.5S0 8 0 8s3 5.5 8 5.5S16 8 16 8zM1.173 8a13.133 13.133 0 0 1 1.66-2.043C4.12 4.668 5.88 3.5 8 3.5c2.12 0 3.879 1.168 5.168 2.457A13.133 13.133 0 0 1 14.828 8c-.058.087-.122.183-.195.288-.335.48-.83 1.12-1.465 1.755C11.879 11.332 10.119 12.5 8 12.5c-2.12 0-3.879-1.168-5.168-2.457A13.134 13.134 0 0 1 1.172 8z"/>
                                 <path d="M8 5.5a2.5 2.5 0 1 0 0 5 2.5 2.5 0 0 0 0-5zM4.5 8a3.5 3.5 0 1 1 7 0 3.5 3.5 0 0 1-7 0z"/>
                             </svg>
                         </button>
-                        <button class="btn-icon btn-download" onclick="downloadInvoicePDFChaimae(${invoice.id})" title="Télécharger PDF">
+                        <button class="btn-icon btn-download" onclick="window.downloadInvoicePDF(${invoice.id})" title="Télécharger PDF">
                             <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
                                 <path d="M.5 9.9a.5.5 0 0 1 .5.5v2.5a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-2.5a.5.5 0 0 1 1 0v2.5a2 2 0 0 1-2 2H2a2 2 0 0 1-2-2v-2.5a.5.5 0 0 1 .5-.5z"/>
                                 <path d="M7.646 11.854a.5.5 0 0 0 .708 0l3-3a.5.5 0 0 0-.708-.708L8.5 10.293V1.5a.5.5 0 0 0-1 0v8.793L5.354 8.146a.5.5 0 1 0-.708.708l3 3z"/>
@@ -1026,7 +1041,7 @@ function displayInvoicesChaimae(invoices) {
                                 <path d="M12.146.146a.5.5 0 0 1 .708 0l3 3a.5.5 0 0 1 0 .708l-10 10a.5.5 0 0 1-.168.11l-5 2a.5.5 0 0 1-.65-.65l2-5a.5.5 0 0 1 .11-.168l10-10zM11.207 2.5 13.5 4.793 14.793 3.5 12.5 1.207 11.207 2.5zm1.586 3L10.5 3.207 4 9.707V10h.5a.5.5 0 0 1 .5.5v.5h.5a.5.5 0 0 1 .5.5v.5h.293l6.5-6.5zm-9.761 5.175-.106.106-1.528 3.821 3.821-1.528.106-.106A.5.5 0 0 1 5 12.5V12h-.5a.5.5 0 0 1-.5-.5V11h-.5a.5.5 0 0 1-.468-.325z"/>
                             </svg>
                         </button>
-                        <button class="btn-icon btn-delete" onclick="deleteInvoiceChaimae(${invoice.id}, '${invoice.document_type}')" title="Supprimer">
+                        <button class="btn-icon btn-delete" onclick="deleteInvoiceChaimae(${invoice.id})" title="Supprimer">
                             <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
                                 <path d="M5.5 5.5A.5.5 0 0 1 6 6v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5zm2.5 0a.5.5 0 0 1 .5.5v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5zm3 .5a.5.5 0 0 0-1 0v6a.5.5 0 0 0 1 0V6z"/>
                                 <path fill-rule="evenodd" d="M14.5 3a1 1 0 0 1-1 1H13v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V4h-.5a1 1 0 0 1-1-1V2a1 1 0 0 1 1-1H6a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1h3.5a1 1 0 0 1 1 1v1zM4.118 4 4 4.059V13a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1V4.059L11.882 4H4.118zM2.5 3V2h11v1h-11z"/>
@@ -5706,6 +5721,7 @@ window.showCreateGlobalInvoiceModalChaimae = async function () {
 
     const clientName = clientBons[0].client_nom;
     const clientICE = clientBons[0].client_ice;
+    const clientId = clientBons[0].client_id;
 
     // Show modal with checkboxes for selecting bons
     const bonsListHtml = clientBons.map(inv => `
@@ -5713,9 +5729,10 @@ window.showCreateGlobalInvoiceModalChaimae = async function () {
             <td style="padding: 0.75rem; text-align: center;">
                 <input type="checkbox" class="bon-select-checkbox" data-bon-id="${inv.id}" 
                        onchange="updateGlobalInvoiceTotals()" 
+                       checked
                        style="width: 18px; height: 18px; cursor: pointer;">
             </td>
-            <td style="padding: 0.75rem; color: #2196f3;">${inv.document_numero || '-'}</td>
+            <td style="padding: 0.75rem; color: #2196f3;">${inv.document_numero || inv.document_numero_bl || '-'}</td>
             <td style="padding: 0.75rem; color: #cccccc;">${inv.document_numero_commande || '-'}</td>
             <td style="padding: 0.75rem; color: #cccccc;">${new Date(inv.document_date).toLocaleDateString('fr-FR')}</td>
             <td style="padding: 0.75rem; color: #4caf50;">${formatNumberChaimae(inv.total_ttc || 0)} DH</td>
@@ -5767,6 +5784,7 @@ window.showCreateGlobalInvoiceModalChaimae = async function () {
                         <tr style="background: #252526; position: sticky; top: 0;">
                             <th style="padding: 0.75rem; text-align: center; color: #2196f3;">
                                 <input type="checkbox" id="selectAllBonsModal" onchange="toggleAllBonsModal(this)" 
+                                       checked
                                        style="width: 18px; height: 18px; cursor: pointer;">
                             </th>
                             <th style="padding: 0.75rem; text-align: left; color: #2196f3;">N° BL</th>
@@ -5809,8 +5827,11 @@ window.showCreateGlobalInvoiceModalChaimae = async function () {
 
     document.body.appendChild(modal);
 
-    // Store all available bons for this client
-    window.globalInvoiceModalData = { clientBons, clientName, clientICE };
+    // Store data BEFORE calculating totals
+    window.globalInvoiceModalData = { clientBons, clientName, clientICE, clientId };
+
+    // Auto-calculate totals immediately
+    updateGlobalInvoiceTotals();
 }
 
 // Toggle all bons in modal
@@ -5822,15 +5843,17 @@ window.toggleAllBonsModal = function (checkbox) {
 
 // Update totals based on selected bons
 window.updateGlobalInvoiceTotals = function () {
+    if (!window.globalInvoiceModalData) return;
+
     const selectedCheckboxes = document.querySelectorAll('.bon-select-checkbox:checked');
     const selectedIds = Array.from(selectedCheckboxes).map(cb => parseInt(cb.dataset.bonId));
-    const clientBons = window.globalInvoiceModalData.clientBons;
+    const clientBons = window.globalInvoiceModalData.clientBons || [];
 
     let totalHT = 0;
     selectedIds.forEach(bonId => {
         const bon = clientBons.find(b => b.id === bonId);
         if (bon) {
-            totalHT += bon.total_ht || 0;
+            totalHT += parseFloat(bon.total_ht) || 0;
         }
     });
 
@@ -5882,7 +5905,8 @@ window.saveGlobalInvoiceFromModal = async function () {
     }
 
     const data = window.globalInvoiceModalData;
-    const clientBons = data.clientBons;
+    if (!data) return;
+    const clientBons = data.clientBons || [];
 
     // Calculate totals
     let totalHT = 0;
@@ -5924,6 +5948,8 @@ window.saveGlobalInvoiceFromModal = async function () {
 
         const formData = {
             client: { nom: data.clientName, ICE: data.clientICE },
+            client_id: data.clientId,
+            company_code: 'CHAIMAE', // Ensure company_code is sent
             document_numero: numero,
             document_date: date,
             total_ht: totalHT,
@@ -5933,7 +5959,10 @@ window.saveGlobalInvoiceFromModal = async function () {
             bon_livraison_ids: selectedIds
         };
 
+        console.log('📤 [FRONTEND] Creating global invoice with data:', JSON.stringify(formData, null, 2));
+
         const result = await window.electron.dbChaimae.createGlobalInvoice(formData);
+        console.log('📥 [FRONTEND] Creation result:', JSON.stringify(result, null, 2));
 
         if (result.success) {
             window.notify.success('Succès', 'Facture globale créée!', 3000);
@@ -6228,7 +6257,10 @@ window.initInvoicesListChaimaePage = function () {
                 let pageCount = 1;
                 const pages = [];
 
-                const formatNumber = (num) => num.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ' ');
+                const formatNumber = (num) => {
+                    const n = parseFloat(num) || 0;
+                    return n.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ' ');
+                };
 
                 // Sort bons based on user selection
                 if (invoice.bons && invoice.bons.length > 0) {

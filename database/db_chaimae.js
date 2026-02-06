@@ -1031,24 +1031,37 @@ const globalInvoiceOps = {
 
         if (result.length === 0 || result[0].values.length === 0) return null;
 
+        const columns = result[0].columns;
         const row = result[0].values[0];
+
+        // Helper to safely get value by column name
+        const getVal = (col) => row[columns.indexOf(col)];
+
         const globalInvoice = {
-            id: row[0],
-            client_id: row[1],
-            document_numero: row[2],
-            document_date: row[3],
-            total_ht: row[4],
-            tva_rate: row[5],
-            montant_tva: row[6],
-            total_ttc: row[7],
-            created_at: row[8],
-            updated_at: row[9],
-            client_nom: row[10],
-            client_ice: row[11]
+            id: getVal('id'),
+            client_id: getVal('client_id'),
+            document_numero: getVal('document_numero'),
+            document_date: getVal('document_date'),
+            total_ht: getVal('total_ht'),
+            tva_rate: getVal('tva_rate'),
+            montant_tva: getVal('montant_tva'),
+            total_ttc: getVal('total_ttc'),
+            created_at: getVal('created_at'),
+            updated_at: getVal('updated_at'),
+            client_nom: getVal('client_nom'),
+            client_ice: getVal('client_ice')
         };
 
-        // Get linked bon de livraison
+        // Get linked bon de livraison IDs independently of mirrored invoices table
         const bonsResult = db.exec(`
+            SELECT bon_livraison_id FROM global_invoice_bons WHERE global_invoice_id = ?
+        `, [id]);
+
+        globalInvoice.bon_livraison_ids = bonsResult.length > 0 ? bonsResult[0].values.map(row => row[0]) : [];
+        globalInvoice.bon_count = globalInvoice.bon_livraison_ids.length;
+
+        // Fallback/Legacy: Also try to join for any data that MIGHT be in SQLite
+        const legacyBonsResult = db.exec(`
             SELECT i.*, c.nom as client_nom, c.ice as client_ice
             FROM global_invoice_bons gib
             JOIN invoices i ON gib.bon_livraison_id = i.id
@@ -1056,31 +1069,26 @@ const globalInvoiceOps = {
             WHERE gib.global_invoice_id = ?
         `, [id]);
 
-        globalInvoice.bons = bonsResult.length > 0 ? bonsResult[0].values.map(row => ({
-            id: row[0],
-            client_id: row[1],
-            document_type: row[2],
-            document_date: row[3],
-            document_numero: row[4],
-            document_numero_Order: row[5],
-            document_numero_bl: row[6],
-            document_numero_devis: row[7],
-            document_order_devis: row[8],
-            document_bon_de_livraison: row[9],
-            document_numero_commande: row[10],
-            year: row[11],
-            sequential_id: row[12],
-            total_ht: row[13],
-            tva_rate: row[14],
-            montant_tva: row[15],
-            total_ttc: row[16],
-            created_at: row[17],
-            updated_at: row[18],
-            client_nom: row[19],
-            client_ice: row[20]
-        })) : [];
+        if (legacyBonsResult.length > 0) {
+            const bCols = legacyBonsResult[0].columns;
+            globalInvoice.bons = legacyBonsResult[0].values.map(bRow => {
+                const getBVal = (col) => bRow[bCols.indexOf(col)];
+                return {
+                    id: getBVal('id'),
+                    document_numero: getBVal('document_numero') || getBVal('document_numero_bl'),
+                    document_numero_commande: getBVal('document_numero_commande'),
+                    document_date: getBVal('document_date'),
+                    total_ht: getBVal('total_ht'),
+                    total_ttc: getBVal('total_ttc'),
+                    client_nom: getBVal('client_nom')
+                };
+            });
+        } else {
+            // If join fails (data not in SQLite), populate with skeleton objects for enrichment
+            globalInvoice.bons = globalInvoice.bon_livraison_ids.map(bonId => ({ id: bonId }));
+        }
 
-        globalInvoice.bon_count = globalInvoice.bons.length;
+        return globalInvoice;
 
         return globalInvoice;
     },
@@ -1098,24 +1106,36 @@ const globalInvoiceOps = {
 
         if (result.length === 0) return [];
 
-        const globalInvoices = result[0].values.map(row => ({
-            id: row[0],
-            client_id: row[1],
-            document_numero: row[2],
-            document_date: row[3],
-            total_ht: row[4],
-            tva_rate: row[5],
-            montant_tva: row[6],
-            total_ttc: row[7],
-            created_at: row[8],
-            updated_at: row[9],
-            client_nom: row[10],
-            client_ice: row[11],
-            bon_count: row[12]
-        }));
+        const columns = result[0].columns;
+        const globalInvoices = result[0].values.map(row => {
+            // Helper to safely get value by column name
+            const getVal = (col) => row[columns.indexOf(col)];
+
+            return {
+                id: getVal('id'),
+                client_id: getVal('client_id'),
+                document_numero: getVal('document_numero'),
+                document_date: getVal('document_date'),
+                total_ht: getVal('total_ht'),
+                tva_rate: getVal('tva_rate'),
+                montant_tva: getVal('montant_tva'),
+                total_ttc: getVal('total_ttc'),
+                created_at: getVal('created_at'),
+                updated_at: getVal('updated_at'),
+                client_nom: getVal('client_nom'),
+                client_ice: getVal('client_ice'),
+                bon_count: getVal('bon_count')
+            };
+        });
 
         // Get bons for each global invoice
         globalInvoices.forEach(gi => {
+            // Get linked IDs independently
+            const bonIdsQuery = 'SELECT bon_livraison_id FROM global_invoice_bons WHERE global_invoice_id = ?';
+            const bonIdsRes = db.exec(bonIdsQuery, [gi.id]);
+            gi.bon_livraison_ids = bonIdsRes.length > 0 ? bonIdsRes[0].values.map(row => row[0]) : [];
+
+            // Legacy mirror lookup
             const bonsQuery = `
                 SELECT i.id, i.document_numero, i.document_numero_bl, i.document_numero_commande,
                        i.document_date, i.total_ht, i.total_ttc
@@ -1128,7 +1148,7 @@ const globalInvoiceOps = {
             if (bonsResult.length > 0) {
                 gi.bons = bonsResult[0].values.map(bonRow => ({
                     id: bonRow[0],
-                    document_numero: bonRow[1],
+                    document_numero: bonRow[1] || bonRow[2],
                     document_numero_bl: bonRow[2],
                     document_numero_commande: bonRow[3],
                     document_date: bonRow[4],
@@ -1136,7 +1156,8 @@ const globalInvoiceOps = {
                     total_ttc: bonRow[6]
                 }));
             } else {
-                gi.bons = [];
+                // Skeleton objects for enrichment
+                gi.bons = gi.bon_livraison_ids.map(bonId => ({ id: bonId }));
             }
         });
 
@@ -1215,27 +1236,31 @@ const globalInvoiceOps = {
 
         if (result.length === 0) return [];
 
-        return result[0].values.map(row => ({
-            id: row[0],
-            client_id: row[1],
-            document_type: row[2],
-            document_date: row[3],
-            document_numero: row[4],
-            document_numero_Order: row[5],
-            document_numero_bl: row[6],
-            document_numero_devis: row[7],
-            document_order_devis: row[8],
-            document_bon_de_livraison: row[9],
-            document_numero_commande: row[10],
-            total_ht: row[11],
-            tva_rate: row[12],
-            montant_tva: row[13],
-            total_ttc: row[14],
-            created_at: row[15],
-            updated_at: row[16],
-            client_nom: row[17],
-            client_ice: row[18]
-        }));
+        const columns = result[0].columns;
+        return result[0].values.map(row => {
+            const getVal = (col) => row[columns.indexOf(col)];
+            return {
+                id: getVal('id'),
+                client_id: getVal('client_id'),
+                document_type: getVal('document_type'),
+                document_date: getVal('document_date'),
+                document_numero: getVal('document_numero'),
+                document_numero_Order: getVal('document_numero_Order'),
+                document_numero_bl: getVal('document_numero_bl'),
+                document_numero_devis: getVal('document_numero_devis'),
+                document_order_devis: getVal('document_order_devis'),
+                document_bon_de_livraison: getVal('document_bon_de_livraison'),
+                document_numero_commande: getVal('document_numero_commande'),
+                total_ht: getVal('total_ht'),
+                tva_rate: getVal('tva_rate'),
+                montant_tva: getVal('montant_tva'),
+                total_ttc: getVal('total_ttc'),
+                created_at: getVal('created_at'),
+                updated_at: getVal('updated_at'),
+                client_nom: getVal('client_nom'),
+                client_ice: getVal('client_ice')
+            };
+        });
     }
 };
 

@@ -60,7 +60,15 @@ function SettingsPage() {
                                     <option>Français</option>
                                 </select>
                             </div>
-                            <button class="btn btn-primary">Save Settings</button>
+                            <div class="form-group" style="margin-top: 2rem;">
+                                <label>Portail Web</label>
+                                <div style="display: flex; align-items: center; gap: 0.5rem; margin-top: 0.5rem;">
+                                    <span class="icon">🌐</span>
+                                    <a href="https://anpe-web-api.ddns.net/facture/" target="_blank" style="color: #2196f3; text-decoration: none; font-weight: 500;">Ouvrir le portail web</a>
+                                </div>
+                            </div>
+                            <button class="btn btn-primary" style="margin-top: 1.5rem;">Save Settings</button>
+
                         </div>
                     </div>
                 </div>

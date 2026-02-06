@@ -426,7 +426,7 @@ window.addProductRowEditChaimae = function (productData = null) {
                    onkeydown="handleArrowNavigationEditChaimae(event, '${rowId}', 3)">
         </td>
         <td>
-            <span class="product-total">${productData ? (productData.total_ht || 0).toFixed(2) : '0.00'} DH</span>
+            <span class="product-total">${productData ? Number(productData.total_ht || 0).toFixed(2) : '0.00'} DH</span>
         </td>
         <td>
             <button type="button" class="btn-delete" onclick="deleteProductRowEditChaimae('${rowId}')">
@@ -855,7 +855,7 @@ window.handleEditInvoiceSubmitChaimae = async function (e) {
 
                 // 1. Check main document number
                 const duplicateNumero = invoices.find(inv => {
-                    if (inv.id === parseInt(currentInvoiceIdChaimae)) return false;
+                    if (Number(inv.id) === Number(currentInvoiceIdChaimae)) return false;
 
                     if (currentDocumentTypeChaimae === 'facture') {
                         return inv.document_type === 'facture' &&
@@ -897,7 +897,7 @@ window.handleEditInvoiceSubmitChaimae = async function (e) {
                 if (currentDocumentTypeChaimae === 'facture' && orderVal) {
                     const searchOrder = orderVal.toLowerCase().trim();
                     const duplicateOrder = invoices.find(inv =>
-                        inv.id !== parseInt(currentInvoiceIdChaimae) &&
+                        Number(inv.id) !== Number(currentInvoiceIdChaimae) &&
                         (inv.document_numero_Order || inv.document_numero_order) &&
                         (inv.document_numero_Order || inv.document_numero_order).toLowerCase().trim() === searchOrder
                     );
@@ -911,7 +911,7 @@ window.handleEditInvoiceSubmitChaimae = async function (e) {
                 if (currentDocumentTypeChaimae === 'facture' && blVal) {
                     const searchBL = blVal.toLowerCase().trim();
                     const duplicateBL = invoices.find(inv =>
-                        inv.id !== parseInt(currentInvoiceIdChaimae) &&
+                        Number(inv.id) !== Number(currentInvoiceIdChaimae) &&
                         inv.document_bon_de_livraison &&
                         inv.document_bon_de_livraison.toLowerCase().trim() === searchBL
                     );
@@ -925,7 +925,7 @@ window.handleEditInvoiceSubmitChaimae = async function (e) {
                 if (currentDocumentTypeChaimae === 'bon_livraison' && bcVal) {
                     const searchBC = bcVal.toLowerCase().trim();
                     const duplicateBC = invoices.find(inv =>
-                        inv.id !== parseInt(currentInvoiceIdChaimae) &&
+                        Number(inv.id) !== Number(currentInvoiceIdChaimae) &&
                         (inv.document_type === 'bon_livraison' || inv.document_type === 'bon de livraison') &&
                         inv.document_numero_commande &&
                         inv.document_numero_commande.toLowerCase().trim() === searchBC

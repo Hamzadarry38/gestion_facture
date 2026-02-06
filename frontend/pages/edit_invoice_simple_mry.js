@@ -251,7 +251,7 @@ window.addProductRowEditSimpleMRY = function (productData = null) {
                    onkeydown="handleArrowNavigationEditSimpleMRY(event, '${rowId}', 2)">
         </td>
         <td>
-            <span class="product-total">${productData ? (productData.total_ht || 0).toFixed(2) : '0.00'} DH</span>
+            <span class="product-total">${productData ? Number(productData.total_ht || 0).toFixed(2) : '0.00'} DH</span>
         </td>
         <td>
             <button type="button" class="btn-delete" onclick="deleteProductRowEditSimpleMRY('${rowId}')">
@@ -560,7 +560,7 @@ async function handleEditInvoiceSubmitSimpleMRY(e) {
             const allInvoicesResult = await window.electron.db.getAllInvoices();
             if (allInvoicesResult.success) {
                 const duplicateNumero = allInvoicesResult.data.find(inv =>
-                    inv.id !== currentInvoiceIdSimpleMRY &&
+                    Number(inv.id) !== Number(currentInvoiceIdSimpleMRY) &&
                     inv.document_type === currentDocumentTypeSimpleMRY &&
                     (currentDocumentTypeSimpleMRY === 'facture'
                         ? inv.document_numero === newNumero

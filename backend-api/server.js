@@ -208,7 +208,7 @@ app.post('/auth/register', async (req, res) => {
 
 app.get('/users', async (req, res) => {
   try {
-    const result = await pool.query('SELECT id, name, email, created_at FROM users ORDER BY created_at DESC');
+    const result = await pool.query('SELECT id, name, email, created_at FROM users ORDER BY id DESC');
     res.json({ success: true, users: result.rows });
   } catch (err) {
     res.status(500).json({ success: false, error: err.message });
@@ -302,7 +302,7 @@ app.get('/invoices/pending', async (req, res) => {
       params.push(company_code.toUpperCase());
     }
 
-    query += ` ORDER BY i.created_at DESC`;
+    query += ` ORDER BY i.id DESC`;
 
     const result = await pool.query(query, params);
 
@@ -790,7 +790,7 @@ app.get('/attachments/id/:id', async (req, res) => {
 app.get('/attachments/invoice/:invoiceId', async (req, res) => {
   try {
     const { invoiceId } = req.params;
-    const result = await pool.query('SELECT id, filename, file_type, file_size, created_at as uploaded_at, file_data FROM invoice_attachments WHERE invoice_id = $1 ORDER BY created_at DESC', [invoiceId]);
+    const result = await pool.query('SELECT id, filename, file_type, file_size, created_at as uploaded_at, file_data FROM invoice_attachments WHERE invoice_id = $1 ORDER BY id DESC', [invoiceId]);
     const attachments = result.rows.map(att => {
       if (att.file_data) {
         att.file_data = Buffer.from(att.file_data).toString('base64');
@@ -865,7 +865,7 @@ app.get('/devis/:company', async (req, res) => {
   try {
     const { company } = req.params;
     const table = `${company.toLowerCase()}_devis_numbers`;
-    const result = await pool.query(`SELECT * FROM ${table} ORDER BY year DESC, created_at DESC`);
+    const result = await pool.query(`SELECT * FROM ${table} ORDER BY year DESC, id DESC`);
     res.json({ success: true, data: result.rows });
   } catch (err) {
     res.status(500).json({ success: false, error: err.message });
@@ -917,7 +917,7 @@ app.get('/pdf/:company', async (req, res) => {
   try {
     const { company } = req.params;
     const table = `${company.toLowerCase()}_pdf_files`;
-    const result = await pool.query(`SELECT * FROM ${table} ORDER BY year DESC, created_at DESC`);
+    const result = await pool.query(`SELECT * FROM ${table} ORDER BY year DESC, id DESC`);
     res.json({ success: true, data: result.rows });
   } catch (err) {
     res.status(500).json({ success: false, error: err.message });
@@ -1068,7 +1068,7 @@ app.get('/audit-log/:invoiceId', async (req, res) => {
   try {
     const { invoiceId } = req.params;
     const result = await pool.query(
-      'SELECT * FROM audit_log WHERE invoice_id = $1 ORDER BY created_at DESC',
+      'SELECT * FROM audit_log WHERE invoice_id = $1 ORDER BY id DESC',
       [invoiceId]
     );
     res.json({ success: true, data: result.rows });
@@ -1096,7 +1096,7 @@ app.get('/attachments/invoice/:invoiceId', async (req, res) => {
   try {
     const { invoiceId } = req.params;
     const result = await pool.query(
-      'SELECT *, created_at as uploaded_at FROM invoice_attachments WHERE invoice_id = $1 ORDER BY created_at DESC',
+      'SELECT *, created_at as uploaded_at FROM invoice_attachments WHERE invoice_id = $1 ORDER BY id DESC',
       [invoiceId]
     );
     res.json({ success: true, data: result.rows });
@@ -1163,6 +1163,209 @@ app.post('/attachments', async (req, res) => {
     res.status(500).json({ success: false, error: err.message });
   } finally {
     client.release();
+  }
+});
+
+// --- GLOBAL INVOICE ROUTES ---
+
+app.get('/global-invoices/:company', async (req, res) => {
+  try {
+    const { company } = req.params;
+    const result = await pool.query(`
+      SELECT gi.*, c.nom as client_nom, c.ice as client_ice 
+      FROM global_invoices gi 
+      JOIN clients c ON gi.client_id = c.id 
+      WHERE gi.company_code = $1
+      ORDER BY gi.id DESC
+    `, [company.toUpperCase()]);
+
+    const globalInvoices = result.rows;
+
+    // Fetch linked bon IDs for each global invoice
+    if (globalInvoices.length > 0) {
+      const giIds = globalInvoices.map(gi => gi.id);
+      const bonsRes = await pool.query(`
+        SELECT global_invoice_id, bon_livraison_id 
+        FROM global_invoice_bons 
+        WHERE global_invoice_id = ANY($1::int[])
+      `, [giIds]);
+
+      const bonsMap = {};
+      bonsRes.rows.forEach(b => {
+        if (!bonsMap[b.global_invoice_id]) bonsMap[b.global_invoice_id] = [];
+        bonsMap[b.global_invoice_id].push(b.bon_livraison_id);
+      });
+
+      globalInvoices.forEach(gi => {
+        gi.bon_livraison_ids = bonsMap[gi.id] || [];
+        gi.bon_count = gi.bon_livraison_ids.length;
+      });
+    }
+
+    res.json({ success: true, data: globalInvoices });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+app.get('/global-invoices/id/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const result = await pool.query(`
+      SELECT gi.*, c.nom as client_nom, c.ice as client_ice 
+      FROM global_invoices gi 
+      JOIN clients c ON gi.client_id = c.id 
+      WHERE gi.id = $1
+    `, [id]);
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ success: false, message: 'Global invoice not found' });
+    }
+
+    const gi = result.rows[0];
+
+    // Fetch linked bon IDs
+    const bonsIdsRes = await pool.query(`
+      SELECT bon_livraison_id 
+      FROM global_invoice_bons 
+      WHERE global_invoice_id = $1
+    `, [id]);
+    gi.bon_livraison_ids = bonsIdsRes.rows.map(b => b.bon_livraison_id);
+    gi.bon_count = gi.bon_livraison_ids.length;
+
+    // Fetch full details of linked bons
+    if (gi.bon_livraison_ids.length > 0) {
+      const bonsRes = await pool.query(`
+        SELECT i.*, c.nom as client_nom 
+        FROM invoices i 
+        JOIN clients c ON i.client_id = c.id 
+        WHERE i.id = ANY($1::int[])
+      `, [gi.bon_livraison_ids]);
+
+      gi.bons = bonsRes.rows.map(pgInv => ({
+        id: pgInv.id,
+        document_numero: pgInv.document_numero || pgInv.document_numero_bl,
+        document_numero_bl: pgInv.document_numero_bl,
+        document_numero_commande: pgInv.document_numero_commande,
+        document_date: pgInv.document_date,
+        total_ht: pgInv.total_ht,
+        total_ttc: pgInv.total_ttc,
+        client_nom: pgInv.client_nom
+      }));
+    } else {
+      gi.bons = [];
+    }
+
+    res.json({ success: true, data: gi });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+app.post('/global-invoices', async (req, res) => {
+  console.log('📥 [API] POST /global-invoices called');
+  console.log('📦 Request Body:', JSON.stringify(req.body, null, 2));
+
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    const {
+      company_code, client_id, document_numero, document_date,
+      total_ht, tva_rate, montant_tva, total_ttc,
+      bon_livraison_ids
+    } = req.body;
+
+    console.log('📝 Inserting global invoice...');
+    const giRes = await client.query(`
+      INSERT INTO global_invoices (
+        company_code, client_id, document_numero, document_date, 
+        total_ht, tva_rate, montant_tva, total_ttc, 
+        created_at, updated_at
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, NOW(), NOW())
+      RETURNING id
+    `, [
+      company_code ? company_code.toUpperCase() : null, client_id, document_numero, document_date,
+      total_ht, tva_rate, montant_tva, total_ttc
+    ]);
+
+    const giId = giRes.rows[0].id;
+    console.log('✅ Global invoice created with ID:', giId);
+
+    if (bon_livraison_ids && bon_livraison_ids.length > 0) {
+      console.log(`🔗 Linking ${bon_livraison_ids.length} delivery notes...`);
+      for (const bonId of bon_livraison_ids) {
+        await client.query(`
+          INSERT INTO global_invoice_bons (global_invoice_id, bon_livraison_id)
+          VALUES ($1, $2)
+        `, [giId, bonId]);
+      }
+    }
+
+    await client.query('COMMIT');
+    console.log('🎉 Transaction committed successfully');
+    res.json({ success: true, data: { id: giId } });
+  } catch (err) {
+    await client.query('ROLLBACK');
+    console.error('❌ [API ERROR] POST /global-invoices:', err);
+    res.status(500).json({ success: false, error: err.message });
+  } finally {
+    client.release();
+  }
+});
+
+app.put('/global-invoices/:id', async (req, res) => {
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    const { id } = req.params;
+    const {
+      document_numero, document_date,
+      total_ht, tva_rate, montant_tva, total_ttc,
+      bon_livraison_ids
+    } = req.body;
+
+    await client.query(`
+      UPDATE global_invoices SET 
+        document_numero = COALESCE($1, document_numero),
+        document_date = COALESCE($2, document_date),
+        total_ht = COALESCE($3, total_ht),
+        tva_rate = COALESCE($4, tva_rate),
+        montant_tva = COALESCE($5, montant_tva),
+        total_ttc = COALESCE($6, total_ttc),
+        updated_at = NOW()
+      WHERE id = $7
+    `, [document_numero, document_date, total_ht, tva_rate, montant_tva, total_ttc, id]);
+
+    if (bon_livraison_ids !== undefined) {
+      await client.query('DELETE FROM global_invoice_bons WHERE global_invoice_id = $1', [id]);
+      if (bon_livraison_ids && bon_livraison_ids.length > 0) {
+        for (const bonId of bon_livraison_ids) {
+          await client.query(`
+            INSERT INTO global_invoice_bons (global_invoice_id, bon_livraison_id)
+            VALUES ($1, $2)
+          `, [id, bonId]);
+        }
+      }
+    }
+
+    await client.query('COMMIT');
+    res.json({ success: true });
+  } catch (err) {
+    await client.query('ROLLBACK');
+    res.status(500).json({ success: false, error: err.message });
+  } finally {
+    client.release();
+  }
+});
+
+app.delete('/global-invoices/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    await pool.query('DELETE FROM global_invoice_bons WHERE global_invoice_id = $1', [id]);
+    await pool.query('DELETE FROM global_invoices WHERE id = $1', [id]);
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
   }
 });
 

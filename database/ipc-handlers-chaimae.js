@@ -162,78 +162,97 @@ async function registerChaimaeHandlers() {
 
     // --- LEGACY SQLITE HANDLERS (Unchanged) ---
 
-    // Global Invoice handlers for CHAIMAE
+    // --- Global Invoices (PostgreSQL Cloud Version) ---
     ipcMain.handle('db:chaimae:globalInvoices:create', async (event, globalInvoiceData) => {
         try {
-            // console.log('📝 Creating CHAIMAE global invoice:', globalInvoiceData);
-            const globalInvoiceId = globalInvoiceOps.create(globalInvoiceData);
-            // console.log('✅ CHAIMAE Global Invoice created with ID:', globalInvoiceId);
-            return { success: true, data: { id: globalInvoiceId } };
+            const giData = {
+                ...globalInvoiceData,
+                company_code: COMPANY_CODE
+            };
+            const apiRes = await apiClient.createGlobalInvoice(giData);
+            if (apiRes.success) {
+                return { success: true, data: { id: apiRes.data.id } };
+            }
+            return { success: false, error: apiRes.error || 'API Error' };
         } catch (error) {
-            console.error('❌ Error creating CHAIMAE global invoice:', error);
+            console.error('❌ Error in db:chaimae:globalInvoices:create:', error);
             return { success: false, error: error.message };
         }
     });
 
     ipcMain.handle('db:chaimae:globalInvoices:getById', async (event, id) => {
         try {
-            const globalInvoice = globalInvoiceOps.getById(id);
-            return { success: true, data: globalInvoice };
+            const apiRes = await apiClient.getGlobalInvoiceById(id);
+            if (apiRes.success) {
+                return { success: true, data: apiRes.data };
+            }
+            return { success: true, data: null };
         } catch (error) {
-            console.error('❌ Error getting CHAIMAE global invoice:', error);
+            console.error('❌ Error in db:chaimae:globalInvoices:getById:', error);
             return { success: false, error: error.message };
         }
     });
 
     ipcMain.handle('db:chaimae:globalInvoices:getAll', async () => {
         try {
-            const globalInvoices = globalInvoiceOps.getAll();
-            return { success: true, data: globalInvoices };
+            const apiRes = await apiClient.getGlobalInvoices(COMPANY_CODE);
+            return apiRes;
         } catch (error) {
-            console.error('❌ Error getting CHAIMAE global invoices:', error);
+            console.error('❌ Error in db:chaimae:globalInvoices:getAll:', error);
             return { success: false, error: error.message };
         }
     });
 
     ipcMain.handle('db:chaimae:globalInvoices:update', async (event, id, globalInvoiceData) => {
         try {
-            // console.log('📝 Updating CHAIMAE global invoice:', id, globalInvoiceData);
-            globalInvoiceOps.update(id, globalInvoiceData);
-            // console.log('✅ CHAIMAE Global Invoice updated:', id);
-            return { success: true };
+            return await apiClient.updateGlobalInvoice(id, globalInvoiceData);
         } catch (error) {
-            console.error('❌ Error updating CHAIMAE global invoice:', error);
+            console.error('❌ Error in db:chaimae:globalInvoices:update:', error);
             return { success: false, error: error.message };
         }
     });
 
     ipcMain.handle('db:chaimae:globalInvoices:delete', async (event, id) => {
         try {
-            globalInvoiceOps.delete(id);
-            // console.log('✅ CHAIMAE Global Invoice deleted:', id);
-            return { success: true };
+            return await apiClient.deleteGlobalInvoice(id);
         } catch (error) {
-            console.error('❌ Error deleting CHAIMAE global invoice:', error);
+            console.error('❌ Error in db:chaimae:globalInvoices:delete:', error);
             return { success: false, error: error.message };
         }
     });
 
     ipcMain.handle('db:chaimae:globalInvoices:getBonsByClient', async (event, clientId) => {
         try {
-            const bons = globalInvoiceOps.getBonsByClient(clientId);
-            return { success: true, data: bons };
+            // Standard approach: fetch all invoices for this client from PG and filter by type 'bon_livraison'
+            const apiRes = await apiClient.getInvoices(COMPANY_CODE);
+            const clientBons = apiRes.data.filter(inv =>
+                inv.client_id === clientId && inv.document_type === 'bon_livraison'
+            ).map(inv => ({
+                ...inv,
+                document_numero: inv.document_numero || inv.document_numero_bl
+            }));
+            return { success: true, data: clientBons };
+            return { success: false, error: apiRes.error || 'API Error' };
         } catch (error) {
-            console.error('❌ Error getting CHAIMAE bons by client:', error);
+            console.error('❌ Error in db:chaimae:globalInvoices:getBonsByClient:', error);
             return { success: false, error: error.message };
         }
     });
 
-    ipcMain.handle('db:chaimae:globalInvoices:checkBonNumeroExists', async (event, numero) => {
+    ipcMain.handle('db:chaimae:globalInvoices:checkBonNumeroExists', async (event, numero, year, excludeId) => {
         try {
-            const result = globalInvoiceOps.checkBonNumeroExists(numero);
-            return result;
+            const apiRes = await apiClient.getInvoices(COMPANY_CODE);
+            if (apiRes.success && apiRes.data) {
+                const exists = apiRes.data.some(inv =>
+                    inv.document_numero === numero &&
+                    inv.year === year &&
+                    inv.id !== excludeId
+                );
+                return { exists };
+            }
+            return { exists: false };
         } catch (error) {
-            console.error('❌ Error checking CHAIMAE bon numero:', error);
+            console.error('❌ Error in db:chaimae:globalInvoices:checkBonNumeroExists:', error);
             return { exists: false, error: error.message };
         }
     });

@@ -808,7 +808,7 @@ window.checkDocumentNumberUniqueMulti = async function (type, numero, numeroOrde
 
         // Exclude current invoice if editing
         if (excludeInvoiceId) {
-            invoices = invoices.filter(inv => inv.id !== excludeInvoiceId);
+            invoices = invoices.filter(inv => Number(inv.id) !== Number(excludeInvoiceId));
         }
 
         const searchNum = (numero || '').toLowerCase().trim();

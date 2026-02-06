@@ -1098,7 +1098,7 @@ async function handleFormSubmitEdit(e) {
         const allGlobalInvoicesResult = await window.electron.dbChaimae.getAllGlobalInvoices();
         if (allGlobalInvoicesResult.success) {
             const duplicateGlobal = allGlobalInvoicesResult.data.find(inv =>
-                inv.document_numero === formData.document_numero && inv.id !== currentInvoiceEdit.id
+                inv.document_numero === formData.document_numero && Number(inv.id) !== Number(currentInvoiceEdit.id)
             );
 
             if (duplicateGlobal) {

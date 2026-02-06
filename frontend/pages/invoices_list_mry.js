@@ -78,9 +78,6 @@ function InvoicesListMRYPage() {
                                 <span>Nouvelle</span>
                             </button>
 
-                            <button class="action-btn" onclick="triggerMigration('MRY')" style="background: #FF9800; color: white; border: none; font-weight: 600;">
-                                🚀 Migrer P.J
-                            </button>
                             
                             <button class="action-btn action-btn-secondary" onclick="router.navigate('/dashboard-mry')">
                                 <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor">

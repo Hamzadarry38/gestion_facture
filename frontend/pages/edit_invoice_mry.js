@@ -299,7 +299,7 @@ window.addProductRowEditMRY = function (productData = null) {
                    onkeydown="handleArrowNavigationEditMRY(event, '${rowId}', 3)">
         </td>
         <td>
-            <span class="product-total">${productData ? (productData.total_ht || 0).toFixed(2) : '0.00'} DH</span>
+            <span class="product-total">${productData ? Number(productData.total_ht || 0).toFixed(2) : '0.00'} DH</span>
         </td>
         <td>
             <button type="button" class="btn-delete" onclick="deleteProductRowEditMRY('${rowId}')">
@@ -697,7 +697,7 @@ async function handleEditInvoiceSubmitMRY(e) {
 
                 // 1. Check main document number (excluding current invoice)
                 const duplicateNumero = invoices.find(inv => {
-                    if (inv.id === parseInt(currentInvoiceIdMRY)) return false;
+                    if (Number(inv.id) === Number(currentInvoiceIdMRY)) return false;
 
                     if (currentDocumentTypeMRY === 'facture') {
                         return inv.document_type === 'facture' &&
@@ -721,7 +721,7 @@ async function handleEditInvoiceSubmitMRY(e) {
                 if (currentDocumentTypeMRY === 'facture' && orderVal) {
                     const searchOrder = orderVal.toLowerCase().trim();
                     const duplicateOrder = invoices.find(inv =>
-                        inv.id !== parseInt(currentInvoiceIdMRY) &&
+                        Number(inv.id) !== Number(currentInvoiceIdMRY) &&
                         (inv.document_numero_Order || inv.document_numero_order) &&
                         (inv.document_numero_Order || inv.document_numero_order).toLowerCase().trim() === searchOrder
                     );
