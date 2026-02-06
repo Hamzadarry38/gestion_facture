@@ -3,7 +3,7 @@ const axios = require('axios');
 // Configuration
 // In Electron, we can use a global window variable or localStorage to set the API URL
 // Fallback logic: local dev -> DDNS production
-const DEFAULT_LOCAL_API = 'https://redouan.ddns.net/facture';
+const DEFAULT_LOCAL_API = 'http://localhost:8001';
 const PRODUCTION_API = 'https://anpe-web-api.ddns.net/facture/api';
 const WEB_PORTAL_URL = 'https://anpe-web-api.ddns.net/facture/';
 

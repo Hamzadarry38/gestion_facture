@@ -13,10 +13,10 @@ async function testAttachmentUpload() {
             file_path: '/path/to/test.pdf'
         };
 
-        console.log('📤 Sending POST request to https://redouan.ddns.net/facture/attachments');
+        console.log('📤 Sending POST request to http://localhost:8001/attachments');
         console.log('Data:', testData);
 
-        const response = await axios.post('https://redouan.ddns.net/facture/attachments', testData);
+        const response = await axios.post('http://localhost:8001/attachments', testData);
 
         console.log('✅ Response:', response.data);
 
