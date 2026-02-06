@@ -28,7 +28,11 @@ const apiClient = axios.create({
     timeout: 10000,
     headers: {
         'Content-Type': 'application/json'
-    }
+    },
+    // Add this to allow connecting to HTTPS sites with self-signed/unverified certificates (Common in DDNS)
+    httpsAgent: new (require('https')).Agent({
+        rejectUnauthorized: false
+    })
 });
 
 const service = {
