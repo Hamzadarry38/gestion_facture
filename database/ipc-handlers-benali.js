@@ -1,12 +1,9 @@
 const { ipcMain } = require('electron');
-const { initDatabase, benaliDevisOps, benaliPdfOps } = require('./db_benali');
 const apiClient = require('./api-client');
 
 // Register all BEN ALI IPC handlers
 async function registerBenAliHandlers() {
-    // Initialize BEN ALI database first
-    await initDatabase();
-    console.log('🔌 Registering BENALI handlers with API Backend (Postgres)');
+    console.log('🔌 Registering BENALI handlers with API Backend (Postgres) - Online Only');
 
     const COMPANY_CODE = 'BENALI';
 

@@ -1,12 +1,9 @@
 const { ipcMain } = require('electron');
-const { initDatabase, saaissDevisOps, saaissPdfOps } = require('./db_saaiss');
 const apiClient = require('./api-client');
 
 // Register all SAAISS IPC handlers
 async function registerSAAISSHandlers() {
-    // Initialize database first - REQUIRED for local fallback if needed
-    await initDatabase();
-    console.log('🔌 Registering SAAISS handlers with API Backend (Postgres)');
+    console.log('🔌 Registering SAAISS handlers with API Backend (Postgres) - Online Only');
 
     const COMPANY_CODE = 'SAAISS';
 

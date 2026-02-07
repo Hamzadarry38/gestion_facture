@@ -1,12 +1,9 @@
 const { ipcMain } = require('electron');
-const { initDatabase, skmDevisOps, skmPdfOps } = require('./db_skm');
 const apiClient = require('./api-client');
 
 // Register all SKM IPC handlers
 async function registerSKMHandlers() {
-    // Initialize SKM database first
-    await initDatabase();
-    console.log('🔌 Registering SKM handlers with API Backend (Postgres)');
+    console.log('🔌 Registering SKM handlers with API Backend (Postgres) - Online Only');
 
     const COMPANY_CODE = 'SKM';
 
