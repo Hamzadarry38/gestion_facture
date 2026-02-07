@@ -19,8 +19,9 @@ try {
 
 const API_URL = configuredApiUrl || DEFAULT_LOCAL_API;
 console.log(`[API Client] Using Base URL: ${API_URL}`);
-
-
+console.log(`[API Client] 🌐 DDNS URL: https://anpe-web-api.ddns.net/facture`);
+console.log(`[API Client] 🏠 Localhost URL: http://localhost:8001`);
+console.log(`[API Client] ✅ Active URL: ${API_URL}`);
 
 
 const apiClient = axios.create({
@@ -34,6 +35,37 @@ const apiClient = axios.create({
         rejectUnauthorized: false
     })
 });
+
+// Add request interceptor to log every API call
+apiClient.interceptors.request.use(
+    (config) => {
+        console.log(`[API Request] 🚀 ${config.method.toUpperCase()} ${config.baseURL}${config.url}`);
+        return config;
+    },
+    (error) => {
+        console.error('[API Request Error]', error);
+        return Promise.reject(error);
+    }
+);
+
+// Add response interceptor to log responses
+apiClient.interceptors.response.use(
+    (response) => {
+        console.log(`[API Response] ✅ ${response.config.method.toUpperCase()} ${response.config.url} - Status: ${response.status}`);
+        return response;
+    },
+    (error) => {
+        if (error.response) {
+            console.error(`[API Response Error] ❌ ${error.config.method.toUpperCase()} ${error.config.url} - Status: ${error.response.status}`);
+        } else if (error.request) {
+            console.error(`[API Network Error] ❌ No response received for ${error.config.method.toUpperCase()} ${error.config.url}`);
+            console.error(`[API Network Error] ❌ Server not reachable at: ${error.config.baseURL}`);
+        } else {
+            console.error('[API Error]', error.message);
+        }
+        return Promise.reject(error);
+    }
+);
 
 const service = {
     // Auth
