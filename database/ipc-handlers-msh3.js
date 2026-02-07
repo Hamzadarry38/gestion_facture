@@ -1,12 +1,9 @@
 const { ipcMain } = require('electron');
-const { initDatabase, msh3DevisOps, msh3PdfOps } = require('./db_msh3');
 const apiClient = require('./api-client');
 
 // Register all MSH3 SERVICES IPC handlers
 async function registerMsh3Handlers() {
-    // Initialize MSH3 SERVICES database first
-    await initDatabase();
-    console.log('🔌 Registering MSH3 handlers with API Backend (Postgres)');
+    console.log('🔌 Registering MSH3 handlers with API Backend (Postgres) - Online Only');
 
     const COMPANY_CODE = 'MSH3';
 
