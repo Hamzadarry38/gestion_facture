@@ -119,16 +119,6 @@ function CreateInvoiceChaimaePage() {
                                         <input type="text" id="createdByChaimae" readonly style="background: #1e1e1e; color: #aaa; cursor: not-allowed;" placeholder="Chargement...">
                                     </div>
                                 </div>
-                                <div class="form-field" id="deliveredByContainerChaimae" style="position: relative;">
-                                    <label>Livré par <span class="required">*</span></label>
-                                    <div class="input-with-icon">
-                                        <span class="input-icon">🚚</span>
-                                        <input type="text" id="deliveredByChaimae" list="deliveryPersonsListChaimae" 
-                                               placeholder="Nom du livreur" autocomplete="off" required
-                                               oninput="searchDeliveryPersonsChaimae(this.value)">
-                                    </div>
-                                    <datalist id="deliveryPersonsListChaimae"></datalist>
-                                </div>
                             </div>
                         </div>
                     </div>
@@ -540,20 +530,7 @@ window.handleDocumentTypeChangeChaimae = async function () {
 
     container.innerHTML = html;
 
-    // Show/Hide "Livrais par" field based on document type
-    const deliveredByContainer = document.getElementById('deliveredByContainerChaimae');
-    const deliveredByInput = document.getElementById('deliveredByChaimae');
-
-    if (deliveredByContainer && deliveredByInput) {
-        if (type === 'devis') {
-            deliveredByContainer.style.display = 'none';
-            deliveredByInput.required = false;
-            deliveredByInput.value = '';
-        } else {
-            deliveredByContainer.style.display = 'block';
-            deliveredByInput.required = true;
-        }
-    }
+    // "Livrais par" field removed
 }
 
 // Use suggested number for Chaimae (Global)

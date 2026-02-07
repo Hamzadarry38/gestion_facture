@@ -329,7 +329,7 @@ function InvoicesListChaimaePage() {
                                     <th class="col-totalHT-chaimae" onclick="sortTableChaimae('total_ht')" style="cursor: pointer; user-select: none; width: 130px;" title="Cliquez pour trier">
                                         Total HT <span id="sortIconTotalHTChaimae">⇅</span>
                                     </th>
-                                    <th class="col-createdByCombined-chaimae" style="width: 150px; text-align: center;">Par / Livré</th>
+                                    <th class="col-createdByCombined-chaimae" style="width: 150px; text-align: center;">Par</th>
                                     <th style="width: 140px; text-align: center;">Accusé R.</th>
                                     <th style="width: 50px; text-align: center;">P.J</th>
                                     <th style="width: 150px; text-align: center;">Actions</th>
@@ -996,8 +996,6 @@ function displayInvoicesChaimae(invoices) {
                 <td style="text-align: left; padding: 1rem 0.75rem; border-right: 1px solid #3e3e42;" class="col-totalHT-chaimae"><strong style="color: #cccccc;">${totalHT} DH</strong></td>
                 <td style="padding: 0.5rem; border-right: 1px solid #3e3e42; text-align: center; white-space: nowrap; font-size: 0.85rem;" class="col-createdByCombined-chaimae">
                     <span style="color: #2196f3; font-weight: bold;">${invoice.created_by || '-'}</span>
-                    <span style="color: #666; margin: 0 2px;">/</span>
-                    <span style="color: #ff9800; font-weight: bold;">${invoice.delivered_by || '-'}</span>
                 </td>
                 <td style="padding: 1rem 0.75rem; border-right: 1px solid #3e3e42; text-align: center;">
                     <select onchange="updateArStatusChaimae(${invoice.id}, this.value)" 
@@ -2857,21 +2855,6 @@ function showConvertInputModalChaimae(newType, newTypeLabel, prefillNumero = '',
                 </div>
             </div>
             
-            ${newType !== 'devis' ? `
-            <div style="margin-bottom:2rem;">
-                <label style="display:block;color:#9c27b0;margin-bottom:0.75rem;font-weight:600;font-size:1.1rem;">Livré par <span style="color:#f44336">*</span></label>
-                <div style="position:relative;">
-                    <span style="position:absolute;left:12px;top:50%;transform:translateY(-50%);font-size:1.2rem;color:#ff9800;pointer-events:none;z-index:5;">🚚</span>
-                    <input type="text" id="convertInputDeliveredByChaimae" placeholder="Nom du livreur" list="convertDeliveryPersonsList"
-                           value="${prefillDeliveredBy}"
-                           style="width:100%;padding:1rem 1rem 1rem 45px;background:#2d2d30;border:2px solid #3e3e42;border-radius:8px;color:#fff;font-size:1.1rem;box-sizing:border-box;outline:none;transition:all 0.3s;"
-                           onfocus="this.style.borderColor='#9c27b0';this.style.background='#1e1e1e';"
-                           onblur="this.style.borderColor='#3e3e42';this.style.background='#2d2d30';">
-                    <datalist id="convertDeliveryPersonsList"></datalist>
-                </div>
-            </div>
-            ` : ''}
-
             <div style="display:flex;gap:1rem;margin-top:2rem;">
                 <button id="convertBtnCancelChaimae" style="flex:1;padding:1rem;background:#fff;color:#333;border:2px solid #ddd;border-radius:8px;cursor:pointer;font-size:1.1rem;font-weight:600;transition:all 0.3s;"
                         onmouseover="this.style.background='#f5f5f5';this.style.borderColor='#bbb';" onmouseout="this.style.background='#fff';this.style.borderColor='#ddd';">
@@ -3600,7 +3583,7 @@ window.downloadInvoicePDFChaimae = async function (invoiceId) {
             // 👤 Added Fields: Créé par / Livrais par (Single Line)
             doc.setFontSize(9);
             doc.setFont(undefined, 'normal');
-            doc.text(`Créé par: ${invoice.created_by || '-'} / Livrais par: ${invoice.delivered_by || '-'}`, 195, 61, { align: 'right' });
+            doc.text(`Créé par: ${invoice.created_by || '-'}`, 195, 61, { align: 'right' });
 
             // Document Number
             doc.setFontSize(14);

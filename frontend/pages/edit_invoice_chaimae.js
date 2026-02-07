@@ -143,16 +143,6 @@ window.EditInvoiceChaimaePage = function () {
                                         <input type="text" id="editCreatedByChaimae" readonly style="background: #1e1e1e; color: #aaa; cursor: not-allowed;" placeholder="Chargement...">
                                     </div>
                                 </div>
-                                <div class="form-field" id="editDeliveredByContainerChaimae" style="position: relative;">
-                                    <label>Livré par <span class="required">*</span></label>
-                                    <div class="input-with-icon">
-                                        <span class="input-icon">🚚</span>
-                                        <input type="text" id="editDeliveredByChaimae" list="editDeliveryPersonsListChaimae" 
-                                               placeholder="Nom du livreur" autocomplete="off" required
-                                               oninput="searchDeliveryPersonsEditChaimae(this.value)">
-                                    </div>
-                                    <datalist id="editDeliveryPersonsListChaimae"></datalist>
-                                </div>
                             </div>
                         </div>
                     </div>
@@ -335,19 +325,7 @@ window.loadInvoiceDataChaimae = async function (invoiceId) {
             optionalBLFields.style.display = 'none';
         }
 
-        // Show/Hide "Livrais par" field based on document type
-        const editDeliveredByContainer = document.getElementById('editDeliveredByContainerChaimae');
-        let deliveredByInput = document.getElementById('editDeliveredByChaimae');
-        if (editDeliveredByContainer && deliveredByInput) {
-            if (invoice.document_type === 'devis') {
-                editDeliveredByContainer.style.display = 'none';
-                deliveredByInput.required = false;
-                deliveredByInput.value = '';
-            } else {
-                editDeliveredByContainer.style.display = 'block';
-                deliveredByInput.required = true;
-            }
-        }
+        // "Livrais par" field removed
 
         document.getElementById('editTvaRateChaimae').value = invoice.tva_rate;
 
@@ -372,12 +350,8 @@ window.loadInvoiceDataChaimae = async function (invoiceId) {
 
         // Load created_by and delivered_by fields
         const createdByInput = document.getElementById('editCreatedByChaimae');
-        const finalDeliveredByInput = document.getElementById('editDeliveredByChaimae');
         if (createdByInput && invoice.created_by) {
             createdByInput.value = invoice.created_by;
-        }
-        if (finalDeliveredByInput && invoice.delivered_by) {
-            finalDeliveredByInput.value = invoice.delivered_by;
         }
 
         // Load delivery persons for autocomplete
@@ -745,12 +719,7 @@ window.selectClientEditChaimae = function (nom, ice) {
 window.handleEditInvoiceSubmitChaimae = async function (e) {
     e.preventDefault();
 
-    // Validation: Livré par is mandatory unless it's a Devis
-    const deliveredByValue = document.getElementById('editDeliveredByChaimae')?.value;
-    if (currentDocumentTypeChaimae !== 'devis' && !deliveredByValue) {
-        window.notify.warning('Attention', 'Le champ "Livré par" est obligatoire', 3000);
-        return;
-    }
+    // "Livré par" validation removed
 
     const loadingNotif = window.notify.loading('Mise à jour en cours...', 'Veuillez patienter');
 
@@ -775,7 +744,6 @@ window.handleEditInvoiceSubmitChaimae = async function (e) {
                 date: document.getElementById('editDocumentDateChaimae').value,
                 // 📦 Add Chaimae specific fields
                 created_by: document.getElementById('editCreatedByChaimae')?.value || null,
-                delivered_by: document.getElementById('editDeliveredByChaimae')?.value || null,
                 // ✅ Add user tracking
                 updated_by_user_id: currentUser?.id || null,
                 updated_by_user_name: currentUser?.name || null,
