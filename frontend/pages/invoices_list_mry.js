@@ -4517,35 +4517,7 @@ window.deleteClientEdit = async function (clientId, clientName) {
     }
 }
 
-// Global Migration Trigger
-window.triggerMigration = async function (company) {
-    const confirmed = await customConfirm(
-        '🚀 Migration des pièces jointes',
-        `Cette opération va déplacer TOUTES les pièces jointes de la base de données vers votre disque dur pour libérer de l'espace et accélérer le programme. \n\nContinuer ?`,
-        'info'
-    );
 
-    if (!confirmed) return;
-
-    const loadingNotif = window.notify.loading('Migration en cours...', 'Ceci peut prendre quelques instants');
-
-    try {
-        const result = await window.electron.attachments.migrate(company);
-        window.notify.remove(loadingNotif);
-
-        if (result.success) {
-            window.notify.success('Migration terminée', `${result.migrated} fichiers ont été déplacés avec succès.`, 5000);
-            if (company === 'CHAIMAE') loadInvoicesChaimae();
-            else if (company === 'MULTI') loadInvoicesMulti();
-            else if (company === 'MRY') loadInvoices(); // MRY uses loadInvoices()
-        } else {
-            window.notify.error('Échec de la migration', result.error, 5000);
-        }
-    } catch (error) {
-        window.notify.remove(loadingNotif);
-        window.notify.error('Erreur critique', error.message, 5000);
-    }
-}
 
 // Initialize page
 window.initInvoicesListMRYPage = function () {

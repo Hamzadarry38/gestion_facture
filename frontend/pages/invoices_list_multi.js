@@ -860,32 +860,6 @@ function displayInvoicesMulti() {
     setupSelectAllMulti();
 }
 
-// Manual Migration Function
-window.handleManualMigration = async function () {
-    const confirmed = await customConfirm(
-        'Importer les anciennes données',
-        'Voulez-vous lancer la migration manuelle des anciennes données (Fichiers SQLite) vers la base de données actuelle ?\n\n⚠️ Cette opération importera toutes les factures manquantes en conservant leur date de création.',
-        'warning'
-    );
-
-    if (confirmed) {
-        window.notify.info('Migration en cours', 'Veuillez patienter pendant l\'importation...', 5000);
-
-        try {
-            const result = await window.electron.ipcRenderer.invoke('db:migrate:manual');
-
-            if (result.success) {
-                window.notify.success('Succès', 'L\'importation des données est terminée !', 5000);
-                setTimeout(() => loadInvoicesMulti(), 1000); // Reload table
-            } else {
-                window.notify.error('Erreur', 'Échec de la migration: ' + result.error, 8000);
-            }
-        } catch (error) {
-            console.error('Migration error:', error);
-            window.notify.error('Erreur', 'Une erreur inattendue est survenue.', 5000);
-        }
-    }
-};
 
 // View invoice details
 window.viewInvoiceMulti = async function (id) {
@@ -2265,32 +2239,4 @@ window.sortTableMulti = function (column) {
     console.log('✅ [MULTI SORT] Sorted successfully:', column, currentSortDirectionMulti);
 };
 
-// Global Migration Trigger
-window.triggerMigration = async function (company) {
-    const confirmed = await customConfirm(
-        '🚀 Migration des pièces jointes',
-        `Cette opération va déplacer TOUTES les pièces jointes de la base de données vers votre disque dur pour libérer de l'espace et accélérer le programme. \n\nContinuer ?`,
-        'info'
-    );
 
-    if (!confirmed) return;
-
-    const loadingNotif = window.notify.loading('Migration en cours...', 'Ceci peut prendre quelques instants');
-
-    try {
-        const result = await window.electron.attachments.migrate(company);
-        window.notify.remove(loadingNotif);
-
-        if (result.success) {
-            window.notify.success('Migration terminée', `${result.migrated} fichiers ont été déplacés avec succès.`, 5000);
-            if (company === 'CHAIMAE') loadInvoicesChaimae();
-            else if (company === 'MULTI') loadInvoicesMulti();
-            else if (company === 'MRY') loadInvoices(); // MRY uses loadInvoices()
-        } else {
-            window.notify.error('Échec de la migration', result.error, 5000);
-        }
-    } catch (error) {
-        window.notify.remove(loadingNotif);
-        window.notify.error('Erreur critique', error.message, 5000);
-    }
-}

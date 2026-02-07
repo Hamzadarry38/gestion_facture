@@ -13,10 +13,10 @@ async function testAttachmentUpload() {
             file_path: '/path/to/test.pdf'
         };
 
-        console.log('📤 Sending POST request to http://localhost:8001/attachments');
+        console.log('📤 Sending POST request to https://anpe-web-api.ddns.net/facture/attachments');
         console.log('Data:', testData);
 
-        const response = await axios.post('http://localhost:8001/attachments', testData);
+        const response = await axios.post('https://anpe-web-api.ddns.net/facture/attachments', testData);
 
         console.log('✅ Response:', response.data);
 

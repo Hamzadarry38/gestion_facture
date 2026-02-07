@@ -80,6 +80,9 @@ function InvoicesListChaimaePage() {
                                 <span>Nouvelle</span>
                             </button>
 
+                            <button class="action-btn" onclick="handleSQLiteMigration()" style="background: #9C27B0; color: white; border: none; font-weight: 600;">
+                                🔄 Migrer SQLite → PostgreSQL
+                            </button>
 
                             
                             <button class="action-btn action-btn-secondary" onclick="router.navigate('/dashboard-chaimae')">
@@ -1453,30 +1456,54 @@ function updateSelectedCountChaimae() {
     }
 }
 
-// Manual Migration Function
-window.handleManualMigration = async function () {
+// SQLite to PostgreSQL Migration Function
+window.handleSQLiteMigration = async function () {
     const confirmed = await customConfirm(
-        'Importer les anciennes données',
-        'Voulez-vous lancer la migration manuelle des anciennes données (Fichiers SQLite) vers la base de données actuelle ?\n\n⚠️ Cette opération importera toutes les factures manquantes en conservant leur date de création.',
+        '🔄 Migration SQLite → PostgreSQL',
+        'Cette opération va transférer TOUTES les données (Factures, Clients, Produits) des bases SQLite locales vers PostgreSQL.\n\n⚠️ Assurez-vous que:\n1. Le serveur PostgreSQL est démarré\n2. La base de données "facture_db" existe\n3. Vous avez une sauvegarde de vos données SQLite\n\nContinuer ?',
         'warning'
     );
 
-    if (confirmed) {
-        window.notify.info('Migration en cours', 'Veuillez patienter pendant l\'importation...', 5000);
+    if (!confirmed) return;
 
-        try {
-            const result = await window.electron.ipcRenderer.invoke('db:migrate:manual');
+    const loadingNotif = window.notify.loading('Migration en cours...', 'Ceci peut prendre plusieurs minutes pour 2000+ factures');
 
-            if (result.success) {
-                window.notify.success('Succès', 'L\'importation des données est terminée !', 5000);
-                setTimeout(() => loadInvoicesChaimae(), 1000); // Reload table
-            } else {
-                window.notify.error('Erreur', 'Échec de la migration: ' + result.error, 8000);
-            }
-        } catch (error) {
-            console.error('Migration error:', error);
-            window.notify.error('Erreur', 'Une erreur inattendue est survenue.', 5000);
+    try {
+        // PostgreSQL config (matching server.js)
+        const pgConfig = {
+            user: 'postgres',
+            host: 'localhost',
+            database: 'facture_db',
+            password: '123456',
+            port: 5432
+        };
+
+        const result = await window.electron.ipcRenderer.invoke('db:migrate:postgres', pgConfig);
+        window.notify.remove(loadingNotif);
+
+        if (result.success) {
+            let message = 'Migration terminée avec succès!\n\n';
+            result.results.forEach(r => {
+                if (r.status === 'success') {
+                    message += `✅ ${r.name}: ${r.count} enregistrements migrés\n`;
+                } else if (r.status === 'skipped') {
+                    message += `⏭️ ${r.name}: ${r.message}\n`;
+                } else {
+                    message += `❌ ${r.name}: ${r.message}\n`;
+                }
+            });
+
+            window.notify.success('Migration réussie', message, 10000);
+
+            // Reload the page to show migrated data
+            setTimeout(() => loadInvoicesChaimae(), 2000);
+        } else {
+            window.notify.error('Échec de la migration', result.error, 8000);
         }
+    } catch (error) {
+        window.notify.remove(loadingNotif);
+        console.error('Migration error:', error);
+        window.notify.error('Erreur critique', error.message, 5000);
     }
 };
 
@@ -6024,35 +6051,7 @@ window.importDatabaseChaimae = async function () {
     }
 }
 
-// Global Migration Trigger
-window.triggerMigration = async function (company) {
-    const confirmed = await customConfirm(
-        '🚀 Migration des pièces jointes',
-        `Cette opération va déplacer TOUTES les pièces jointes de la base de données vers votre disque dur pour libérer de l'espace et accélérer le programme. \n\nContinuer ?`,
-        'info'
-    );
 
-    if (!confirmed) return;
-
-    const loadingNotif = window.notify.loading('Migration en cours...', 'Ceci peut prendre quelques instants');
-
-    try {
-        const result = await window.electron.attachments.migrate(company);
-        window.notify.remove(loadingNotif);
-
-        if (result.success) {
-            window.notify.success('Migration terminée', `${result.migrated} fichiers ont été déplacés avec succès.`, 5000);
-            if (company === 'CHAIMAE') loadInvoicesChaimae();
-            else if (company === 'MULTI') loadInvoicesMulti();
-            else if (company === 'MRY') loadInvoices(); // MRY uses loadInvoices()
-        } else {
-            window.notify.error('Échec de la migration', result.error, 5000);
-        }
-    } catch (error) {
-        window.notify.remove(loadingNotif);
-        window.notify.error('Erreur critique', error.message, 5000);
-    }
-}
 
 // Initialize page
 window.initInvoicesListChaimaePage = function () {
