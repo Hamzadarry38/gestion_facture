@@ -980,8 +980,8 @@ window.viewInvoiceMulti = async function (id) {
                                     <tr style="border-bottom:1px solid #3e3e42;">
                                         <td style="padding:0.75rem;color:#fff;max-width:400px;word-break:break-word;overflow-wrap:break-word;white-space:pre-wrap;">${designation}</td>
                                         <td style="padding:0.75rem;text-align:center;color:#fff;">${p.quantite}</td>
-                                        <td style="padding:0.75rem;text-align:right;color:#fff;">${p.prix_unitaire_ht.toFixed(2)} DH</td>
-                                        <td style="padding:0.75rem;text-align:right;color:#fff;font-weight:500;">${p.total_ht.toFixed(2)} DH</td>
+                                        <td style="padding:0.75rem;text-align:right;color:#fff;">${(parseFloat(p.prix_unitaire_ht) || 0).toFixed(2)} DH</td>
+                                        <td style="padding:0.75rem;text-align:right;color:#fff;font-weight:500;">${(parseFloat(p.total_ht) || 0).toFixed(2)} DH</td>
                                     </tr>
                                 `}).join('')}
                             </tbody>
@@ -995,15 +995,15 @@ window.viewInvoiceMulti = async function (id) {
                     <div style="background:#1e1e1e;padding:1rem;border-radius:8px;">
                         <div style="display:flex;justify-content:space-between;margin-bottom:0.75rem;">
                             <span style="color:#999;">Total HT:</span>
-                            <span style="color:#fff;font-weight:600;">${invoice.total_ht.toFixed(2)} DH</span>
+                            <span style="color:#fff;font-weight:600;">${(parseFloat(invoice.total_ht) || 0).toFixed(2)} DH</span>
                         </div>
                         <div style="display:flex;justify-content:space-between;margin-bottom:0.75rem;">
                             <span style="color:#999;">TVA (${invoice.tva_rate}%):</span>
-                            <span style="color:#fff;font-weight:600;">${invoice.montant_tva.toFixed(2)} DH</span>
+                            <span style="color:#fff;font-weight:600;">${(parseFloat(invoice.montant_tva) || 0).toFixed(2)} DH</span>
                         </div>
                         <div style="display:flex;justify-content:space-between;padding-top:0.75rem;border-top:1px solid #3e3e42;">
                             <span style="color:#fff;font-weight:600;">Total TTC:</span>
-                            <span style="color:#4CAF50;font-weight:700;font-size:1.1rem;">${invoice.total_ttc.toFixed(2)} DH</span>
+                            <span style="color:#4CAF50;font-weight:700;font-size:1.1rem;">${(parseFloat(invoice.total_ttc) || 0).toFixed(2)} DH</span>
                         </div>
                     </div>
                 </div>
@@ -1405,6 +1405,7 @@ async function refreshAttachmentsMulti(invoiceId) {
 }
 
 // Load Multi signature image for PDF
+// Load Multi signature image for PDF
 async function loadMultiSignature() {
     return new Promise((resolve) => {
         const img = new Image();
@@ -1424,6 +1425,89 @@ async function loadMultiSignature() {
     });
 }
 
+// Help functionality for Multi Bon de travaux customization
+async function showMultiBonDeTravauxCustomizationModal(invoice) {
+    return new Promise((resolve) => {
+        const overlay = document.createElement('div');
+        overlay.className = 'custom-modal-overlay';
+
+        const hasZeroProducts = invoice.products && invoice.products.some(p =>
+            parseFloat(p.quantite) === 0 || parseFloat(p.prix_unitaire_ht) === 0
+        );
+
+        overlay.innerHTML = `
+            <div class="custom-modal" style="max-width: 500px;">
+                <div class="custom-modal-header">
+                    <span class="custom-modal-icon warning">🛠️</span>
+                    <h3 class="custom-modal-title">Paramètres du Bon de travaux</h3>
+                </div>
+                <div class="custom-modal-body">
+                    <!-- Font Size Selection -->
+                    <div style="margin-bottom: 1.5rem;">
+                        <label style="display: block; margin-bottom: 0.8rem; color: #e0e0e0; font-weight: 600;">
+                            Taille de police des Notes :
+                        </label>
+                        <div style="display: flex; gap: 0.5rem; background: #1e1e1e; padding: 0.5rem; border-radius: 8px; border: 1px solid #3e3e42;">
+                            <label style="flex: 1; display: flex; flex-direction: column; align-items: center; cursor: pointer; padding: 0.5rem; border-radius: 6px; transition: all 0.2s;">
+                                <input type="radio" name="multiBTNotesFontSize" value="small" style="margin-bottom: 0.4rem; cursor: pointer;">
+                                <span style="font-size: 0.75rem; color: #999;">Petit</span>
+                            </label>
+                            <label style="flex: 1; display: flex; flex-direction: column; align-items: center; cursor: pointer; padding: 0.5rem; border-radius: 6px; transition: all 0.2s; background: #2d2d30;">
+                                <input type="radio" name="multiBTNotesFontSize" value="medium" checked style="margin-bottom: 0.4rem; cursor: pointer;">
+                                <span style="font-size: 0.85rem; color: #fff;">Moyen</span>
+                            </label>
+                            <label style="flex: 1; display: flex; flex-direction: column; align-items: center; cursor: pointer; padding: 0.5rem; border-radius: 6px; transition: all 0.2s;">
+                                <input type="radio" name="multiBTNotesFontSize" value="large" style="margin-bottom: 0.4rem; cursor: pointer;">
+                                <span style="font-size: 0.95rem; color: #999;">Grand</span>
+                            </label>
+                            <label style="flex: 1; display: flex; flex-direction: column; align-items: center; cursor: pointer; padding: 0.5rem; border-radius: 6px; transition: all 0.2s;">
+                                <input type="radio" name="multiBTNotesFontSize" value="xlarge" style="margin-bottom: 0.4rem; cursor: pointer;">
+                                <span style="font-size: 1.05rem; color: #999;">Très G.</span>
+                            </label>
+                        </div>
+                    </div>
+
+                    ${hasZeroProducts ? `
+                        <div style="margin-bottom: 1.25rem;">
+                            <label style="display:flex;align-items:center;cursor:pointer;padding:0.75rem;background:#1e1e1e;border:1px solid #3e3e42;border-radius:8px;">
+                                <input type="checkbox" id="multiBTIncludeZero" checked style="width:18px;height:18px;margin-right:0.75rem;cursor:pointer;accent-color:#ff9800;">
+                                <span style="font-size:0.9rem;color:#e0e0e0;">Inclure les produits à quantité/prix zéro</span>
+                            </label>
+                        </div>
+                    ` : ''}
+                </div>
+                <div class="custom-modal-footer">
+                    <button class="custom-modal-btn secondary" id="multiBTCancelBtn">Annuler</button>
+                    <button class="custom-modal-btn primary" id="multiBTGenerateBtn">Générer Bon de travaux</button>
+                </div>
+            </div>
+        `;
+
+        document.body.appendChild(overlay);
+
+        const cancelBtn = overlay.querySelector('#multiBTCancelBtn');
+        const generateBtn = overlay.querySelector('#multiBTGenerateBtn');
+
+        cancelBtn.onclick = () => {
+            overlay.remove();
+            resolve(null);
+        };
+
+        generateBtn.onclick = () => {
+            const notesFontSize = overlay.querySelector('input[name="multiBTNotesFontSize"]:checked').value;
+            const includeZeroProducts = hasZeroProducts ? overlay.querySelector('#multiBTIncludeZero').checked : true;
+            overlay.remove();
+            resolve({ notesFontSize, includeZeroProducts });
+        };
+
+        overlay.onclick = (e) => {
+            if (e.target === overlay) {
+                overlay.remove();
+                resolve(null);
+            }
+        };
+    });
+}
 
 // Download Bon de travaux as PDF (without prices) - MULTI TRAVAUX TETOUAN Design
 window.downloadBonDeTravaux = async function (invoiceId) {
@@ -1439,70 +1523,17 @@ window.downloadBonDeTravaux = async function (invoiceId) {
 
         const invoice = result.data;
 
-        // Check if there are products with zero quantity or price
-        const hasZeroProducts = invoice.products && invoice.products.some(p =>
-            parseFloat(p.quantite) === 0 || parseFloat(p.prix_unitaire_ht) === 0
-        );
-
-        let includeZeroProducts = true; // Default: include all products
-
-        if (hasZeroProducts) {
-            includeZeroProducts = await new Promise((resolve) => {
-                const overlay = document.createElement('div');
-                overlay.className = 'custom-modal-overlay';
-
-                overlay.innerHTML = `
-            < div class="custom-modal" >
-                        <div class="custom-modal-header">
-                            <span class="custom-modal-icon warning">⚠️</span>
-                            <h3 class="custom-modal-title">Produits avec quantité ou prix zéro</h3>
-                        </div>
-                        <div class="custom-modal-body">
-                            <p style="margin-bottom:1rem;color:#e0e0e0;font-size:0.95rem;">
-                                Certains produits ont une <strong style="color:#ff9800;">quantité = 0</strong> ou un <strong style="color:#ff9800;">prix = 0</strong>.
-                            </p>
-                            <p style="color:#b0b0b0;font-size:0.9rem;">
-                                Voulez-vous les afficher dans le Bon de travaux ?
-                            </p>
-                        </div>
-                        <div class="custom-modal-footer">
-                            <button id="excludeZeroBtnBonTravaux" class="custom-modal-btn secondary">
-                                ❌ Non, masquer
-                            </button>
-                            <button id="includeZeroBtnBonTravaux" class="custom-modal-btn primary">
-                                ✅ Oui, afficher
-                            </button>
-                        </div>
-                    </div >
-            `;
-
-                document.body.appendChild(overlay);
-
-                const excludeBtn = document.getElementById('excludeZeroBtnBonTravaux');
-                const includeBtn = document.getElementById('includeZeroBtnBonTravaux');
-
-                excludeBtn.addEventListener('click', () => {
-                    overlay.remove();
-                    resolve(false);
-                });
-
-                includeBtn.addEventListener('click', () => {
-                    overlay.remove();
-                    resolve(true);
-                });
-
-                overlay.addEventListener('click', (e) => {
-                    if (e.target === overlay) {
-                        overlay.remove();
-                        resolve(true); // Default to include if user clicks outside
-                    }
-                });
-
-                setTimeout(() => includeBtn.focus(), 100);
-            });
-
-            console.log('🔍 User choice for zero products in Bon de travaux:', includeZeroProducts ? 'Include' : 'Exclude');
+        // Show consolidated customization modal
+        const customParams = await showMultiBonDeTravauxCustomizationModal(invoice);
+        if (!customParams) {
+            console.log('❌ User cancelled Bon de travaux generation');
+            return;
         }
+
+        const includeZeroProducts = customParams.includeZeroProducts;
+        const notesFontSize = customParams.notesFontSize;
+
+        console.log('⚙️ Bon de travaux Custom Parameters:', customParams);
 
         // Mark products with zero values for special display (don't remove them)
         const showZeroValues = includeZeroProducts;
@@ -1738,6 +1769,64 @@ window.downloadBonDeTravaux = async function (invoiceId) {
         doc.text('TOTAL TTC', 113, fixedBottomY + 16);
         doc.text(`${formatNumberForPDF(invoice.total_ttc)} DH`, 192, fixedBottomY + 16, { align: 'right' });
 
+        // Add notes if any
+        const noteResult = await window.electron.dbMulti.getNote(invoiceId);
+        if (noteResult.success && noteResult.data) {
+            // Font size mapping for notes
+            const fontSizeMap = {
+                'small': { size: 7, lineheight: 3.5 },
+                'medium': { size: 9, lineheight: 4.5 },
+                'large': { size: 12, lineheight: 5.5 },
+                'xlarge': { size: 14, lineheight: 6.5 }
+            };
+            const selectedFont = fontSizeMap[notesFontSize] || fontSizeMap['medium'];
+
+            // Force new page for Notes
+            pages.push(pageCount);
+            doc.addPage();
+            addHeader(false);
+            pageCount++;
+
+            const notesY = 60; // Start at top of new page
+            const footerTopY = 270;
+
+            doc.setFontSize(10);
+            doc.setFont(undefined, 'bold');
+            doc.setTextColor(96, 125, 139);
+            doc.text('Notes:', 15, notesY);
+
+            doc.setTextColor(0, 0, 0);
+            doc.setFont(undefined, 'bold');
+            doc.setFontSize(selectedFont.size);
+            const noteLines = doc.splitTextToSize(noteResult.data, 180); // Use full width
+
+            let lineY = notesY + 6;
+            const lineStep = selectedFont.lineheight;
+
+            for (let i = 0; i < noteLines.length; i++) {
+                if (lineY > footerTopY) {
+                    pages.push(pageCount);
+                    doc.addPage();
+                    addHeader(false);
+                    pageCount++;
+
+                    let contStartY = 60;
+                    doc.setFontSize(10);
+                    doc.setFont(undefined, 'bold');
+                    doc.setTextColor(96, 125, 139);
+                    doc.text('Notes (suite) :', 15, contStartY);
+
+                    doc.setTextColor(0, 0, 0);
+                    doc.setFont(undefined, 'bold');
+                    doc.setFontSize(selectedFont.size);
+                    lineY = contStartY + 6;
+                }
+
+                doc.text(noteLines[i], 15, lineY);
+                lineY += lineStep;
+            }
+        }
+
         // Add page numbering to all pages
         pages.push(pageCount);
         const totalPages = pages.length;
@@ -1763,20 +1852,137 @@ window.downloadBonDeTravaux = async function (invoiceId) {
 }
 
 // Download invoice as PDF - MULTI TRAVAUX TETOUAN Design
+// Helper to show consolidated customization modal for Multi PDF
+async function showMultiPDFCustomizationModal(invoice) {
+    return new Promise((resolve) => {
+        const overlay = document.createElement('div');
+        overlay.className = 'custom-modal-overlay';
+
+        const isDevis = invoice.document_type === 'devis';
+
+        overlay.innerHTML = `
+            <div class="custom-modal" style="max-width: 500px;">
+                <div class="custom-modal-header">
+                    <span class="custom-modal-icon info">🎨</span>
+                    <h3 class="custom-modal-title">Paramètres du PDF</h3>
+                </div>
+                <div class="custom-modal-body">
+                    <!-- Font Size Selection -->
+                    <div style="margin-bottom: 1.5rem;">
+                        <label style="display: block; margin-bottom: 0.8rem; color: #e0e0e0; font-weight: 600;">
+                            Taille de police des Notes :
+                        </label>
+                        <div style="display: flex; gap: 0.5rem; background: #1e1e1e; padding: 0.5rem; border-radius: 8px; border: 1px solid #3e3e42;">
+                            <label style="flex: 1; display: flex; flex-direction: column; align-items: center; cursor: pointer; padding: 0.5rem; border-radius: 6px; transition: all 0.2s;">
+                                <input type="radio" name="multiNotesFontSize" value="small" style="margin-bottom: 0.4rem; cursor: pointer;">
+                                <span style="font-size: 0.75rem; color: #999;">Petit</span>
+                            </label>
+                            <label style="flex: 1; display: flex; flex-direction: column; align-items: center; cursor: pointer; padding: 0.5rem; border-radius: 6px; transition: all 0.2s; background: #2d2d30;">
+                                <input type="radio" name="multiNotesFontSize" value="medium" checked style="margin-bottom: 0.4rem; cursor: pointer;">
+                                <span style="font-size: 0.85rem; color: #fff;">Moyen</span>
+                            </label>
+                            <label style="flex: 1; display: flex; flex-direction: column; align-items: center; cursor: pointer; padding: 0.5rem; border-radius: 6px; transition: all 0.2s;">
+                                <input type="radio" name="multiNotesFontSize" value="large" style="margin-bottom: 0.4rem; cursor: pointer;">
+                                <span style="font-size: 0.95rem; color: #999;">Grand</span>
+                            </label>
+                            <label style="flex: 1; display: flex; flex-direction: column; align-items: center; cursor: pointer; padding: 0.5rem; border-radius: 6px; transition: all 0.2s;">
+                                <input type="radio" name="multiNotesFontSize" value="xlarge" style="margin-bottom: 0.4rem; cursor: pointer;">
+                                <span style="font-size: 1.05rem; color: #999;">Très G.</span>
+                            </label>
+                        </div>
+                    </div>
+
+                    ${isDevis ? `
+                        <div style="margin-bottom: 1.25rem;">
+                            <label style="display:flex;align-items:center;cursor:pointer;padding:0.75rem;background:#1e1e1e;border:1px solid #3e3e42;border-radius:8px;">
+                                <input type="checkbox" id="multiIncludeSignature" checked style="width:18px;height:18px;margin-right:0.75rem;cursor:pointer;accent-color:#4caf50;">
+                                <span style="font-size:0.9rem;color:#e0e0e0;">Inclure la signature</span>
+                            </label>
+                        </div>
+                    ` : ''}
+                </div>
+                <div class="custom-modal-footer">
+                    <button class="custom-modal-btn secondary" id="multiCancelBtn">Annuler</button>
+                    <button class="custom-modal-btn primary" id="multiGenerateBtn">Générer PDF</button>
+                </div>
+            </div>
+        `;
+
+        document.body.appendChild(overlay);
+
+        const cancelBtn = overlay.querySelector('#multiCancelBtn');
+        const generateBtn = overlay.querySelector('#multiGenerateBtn');
+
+        const radioLabels = overlay.querySelectorAll('input[name="multiNotesFontSize"]');
+        radioLabels.forEach(radio => {
+            radio.addEventListener('change', (e) => {
+                radioLabels.forEach(r => {
+                    const label = r.parentElement;
+                    label.style.background = 'transparent';
+                    label.querySelector('span').style.color = '#999';
+                });
+                if (e.target.checked) {
+                    const label = e.target.parentElement;
+                    label.style.background = '#2d2d30';
+                    label.querySelector('span').style.color = '#fff';
+                }
+            });
+        });
+
+        cancelBtn.onclick = () => {
+            overlay.remove();
+            resolve(null);
+        };
+
+        generateBtn.onclick = () => {
+            const selectedSize = overlay.querySelector('input[name="multiNotesFontSize"]:checked').value;
+            const includeSignature = overlay.querySelector('#multiIncludeSignature') ? overlay.querySelector('#multiIncludeSignature').checked : false;
+
+            overlay.remove();
+            resolve({
+                notesFontSize: selectedSize,
+                includeSignature
+            });
+        };
+
+        overlay.onclick = (e) => {
+            if (e.target === overlay) {
+                overlay.remove();
+                resolve(null);
+            }
+        };
+
+        setTimeout(() => generateBtn.focus(), 100);
+    });
+}
+
+
 window.downloadInvoicePDFMulti = async function (invoiceId) {
     try {
         console.log('📥 Generating PDF for invoice:', invoiceId);
 
         // Get invoice data
         const result = await window.electron.dbMulti.getInvoiceById(invoiceId);
-        console.log('📋 Invoice data:', result.data);
-        console.log('📋 document_numero_Order:', result.data?.document_numero_Order);
 
         if (!result.success || !result.data) {
             throw new Error('Facture introuvable');
         }
 
         const invoice = result.data;
+
+        // Show consolidated customization modal
+        const customParams = await showMultiPDFCustomizationModal(invoice);
+        if (!customParams) {
+            console.log('❌ User cancelled PDF generation');
+            return;
+        }
+
+        console.log('⚙️ PDF Custom Parameters:', customParams);
+
+        const includeSignature = customParams.includeSignature;
+        const notesFontSize = customParams.notesFontSize;
+
+        console.log('📄 Continuing with PDF generation...');
 
         // Check if jsPDF is loaded
         if (typeof window.jspdf === 'undefined') {
@@ -1898,7 +2104,7 @@ window.downloadInvoicePDFMulti = async function (invoiceId) {
         // Function to add footer to any page
         const addFooter = (pageNum, totalPages) => {
             // Add signature image - moved lower and narrowed for better integration
-            if (signatureImgMulti && invoice.document_type === 'devis') {
+            if (signatureImgMulti && includeSignature) {
                 doc.addImage(signatureImgMulti, 'PNG', 145, 255, 50, 32);
             }
 
@@ -2058,11 +2264,26 @@ window.downloadInvoicePDFMulti = async function (invoiceId) {
         // Add notes if any
         const noteResult = await window.electron.dbMulti.getNote(invoiceId);
         if (noteResult.success && noteResult.data) {
-            const notesY = amountWordsY + 12;
-            const footerTopY = 280; // keep clear space above footer
+            // Font size mapping for notes
+            const fontSizeMap = {
+                'small': { size: 7, lineheight: 3.5 },
+                'medium': { size: 9, lineheight: 4.5 },
+                'large': { size: 12, lineheight: 5.5 },
+                'xlarge': { size: 14, lineheight: 6.5 }
+            };
+            const selectedFont = fontSizeMap[notesFontSize] || fontSizeMap['medium'];
 
-            // Title for first notes block
-            doc.setFontSize(8);
+            // Force new page for Notes
+            pages.push(pageCount);
+            doc.addPage();
+            addHeader(false);
+            pageCount++;
+
+            const notesY = 60; // Start at top of new page
+            const footerTopY = 280;
+
+            // Title for notes block
+            doc.setFontSize(10);
             doc.setFont(undefined, 'bold');
             doc.setTextColor(96, 125, 139); // Dark gray color matching the theme
             doc.text('Notes:', 15, notesY);
@@ -2070,11 +2291,11 @@ window.downloadInvoicePDFMulti = async function (invoiceId) {
             // Prepare text rendering
             doc.setTextColor(0, 0, 0);
             doc.setFont(undefined, 'bold');
-            doc.setFontSize(9);
-            const noteLines = doc.splitTextToSize(noteResult.data, 130);
+            doc.setFontSize(selectedFont.size);
+            const noteLines = doc.splitTextToSize(noteResult.data, 180); // Use full width
 
-            let lineY = notesY + 4;
-            const lineStep = 4.5; // line height used across the document
+            let lineY = notesY + 6;
+            const lineStep = selectedFont.lineheight; // line height used across the document
 
             // Render line by line and add pages if needed
             for (let i = 0; i < noteLines.length; i++) {
@@ -2088,15 +2309,15 @@ window.downloadInvoicePDFMulti = async function (invoiceId) {
 
                     // Start notes continuation at top area of new page
                     let contStartY = 60; // below header
-                    doc.setFontSize(8);
+                    doc.setFontSize(10);
                     doc.setFont(undefined, 'bold');
                     doc.setTextColor(96, 125, 139);
                     doc.text('Notes (suite) :', 15, contStartY);
 
                     doc.setTextColor(0, 0, 0);
                     doc.setFont(undefined, 'bold');
-                    doc.setFontSize(9);
-                    lineY = contStartY + 4;
+                    doc.setFontSize(selectedFont.size);
+                    lineY = contStartY + 6;
                 }
 
                 doc.text(noteLines[i], 15, lineY);

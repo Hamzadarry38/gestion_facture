@@ -88,12 +88,19 @@ window.downloadMultiSKMDevisPDF = async function (invoiceId) {
             console.log('🔍 User choice for zero products:', includeZeroProducts ? 'Include' : 'Exclude');
         }
 
+        // Get notes
+        const notesResult = await window.electron.dbMulti.getNote(invoiceId);
+        const notesText = notesResult.success ? notesResult.data : '';
+
         // Show simple customization modal
-        const customizationData = await window.showSimpleSKMModal(invoice);
+        const customizationData = await window.showSimpleSKMModal(invoice, notesText);
         if (!customizationData) {
             console.log('❌ User cancelled SKM PDF generation');
             return;
         }
+
+        // Add notes to customizationData
+        customizationData.notes = notesText;
 
         // Use global generation function
         await window.generateSKMPDFWithCustomization(invoice, customizationData, 'multi');
@@ -180,7 +187,7 @@ window.generateSKMPDFWithCustomization = async function (invoice, customizationD
 
         // Generate SKM PDF with special design
         // Defaulting includeZeroProducts to true for chaimae context for simplicity, or we can pass it
-        await generateSKMPDF(doc, customizedInvoice, true);
+        await generateSKMPDF(doc, customizedInvoice, true, customizationData.notesFontSize, customizationData.notes);
 
         // Get the company that created this PDF
         const selectedCompany = JSON.parse(localStorage.getItem('selectedCompany') || '{}');
@@ -242,7 +249,7 @@ window.generateSKMPDFWithCustomization = async function (invoice, customizationD
 
 // Show simple SKM modal
 // Show simple SKM modal
-window.showSimpleSKMModal = async function (invoice) {
+window.showSimpleSKMModal = async function (invoice, notesText = '') {
     // Get last used devis number
     let lastDevisNumber = 'Aucun';
     let nextDevisNumber = '';
@@ -337,6 +344,31 @@ window.showSimpleSKMModal = async function (invoice) {
                         </small>
                     </div>
                 </div>
+
+                <!-- Font Size Selection -->
+                <div style="margin-bottom: 1.5rem;">
+                    <label style="display: block; margin-bottom: 0.8rem; color: #e0e0e0; font-weight: 600;">
+                        Taille de police des Notes :
+                    </label>
+                    <div style="display: flex; gap: 0.5rem; background: #1e1e1e; padding: 0.5rem; border-radius: 8px; border: 1px solid #3e3e42;">
+                        <label style="flex: 1; display: flex; flex-direction: column; align-items: center; cursor: pointer; padding: 0.5rem; border-radius: 6px; transition: all 0.2s;">
+                            <input type="radio" name="notesFontSize" value="small" style="margin-bottom: 0.4rem; cursor: pointer;">
+                            <span style="font-size: 0.75rem; color: #999;">Petit</span>
+                        </label>
+                        <label style="flex: 1; display: flex; flex-direction: column; align-items: center; cursor: pointer; padding: 0.5rem; border-radius: 6px; transition: all 0.2s; background: #2d2d30;">
+                            <input type="radio" name="notesFontSize" value="medium" checked style="margin-bottom: 0.4rem; cursor: pointer;">
+                            <span style="font-size: 0.85rem; color: #fff;">Moyen</span>
+                        </label>
+                        <label style="flex: 1; display: flex; flex-direction: column; align-items: center; cursor: pointer; padding: 0.5rem; border-radius: 6px; transition: all 0.2s;">
+                            <input type="radio" name="notesFontSize" value="large" style="margin-bottom: 0.4rem; cursor: pointer;">
+                            <span style="font-size: 0.95rem; color: #999;">Grand</span>
+                        </label>
+                        <label style="flex: 1; display: flex; flex-direction: column; align-items: center; cursor: pointer; padding: 0.5rem; border-radius: 6px; transition: all 0.2s;">
+                            <input type="radio" name="notesFontSize" value="xlarge" style="margin-bottom: 0.4rem; cursor: pointer;">
+                            <span style="font-size: 1.05rem; color: #999;">Très G.</span>
+                        </label>
+                    </div>
+                </div>
                 
                 <div>
                     <label style="display: block; margin-bottom: 0.5rem; color: #e0e0e0; font-weight: 600;">
@@ -414,12 +446,16 @@ window.showSimpleSKMModal = async function (invoice) {
                     return input ? input.value.trim() : product.designation;
                 });
 
+                // Get selected font size
+                const notesFontSize = document.querySelector('input[name="notesFontSize"]:checked')?.value || 'medium';
+
                 overlay.remove();
                 resolve({
                     percentage,
                     customDate,
                     customDevisNumber,
-                    customProductNames
+                    customProductNames,
+                    notesFontSize
                 });
 
             } catch (error) {
@@ -651,7 +687,7 @@ async function showSKMCustomizationModal(invoice) {
 }
 
 // Generate SKM PDF with special design
-async function generateSKMPDF(doc, invoice, includeZeroProducts = true) {
+async function generateSKMPDF(doc, invoice, includeZeroProducts = true, notesFontSize = 'medium', notesText = '') {
     try {
         // Load SKM assets
         const headerImg = await loadSKMImage('SKM/Hesder.png');
@@ -1008,6 +1044,56 @@ async function generateSKMPDF(doc, invoice, includeZeroProducts = true) {
         doc.text('PRIX T.T.C', 145, ttcY + 6);
         doc.text(formatNumberForPDF(invoice.total_ttc), 192, ttcY + 6, { align: 'right' });
         doc.line(20, ttcY + 8, 195, ttcY + 8); // Bottom border
+
+        // Add Notes Section
+        if (notesText) {
+            currentY = Math.max(currentY, ttcY + 15);
+
+            // Font size mapping for notes
+            const fontSizeMap = {
+                'small': { size: 7, lineheight: 3.5 },
+                'medium': { size: 9, lineheight: 4.5 },
+                'large': { size: 12, lineheight: 5.5 },
+                'xlarge': { size: 14, lineheight: 6.5 }
+            };
+            const selectedFont = fontSizeMap[notesFontSize] || fontSizeMap['medium'];
+
+            // Check if we need a new page for notes header
+            if (currentY > pageHeight - 65) {
+                doc.addPage();
+                pageCount++;
+                addSKMHeader();
+                currentY = 55;
+            }
+
+            doc.setFontSize(10);
+            doc.setFont(undefined, 'bold');
+            doc.setTextColor(0, 0, 0);
+            doc.text('Notes:', 20, currentY);
+            currentY += 6;
+
+            doc.setFontSize(selectedFont.size);
+            doc.setFont(undefined, 'normal');
+            const noteLines = doc.splitTextToSize(notesText, 175); // Using 175 to match SKM table width
+
+            for (let i = 0; i < noteLines.length; i++) {
+                if (currentY > pageHeight - 55) {
+                    doc.addPage();
+                    pageCount++;
+                    addSKMHeader();
+                    currentY = 55;
+
+                    doc.setFontSize(10);
+                    doc.setFont(undefined, 'bold');
+                    doc.text('Notes (suite):', 20, currentY);
+                    currentY += 6;
+                    doc.setFontSize(selectedFont.size);
+                    doc.setFont(undefined, 'normal');
+                }
+                doc.text(noteLines[i], 20, currentY);
+                currentY += selectedFont.lineheight;
+            }
+        }
 
         // Calculate total pages
         const totalPages = pageCount;

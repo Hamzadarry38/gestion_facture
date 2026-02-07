@@ -89,12 +89,19 @@ window.downloadMultiSAAISSDevisPDF = async function (invoiceId) {
         }
 
 
+        // Get notes
+        const notesResult = await window.electron.dbMulti.getNote(invoiceId);
+        const notesText = notesResult.success ? notesResult.data : '';
+
         // Show simple customization modal
-        const customizationData = await window.showSimpleSAAISSModal(invoice);
+        const customizationData = await window.showSimpleSAAISSModal(invoice, notesText);
         if (!customizationData) {
             console.log('❌ User cancelled SAAISS PDF generation');
             return;
         }
+
+        // Add notes to customizationData
+        customizationData.notes = notesText;
 
         // Use global generation function
         await window.generateSAAISSPDFWithCustomization(invoice, customizationData, 'multi');
@@ -172,7 +179,7 @@ window.generateSAAISSPDFWithCustomization = async function (invoice, customizati
 
         // Generate SAAISS PDF with special design
         // Default includeZeroProducts to true for Chaimae
-        await generateSAAISSPDF(doc, customizedInvoice, true);
+        await generateSAAISSPDF(doc, customizedInvoice, true, customizationData.notesFontSize, customizationData.notes);
 
         // Save the PDF with new format: SAAISS_TYPE_ClientName_InvoiceNumber
         const docType = customizedInvoice.document_type === 'devis' ? 'Devis' : 'Facture';
@@ -233,7 +240,7 @@ window.generateSAAISSPDFWithCustomization = async function (invoice, customizati
 
 // Show simple SAAISS modal
 // Show simple SAAISS modal
-window.showSimpleSAAISSModal = async function (invoice) {
+window.showSimpleSAAISSModal = async function (invoice, notesText = '') {
     // Get last used devis number
     let lastDevisNumber = 'Aucun';
     try {
@@ -342,6 +349,31 @@ window.showSimpleSAAISSModal = async function (invoice) {
                         </small>
                     </div>
                 </div>
+
+                <!-- Font Size Selection -->
+                <div style="margin-bottom: 1.5rem;">
+                    <label style="display: block; margin-bottom: 0.8rem; color: #e0e0e0; font-weight: 600;">
+                        Taille de police des Notes :
+                    </label>
+                    <div style="display: flex; gap: 0.5rem; background: #1e1e1e; padding: 0.5rem; border-radius: 8px; border: 1px solid #3e3e42;">
+                        <label style="flex: 1; display: flex; flex-direction: column; align-items: center; cursor: pointer; padding: 0.5rem; border-radius: 6px; transition: all 0.2s;">
+                            <input type="radio" name="notesFontSize" value="small" style="margin-bottom: 0.4rem; cursor: pointer;">
+                            <span style="font-size: 0.75rem; color: #999;">Petit</span>
+                        </label>
+                        <label style="flex: 1; display: flex; flex-direction: column; align-items: center; cursor: pointer; padding: 0.5rem; border-radius: 6px; transition: all 0.2s; background: #2d2d30;">
+                            <input type="radio" name="notesFontSize" value="medium" checked style="margin-bottom: 0.4rem; cursor: pointer;">
+                            <span style="font-size: 0.85rem; color: #fff;">Moyen</span>
+                        </label>
+                        <label style="flex: 1; display: flex; flex-direction: column; align-items: center; cursor: pointer; padding: 0.5rem; border-radius: 6px; transition: all 0.2s;">
+                            <input type="radio" name="notesFontSize" value="large" style="margin-bottom: 0.4rem; cursor: pointer;">
+                            <span style="font-size: 0.95rem; color: #999;">Grand</span>
+                        </label>
+                        <label style="flex: 1; display: flex; flex-direction: column; align-items: center; cursor: pointer; padding: 0.5rem; border-radius: 6px; transition: all 0.2s;">
+                            <input type="radio" name="notesFontSize" value="xlarge" style="margin-bottom: 0.4rem; cursor: pointer;">
+                            <span style="font-size: 1.05rem; color: #999;">Très G.</span>
+                        </label>
+                    </div>
+                </div>
                 
                 <div style="margin-bottom: 1.5rem;">
                     <label style="display: block; margin-bottom: 0.5rem; color: #e0e0e0; font-weight: 600;">
@@ -410,12 +442,16 @@ window.showSimpleSAAISSModal = async function (invoice) {
                 }
             });
 
+            // Get selected font size
+            const notesFontSize = document.querySelector('input[name="notesFontSize"]:checked')?.value || 'medium';
+
             overlay.remove();
             resolve({
                 percentage,
                 customDate,
                 customDevisNumber,
-                modifiedProducts
+                modifiedProducts,
+                notesFontSize
             });
         });
 
@@ -577,7 +613,7 @@ function formatNumberForPDF(number) {
 }
 
 // Generate SAAISS PDF with special design
-async function generateSAAISSPDF(doc, invoice, includeZeroProducts = true) {
+async function generateSAAISSPDF(doc, invoice, includeZeroProducts = true, notesFontSize = 'medium', notesText = '') {
     try {
         // Load SAAISS assets from SAAISS folder
         const headerImg = await loadSAAISSImage('SAAISS/Hesder.png');
@@ -906,6 +942,61 @@ async function generateSAAISSPDF(doc, invoice, includeZeroProducts = true) {
         doc.text('TOTAL T.T.C', totalsX + 2, ttcY + 5.5);
         doc.text(formatNumberForPDF(invoice.total_ttc) + ' DH', totalsX + totalsWidth - 2, ttcY + 5.5, { align: 'right' });
         doc.line(totalsX, ttcY + 8, totalsX + totalsWidth, ttcY + 8); // Bottom border
+
+        // Add Notes Section
+        if (notesText) {
+            currentY = Math.max(currentY, ttcY + 15);
+
+            // Font size mapping for notes
+            const fontSizeMap = {
+                'small': { size: 7, lineheight: 3.5 },
+                'medium': { size: 9, lineheight: 4.5 },
+                'large': { size: 12, lineheight: 5.5 },
+                'xlarge': { size: 14, lineheight: 6.5 }
+            };
+            const selectedFont = fontSizeMap[notesFontSize] || fontSizeMap['medium'];
+
+            // Check if we need a new page for notes header
+            if (currentY > pageHeight - 60) {
+                tableSegments.push({
+                    startY: currentSegmentStart, // This is not quite right if we're after table, but good for rect
+                    endY: currentY,
+                    page: pageCount
+                });
+                doc.addPage();
+                pageCount++;
+                addSAAISSHeader();
+                currentY = 70;
+            }
+
+            doc.setFontSize(10);
+            doc.setFont(undefined, 'bold');
+            doc.setTextColor(0, 0, 0);
+            doc.text('Notes:', 20, currentY);
+            currentY += 6;
+
+            doc.setFontSize(selectedFont.size);
+            doc.setFont(undefined, 'normal');
+            const noteLines = doc.splitTextToSize(notesText, 170);
+
+            for (let i = 0; i < noteLines.length; i++) {
+                if (currentY > pageHeight - 50) {
+                    doc.addPage();
+                    pageCount++;
+                    addSAAISSHeader();
+                    currentY = 70;
+
+                    doc.setFontSize(10);
+                    doc.setFont(undefined, 'bold');
+                    doc.text('Notes (suite):', 20, currentY);
+                    currentY += 6;
+                    doc.setFontSize(selectedFont.size);
+                    doc.setFont(undefined, 'normal');
+                }
+                doc.text(noteLines[i], 20, currentY);
+                currentY += selectedFont.lineheight;
+            }
+        }
 
         // Draw borders and add footers
         const totalPages = pageCount;

@@ -2597,6 +2597,139 @@ async function loadMRYSignature() {
 
 
 // Download invoice as PDF
+// Helper to show consolidated customization modal for MRY PDF
+async function showMRYPDFCustomizationModal(invoice) {
+    return new Promise((resolve) => {
+        const overlay = document.createElement('div');
+        overlay.className = 'custom-modal-overlay';
+
+        const hasOrder = invoice.document_type === 'facture' && invoice.document_numero_Order && invoice.document_numero_Order.trim() !== '';
+        const isDevis = invoice.document_type === 'devis';
+        const hasZeroProducts = invoice.products && invoice.products.some(p =>
+            parseFloat(p.quantite) === 0 || parseFloat(p.prix_unitaire_ht) === 0
+        );
+
+        overlay.innerHTML = `
+            <div class="custom-modal" style="max-width: 500px;">
+                <div class="custom-modal-header">
+                    <span class="custom-modal-icon info">🎨</span>
+                    <h3 class="custom-modal-title">Paramètres du PDF</h3>
+                </div>
+                <div class="custom-modal-body">
+                    <!-- Font Size Selection -->
+                    <div style="margin-bottom: 1.5rem;">
+                        <label style="display: block; margin-bottom: 0.8rem; color: #e0e0e0; font-weight: 600;">
+                            Taille de police des Notes :
+                        </label>
+                        <div style="display: flex; gap: 0.5rem; background: #1e1e1e; padding: 0.5rem; border-radius: 8px; border: 1px solid #3e3e42;">
+                            <label style="flex: 1; display: flex; flex-direction: column; align-items: center; cursor: pointer; padding: 0.5rem; border-radius: 6px; transition: all 0.2s;">
+                                <input type="radio" name="mryNotesFontSize" value="small" style="margin-bottom: 0.4rem; cursor: pointer;">
+                                <span style="font-size: 0.75rem; color: #999;">Petit</span>
+                            </label>
+                            <label style="flex: 1; display: flex; flex-direction: column; align-items: center; cursor: pointer; padding: 0.5rem; border-radius: 6px; transition: all 0.2s; background: #2d2d30;">
+                                <input type="radio" name="mryNotesFontSize" value="medium" checked style="margin-bottom: 0.4rem; cursor: pointer;">
+                                <span style="font-size: 0.85rem; color: #fff;">Moyen</span>
+                            </label>
+                            <label style="flex: 1; display: flex; flex-direction: column; align-items: center; cursor: pointer; padding: 0.5rem; border-radius: 6px; transition: all 0.2s;">
+                                <input type="radio" name="mryNotesFontSize" value="large" style="margin-bottom: 0.4rem; cursor: pointer;">
+                                <span style="font-size: 0.95rem; color: #999;">Grand</span>
+                            </label>
+                            <label style="flex: 1; display: flex; flex-direction: column; align-items: center; cursor: pointer; padding: 0.5rem; border-radius: 6px; transition: all 0.2s;">
+                                <input type="radio" name="mryNotesFontSize" value="xlarge" style="margin-bottom: 0.4rem; cursor: pointer;">
+                                <span style="font-size: 1.05rem; color: #999;">Très G.</span>
+                            </label>
+                        </div>
+                    </div>
+
+                    ${hasOrder ? `
+                        <div style="margin-bottom: 1.25rem;">
+                            <p style="margin-bottom:0.5rem;color:#e0e0e0;font-size:0.9rem;">N° Order: <strong style="color:#2196F3;">${invoice.document_numero_Order}</strong></p>
+                            <label style="display:flex;align-items:center;cursor:pointer;padding:0.75rem;background:#1e1e1e;border:1px solid #3e3e42;border-radius:8px;">
+                                <input type="checkbox" id="mryIncludeOrder" checked style="width:18px;height:18px;margin-right:0.75rem;cursor:pointer;accent-color:#2196F3;">
+                                <span style="font-size:0.9rem;color:#e0e0e0;">Inclure le N° Order</span>
+                            </label>
+                        </div>
+                    ` : ''}
+
+                    ${isDevis ? `
+                        <div style="margin-bottom: 1.25rem;">
+                            <label style="display:flex;align-items:center;cursor:pointer;padding:0.75rem;background:#1e1e1e;border:1px solid #3e3e42;border-radius:8px;">
+                                <input type="checkbox" id="mryIncludeSignature" checked style="width:18px;height:18px;margin-right:0.75rem;cursor:pointer;accent-color:#4caf50;">
+                                <span style="font-size:0.9rem;color:#e0e0e0;">Inclure la signature</span>
+                            </label>
+                        </div>
+                    ` : ''}
+
+                    ${hasZeroProducts ? `
+                        <div style="margin-bottom: 1.25rem;">
+                            <p style="margin-bottom:0.5rem;color:#e0e0e0;font-size:0.85rem;color:#ff9800;">Note: Certains produits ont une quantité/prix à zéro.</p>
+                            <label style="display:flex;align-items:center;cursor:pointer;padding:0.75rem;background:#1e1e1e;border:1px solid #3e3e42;border-radius:8px;">
+                                <input type="checkbox" id="mryIncludeZero" checked style="width:18px;height:18px;margin-right:0.75rem;cursor:pointer;accent-color:#ff9800;">
+                                <span style="font-size:0.9rem;color:#e0e0e0;">Afficher les produits à zéro</span>
+                            </label>
+                        </div>
+                    ` : ''}
+                </div>
+                <div class="custom-modal-footer">
+                    <button class="custom-modal-btn secondary" id="mryCancelBtn">Annuler</button>
+                    <button class="custom-modal-btn primary" id="mryGenerateBtn">Générer PDF</button>
+                </div>
+            </div>
+        `;
+
+        document.body.appendChild(overlay);
+
+        const cancelBtn = overlay.querySelector('#mryCancelBtn');
+        const generateBtn = overlay.querySelector('#mryGenerateBtn');
+
+        // Dynamic styling for radio buttons
+        const radioLabels = overlay.querySelectorAll('input[name="mryNotesFontSize"]');
+        radioLabels.forEach(radio => {
+            radio.addEventListener('change', (e) => {
+                radioLabels.forEach(r => {
+                    const label = r.parentElement;
+                    label.style.background = 'transparent';
+                    label.querySelector('span').style.color = '#999';
+                });
+                if (e.target.checked) {
+                    const label = e.target.parentElement;
+                    label.style.background = '#2d2d30';
+                    label.querySelector('span').style.color = '#fff';
+                }
+            });
+        });
+
+        cancelBtn.addEventListener('click', () => {
+            overlay.remove();
+            resolve(null);
+        });
+
+        generateBtn.addEventListener('click', () => {
+            const selectedSize = overlay.querySelector('input[name="mryNotesFontSize"]:checked').value;
+            const includeOrder = overlay.querySelector('#mryIncludeOrder') ? overlay.querySelector('#mryIncludeOrder').checked : false;
+            const includeSignature = overlay.querySelector('#mryIncludeSignature') ? overlay.querySelector('#mryIncludeSignature').checked : false;
+            const includeZero = overlay.querySelector('#mryIncludeZero') ? overlay.querySelector('#mryIncludeZero').checked : false;
+
+            overlay.remove();
+            resolve({
+                notesFontSize: selectedSize,
+                includeOrder,
+                includeSignature,
+                includeZero
+            });
+        });
+
+        overlay.addEventListener('click', (e) => {
+            if (e.target === overlay) {
+                overlay.remove();
+                resolve(null);
+            }
+        });
+
+        setTimeout(() => generateBtn.focus(), 100);
+    });
+}
+
 window.downloadInvoicePDF = async function (invoiceId) {
     try {
         console.log('📥 Generating PDF for invoice:', invoiceId);
@@ -2610,189 +2743,28 @@ window.downloadInvoicePDF = async function (invoiceId) {
 
         const invoice = result.data;
 
-        console.log('🔍 Invoice type:', invoice.document_type);
-        console.log('🔍 Current Order number:', invoice.document_numero_Order);
+        // Show consolidated customization modal
+        const customParams = await showMRYPDFCustomizationModal(invoice);
+        if (!customParams) {
+            console.log('❌ User cancelled PDF generation');
+            return;
+        }
 
-        // Show dialog with checkbox for FACTURE type (only if Order exists)
-        if (invoice.document_type === 'facture' && invoice.document_numero_Order && invoice.document_numero_Order.trim() !== '') {
-            const includeOrder = await new Promise((resolve) => {
-                const overlay = document.createElement('div');
-                overlay.className = 'custom-modal-overlay';
+        console.log('⚙️ PDF Custom Parameters:', customParams);
 
-                overlay.innerHTML = `
-                    <div class="custom-modal">
-                        <div class="custom-modal-header">
-                            <span class="custom-modal-icon info">📋</span>
-                            <h3 class="custom-modal-title">Télécharger PDF</h3>
-                        </div>
-                        <div class="custom-modal-body">
-                            <p style="margin-bottom:1.25rem;color:#e0e0e0;font-size:0.95rem;">N° Order actuel: <strong style="color:#2196F3;font-size:1.05rem;">${invoice.document_numero_Order}</strong></p>
-                            <label style="display:flex;align-items:center;cursor:pointer;padding:1rem;background:#1e1e1e;border:2px solid #2196F3;border-radius:10px;transition:all 0.2s ease;">
-                                <input type="checkbox" id="includeOrderCheckbox" checked style="width:20px;height:20px;margin-right:1rem;cursor:pointer;accent-color:#2196F3;">
-                                <span style="font-size:0.95rem;color:#e0e0e0;font-weight:500;">
-                                    Inclure le N° Order dans le PDF
-                                </span>
-                            </label>
-                        </div>
-                        <div class="custom-modal-footer">
-                            <button class="custom-modal-btn primary" id="continueBtn" style="padding:0.75rem 2rem;font-size:1rem;">Télécharger</button>
-                        </div>
-                    </div>
-                `;
-
-                document.body.appendChild(overlay);
-
-                const checkbox = overlay.querySelector('#includeOrderCheckbox');
-                const continueBtn = overlay.querySelector('#continueBtn');
-
-                continueBtn.addEventListener('click', () => {
-                    const include = checkbox.checked;
-                    overlay.remove();
-                    resolve(include);
-                });
-
-                overlay.addEventListener('click', (e) => {
-                    if (e.target === overlay) {
-                        const include = checkbox.checked;
-                        overlay.remove();
-                        resolve(include);
-                    }
-                });
-
-                setTimeout(() => continueBtn.focus(), 100);
-            });
-
-            // Temporarily remove Order number if user doesn't want it in PDF
-            if (!includeOrder) {
-                console.log('⚠️ User chose not to include Order number in PDF');
+        // Apply parameters
+        if (invoice.document_type === 'facture') {
+            if (!customParams.includeOrder) {
                 invoice.document_numero_Order = null;
-            } else {
-                console.log('✅ Including Order number in PDF:', invoice.document_numero_Order);
             }
         }
 
-        // Dedicated Prompt for Signature (Yes/No) - ONLY FOR DEVIS
-        let includeSignature = false;
-        if (invoice.document_type === 'devis') {
-            includeSignature = await new Promise((resolve) => {
-                const overlay = document.createElement('div');
-                overlay.className = 'custom-modal-overlay';
-
-                overlay.innerHTML = `
-                    <div class="custom-modal">
-                        <div class="custom-modal-header">
-                            <span class="custom-modal-icon info">✍️</span>
-                            <h3 class="custom-modal-title">Signature du PDF</h3>
-                        </div>
-                        <div class="custom-modal-body">
-                            <p style="margin-bottom:1.5rem;color:#e0e0e0;font-size:1.1rem;text-align:center;">
-                                Voulez-vous inclure la <strong>signature</strong> dans le document PDF ?
-                            </p>
-                        </div>
-                        <div class="custom-modal-footer" style="display:flex;justify-content:center;gap:1.5rem;">
-                            <button class="custom-modal-btn secondary" id="noSignatureBtn" style="padding:0.75rem 2rem;font-size:1.1rem;min-width:120px;">Non</button>
-                            <button class="custom-modal-btn primary" id="yesSignatureBtn" style="padding:0.75rem 2rem;font-size:1.1rem;min-width:120px;">Oui</button>
-                        </div>
-                    </div>
-                `;
-
-                document.body.appendChild(overlay);
-
-                const yesBtn = overlay.querySelector('#yesSignatureBtn');
-                const noBtn = overlay.querySelector('#noSignatureBtn');
-
-                yesBtn.addEventListener('click', () => {
-                    overlay.remove();
-                    resolve(true);
-                });
-
-                noBtn.addEventListener('click', () => {
-                    overlay.remove();
-                    resolve(false);
-                });
-
-                overlay.addEventListener('click', (e) => {
-                    if (e.target === overlay) {
-                        overlay.remove();
-                        resolve(true); // Default to yes
-                    }
-                });
-
-                setTimeout(() => yesBtn.focus(), 100);
-            });
-            console.log('📄 User choice for signature (MRY Devis):', includeSignature ? 'Yes' : 'No');
-        } else {
-            console.log('📄 Document type is not devis, skipping signature prompt for MRY.');
-        }
+        const includeSignature = customParams.includeSignature;
+        const includeZeroProducts = customParams.includeZero;
+        const notesFontSize = customParams.notesFontSize;
 
         console.log('📄 Continuing with PDF generation...');
-
-        // Check if there are products with zero quantity or price
-        const hasZeroProducts = invoice.products && invoice.products.some(p =>
-            parseFloat(p.quantite) === 0 || parseFloat(p.prix_unitaire_ht) === 0
-        );
-
-        let includeZeroProducts = true; // Default: include all products
-
-        if (hasZeroProducts) {
-            includeZeroProducts = await new Promise((resolve) => {
-                const overlay = document.createElement('div');
-                overlay.className = 'custom-modal-overlay';
-
-                overlay.innerHTML = `
-                    <div class="custom-modal">
-                        <div class="custom-modal-header">
-                            <span class="custom-modal-icon warning">⚠️</span>
-                            <h3 class="custom-modal-title">Produits avec quantité ou prix zéro</h3>
-                        </div>
-                        <div class="custom-modal-body">
-                            <p style="margin-bottom:1rem;color:#e0e0e0;font-size:0.95rem;">
-                                Certains produits ont une <strong style="color:#ff9800;">quantité = 0</strong> ou un <strong style="color:#ff9800;">prix = 0</strong>.
-                            </p>
-                            <p style="color:#b0b0b0;font-size:0.9rem;">
-                                Voulez-vous les afficher dans le PDF ?
-                            </p>
-                        </div>
-                        <div class="custom-modal-footer">
-                            <button id="excludeZeroBtnMRY" class="custom-modal-btn secondary">
-                                ❌ Non, masquer
-                            </button>
-                            <button id="includeZeroBtnMRY" class="custom-modal-btn primary">
-                                ✅ Oui, afficher
-                            </button>
-                        </div>
-                    </div>
-                `;
-
-                document.body.appendChild(overlay);
-
-                const excludeBtn = document.getElementById('excludeZeroBtnMRY');
-                const includeBtn = document.getElementById('includeZeroBtnMRY');
-
-                excludeBtn.addEventListener('click', () => {
-                    overlay.remove();
-                    resolve(false);
-                });
-
-                includeBtn.addEventListener('click', () => {
-                    overlay.remove();
-                    resolve(true);
-                });
-
-                overlay.addEventListener('click', (e) => {
-                    if (e.target === overlay) {
-                        overlay.remove();
-                        resolve(true); // Default to include if user clicks outside
-                    }
-                });
-
-                setTimeout(() => includeBtn.focus(), 100);
-            });
-
-            console.log('🔍 User choice for zero products:', includeZeroProducts ? 'Include' : 'Exclude');
-        }
-
-        // Mark products with zero values for special display (don't remove them)
+        // Mark products with zero values for special display
         const showZeroValues = includeZeroProducts;
         console.log('📊 Show zero values in PDF:', showZeroValues);
 
@@ -2859,7 +2831,7 @@ window.downloadInvoicePDF = async function (invoiceId) {
 
             // Date
             doc.setTextColor(0, 0, 0);
-            doc.text(`Date: ${dateStr}`, 150, 50);
+            doc.text(`Date: ${dateStr} `, 150, 50);
 
             // Always show document and order numbers on every page
             doc.setFontSize(14);
@@ -3104,6 +3076,15 @@ window.downloadInvoicePDF = async function (invoiceId) {
         // Add notes if any
         const noteResult = await window.electron.db.getNote(invoiceId);
         if (noteResult.success && noteResult.data) {
+            // Font size mapping for notes
+            const fontSizeMap = {
+                'small': { size: 7, lineheight: 3.5 },
+                'medium': { size: 9, lineheight: 4.5 },
+                'large': { size: 12, lineheight: 5.5 },
+                'xlarge': { size: 14, lineheight: 6.5 }
+            };
+            const selectedFont = fontSizeMap[notesFontSize] || fontSizeMap['medium'];
+
             currentY += 15;
             doc.setFontSize(8);
             doc.setFont(undefined, 'bold');
@@ -3112,7 +3093,7 @@ window.downloadInvoicePDF = async function (invoiceId) {
 
             doc.setFont(undefined, 'bold');
             doc.setTextColor(0, 0, 0);
-            doc.setFontSize(9);
+            doc.setFontSize(selectedFont.size);
             const noteLines = doc.splitTextToSize(noteResult.data, 180);
             const footerTopY = 270;
             let lineY = currentY + 4;
@@ -3131,11 +3112,11 @@ window.downloadInvoicePDF = async function (invoiceId) {
                     doc.text('Notes (suite) :', 15, notesStartY - 4);
                     doc.setTextColor(0, 0, 0);
                     doc.setFont(undefined, 'bold');
-                    doc.setFontSize(9);
+                    doc.setFontSize(selectedFont.size);
                     lineY = notesStartY;
                 }
                 doc.text(noteLines[i], 15, lineY);
-                lineY += 4.5;
+                lineY += selectedFont.lineheight;
             }
         }
 
@@ -3487,6 +3468,10 @@ window.downloadBonDeTravauxPDF = async function (invoiceId) {
 
 // Convert number to French words
 function numberToFrenchWords(number) {
+    if (number === null || number === undefined) return 'zéro dirham';
+    number = parseFloat(number);
+    if (isNaN(number)) return 'zéro dirham';
+
     const units = ['', 'un', 'deux', 'trois', 'quatre', 'cinq', 'six', 'sept', 'huit', 'neuf'];
     const teens = ['dix', 'onze', 'douze', 'treize', 'quatorze', 'quinze', 'seize', 'dix-sept', 'dix-huit', 'dix-neuf'];
     const tens = ['', '', 'vingt', 'trente', 'quarante', 'cinquante', 'soixante', 'soixante', 'quatre-vingt', 'quatre-vingt'];

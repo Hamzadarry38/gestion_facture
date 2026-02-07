@@ -10,6 +10,10 @@ function formatNumberForPDF(number) {
 
 // Convert number to French words
 function numberToFrenchWords(number) {
+    if (number === null || number === undefined) return 'zéro dirham';
+    number = parseFloat(number);
+    if (isNaN(number)) return 'zéro dirham';
+
     const units = ['', 'un', 'deux', 'trois', 'quatre', 'cinq', 'six', 'sept', 'huit', 'neuf'];
     const teens = ['dix', 'onze', 'douze', 'treize', 'quatorze', 'quinze', 'seize', 'dix-sept', 'dix-huit', 'dix-neuf'];
     const tens = ['', '', 'vingt', 'trente', 'quarante', 'cinquante', 'soixante', 'soixante', 'quatre-vingt', 'quatre-vingt'];
@@ -230,25 +234,52 @@ window.downloadInvoicePDFMulti = async function (invoiceId) {
         console.log('🔍 Current Order number:', invoice.document_numero_Order);
 
         // Show dialog with checkbox for FACTURE type (only if Order exists)
+        // Show dialog with checkbox for FACTURE type (only if Order exists)
         if (invoice.document_type === 'facture' && invoice.document_numero_Order && invoice.document_numero_Order.trim() !== '') {
-            const includeOrder = await new Promise((resolve) => {
+            const includeOrderResult = await new Promise((resolve) => {
                 const overlay = document.createElement('div');
                 overlay.className = 'custom-modal-overlay';
 
                 overlay.innerHTML = `
                     <div class="custom-modal">
                         <div class="custom-modal-header">
-                            <span class="custom-modal-icon info">📋</span>
-                            <h3 class="custom-modal-title">Télécharger PDF</h3>
+                            <span class="custom-modal-icon info">🎨</span>
+                            <h3 class="custom-modal-title">Paramètres du PDF</h3>
                         </div>
                         <div class="custom-modal-body">
-                            <p style="margin-bottom:1.25rem;color:#e0e0e0;font-size:0.95rem;">N° Order actuel: <strong style="color:#2196F3;font-size:1.05rem;">${invoice.document_numero_Order}</strong></p>
-                            <label style="display:flex;align-items:center;cursor:pointer;padding:1rem;background:#1e1e1e;border:2px solid #2196F3;border-radius:10px;transition:all 0.2s ease;">
+                            <!-- Order Number Toggle -->
+                             <p style="margin-bottom:1.25rem;color:#e0e0e0;font-size:0.95rem;">N° Order actuel: <strong style="color:#2196F3;font-size:1.05rem;">${invoice.document_numero_Order}</strong></p>
+                            <label style="display:flex;align-items:center;cursor:pointer;padding:1rem;background:#1e1e1e;border:2px solid #2196F3;border-radius:10px;transition:all 0.2s ease; margin-bottom: 1.5rem;">
                                 <input type="checkbox" id="includeOrderCheckbox" checked style="width:20px;height:20px;margin-right:1rem;cursor:pointer;accent-color:#2196F3;">
                                 <span style="font-size:0.95rem;color:#e0e0e0;font-weight:500;">
                                     Inclure le N° Order dans le PDF
                                 </span>
                             </label>
+
+                            <!-- Font Size Selection -->
+                            <div style="margin-bottom: 0.5rem;">
+                                <label style="display: block; margin-bottom: 0.8rem; color: #e0e0e0; font-weight: 600;">
+                                    Taille de police des Notes :
+                                </label>
+                                <div style="display: flex; gap: 0.5rem; background: #1e1e1e; padding: 0.5rem; border-radius: 8px; border: 1px solid #3e3e42;">
+                                    <label style="flex: 1; display: flex; flex-direction: column; align-items: center; cursor: pointer; padding: 0.5rem; border-radius: 6px; transition: all 0.2s;">
+                                        <input type="radio" name="multiNotesFontSize" value="small" style="margin-bottom: 0.4rem; cursor: pointer;">
+                                        <span style="font-size: 0.75rem; color: #999;">Petit</span>
+                                    </label>
+                                    <label style="flex: 1; display: flex; flex-direction: column; align-items: center; cursor: pointer; padding: 0.5rem; border-radius: 6px; transition: all 0.2s; background: #2d2d30;">
+                                        <input type="radio" name="multiNotesFontSize" value="medium" checked style="margin-bottom: 0.4rem; cursor: pointer;">
+                                        <span style="font-size: 0.85rem; color: #fff;">Moyen</span>
+                                    </label>
+                                    <label style="flex: 1; display: flex; flex-direction: column; align-items: center; cursor: pointer; padding: 0.5rem; border-radius: 6px; transition: all 0.2s;">
+                                        <input type="radio" name="multiNotesFontSize" value="large" style="margin-bottom: 0.4rem; cursor: pointer;">
+                                        <span style="font-size: 0.95rem; color: #999;">Grand</span>
+                                    </label>
+                                    <label style="flex: 1; display: flex; flex-direction: column; align-items: center; cursor: pointer; padding: 0.5rem; border-radius: 6px; transition: all 0.2s;">
+                                        <input type="radio" name="multiNotesFontSize" value="xlarge" style="margin-bottom: 0.4rem; cursor: pointer;">
+                                        <span style="font-size: 1.05rem; color: #999;">Très G.</span>
+                                    </label>
+                                </div>
+                            </div>
                         </div>
                         <div class="custom-modal-footer">
                             <button class="custom-modal-btn primary" id="continueBtn" style="padding:0.75rem 2rem;font-size:1rem;">Télécharger</button>
@@ -261,17 +292,35 @@ window.downloadInvoicePDFMulti = async function (invoiceId) {
                 const checkbox = overlay.querySelector('#includeOrderCheckbox');
                 const continueBtn = overlay.querySelector('#continueBtn');
 
+                const radioLabels = overlay.querySelectorAll('input[name="multiNotesFontSize"]');
+                radioLabels.forEach(radio => {
+                    radio.addEventListener('change', (e) => {
+                        radioLabels.forEach(r => {
+                            const label = r.parentElement;
+                            label.style.background = 'transparent';
+                            label.querySelector('span').style.color = '#999';
+                        });
+                        if (e.target.checked) {
+                            const label = e.target.parentElement;
+                            label.style.background = '#2d2d30';
+                            label.querySelector('span').style.color = '#fff';
+                        }
+                    });
+                });
+
                 continueBtn.addEventListener('click', () => {
                     const include = checkbox.checked;
+                    const selectedSize = overlay.querySelector('input[name="multiNotesFontSize"]:checked').value;
                     overlay.remove();
-                    resolve(include);
+                    resolve({ includeOrder: include, notesFontSize: selectedSize });
                 });
 
                 overlay.addEventListener('click', (e) => {
                     if (e.target === overlay) {
                         const include = checkbox.checked;
+                        const selectedSize = overlay.querySelector('input[name="multiNotesFontSize"]:checked').value;
                         overlay.remove();
-                        resolve(include);
+                        resolve({ includeOrder: include, notesFontSize: selectedSize });
                     }
                 });
 
@@ -279,12 +328,14 @@ window.downloadInvoicePDFMulti = async function (invoiceId) {
             });
 
             // Temporarily remove Order number if user doesn't want it in PDF
-            if (!includeOrder) {
+            if (!includeOrderResult.includeOrder) {
                 console.log('⚠️ User chose not to include Order number in PDF');
                 invoice.document_numero_Order = null;
             } else {
                 console.log('✅ Including Order number in PDF:', invoice.document_numero_Order);
             }
+            // Store font size for later use
+            var selectedNotesFontSize = includeOrderResult.notesFontSize;
         }
 
         // Dedicated Prompt for Signature (Yes/No) - ONLY FOR DEVIS
@@ -304,6 +355,30 @@ window.downloadInvoicePDFMulti = async function (invoiceId) {
                             <p style="margin-bottom:1.5rem;color:#e0e0e0;font-size:1.1rem;text-align:center;">
                                 Voulez-vous inclure la <strong>signature</strong> dans le document PDF ?
                             </p>
+                            <!-- Font Size Selection -->
+                            <div style="margin-bottom: 0.5rem; text-align: left;">
+                                <label style="display: block; margin-bottom: 0.8rem; color: #e0e0e0; font-weight: 600;">
+                                    Taille de police des Notes :
+                                </label>
+                                <div style="display: flex; gap: 0.5rem; background: #1e1e1e; padding: 0.5rem; border-radius: 8px; border: 1px solid #3e3e42;">
+                                    <label style="flex: 1; display: flex; flex-direction: column; align-items: center; cursor: pointer; padding: 0.5rem; border-radius: 6px; transition: all 0.2s;">
+                                        <input type="radio" name="multiNotesFontSizeDevis" value="small" style="margin-bottom: 0.4rem; cursor: pointer;">
+                                        <span style="font-size: 0.75rem; color: #999;">Petit</span>
+                                    </label>
+                                    <label style="flex: 1; display: flex; flex-direction: column; align-items: center; cursor: pointer; padding: 0.5rem; border-radius: 6px; transition: all 0.2s; background: #2d2d30;">
+                                        <input type="radio" name="multiNotesFontSizeDevis" value="medium" checked style="margin-bottom: 0.4rem; cursor: pointer;">
+                                        <span style="font-size: 0.85rem; color: #fff;">Moyen</span>
+                                    </label>
+                                    <label style="flex: 1; display: flex; flex-direction: column; align-items: center; cursor: pointer; padding: 0.5rem; border-radius: 6px; transition: all 0.2s;">
+                                        <input type="radio" name="multiNotesFontSizeDevis" value="large" style="margin-bottom: 0.4rem; cursor: pointer;">
+                                        <span style="font-size: 0.95rem; color: #999;">Grand</span>
+                                    </label>
+                                    <label style="flex: 1; display: flex; flex-direction: column; align-items: center; cursor: pointer; padding: 0.5rem; border-radius: 6px; transition: all 0.2s;">
+                                        <input type="radio" name="multiNotesFontSizeDevis" value="xlarge" style="margin-bottom: 0.4rem; cursor: pointer;">
+                                        <span style="font-size: 1.05rem; color: #999;">Très G.</span>
+                                    </label>
+                                </div>
+                            </div>
                         </div>
                         <div class="custom-modal-footer" style="display:flex;justify-content:center;gap:1.5rem;">
                             <button class="custom-modal-btn secondary" id="noSignatureBtn" style="padding:0.75rem 2rem;font-size:1.1rem;min-width:120px;">Non</button>
@@ -317,28 +392,122 @@ window.downloadInvoicePDFMulti = async function (invoiceId) {
                 const yesBtn = overlay.querySelector('#yesSignatureBtn');
                 const noBtn = overlay.querySelector('#noSignatureBtn');
 
+                const radioLabels = overlay.querySelectorAll('input[name="multiNotesFontSizeDevis"]');
+                radioLabels.forEach(radio => {
+                    radio.addEventListener('change', (e) => {
+                        radioLabels.forEach(r => {
+                            const label = r.parentElement;
+                            label.style.background = 'transparent';
+                            label.querySelector('span').style.color = '#999';
+                        });
+                        if (e.target.checked) {
+                            const label = e.target.parentElement;
+                            label.style.background = '#2d2d30';
+                            label.querySelector('span').style.color = '#fff';
+                        }
+                    });
+                });
+
                 yesBtn.addEventListener('click', () => {
+                    const selectedSize = overlay.querySelector('input[name="multiNotesFontSizeDevis"]:checked').value;
                     overlay.remove();
-                    resolve(true);
+                    resolve({ include: true, notesFontSize: selectedSize });
                 });
 
                 noBtn.addEventListener('click', () => {
+                    const selectedSize = overlay.querySelector('input[name="multiNotesFontSizeDevis"]:checked').value;
                     overlay.remove();
-                    resolve(false);
+                    resolve({ include: false, notesFontSize: selectedSize });
                 });
 
                 overlay.addEventListener('click', (e) => {
                     if (e.target === overlay) {
+                        const selectedSize = overlay.querySelector('input[name="multiNotesFontSizeDevis"]:checked').value;
                         overlay.remove();
-                        resolve(true); // Default to yes
+                        resolve({ include: true, notesFontSize: selectedSize });
                     }
                 });
 
                 setTimeout(() => yesBtn.focus(), 100);
             });
-            console.log('📄 User choice for signature (Multi Devis):', includeSignature ? 'Yes' : 'No');
-        } else {
-            console.log('📄 Document type is not devis, skipping signature prompt for Multi.');
+            console.log('📄 User choice for signature (Multi Devis):', includeSignature.include ? 'Yes' : 'No');
+            // Store font size from Devis modal
+            var selectedNotesFontSize = includeSignature.notesFontSize;
+            // Update includeSignature to boolean
+            includeSignature = includeSignature.include;
+        } else if (!selectedNotesFontSize) {
+            // If normal invoice WITHOUT order number (no first modal shown), show simple font size modal
+            if (invoice.document_type === 'facture' && (!invoice.document_numero_Order || invoice.document_numero_Order.trim() === '')) {
+                const fontSizeResult = await new Promise((resolve) => {
+                    const overlay = document.createElement('div');
+                    overlay.className = 'custom-modal-overlay';
+                    overlay.innerHTML = `
+                        <div class="custom-modal" style="max-width: 400px;">
+                            <div class="custom-modal-header">
+                                <span class="custom-modal-icon info">🎨</span>
+                                <h3 class="custom-modal-title">Paramètres</h3>
+                            </div>
+                            <div class="custom-modal-body">
+                                <div style="margin-bottom: 0.5rem;">
+                                    <label style="display: block; margin-bottom: 0.8rem; color: #e0e0e0; font-weight: 600;">
+                                        Taille de police des Notes :
+                                    </label>
+                                    <div style="display: flex; gap: 0.5rem; background: #1e1e1e; padding: 0.5rem; border-radius: 8px; border: 1px solid #3e3e42;">
+                                        <label style="flex: 1; display: flex; flex-direction: column; align-items: center; cursor: pointer; padding: 0.5rem; border-radius: 6px; transition: all 0.2s;">
+                                            <input type="radio" name="multiNotesFontSizeSimple" value="small" style="margin-bottom: 0.4rem; cursor: pointer;">
+                                            <span style="font-size: 0.75rem; color: #999;">Petit</span>
+                                        </label>
+                                        <label style="flex: 1; display: flex; flex-direction: column; align-items: center; cursor: pointer; padding: 0.5rem; border-radius: 6px; transition: all 0.2s; background: #2d2d30;">
+                                            <input type="radio" name="multiNotesFontSizeSimple" value="medium" checked style="margin-bottom: 0.4rem; cursor: pointer;">
+                                            <span style="font-size: 0.85rem; color: #fff;">Moyen</span>
+                                        </label>
+                                        <label style="flex: 1; display: flex; flex-direction: column; align-items: center; cursor: pointer; padding: 0.5rem; border-radius: 6px; transition: all 0.2s;">
+                                            <input type="radio" name="multiNotesFontSizeSimple" value="large" style="margin-bottom: 0.4rem; cursor: pointer;">
+                                            <span style="font-size: 0.95rem; color: #999;">Grand</span>
+                                        </label>
+                                        <label style="flex: 1; display: flex; flex-direction: column; align-items: center; cursor: pointer; padding: 0.5rem; border-radius: 6px; transition: all 0.2s;">
+                                            <input type="radio" name="multiNotesFontSizeSimple" value="xlarge" style="margin-bottom: 0.4rem; cursor: pointer;">
+                                            <span style="font-size: 1.05rem; color: #999;">Très G.</span>
+                                        </label>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="custom-modal-footer">
+                                <button class="custom-modal-btn primary" id="simpleContinueBtn">Continuer</button>
+                            </div>
+                        </div>
+                    `;
+                    document.body.appendChild(overlay);
+
+                    const continueBtn = overlay.querySelector('#simpleContinueBtn');
+                    const radioLabels = overlay.querySelectorAll('input[name="multiNotesFontSizeSimple"]');
+
+                    radioLabels.forEach(radio => {
+                        radio.addEventListener('change', (e) => {
+                            radioLabels.forEach(r => {
+                                const label = r.parentElement;
+                                label.style.background = 'transparent';
+                                label.querySelector('span').style.color = '#999';
+                            });
+                            if (e.target.checked) {
+                                const label = e.target.parentElement;
+                                label.style.background = '#2d2d30';
+                                label.querySelector('span').style.color = '#fff';
+                            }
+                        });
+                    });
+
+                    continueBtn.addEventListener('click', () => {
+                        const selectedSize = overlay.querySelector('input[name="multiNotesFontSizeSimple"]:checked').value;
+                        overlay.remove();
+                        resolve(selectedSize);
+                    });
+                    setTimeout(() => continueBtn.focus(), 100);
+                });
+                var selectedNotesFontSize = fontSizeResult;
+            } else {
+                console.log('📄 Document type is not devis, skipping signature prompt for Multi.');
+            }
         }
 
         console.log('📄 Continuing with PDF generation...');
@@ -758,11 +927,28 @@ window.downloadInvoicePDFMulti = async function (invoiceId) {
         // Add notes if any
         const noteResult = await window.electron.dbMulti.getNote(invoiceId);
         if (noteResult.success && noteResult.data) {
-            const notesY = amountWordsY + 12;
-            const footerTopY = 270; // keep clear space above footer
+            // Font size mapping
+            const fontSizeMap = {
+                'small': { size: 7, lineheight: 3.5 },
+                'medium': { size: 9, lineheight: 4.5 },
+                'large': { size: 12, lineheight: 5.5 },
+                'xlarge': { size: 14, lineheight: 6.5 }
+            };
+            // Default to medium if undefined (fallback)
+            const fontSizeKey = selectedNotesFontSize || 'medium';
+            const selectedFont = fontSizeMap[fontSizeKey] || fontSizeMap['medium'];
 
-            // Title for first notes block
-            doc.setFontSize(8);
+            // Force new page for Notes
+            pages.push(pageCount);
+            doc.addPage();
+            addHeader(false);
+            pageCount++;
+
+            const notesY = 60; // Start at top of new page
+            const footerTopY = 270;
+
+            // Title for notes block
+            doc.setFontSize(10);
             doc.setFont(undefined, 'bold');
             doc.setTextColor(96, 125, 139); // Dark gray color matching the theme
             doc.text('Notes:', 15, notesY);
@@ -770,11 +956,11 @@ window.downloadInvoicePDFMulti = async function (invoiceId) {
             // Prepare text rendering
             doc.setTextColor(0, 0, 0);
             doc.setFont(undefined, 'bold');
-            doc.setFontSize(9);
-            const noteLines = doc.splitTextToSize(noteResult.data, 130);
+            doc.setFontSize(selectedFont.size);
+            const noteLines = doc.splitTextToSize(noteResult.data, 180); // Use full width
 
-            let lineY = notesY + 4;
-            const lineStep = 4.5; // line height used across the document
+            let lineY = notesY + 6;
+            const lineStep = selectedFont.lineheight;
 
             // Render line by line and add pages if needed
             for (let i = 0; i < noteLines.length; i++) {
@@ -787,16 +973,16 @@ window.downloadInvoicePDFMulti = async function (invoiceId) {
                     pageCount++;
 
                     // Start notes continuation at top area of new page
-                    let contStartY = 65; // below header
-                    doc.setFontSize(8);
+                    let contStartY = 60; // below header
+                    doc.setFontSize(10);
                     doc.setFont(undefined, 'bold');
                     doc.setTextColor(96, 125, 139);
                     doc.text('Notes (suite) :', 15, contStartY);
 
                     doc.setTextColor(0, 0, 0);
                     doc.setFont(undefined, 'bold');
-                    doc.setFontSize(9);
-                    lineY = contStartY + 4;
+                    doc.setFontSize(selectedFont.size);
+                    lineY = contStartY + 6;
                 }
 
                 doc.text(noteLines[i], 15, lineY);
