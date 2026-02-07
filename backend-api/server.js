@@ -3,9 +3,40 @@ const { Pool } = require('pg');
 const cors = require('cors');
 const bodyParser = require('body-parser');
 const crypto = require('crypto');
+const multer = require('multer');
+const path = require('path');
+const fs = require('fs');
 
 const app = express();
 const port = 8001;
+
+// --- FILE UPLOAD CONFIGURATION (Multer) ---
+const storage = multer.diskStorage({
+  destination: function (req, file, cb) {
+    const { company } = req.params;
+    const year = new Date().getFullYear().toString();
+    const uploadPath = path.join(__dirname, '..', 'uploads', company, year);
+
+    // Create directory if it doesn't exist
+    if (!fs.existsSync(uploadPath)) {
+      fs.mkdirSync(uploadPath, { recursive: true });
+    }
+
+    cb(null, uploadPath);
+  },
+  filename: function (req, file, cb) {
+    // Keep original filename but sanitize it slightly if needed
+    // In our case, the frontend sends a generated name like "Devis-123.pdf"
+    const safeName = file.originalname.replace(/[^a-zA-Z0-9.\-_]/g, '_');
+    cb(null, safeName);
+  }
+});
+
+const upload = multer({ storage: storage });
+
+// Serve static files from "uploads" directory
+// effectively making http://server:8001/uploads/... accessible
+app.use('/uploads', express.static(path.join(__dirname, '..', 'uploads')));
 
 // Database connection
 const pool = new Pool({
@@ -1380,6 +1411,172 @@ app.delete('/attachments/:id', async (req, res) => {
   }
 });
 
-app.listen(port, () => {
+// --- SECONDARY COMPANIES (SKM, MSH3, BENALI, SAAISS) ROUTES ---
+
+const ALLOWED_SECONDARY_COMPANIES = ['skm', 'saaiss', 'benali', 'msh3'];
+
+function validateCompany(company) {
+  const c = company.toLowerCase();
+  if (ALLOWED_SECONDARY_COMPANIES.includes(c)) return c;
+  throw new Error('Code société invalide');
+}
+
+// --- DEVIS NUMBER TRACKING ---
+
+// Get all devis numbers
+app.get('/devis/:company', async (req, res) => {
+  try {
+    const companyPrefix = validateCompany(req.params.company);
+    const tableName = `${companyPrefix}_devis_numbers`;
+
+    // Check if table exists (basic SQL injection prevention is done via validateCompany)
+    const result = await pool.query(`SELECT * FROM ${tableName} ORDER BY year DESC, id DESC`);
+    res.json({ success: true, data: result.rows });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// Get last devis number for a year
+app.get('/devis/:company/last/:year', async (req, res) => {
+  try {
+    const companyPrefix = validateCompany(req.params.company);
+    const { year } = req.params;
+    const tableName = `${companyPrefix}_devis_numbers`;
+
+    const result = await pool.query(
+      `SELECT devis_number FROM ${tableName} WHERE year = $1 ORDER BY id DESC LIMIT 1`,
+      [year]
+    );
+
+    res.json({ success: true, data: result.rows[0] });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// Add new devis number
+app.post('/devis/:company', async (req, res) => {
+  try {
+    const companyPrefix = validateCompany(req.params.company);
+    const tableName = `${companyPrefix}_devis_numbers`;
+    const { devis_number, year } = req.body;
+
+    const result = await pool.query(
+      `INSERT INTO ${tableName} (devis_number, year, created_at, used_at) 
+       VALUES ($1, $2, NOW(), NOW()) 
+       ON CONFLICT (devis_number, year) DO NOTHING 
+       RETURNING *`,
+      [devis_number, year]
+    );
+
+    res.json({ success: true, data: result.rows[0] });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// Delete devis number
+app.delete('/devis/:company/:number/:year', async (req, res) => {
+  try {
+    const companyPrefix = validateCompany(req.params.company);
+    const tableName = `${companyPrefix}_devis_numbers`;
+    const { number, year } = req.params;
+
+    await pool.query(
+      `DELETE FROM ${tableName} WHERE devis_number = $1 AND year = $2`,
+      [number, year]
+    );
+
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+
+// --- PDF PATH MANAGEMENT ---
+
+// Get all PDF paths
+app.get('/pdf/:company', async (req, res) => {
+  try {
+    const companyPrefix = validateCompany(req.params.company);
+    const tableName = `${companyPrefix}_pdf_paths`;
+
+    const result = await pool.query(`SELECT * FROM ${tableName} ORDER BY created_at DESC`);
+    res.json({ success: true, data: result.rows });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// Get specific PDF path
+app.get('/pdf/:company/:number/:year', async (req, res) => {
+  try {
+    const companyPrefix = validateCompany(req.params.company);
+    const tableName = `${companyPrefix}_pdf_paths`;
+    const { number, year } = req.params;
+
+    const result = await pool.query(
+      `SELECT * FROM ${tableName} WHERE devis_number = $1 AND year = $2`,
+      [number, year]
+    );
+
+    res.json({ success: true, data: result.rows[0] });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// Save PDF path
+app.post('/pdf/:company', async (req, res) => {
+  try {
+    const companyPrefix = validateCompany(req.params.company);
+    const tableName = `${companyPrefix}_pdf_paths`;
+    const { devis_number, year, file_path, created_by } = req.body;
+
+    const result = await pool.query(
+      `INSERT INTO ${tableName} (devis_number, year, file_path, created_by, created_at)
+       VALUES ($1, $2, $3, $4, NOW())
+       ON CONFLICT (devis_number, year) 
+       DO UPDATE SET file_path = EXCLUDED.file_path, created_at = NOW()
+       RETURNING *`,
+      [devis_number, year, file_path, created_by]
+    );
+
+    res.json({ success: true, data: result.rows[0] });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+app.post('/api/upload/:company', upload.single('pdf'), (req, res) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({ success: false, error: 'No file uploaded' });
+    }
+
+    const { company } = req.params;
+    const year = new Date().getFullYear().toString();
+
+    // Construct the relative path to store in database
+    // Use forward slashes for database consistency (URL style)
+    // IMPORTANT: Storing relative path from server root (e.g. /uploads/skm/2025/file.pdf)
+    const relativePath = `/uploads/${company}/${year}/${req.file.filename}`;
+
+    console.log(`✅ File uploaded: ${relativePath}`);
+
+    res.json({
+      success: true,
+      filePath: relativePath,
+      fullPath: req.file.path
+    });
+  } catch (err) {
+    console.error('❌ Upload error:', err);
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+app.listen(port, '0.0.0.0', () => {
   console.log(`API Backend (API 5) running on http://localhost:${port}`);
 });

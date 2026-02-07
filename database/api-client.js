@@ -211,6 +211,19 @@ const service = {
         return res.data;
     },
 
+    // New: Upload PDF file
+    uploadPdf: async (company, pdfBlob, filename) => {
+        const formData = new FormData();
+        formData.append('pdf', pdfBlob, filename);
+
+        const res = await apiClient.post(`/upload/${company}`, formData, {
+            headers: {
+                'Content-Type': 'multipart/form-data'
+            }
+        });
+        return res.data;
+    },
+
     // Delivery Persons
     getDeliveryPersons: async (company) => {
         const res = await apiClient.get(`/delivery-persons/${company}`);

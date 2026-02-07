@@ -238,7 +238,8 @@ contextBridge.exposeInMainWorld('electron', {
     // PDF Files
     savePdfPath: (devisNumber, year, filePath, createdBy) => ipcRenderer.invoke('db:smarts:pdf:savePath', devisNumber, year, filePath, createdBy),
     getPdfPath: (devisNumber, year) => ipcRenderer.invoke('db:smarts:pdf:getPath', devisNumber, year),
-    deletePdfPath: (devisNumber, year) => ipcRenderer.invoke('db:smarts:pdf:deletePath', devisNumber, year)
+    deletePdfPath: (devisNumber, year) => ipcRenderer.invoke('db:smarts:pdf:deletePath', devisNumber, year),
+    uploadPdf: (pdfBlob, filename) => ipcRenderer.invoke('db:smarts:pdf:upload', pdfBlob, filename)
   },
 
   // Database API for MSH3 SERVICES

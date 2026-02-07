@@ -169,33 +169,42 @@ window.downloadSKMDevisPDF = async function (invoiceId) {
         const invoiceNumber = customizedInvoice.document_numero_devis || customizedInvoice.document_numero || 'N-A';
         const fileName = `SMART_SERVICES_${docType}_${customizedInvoice.client_nom}_${invoiceNumber}.pdf`;
 
-        // Get PDF as blob and save to disk
+        // Create PDF Blob for upload
         const pdfBlob = doc.output('blob');
-        const pdfArrayBuffer = await pdfBlob.arrayBuffer();
-        const pdfUint8Array = new Uint8Array(pdfArrayBuffer);
+        const currentYear = new Date().getFullYear();
 
-        // Save PDF to disk using electron API (include creator company)
-        const saveResult = await window.electron.pdf.savePdf(pdfUint8Array, 'skm', customizedInvoice.document_numero_devis, createdBy);
+        // Upload PDF to Server (Cloud Storage)
+        apiLogger.info('☁️ Uploading PDF to server...');
+        const uploadResult = await window.electron.dbSmartS.uploadPdf(pdfBlob, fileName);
 
-        if (saveResult.success) {
-            console.log('✅ SKM PDF saved to disk:', saveResult.filePath);
+        if (uploadResult.success) {
+            console.log('✅ SKM PDF uploaded to server:', uploadResult.filePath);
 
-            // Record PDF path in database for metadata tracking
+            // Save metadata with server path
             try {
-                const currentYear = new Date().getFullYear();
-                await window.electron.dbSmartS.savePdfPath(customizedInvoice.document_numero_devis, currentYear, saveResult.filePath, createdBy);
+                await window.electron.dbSmartS.savePdfPath(customizedInvoice.document_numero_devis, currentYear, uploadResult.filePath, createdBy);
                 console.log('✅ PDF metadata synced to PostgreSQL');
             } catch (dbErr) {
                 console.error('⚠️ Failed to sync PDF metadata to PostgreSQL:', dbErr);
             }
 
-            // Also save to downloads
+            // Allow user to download local copy
             doc.save(fileName);
             console.log('✅ SKM PDF generated successfully:', fileName);
-            await customAlert('PDF généré avec succès', `Le fichier ${fileName} a été téléchargé et sauvegardé avec succès !`, 'success');
+            await customAlert('PDF généré avec succès', `Le fichier ${fileName} a été sauvegardé en ligne et téléchargé !`, 'success');
         } else {
-            console.error('❌ Error saving PDF to disk:', saveResult.error);
-            await customAlert('Avertissement', 'PDF généré mais erreur lors de la sauvegarde: ' + saveResult.error, 'warning');
+            console.error('❌ Error uploading PDF to server:', uploadResult.error);
+
+            // Fallback: Try to save locally if upload fails (offline mode)
+            const pdfArrayBuffer = await pdfBlob.arrayBuffer();
+            const pdfUint8Array = new Uint8Array(pdfArrayBuffer);
+            const saveResult = await window.electron.pdf.savePdf(pdfUint8Array, 'skm', customizedInvoice.document_numero_devis, createdBy);
+
+            if (saveResult.success) {
+                await customAlert('Mode Hors Ligne', 'Le PDF a été sauvegardé localement car le serveur est inaccessible.', 'warning');
+            } else {
+                await customAlert('Erreur', 'Échec de la sauvegarde (En ligne et Locale).', 'error');
+            }
         }
 
     } catch (error) {

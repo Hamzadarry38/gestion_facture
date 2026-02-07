@@ -159,25 +159,25 @@ window.downloadSAAISSDevisPDF = async function (invoiceId) {
         const invoiceNumber = customizedInvoice.document_numero_devis || customizedInvoice.document_numero || 'N-A';
         const fileName = `STé_MSH3_SERVICES_${docType}_${customizedInvoice.client_nom}_${invoiceNumber}.pdf`;
 
-        // Get PDF as blob and save to disk
+        // Create PDF Blob for upload
         const pdfBlob = doc.output('blob');
-        const pdfArrayBuffer = await pdfBlob.arrayBuffer();
-        const pdfUint8Array = new Uint8Array(pdfArrayBuffer);
+        const currentYear = new Date().getFullYear();
 
-        // Get the company that created this PDF
-        const selectedCompany = JSON.parse(localStorage.getItem('selectedCompany') || '{}');
-        const createdBy = selectedCompany.code || selectedCompany.name || 'Unknown';
+        // Upload PDF to Server (Cloud Storage)
+        console.log('☁️ Uploading SAAISS PDF to server...');
+        const uploadResult = await window.electron.dbSmartS.uploadPdf(pdfBlob, fileName); // Using dbSmartS upload handler as it is generic for upload
+        // Note: We used dbSmartS.uploadPdf. We should probably make sure dbMsh3 also has it or use a generic one.
+        // In preload.js, only dbSmartS has uploadPdf currently. Let's use that one or add to others.
+        // For simplicity, let's use window.electron.dbSmartS.uploadPdf which points to 'db:smarts:pdf:upload'
+        // Ideally we should have a generic 'uploadPdf' in the main API.
 
-        // Save PDF to disk using electron API (include creator company)
-        const saveResult = await window.electron.pdf.savePdf(pdfUint8Array, 'saaiss', customizedInvoice.document_numero_devis, createdBy);
-
-        if (saveResult.success) {
-            console.log('✅ SAAISS PDF saved to disk:', saveResult.filePath);
+        if (uploadResult.success) {
+            console.log('✅ SAAISS PDF uploaded to server:', uploadResult.filePath);
 
             // Record PDF path in database for metadata tracking
             try {
-                const currentYear = new Date().getFullYear();
-                await window.electron.dbMsh3.savePdfPath(customizedInvoice.document_numero_devis, currentYear, saveResult.filePath, createdBy);
+                // SAAISS uses dbMsh3 for PDF paths
+                await window.electron.dbMsh3.savePdfPath(customizedInvoice.document_numero_devis, currentYear, uploadResult.filePath, createdBy);
                 console.log('✅ PDF metadata synced to PostgreSQL');
             } catch (dbErr) {
                 console.error('⚠️ Failed to sync PDF metadata to PostgreSQL:', dbErr);
@@ -186,10 +186,20 @@ window.downloadSAAISSDevisPDF = async function (invoiceId) {
             // Also save to downloads
             doc.save(fileName);
             console.log('✅ SAAISS PDF generated successfully:', fileName);
-            showSAAISSSuccessModal('PDF généré avec succès', `Le fichier ${fileName} a été téléchargé et sauvegardé avec succès !`);
+            showSAAISSSuccessModal('PDF généré avec succès', `Le fichier ${fileName} a été sauvegardé en ligne et téléchargé !`);
         } else {
-            console.error('❌ Error saving PDF to disk:', saveResult.error);
-            showSAAISSWarningModal('Avertissement', 'PDF généré mais erreur lors de la sauvegarde: ' + saveResult.error);
+            console.error('❌ Error uploading PDF to server:', uploadResult.error);
+
+            // Fallback: Try to save locally
+            const pdfArrayBuffer = await pdfBlob.arrayBuffer();
+            const pdfUint8Array = new Uint8Array(pdfArrayBuffer);
+            const saveResult = await window.electron.pdf.savePdf(pdfUint8Array, 'saaiss', customizedInvoice.document_numero_devis, createdBy);
+
+            if (saveResult.success) {
+                showSAAISSWarningModal('Mode Hors Ligne', 'Le PDF a été sauvegardé localement car le serveur est inaccessible.');
+            } else {
+                showSAAISSErrorModal('Erreur', 'Échec de la sauvegarde (En ligne et Locale).');
+            }
         }
 
     } catch (error) {

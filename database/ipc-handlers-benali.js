@@ -125,6 +125,15 @@ async function registerBenAliHandlers() {
         }
     });
 
+    ipcMain.handle('db:benali:pdf:getAllPaths', async () => {
+        try {
+            return await apiClient.getAllPdfPaths(COMPANY_CODE);
+        } catch (error) {
+            console.error('❌ [BEN ALI] Error getting all PDF paths (API):', error);
+            return { success: false, error: error.message };
+        }
+    });
+
     ipcMain.handle('db:benali:pdf:deletePath', async (event, devisNumber, year) => {
         try {
             throw new Error('API deletePath not implemented');

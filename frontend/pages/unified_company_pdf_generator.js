@@ -306,26 +306,24 @@ async function generateBenAliPDF(invoiceId, sourceDb) {
 
         // Get PDF as blob and save to backend
         const pdfBlob = doc.output('blob');
-        const pdfArrayBuffer = await pdfBlob.arrayBuffer();
-        const pdfUint8Array = new Uint8Array(pdfArrayBuffer);
+        const currentYear = new Date().getFullYear();
 
         // Get createdBy
         const selectedCompany = JSON.parse(localStorage.getItem('selectedCompany') || '{}');
         const createdBy = selectedCompany.code || selectedCompany.name || 'Unknown';
 
-        // Determine save folder: 'chaimae_benali' if source is chaimae, else 'benali'
-        const saveFolder = sourceDb === 'chaimae' ? 'chaimae_benali' : 'benali';
+        // Upload PDF to Server (Cloud Storage)
+        console.log('☁️ Uploading BEN ALI PDF to server...');
+        // Using dbSmartS.uploadPdf as a generic uploader because we haven't exposed it on dbBenAli yet
+        // Ideally we should expose it on window.electron.dbBenAli.uploadPdf too
+        const uploadResult = await window.electron.dbSmartS.uploadPdf(pdfBlob, fileName);
 
-        // Save to correct folder
-        const saveResult = await window.electron.pdf.savePdf(pdfUint8Array, saveFolder, invoiceNumber, createdBy);
-
-        if (saveResult.success) {
-            console.log(`✅ BEN ALI PDF saved to disk (${saveFolder}):`, saveResult.filePath);
+        if (uploadResult.success) {
+            console.log('✅ BEN ALI PDF uploaded to server:', uploadResult.filePath);
 
             // Record PDF path in database for metadata tracking
             try {
-                const currentYear = new Date().getFullYear();
-                await window.electron.dbBenAli.savePdfPath(invoiceNumber, currentYear, saveResult.filePath, createdBy);
+                await window.electron.dbBenAli.savePdfPath(invoiceNumber, currentYear, uploadResult.filePath, createdBy);
                 console.log('✅ BEN ALI PDF metadata synced to PostgreSQL');
             } catch (dbErr) {
                 console.error('⚠️ Failed to sync BEN ALI PDF metadata to PostgreSQL:', dbErr);
@@ -333,11 +331,23 @@ async function generateBenAliPDF(invoiceId, sourceDb) {
 
             // Also download in browser
             doc.save(fileName);
-            window.notify.success('Succès', `PDF BEN ALI généré et sauvegardé: ${fileName}`, 3000);
+            window.notify.success('Succès', `PDF BEN ALI généré et sauvegardé en ligne: ${fileName}`, 3000);
         } else {
-            console.error('❌ Error saving BEN ALI PDF to disk:', saveResult.error);
-            window.notify.error('Erreur', 'Erreur lors de la sauvegarde du PDF: ' + saveResult.error, 4000);
-            // Fallback: download anyway
+            console.error('❌ Error uploading BEN ALI PDF to server:', uploadResult.error);
+
+            // Fallback: save locally
+            // Determine save folder: 'chaimae_benali' if source is chaimae, else 'benali'
+            const saveFolder = sourceDb === 'chaimae' ? 'chaimae_benali' : 'benali';
+            const pdfArrayBuffer = await pdfBlob.arrayBuffer();
+            const pdfUint8Array = new Uint8Array(pdfArrayBuffer);
+
+            const saveResult = await window.electron.pdf.savePdf(pdfUint8Array, saveFolder, invoiceNumber, createdBy);
+
+            if (saveResult.success) {
+                window.notify.warning('Mode Hors Ligne', 'Le PDF a été sauvegardé localement.', 4000);
+            } else {
+                window.notify.error('Erreur', 'Erreur lors de la sauvegarde du PDF: ' + saveResult.error, 4000);
+            }
             doc.save(fileName);
         }
 

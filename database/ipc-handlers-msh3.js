@@ -125,6 +125,15 @@ async function registerMsh3Handlers() {
         }
     });
 
+    ipcMain.handle('db:msh3:pdf:getAllPaths', async () => {
+        try {
+            return await apiClient.getAllPdfPaths(COMPANY_CODE);
+        } catch (error) {
+            console.error('❌ [MSH3 SERVICES] Error getting all PDF paths (API):', error);
+            return { success: false, error: error.message };
+        }
+    });
+
     ipcMain.handle('db:msh3:pdf:deletePath', async (event, devisNumber, year) => {
         try {
             throw new Error('API deletePath not implemented');

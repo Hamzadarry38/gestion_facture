@@ -125,11 +125,41 @@ async function registerSKMHandlers() {
         }
     });
 
+    ipcMain.handle('db:skm:pdf:getAllPaths', async () => {
+        try {
+            return await apiClient.getAllPdfPaths(COMPANY_CODE);
+        } catch (error) {
+            console.error('❌ [SKM] Error getting all PDF paths (API):', error);
+            return { success: false, error: error.message };
+        }
+    });
+
     ipcMain.handle('db:skm:pdf:deletePath', async (event, devisNumber, year) => {
         try {
             throw new Error('API deletePath not implemented');
         } catch (error) {
             console.error('❌ [SKM] Error deleting PDF path (API):', error);
+            return { success: false, error: error.message };
+        }
+    });
+
+    ipcMain.handle('db:smarts:pdf:upload', async (event, pdfBlob, filename) => {
+        try {
+            // Buffer conversion is needed because fs/multer expects Buffer or Stream, not Blob
+            const buffer = Buffer.from(await pdfBlob.arrayBuffer());
+
+            // We need to send this buffer via API client
+            // Since api-client uses FormData which works with Blob/Buffer/Stream
+            // We might need to adjust how we pass it.
+            // Electron IPC serialization of Blob might be tricky.
+            // Better to pass ArrayBuffer from frontend.
+
+            // Wait, electron IPC handles Buffers well.
+            // Let's assume frontend sends ArrayBuffer or Buffer.
+
+            return await apiClient.uploadPdf(COMPANY_CODE, pdfBlob, filename);
+        } catch (error) {
+            console.error('❌ [SKM] Error uploading PDF (API):', error);
             return { success: false, error: error.message };
         }
     });

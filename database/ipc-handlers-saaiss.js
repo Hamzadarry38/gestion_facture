@@ -127,6 +127,15 @@ async function registerSAAISSHandlers() {
         }
     });
 
+    ipcMain.handle('db:saaiss:pdf:getAllPaths', async () => {
+        try {
+            return await apiClient.getAllPdfPaths(COMPANY_CODE);
+        } catch (error) {
+            console.error('❌ [SAAISS] Error getting all PDF paths (API):', error);
+            return { success: false, error: error.message };
+        }
+    });
+
     ipcMain.handle('db:saaiss:pdf:deletePath', async (event, devisNumber, year) => {
         try {
             // API doesn't have delete PDF path, but we could add it.
