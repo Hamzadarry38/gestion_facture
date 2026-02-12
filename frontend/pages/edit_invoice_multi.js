@@ -655,15 +655,47 @@ window.deleteClientEditMulti = async function (clientId, clientName) {
 async function handleEditInvoiceSubmitMulti(e) {
     e.preventDefault();
 
-    const loadingNotif = window.notify.loading('Mise à jour en cours...', 'Veuillez patienter');
+    // 🚀 High-Visibility Loading Overlay
+    const overlay = document.createElement('div');
+    overlay.id = 'global-loading-overlay-multi';
+    overlay.style.cssText = `
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(0, 0, 0, 0.7);
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        z-index: 99999;
+        color: white;
+        font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    `;
+    overlay.innerHTML = `
+        <div style="margin-bottom: 20px;">
+            <svg width="60" height="60" viewBox="0 0 50 50" style="animation: rotate 2s linear infinite;">
+                <circle cx="25" cy="25" r="20" fill="none" stroke="#2196F3" stroke-width="5" stroke-dasharray="80, 200" stroke-dashoffset="0" stroke-linecap="round">
+                    <animateTransform attributeName="transform" type="rotate" from="0 25 25" to="360 25 25" dur="1.5s" repeatCount="indefinite"/>
+                </circle>
+            </svg>
+        </div>
+        <h2 style="margin: 0; font-size: 1.5rem; font-weight: 600;">Enregistrement...</h2>
+        <p style="margin: 10px 0 0; opacity: 0.8;">Veuillez patienter pendant le traitement de votre facture</p>
+        <style>
+            @keyframes rotate { 100% { transform: rotate(360deg); } }
+        </style>
+    `;
+    document.body.appendChild(overlay);
 
     const submitBtn = e.target.querySelector('button[type="submit"]');
-    const originalText = submitBtn.innerHTML;
-    submitBtn.innerHTML = '<span>⏳ Enregistrement...</span>';
-    submitBtn.disabled = true;
+    if (submitBtn) submitBtn.disabled = true;
 
     try {
         const documentNumeroValue = document.getElementById('editDocumentNumeroMulti').value;
+
+        const currentUser = JSON.parse(localStorage.getItem('user'));
 
         const formData = {
             company_code: 'MULTI',
@@ -673,7 +705,13 @@ async function handleEditInvoiceSubmitMulti(e) {
             },
             document: {
                 type: currentDocumentTypeMulti,
-                date: document.getElementById('editDocumentDateMulti').value
+                date: document.getElementById('editDocumentDateMulti').value,
+                // ✅ Add user tracking
+                updated_by_user_id: currentUser?.id || null,
+                updated_by_user_name: currentUser?.name || null,
+                updated_by_user_email: currentUser?.email || null,
+                // ✅ Always reset to pending on edit so it appears in "Modified" filter
+                validation_status: 'pending'
             },
             products: [],
             totals: {
@@ -752,8 +790,7 @@ async function handleEditInvoiceSubmitMulti(e) {
         );
 
         if (!isUnique) {
-            window.notify.remove(loadingNotif);
-            submitBtn.innerHTML = originalText;
+            if (overlay) overlay.remove();
             submitBtn.disabled = false;
             return;
         }
@@ -790,7 +827,7 @@ async function handleEditInvoiceSubmitMulti(e) {
                 }
             }
 
-            window.notify.remove(loadingNotif);
+            if (overlay) overlay.remove();
             window.notify.success('Succès', 'Facture mise à jour avec succès!', 3000);
 
             setTimeout(() => {
@@ -801,10 +838,9 @@ async function handleEditInvoiceSubmitMulti(e) {
         }
     } catch (error) {
         console.error('[MULTI] Error updating invoice:', error);
-        window.notify.remove(loadingNotif);
-        window.notify.error('Erreur', error.message || 'Une erreur est survenue.', 5000);
-        submitBtn.innerHTML = originalText;
-        submitBtn.disabled = false;
+        if (overlay) overlay.remove();
+        window.notify.error('Erreur', error.message || 'Une erreur est سورvenue.', 5000);
+        if (submitBtn) submitBtn.disabled = false;
     }
 }
 
@@ -1079,12 +1115,13 @@ window.showConvertDocumentTypeModal = async function () {
                 type: newType,
                 date: newDate || invoice.document_date || new Date().toISOString().split('T')[0],
                 numero: newType === 'facture' ? newNumero : null,
-                numero_devis: newType === 'devis' ? newNumero : null,
+                numero_devis: newType === 'devis' ? newNumero : (currentType === 'devis' ? currentNumero : null),
                 numero_Order: newType === 'facture' ? newNumeroOrder : null,
                 created_by_user_id: user?.id || null,
                 created_by_user_name: user?.name || null,
                 created_by_user_email: user?.email || null,
-                creation_method: 'converted'
+                creation_method: 'converted',
+                source_document_id: currentInvoiceIdMulti // Added for extra traceability
             },
             products: (invoice.products || []).map(p => ({
                 designation: p.designation || '',
@@ -1099,6 +1136,40 @@ window.showConvertDocumentTypeModal = async function () {
                 total_ttc: invoice.total_ttc
             }
         };
+
+        // 🚀 High-Visibility Loading Overlay
+        const overlay = document.createElement('div');
+        overlay.id = 'global-loading-overlay-multi-convert';
+        overlay.style.cssText = `
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.7);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            z-index: 99999;
+            color: white;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        `;
+        overlay.innerHTML = `
+            <div style="margin-bottom: 20px;">
+                <svg width="60" height="60" viewBox="0 0 50 50" style="animation: rotate 2s linear infinite;">
+                    <circle cx="25" cy="25" r="20" fill="none" stroke="#2196F3" stroke-width="5" stroke-dasharray="80, 200" stroke-dashoffset="0" stroke-linecap="round">
+                        <animateTransform attributeName="transform" type="rotate" from="0 25 25" to="360 25 25" dur="1.5s" repeatCount="indefinite"/>
+                    </circle>
+                </svg>
+            </div>
+            <h2 style="margin: 0; font-size: 1.5rem; font-weight: 600;">Conversion en cours...</h2>
+            <p style="margin: 10px 0 0; opacity: 0.8;">Veuillez patienter pendant la création du nouveau document</p>
+            <style>
+                @keyframes rotate { 100% { transform: rotate(360deg); } }
+            </style>
+        `;
+        document.body.appendChild(overlay);
 
         // Create new invoice
         const createResult = await window.electron.dbMulti.createInvoice(newInvoiceData);

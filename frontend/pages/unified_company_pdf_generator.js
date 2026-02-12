@@ -179,6 +179,7 @@ window.downloadAsOtherCompany = async function (invoiceId, sourceDb) {
         console.log(`📥 Generating ${selection.company} PDF for invoice:`, invoiceId, 'from source:', sourceDb);
 
         // Route to the exact same functions that were used before
+        // Each function has its own loading overlay that shows AFTER the user clicks 'Générer' in the modal
         if (selection.company === 'SKM') {
             // SMART SERVICES (was SKM)
             if (sourceDb === 'multi') {
@@ -207,6 +208,57 @@ window.downloadAsOtherCompany = async function (invoiceId, sourceDb) {
         window.notify.error('Erreur', 'Impossible de générer le PDF: ' + error.message, 4000);
     }
 };
+
+// Create a loading overlay for PDF generation
+function createPDFLoadingOverlay(companyCode) {
+    const companyNames = {
+        'SKM': 'SMART SERVICES',
+        'SAAISS': 'MSH3 SERVICES',
+        'BENALI': 'BEN ALI'
+    };
+    const companyColors = {
+        'SKM': '#FF9800',
+        'SAAISS': '#9C27B0',
+        'BENALI': '#4CAF50'
+    };
+    const name = companyNames[companyCode] || companyCode;
+    const color = companyColors[companyCode] || '#2196F3';
+
+    const overlay = document.createElement('div');
+    overlay.id = 'pdfLoadingOverlay';
+    overlay.style.cssText = `
+        position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+        background: rgba(0, 0, 0, 0.7);
+        display: flex; align-items: center; justify-content: center;
+        z-index: 99999; backdrop-filter: blur(4px);
+    `;
+    overlay.innerHTML = `
+        <div style="
+            background: #1e1e1e; border-radius: 16px; padding: 2.5rem 3rem;
+            text-align: center; box-shadow: 0 20px 60px rgba(0,0,0,0.5);
+            border: 1px solid ${color}33; min-width: 300px;
+        ">
+            <div style="
+                width: 56px; height: 56px; border: 4px solid #333;
+                border-top-color: ${color}; border-radius: 50%;
+                animation: pdfSpin 0.8s linear infinite;
+                margin: 0 auto 1.5rem;
+            "></div>
+            <div style="color: #fff; font-size: 1.15rem; font-weight: 600; margin-bottom: 0.5rem;">
+                Génération du PDF en cours...
+            </div>
+            <div style="color: ${color}; font-size: 0.95rem; font-weight: 700;">
+                🏭 ${name}
+            </div>
+        </div>
+        <style>
+            @keyframes pdfSpin {
+                to { transform: rotate(360deg); }
+            }
+        </style>
+    `;
+    return overlay;
+}
 
 // Generate BEN ALI PDF (new company)
 async function generateBenAliPDF(invoiceId, sourceDb) {
@@ -245,110 +297,159 @@ async function generateBenAliPDF(invoiceId, sourceDb) {
             return;
         }
 
-        // Check if jsPDF is loaded
-        if (typeof window.jspdf === 'undefined') {
-            await loadJsPDF();
-        }
-
-        const { jsPDF } = window.jspdf;
-        const doc = new jsPDF();
-
-        // Apply customizations
-        const customizedInvoice = { ...invoice };
-
-        if (customizationData.percentage && customizationData.percentage > 0) {
-            customizedInvoice.products = customizedInvoice.products.map(product => ({
-                ...product,
-                prix_unitaire_ht: parseFloat(product.prix_unitaire_ht) * (1 + customizationData.percentage / 100),
-                total_ht: parseFloat(product.total_ht) * (1 + customizationData.percentage / 100)
-            }));
-
-            const newTotalHT = customizedInvoice.products.reduce((sum, p) => sum + parseFloat(p.total_ht), 0);
-            const newMontantTVA = newTotalHT * (parseFloat(customizedInvoice.tva_rate) / 100);
-            const newTotalTTC = newTotalHT + newMontantTVA;
-
-            customizedInvoice.total_ht = newTotalHT;
-            customizedInvoice.montant_tva = newMontantTVA;
-            customizedInvoice.total_ttc = newTotalTTC;
-        }
-
-        if (customizationData.customDate) {
-            customizedInvoice.document_date = customizationData.customDate;
-        }
-        if (customizationData.customDevisNumber) {
-            customizedInvoice.document_numero_devis = customizationData.customDevisNumber;
-        }
-
-        // Apply modified product names
-        if (customizationData.modifiedProducts) {
-            customizedInvoice.products = customizedInvoice.products.map((product, index) => ({
-                ...product,
-                designation: customizationData.modifiedProducts[index] || product.designation
-            }));
-        }
-
-        // Add Devis number to BEN ALI database
+        // Show loading overlay immediately after modal closes
+        let loadingOverlay = null;
         try {
-            const currentYear = new Date().getFullYear();
-            await window.electron.dbBenAli.addDevisNumber(customizationData.customDevisNumber, currentYear);
-            console.log('✅ BEN ALI Devis number added to database:', customizationData.customDevisNumber);
-        } catch (error) {
-            console.error('Error saving BEN ALI devis number:', error);
+            loadingOverlay = document.createElement('div');
+            loadingOverlay.id = 'pdfLoadingOverlay';
+            loadingOverlay.style.cssText = `
+                position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+                background: rgba(0, 0, 0, 0.7);
+                display: flex; align-items: center; justify-content: center;
+                z-index: 99999; backdrop-filter: blur(4px);
+            `;
+            loadingOverlay.innerHTML = `
+                <div style="
+                    background: #1e1e1e; border-radius: 16px; padding: 2.5rem 3rem;
+                    text-align: center; box-shadow: 0 20px 60px rgba(0,0,0,0.5);
+                    border: 1px solid rgba(76,175,80,0.3); min-width: 300px;
+                ">
+                    <div style="
+                        width: 56px; height: 56px; border: 4px solid #333;
+                        border-top-color: #4CAF50; border-radius: 50%;
+                        animation: pdfSpin 0.8s linear infinite;
+                        margin: 0 auto 1.5rem;
+                    "></div>
+                    <div style="color: #fff; font-size: 1.15rem; font-weight: 600; margin-bottom: 0.5rem;">
+                        Génération du PDF en cours...
+                    </div>
+                    <div style="color: #4CAF50; font-size: 0.95rem; font-weight: 700;">
+                        🏭 BEN ALI
+                    </div>
+                </div>
+                <style>
+                    @keyframes pdfSpin {
+                        to { transform: rotate(360deg); }
+                    }
+                </style>
+            `;
+            document.body.appendChild(loadingOverlay);
+        } catch (e) {
+            console.warn('Could not show loading overlay:', e);
         }
 
-        // Generate BEN ALI PDF
-        await generateBenAliPDFContent(doc, customizedInvoice);
+        try {
+            // Check if jsPDF is loaded
+            if (typeof window.jspdf === 'undefined') {
+                await loadJsPDF();
+            }
 
-        // Save the PDF
-        const docType = customizedInvoice.document_type === 'devis' ? 'Devis' : 'Facture';
-        const invoiceNumber = customizedInvoice.document_numero_devis || customizedInvoice.document_numero || 'N-A';
-        const fileName = `BENALI_${docType}_${customizedInvoice.client_nom}_${invoiceNumber}.pdf`;
+            const { jsPDF } = window.jspdf;
+            const doc = new jsPDF();
 
-        // Get PDF as blob and save to backend
-        const pdfBlob = doc.output('blob');
-        const currentYear = new Date().getFullYear();
+            // Apply customizations
+            const customizedInvoice = { ...invoice };
 
-        // Get createdBy
-        const selectedCompany = JSON.parse(localStorage.getItem('selectedCompany') || '{}');
-        const createdBy = selectedCompany.code || selectedCompany.name || 'Unknown';
+            if (customizationData.percentage && customizationData.percentage > 0) {
+                customizedInvoice.products = customizedInvoice.products.map(product => ({
+                    ...product,
+                    prix_unitaire_ht: parseFloat(product.prix_unitaire_ht) * (1 + customizationData.percentage / 100),
+                    total_ht: parseFloat(product.total_ht) * (1 + customizationData.percentage / 100)
+                }));
 
-        // Upload PDF to Server (Cloud Storage)
-        console.log('☁️ Uploading BEN ALI PDF to server...');
-        // Using dbSmartS.uploadPdf as a generic uploader because we haven't exposed it on dbBenAli yet
-        // Ideally we should expose it on window.electron.dbBenAli.uploadPdf too
-        const uploadResult = await window.electron.dbSmartS.uploadPdf(pdfBlob, fileName);
+                const newTotalHT = customizedInvoice.products.reduce((sum, p) => sum + parseFloat(p.total_ht), 0);
+                const newMontantTVA = newTotalHT * (parseFloat(customizedInvoice.tva_rate) / 100);
+                const newTotalTTC = newTotalHT + newMontantTVA;
 
-        if (uploadResult.success) {
-            console.log('✅ BEN ALI PDF uploaded to server:', uploadResult.filePath);
+                customizedInvoice.total_ht = newTotalHT;
+                customizedInvoice.montant_tva = newMontantTVA;
+                customizedInvoice.total_ttc = newTotalTTC;
+            }
 
-            // Record PDF path in database for metadata tracking
+            if (customizationData.customDate) {
+                customizedInvoice.document_date = customizationData.customDate;
+            }
+            if (customizationData.customDevisNumber) {
+                customizedInvoice.document_numero_devis = customizationData.customDevisNumber;
+            }
+
+            // Apply modified product names
+            if (customizationData.modifiedProducts) {
+                customizedInvoice.products = customizedInvoice.products.map((product, index) => ({
+                    ...product,
+                    designation: customizationData.modifiedProducts[index] || product.designation
+                }));
+            }
+
+            // Add Devis number to BEN ALI database
             try {
-                await window.electron.dbBenAli.savePdfPath(invoiceNumber, currentYear, uploadResult.filePath, createdBy);
-                console.log('✅ BEN ALI PDF metadata synced to PostgreSQL');
-            } catch (dbErr) {
-                console.error('⚠️ Failed to sync BEN ALI PDF metadata to PostgreSQL:', dbErr);
+                const currentYear = new Date().getFullYear();
+                await window.electron.dbBenAli.addDevisNumber(customizationData.customDevisNumber, currentYear);
+                console.log('✅ BEN ALI Devis number added to database:', customizationData.customDevisNumber);
+            } catch (error) {
+                console.error('Error saving BEN ALI devis number:', error);
             }
 
-            // Also download in browser
-            doc.save(fileName);
-            window.notify.success('Succès', `PDF BEN ALI généré et sauvegardé en ligne: ${fileName}`, 3000);
-        } else {
-            console.error('❌ Error uploading BEN ALI PDF to server:', uploadResult.error);
+            // Generate BEN ALI PDF
+            await generateBenAliPDFContent(doc, customizedInvoice);
 
-            // Fallback: save locally
-            // Determine save folder: 'chaimae_benali' if source is chaimae, else 'benali'
-            const saveFolder = sourceDb === 'chaimae' ? 'chaimae_benali' : 'benali';
-            const pdfArrayBuffer = await pdfBlob.arrayBuffer();
+            // Save the PDF
+            const docType = customizedInvoice.document_type === 'devis' ? 'Devis' : 'Facture';
+            const invoiceNumber = customizedInvoice.document_numero_devis || customizedInvoice.document_numero || 'N-A';
+            const fileName = `BENALI_${docType}_${customizedInvoice.client_nom}_${invoiceNumber}.pdf`;
+
+            // Get PDF as ArrayBuffer and save to backend
+            const pdfArrayBuffer = doc.output('arraybuffer');
             const pdfUint8Array = new Uint8Array(pdfArrayBuffer);
+            const currentYear = new Date().getFullYear();
 
-            const saveResult = await window.electron.pdf.savePdf(pdfUint8Array, saveFolder, invoiceNumber, createdBy);
+            // Get createdBy
+            const selectedCompany = JSON.parse(localStorage.getItem('selectedCompany') || '{}');
+            const createdBy = selectedCompany.code || selectedCompany.name || 'Unknown';
 
-            if (saveResult.success) {
-                window.notify.warning('Mode Hors Ligne', 'Le PDF a été sauvegardé localement.', 4000);
+            // Upload PDF to Server (Cloud Storage)
+            console.log('☁️ Uploading BEN ALI PDF to server...');
+            // Using dbSmartS.uploadPdf as a generic uploader because we haven't exposed it on dbBenAli yet
+            // Ideally we should expose it on window.electron.dbBenAli.uploadPdf too
+            const uploadResult = await window.electron.dbSmartS.uploadPdf(pdfUint8Array, fileName);
+
+            if (uploadResult.success) {
+                console.log('✅ BEN ALI PDF uploaded to server:', uploadResult.filePath);
+
+                // Record PDF path in database for metadata tracking
+                try {
+                    await window.electron.dbBenAli.savePdfPath(invoiceNumber, currentYear, uploadResult.filePath, createdBy);
+                    console.log('✅ BEN ALI PDF metadata synced to PostgreSQL');
+                } catch (dbErr) {
+                    console.error('⚠️ Failed to sync BEN ALI PDF metadata to PostgreSQL:', dbErr);
+                }
+
+                // Also download in browser
+                doc.save(fileName);
+                window.notify.success('Succès', `PDF BEN ALI généré et sauvegardé en ligne: ${fileName}`, 3000);
             } else {
-                window.notify.error('Erreur', 'Erreur lors de la sauvegarde du PDF: ' + saveResult.error, 4000);
+                console.error('❌ Error uploading BEN ALI PDF to server:', uploadResult.error);
+
+                // Fallback: save locally
+                // Determine save folder: 'chaimae_benali' if source is chaimae, else 'benali'
+                const saveFolder = sourceDb === 'chaimae' ? 'chaimae_benali' : 'benali';
+                const pdfUint8ArrayFallback = new Uint8Array(doc.output('arraybuffer'));
+
+                const saveResult = await window.electron.pdf.savePdf(pdfUint8ArrayFallback, saveFolder, invoiceNumber, createdBy);
+
+                if (saveResult.success) {
+                    window.notify.warning('Mode Hors Ligne', 'Le PDF a été sauvegardé localement.', 4000);
+                } else {
+                    window.notify.error('Erreur', 'Erreur lors de la sauvegarde du PDF: ' + saveResult.error, 4000);
+                }
+                doc.save(fileName);
             }
-            doc.save(fileName);
+
+        } finally {
+            // Always remove loading overlay
+            if (loadingOverlay && loadingOverlay.parentNode) {
+                loadingOverlay.remove();
+            }
         }
 
     } catch (error) {
@@ -404,6 +505,17 @@ async function showBenAliModal(invoice) {
         nextDevisNumber = '1/' + currentYear;
     }
 
+    // Load last saved settings from PostgreSQL
+    let savedPercentage = '';
+    let savedProductNames = {};
+    try {
+        const settingsResult = await window.electron.dbBenAli.getPdfSettings();
+        if (settingsResult && settingsResult.success && settingsResult.data) {
+            savedPercentage = settingsResult.data.percentage || '';
+            savedProductNames = settingsResult.data.product_names || {};
+        }
+    } catch (e) { console.warn('Could not load BEN ALI settings:', e); }
+
     return new Promise((resolve) => {
         const overlay = document.createElement('div');
         overlay.className = 'custom-modal-overlay';
@@ -411,20 +523,22 @@ async function showBenAliModal(invoice) {
         const selectedCompany = JSON.parse(localStorage.getItem('selectedCompany') || '{}');
         const companyName = selectedCompany.name || 'Inconnue';
 
-        // Generate product inputs HTML
-        const productsHtml = invoice.products.map((product, index) => `
+        // Generate product inputs HTML - use saved names if available
+        const productsHtml = invoice.products.map((product, index) => {
+            const displayName = savedProductNames[index] || product.designation || '';
+            return `
             <div style="margin-bottom: 0.5rem;">
                 <label style="display: block; margin-bottom: 0.2rem; color: #aaa; font-size: 0.8rem;">
                     Produit ${index + 1}: Quantité: ${product.quantite}
                 </label>
                 <textarea class="product-name-input" data-index="${index}"
                        style="width: 100%; padding: 0.5rem; background: #2d2d30; border: 1px solid #3e3e42; border-radius: 4px; color: #fff; font-size: 0.9rem; resize: vertical; min-height: 40px;"
-                       placeholder="Nom du produit">${product.designation || ''}</textarea>
+                       placeholder="Nom du produit">${displayName}</textarea>
             </div>
-        `).join('');
+        `}).join('');
 
         overlay.innerHTML = `
-            <div class="custom-modal" style="max-width: 600px; max-height: 90vh; overflow-y: auto;">
+            <div class="custom-modal" style="max-width: 600px; max-height: 80vh; display: flex; flex-direction: column;">
                 <div class="custom-modal-header" style="background: linear-gradient(135deg, #4CAF50, #388E3C);">
                     <span class="custom-modal-icon info">🎨</span>
                     <h3 class="custom-modal-title" style="color: #fff;">PDF BEN ALI - Personnalisation</h3>
@@ -432,12 +546,12 @@ async function showBenAliModal(invoice) {
                         🏢 Créé par: <strong>${companyName}</strong>
                     </div>
                 </div>
-                <div class="custom-modal-body">
+                <div class="custom-modal-body" style="overflow-y: auto; flex: 1; max-height: calc(80vh - 140px);">
                     <div style="margin-bottom: 1.5rem;">
                         <label style="display: block; margin-bottom: 0.5rem; color: #e0e0e0; font-weight: 600;">
                             Pourcentage d'ajustement (%) :
                         </label>
-                        <input type="number" id="benaliPercentageInput" placeholder="0" min="0" max="100" step="0.1" 
+                        <input type="number" id="benaliPercentageInput" placeholder="0" min="0" max="100" step="0.1" value="${savedPercentage}"
                                style="width: 100%; padding: 0.75rem; background: #2d2d30; border: 1px solid #3e3e42; border-radius: 6px; color: #fff; font-size: 1rem;">
                         <small style="color: #888; display: block; margin-top: 0.3rem;">Ce pourcentage sera appliqué aux prix mais ne sera pas visible dans le PDF</small>
                     </div>
@@ -535,6 +649,11 @@ async function showBenAliModal(invoice) {
                     }
                 });
 
+                // Save settings to PostgreSQL for next time
+                try {
+                    await window.electron.dbBenAli.savePdfSettings(percentage, modifiedProducts);
+                } catch (e) { console.warn('Could not save BEN ALI settings:', e); }
+
                 overlay.remove();
                 resolve({ percentage, customDate, customDevisNumber, modifiedProducts });
 
@@ -603,81 +722,180 @@ async function generateBenAliPDFContent(doc, invoice) {
         }
     };
 
+    // Function to add client/invoice header info
+    const addInfoSection = () => {
+        const dateStr = new Date(invoice.document_date).toLocaleDateString('fr-FR');
+
+        doc.setFontSize(12);
+        doc.setTextColor(0, 0, 0);
+        doc.setFont(undefined, 'bold');
+        doc.text(`CLIENT: ${invoice.client_nom}`, 20, currentY);
+        doc.text(`Date: ${dateStr}`, pageWidth - 20, currentY, { align: 'right' });
+        currentY += 6;
+
+        doc.setFont(undefined, 'normal');
+        doc.setFontSize(10);
+        const iceValue = invoice.client_ice && invoice.client_ice !== '0' ? invoice.client_ice : 'Non spécifié';
+        doc.text(`ICE: ${iceValue}`, 20, currentY);
+        currentY += 14;
+
+        doc.setFontSize(14);
+        doc.setFont(undefined, 'bold');
+        doc.text(`N° Devis: ${invoice.document_numero_devis}`, 20, currentY);
+        currentY += 10;
+    };
+
+    // Table configuration
+    const colWidths = [100, 25, 35, 30]; // Designation, Quantité, P.U HT, Total HT
+    const tableStartX = 15;
+    const tableWidth = 180;
+
+    // Function to add table header row
+    const addTableHeader = () => {
+        const headerStartY = currentY;
+
+        doc.setFillColor(76, 175, 80);
+        doc.rect(tableStartX, currentY, tableWidth, 8, 'F');
+        doc.setTextColor(255, 255, 255);
+        doc.setFontSize(9);
+        doc.setFont(undefined, 'bold');
+        doc.text('Désignation', 18, currentY + 5.5);
+        doc.text('Quantité', 120, currentY + 5.5);
+        doc.text('P.U HT', 145, currentY + 5.5);
+        doc.text('Total HT', 178, currentY + 5.5);
+        currentY += 10;
+
+        return headerStartY;
+    };
+
     // Add first page header
     addHeader();
     currentY += 5;
 
-    // Client info
-    const dateStr = new Date(invoice.document_date).toLocaleDateString('fr-FR');
+    // Add client info
+    addInfoSection();
 
-    doc.setFontSize(12);
-    doc.setTextColor(0, 0, 0);
-    doc.setFont(undefined, 'bold');
-    doc.text(`CLIENT: ${invoice.client_nom}`, 20, currentY);
-    doc.text(`Date: ${dateStr}`, pageWidth - 20, currentY, { align: 'right' });
-    currentY += 6;
+    // Add table header
+    const firstTableStartY = addTableHeader();
 
-    doc.setFont(undefined, 'normal');
-    doc.setFontSize(10);
-    const iceValue = invoice.client_ice && invoice.client_ice !== '0' ? invoice.client_ice : 'Non spécifié';
-    doc.text(`ICE: ${iceValue}`, 20, currentY);
-    currentY += 14;
+    // Track table segments for border drawing
+    let tableSegments = [];
+    let currentSegmentStart = firstTableStartY;
 
-    doc.setFontSize(14);
-    doc.setFont(undefined, 'bold');
-    doc.text(`N° Devis: ${invoice.document_numero_devis}`, 20, currentY);
-    currentY += 10;
-
-    // Products table header
-    const tableStartY = currentY;
-    const colWidths = [100, 25, 35, 30];
-    const colX = [15, 115, 140, 175];
-
-    doc.setFillColor(76, 175, 80);
-    doc.rect(15, currentY, 180, 8, 'F');
-    doc.setTextColor(255, 255, 255);
-    doc.setFontSize(9);
-    doc.setFont(undefined, 'bold');
-    doc.text('Désignation', 18, currentY + 5.5);
-    doc.text('Quantité', 120, currentY + 5.5);
-    doc.text('P.U HT', 145, currentY + 5.5);
-    doc.text('Total HT', 178, currentY + 5.5);
-    currentY += 10;
-
-    // Products
+    // Process products with multi-page description support
     doc.setTextColor(0, 0, 0);
     doc.setFont(undefined, 'normal');
 
     invoice.products.forEach((product, index) => {
         const designation = product.designation || '';
-        const lines = doc.splitTextToSize(designation, 95);
-        const rowHeight = Math.max(8, lines.length * 4 + 4);
+        const descriptionLines = doc.splitTextToSize(designation, 95);
+        const quantityText = String(product.quantite || '');
+        const unitPriceText = parseFloat(product.prix_unitaire_ht).toFixed(2);
+        const totalHtText = parseFloat(product.total_ht).toFixed(2);
 
-        if (currentY + rowHeight > pageHeight - 80) {
-            addFooter(pageCount, 'temp');
-            doc.addPage();
-            pageCount++;
-            addHeader();
-            currentY += 10;
+        let lineIndex = 0;
+        let isFirstChunkOfProduct = true;
+
+        while (lineIndex < descriptionLines.length) {
+            // Check available height on this page (reserve 80px for footer/signature)
+            let availableHeight = pageHeight - 80 - currentY;
+
+            if (availableHeight < 12) {
+                // Save current table segment before page break
+                tableSegments.push({
+                    startY: currentSegmentStart,
+                    endY: currentY,
+                    page: pageCount
+                });
+
+                // New page
+                doc.addPage();
+                pageCount++;
+                addHeader();
+                currentY += 5;
+                addInfoSection();
+                currentSegmentStart = addTableHeader();
+
+                // Reset text style after header
+                doc.setTextColor(0, 0, 0);
+                doc.setFont(undefined, 'normal');
+                doc.setFontSize(8);
+
+                availableHeight = pageHeight - 80 - currentY;
+            }
+
+            // Calculate how many description lines fit on this page
+            const remainingLines = descriptionLines.length - lineIndex;
+            const maxLinesThisPage = Math.max(1, Math.floor((availableHeight - 4) / 4));
+            const linesForThisRow = Math.min(remainingLines, maxLinesThisPage);
+            const rowHeight = Math.max(8, linesForThisRow * 4 + 4);
+
+            const rowY = currentY;
+
+            // Alternating row background - only on first chunk of product
+            if (isFirstChunkOfProduct && index % 2 === 0) {
+                doc.setFillColor(245, 245, 245);
+                doc.rect(tableStartX, rowY - 2, tableWidth, rowHeight, 'F');
+            }
+
+            // Draw description chunk
+            doc.setFontSize(8);
+            doc.setTextColor(0, 0, 0);
+            doc.setFont(undefined, 'normal');
+            const descriptionChunk = descriptionLines.slice(lineIndex, lineIndex + linesForThisRow);
+            descriptionChunk.forEach((line, i) => {
+                doc.text(line, 18, rowY + 3 + i * 4);
+            });
+
+            // Draw quantity, price, and total ONLY on the first chunk of each product
+            if (isFirstChunkOfProduct) {
+                doc.setFontSize(9);
+                doc.text(quantityText, 120, rowY + 4);
+                doc.text(unitPriceText, 155, rowY + 4, { align: 'right' });
+                doc.text(totalHtText, 193, rowY + 4, { align: 'right' });
+            }
+
+            // Draw bottom border for this row
+            doc.setDrawColor(220, 220, 220);
+            doc.setLineWidth(0.2);
+            doc.line(tableStartX, rowY + rowHeight - 2, tableStartX + tableWidth, rowY + rowHeight - 2);
+
+            currentY = rowY + rowHeight;
+            lineIndex += linesForThisRow;
+            isFirstChunkOfProduct = false;
         }
-
-        if (index % 2 === 0) {
-            doc.setFillColor(245, 245, 245);
-            doc.rect(15, currentY - 2, 180, rowHeight, 'F');
-        }
-
-        doc.setFontSize(8);
-        lines.forEach((line, i) => {
-            doc.text(line, 18, currentY + 3 + i * 4);
-        });
-
-        doc.setFontSize(9);
-        doc.text(String(product.quantite || ''), 120, currentY + 4);
-        doc.text(parseFloat(product.prix_unitaire_ht).toFixed(2), 155, currentY + 4, { align: 'right' });
-        doc.text(parseFloat(product.total_ht).toFixed(2), 193, currentY + 4, { align: 'right' });
-
-        currentY += rowHeight;
     });
+
+    // Save the last table segment
+    tableSegments.push({
+        startY: currentSegmentStart,
+        endY: currentY,
+        page: pageCount
+    });
+
+    // Draw outer table borders and column dividers for all segments
+    tableSegments.forEach(segment => {
+        doc.setPage(segment.page);
+        doc.setDrawColor(200, 200, 200);
+        doc.setLineWidth(0.3);
+        doc.rect(tableStartX, segment.startY, tableWidth, segment.endY - segment.startY);
+    });
+
+    // Ensure we are on the last page for totals
+    doc.setPage(pageCount);
+
+    // Check if totals fit on this page (need ~35px for totals)
+    if (currentY + 35 > pageHeight - 80) {
+        tableSegments.push({
+            startY: currentSegmentStart,
+            endY: currentY,
+            page: pageCount
+        });
+        doc.addPage();
+        pageCount++;
+        addHeader();
+        currentY += 15;
+    }
 
     // Totals
     currentY += 10;

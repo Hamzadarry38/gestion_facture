@@ -213,6 +213,14 @@ function CompanySelectPage() {
                 </div>
             </div>
         </div>
+                /* Notification Animation */
+                @keyframes popIn {
+                    0% { transform: scale(0); opacity: 0; }
+                    80% { transform: scale(1.1); opacity: 1; }
+                    100% { transform: scale(1); }
+                }
+            </style>
+        </div>
     `;
 }
 
@@ -233,6 +241,75 @@ function initCompanySelectPage() {
 
     if (canManageUsers) {
         if (manageUsersBtn) manageUsersBtn.style.display = 'flex';
+        // Only update counts for admins
+        updatePendingCounts();
+    }
+}
+
+// Fetch and display pending counts
+async function updatePendingCounts() {
+    const companies = ['mry', 'chaimae', 'multi'];
+
+    for (const company of companies) {
+        try {
+            // Fetch pending invoices count
+            // We use the exposed API which should work for all companies
+            const result = await window.electron.api.getPendingInvoices(company.toUpperCase());
+
+            if (result.success && result.data && result.data.length > 0) {
+                const card = document.querySelector(`.company-card[data-company="${company}"]`);
+                if (card) {
+                    let badge = card.querySelector('.notification-badge');
+
+                    // Create badge if it doesn't exist
+                    if (!badge) {
+                        badge = document.createElement('div');
+                        badge.className = 'notification-badge';
+                        badge.style.cssText = `
+                            position: absolute;
+                            top: -10px;
+                            right: -10px;
+                            background: #f44336;
+                            color: white;
+                            border-radius: 50%;
+                            width: 25px;
+                            height: 25px;
+                            display: flex;
+                            align-items: center;
+                            justify-content: center;
+                            font-size: 12px;
+                            font-weight: bold;
+                            box-shadow: 0 4px 8px rgba(0,0,0,0.5);
+                            z-index: 100;
+                            border: 2px solid #2d2d30;
+                            animation: popIn 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+                            pointer-events: none;
+                        `;
+
+                        // Ensure card has relative positioning
+                        const currentPosition = window.getComputedStyle(card).position;
+                        if (currentPosition === 'static') {
+                            card.style.position = 'relative';
+                        }
+
+                        card.appendChild(badge);
+                    }
+
+                    // Update count
+                    badge.textContent = result.data.length;
+                    badge.style.display = 'flex';
+                }
+            } else {
+                // Remove badge if count is 0
+                const card = document.querySelector(`.company-card[data-company="${company}"]`);
+                if (card) {
+                    const badge = card.querySelector('.notification-badge');
+                    if (badge) badge.remove();
+                }
+            }
+        } catch (error) {
+            console.error(`Failed to load pending count for ${company}:`, error);
+        }
     }
 }
 

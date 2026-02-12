@@ -1179,20 +1179,49 @@ async function checkDocumentNumberUnique(type, numero, numeroOrder = null) {
 }
 
 // Handle form submission
+// Handle form submission
 async function handleInvoiceSubmit(e) {
     e.preventDefault();
 
-    // Show loading notification
-    const loadingNotif = window.notify.loading(
-        'Enregistrement en cours...',
-        'Veuillez patienter pendant que nous sauvegardons votre facture'
-    );
+    // 🚀 High-Visibility Loading Overlay
+    const overlay = document.createElement('div');
+    overlay.id = 'global-loading-overlay-mry-create';
+    overlay.style.cssText = `
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(0, 0, 0, 0.7);
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        z-index: 99999;
+        color: white;
+        font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    `;
+    overlay.innerHTML = `
+        <div style="margin-bottom: 20px;">
+            <svg width="60" height="60" viewBox="0 0 50 50" style="animation: rotate 2s linear infinite;">
+                <circle cx="25" cy="25" r="20" fill="none" stroke="#2196F3" stroke-width="5" stroke-dasharray="80, 200" stroke-dashoffset="0" stroke-linecap="round">
+                    <animateTransform attributeName="transform" type="rotate" from="0 25 25" to="360 25 25" dur="1.5s" repeatCount="indefinite"/>
+                </circle>
+            </svg>
+        </div>
+        <h2 style="margin: 0; font-size: 1.5rem; font-weight: 600;">Enregistrement...</h2>
+        <p style="margin: 10px 0 0; opacity: 0.8;">Veuillez patienter pendant la création de votre facture</p>
+        <style>
+            @keyframes rotate { 100% { transform: rotate(360deg); } }
+        </style>
+    `;
+    document.body.appendChild(overlay);
 
     // Disable submit button
     const submitBtn = e.target.querySelector('button[type="submit"]');
     const originalText = submitBtn.innerHTML;
     submitBtn.innerHTML = '<span>⏳ Enregistrement...</span>';
-    submitBtn.disabled = false; // Should be true, but keeping original behavior for now
+    submitBtn.disabled = true;
 
     try {
         // Get current user info
@@ -1243,8 +1272,8 @@ async function handleInvoiceSubmit(e) {
         );
 
         if (!isUnique) {
-            // Remove loading notification
-            window.notify.remove(loadingNotif);
+            // Remove loading overlay
+            if (overlay) overlay.remove();
             // Restore button
             submitBtn.innerHTML = originalText;
             submitBtn.disabled = false;
@@ -1372,8 +1401,8 @@ async function handleInvoiceSubmit(e) {
                 await window.electron.db.saveNote(invoiceId, noteText);
             }
 
-            // Remove loading notification
-            window.notify.remove(loadingNotif);
+            // Remove loading overlay
+            if (overlay) overlay.remove();
 
             // Show success notification
             window.notify.success(
@@ -1392,8 +1421,12 @@ async function handleInvoiceSubmit(e) {
     } catch (error) {
         console.error('❌ Error saving invoice:', error);
 
-        // Remove loading notification
-        window.notify.remove(loadingNotif);
+        // Remove loading overlay
+        if (overlay) overlay.remove();
+
+        // Restore button
+        submitBtn.innerHTML = originalText;
+        submitBtn.disabled = false;
 
         // Show error notification
         window.notify.error(

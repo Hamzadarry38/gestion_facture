@@ -8,6 +8,11 @@ contextBridge.exposeInMainWorld('electron', {
   maximize: () => ipcRenderer.send('window-maximize'),
   close: () => ipcRenderer.send('window-close'),
 
+  // General API
+  api: {
+    getPendingInvoices: (companyCode) => ipcRenderer.invoke('api:invoices:getPending', companyCode),
+  },
+
   // Database API for MRY
   db: {
     // Clients
@@ -61,8 +66,8 @@ contextBridge.exposeInMainWorld('electron', {
     migrateToPostgres: (pgConfig) => ipcRenderer.invoke('db:migrate:postgres', pgConfig),
 
     // Validation & Users
-    getPendingInvoices: () => ipcRenderer.invoke('db:invoices:getPending', 'MRY'),
-    validateInvoice: (id, status) => ipcRenderer.invoke('db:invoices:validate', id, status),
+    getPendingInvoices: () => ipcRenderer.invoke('api:invoices:getPending', 'MRY'),
+    validateInvoice: (id, status) => ipcRenderer.invoke('api:invoices:validate', id, status),
     getUsers: () => ipcRenderer.invoke('users:getAll'),
     getUsers: () => ipcRenderer.invoke('users:getAll'),
     updateUserPermissions: (id, canAutoValidate) => ipcRenderer.invoke('users:updatePermissions', id, canAutoValidate),
@@ -113,6 +118,10 @@ contextBridge.exposeInMainWorld('electron', {
     createGlobalInvoice: (data) => ipcRenderer.invoke('db:chaimae:globalInvoices:create', data),
     getGlobalInvoiceById: (id) => ipcRenderer.invoke('db:chaimae:globalInvoices:getById', id),
     getAllGlobalInvoices: () => ipcRenderer.invoke('db:chaimae:globalInvoices:getAll'),
+
+    // Validation
+    getPendingInvoices: () => ipcRenderer.invoke('api:invoices:getPending', 'CHAIMAE'),
+    validateInvoice: (id, status) => ipcRenderer.invoke('api:invoices:validate', id, status),
     updateGlobalInvoice: (id, data) => ipcRenderer.invoke('db:chaimae:globalInvoices:update', id, data),
     deleteGlobalInvoice: (id) => ipcRenderer.invoke('db:chaimae:globalInvoices:delete', id),
     getBonsByClient: (clientId) => ipcRenderer.invoke('db:chaimae:globalInvoices:getBonsByClient', clientId),
@@ -217,8 +226,8 @@ contextBridge.exposeInMainWorld('electron', {
     deleteAllData: () => ipcRenderer.invoke('dbMulti:deleteAllData'),
 
     // Validation & Users
-    getPendingInvoices: () => ipcRenderer.invoke('db:invoices:getPending', 'MULTI'),
-    validateInvoice: (id, status) => ipcRenderer.invoke('db:invoices:validate', id, status),
+    getPendingInvoices: () => ipcRenderer.invoke('api:invoices:getPending', 'MULTI'),
+    validateInvoice: (id, status) => ipcRenderer.invoke('api:invoices:validate', id, status),
     getUsers: () => ipcRenderer.invoke('users:getAll'),
     updateUserPermissions: (id, canAutoValidate) => ipcRenderer.invoke('users:updatePermissions', id, canAutoValidate)
   },
@@ -239,7 +248,11 @@ contextBridge.exposeInMainWorld('electron', {
     savePdfPath: (devisNumber, year, filePath, createdBy) => ipcRenderer.invoke('db:smarts:pdf:savePath', devisNumber, year, filePath, createdBy),
     getPdfPath: (devisNumber, year) => ipcRenderer.invoke('db:smarts:pdf:getPath', devisNumber, year),
     deletePdfPath: (devisNumber, year) => ipcRenderer.invoke('db:smarts:pdf:deletePath', devisNumber, year),
-    uploadPdf: (pdfBlob, filename) => ipcRenderer.invoke('db:smarts:pdf:upload', pdfBlob, filename)
+    uploadPdf: (pdfBlob, filename) => ipcRenderer.invoke('db:smarts:pdf:upload', pdfBlob, filename),
+
+    // PDF Settings
+    getPdfSettings: () => ipcRenderer.invoke('db:smarts:pdfSettings:get'),
+    savePdfSettings: (percentage, productNames) => ipcRenderer.invoke('db:smarts:pdfSettings:save', percentage, productNames)
   },
 
   // Database API for MSH3 SERVICES
@@ -257,7 +270,11 @@ contextBridge.exposeInMainWorld('electron', {
     // PDF Files
     savePdfPath: (devisNumber, year, filePath, createdBy) => ipcRenderer.invoke('db:msh3:pdf:savePath', devisNumber, year, filePath, createdBy),
     getPdfPath: (devisNumber, year) => ipcRenderer.invoke('db:msh3:pdf:getPath', devisNumber, year),
-    deletePdfPath: (devisNumber, year) => ipcRenderer.invoke('db:msh3:pdf:deletePath', devisNumber, year)
+    deletePdfPath: (devisNumber, year) => ipcRenderer.invoke('db:msh3:pdf:deletePath', devisNumber, year),
+
+    // PDF Settings
+    getPdfSettings: () => ipcRenderer.invoke('db:msh3:pdfSettings:get'),
+    savePdfSettings: (percentage, productNames) => ipcRenderer.invoke('db:msh3:pdfSettings:save', percentage, productNames)
   },
 
   // Legacy aliases for backward compatibility (after renaming skm->smarts, saaiss->msh3)
@@ -272,7 +289,11 @@ contextBridge.exposeInMainWorld('electron', {
     clearAllDevis: () => ipcRenderer.invoke('db:smarts:devis:clearAll'),
     savePdfPath: (devisNumber, year, filePath, createdBy) => ipcRenderer.invoke('db:smarts:pdf:savePath', devisNumber, year, filePath, createdBy),
     getPdfPath: (devisNumber, year) => ipcRenderer.invoke('db:smarts:pdf:getPath', devisNumber, year),
-    deletePdfPath: (devisNumber, year) => ipcRenderer.invoke('db:smarts:pdf:deletePath', devisNumber, year)
+    deletePdfPath: (devisNumber, year) => ipcRenderer.invoke('db:smarts:pdf:deletePath', devisNumber, year),
+
+    // PDF Settings
+    getPdfSettings: () => ipcRenderer.invoke('db:smarts:pdfSettings:get'),
+    savePdfSettings: (percentage, productNames) => ipcRenderer.invoke('db:smarts:pdfSettings:save', percentage, productNames)
   },
 
   dbSaaiss: {
@@ -286,7 +307,11 @@ contextBridge.exposeInMainWorld('electron', {
     clearAllDevis: () => ipcRenderer.invoke('db:msh3:devis:clearAll'),
     savePdfPath: (devisNumber, year, filePath, createdBy) => ipcRenderer.invoke('db:msh3:pdf:savePath', devisNumber, year, filePath, createdBy),
     getPdfPath: (devisNumber, year) => ipcRenderer.invoke('db:msh3:pdf:getPath', devisNumber, year),
-    deletePdfPath: (devisNumber, year) => ipcRenderer.invoke('db:msh3:pdf:deletePath', devisNumber, year)
+    deletePdfPath: (devisNumber, year) => ipcRenderer.invoke('db:msh3:pdf:deletePath', devisNumber, year),
+
+    // PDF Settings
+    getPdfSettings: () => ipcRenderer.invoke('db:msh3:pdfSettings:get'),
+    savePdfSettings: (percentage, productNames) => ipcRenderer.invoke('db:msh3:pdfSettings:save', percentage, productNames)
   },
 
   // Database API for BEN ALI
@@ -304,7 +329,11 @@ contextBridge.exposeInMainWorld('electron', {
     // PDF Files
     savePdfPath: (devisNumber, year, filePath, createdBy) => ipcRenderer.invoke('db:benali:pdf:savePath', devisNumber, year, filePath, createdBy),
     getPdfPath: (devisNumber, year) => ipcRenderer.invoke('db:benali:pdf:getPath', devisNumber, year),
-    deletePdfPath: (devisNumber, year) => ipcRenderer.invoke('db:benali:pdf:deletePath', devisNumber, year)
+    deletePdfPath: (devisNumber, year) => ipcRenderer.invoke('db:benali:pdf:deletePath', devisNumber, year),
+
+    // PDF Settings
+    getPdfSettings: () => ipcRenderer.invoke('db:benali:pdfSettings:get'),
+    savePdfSettings: (percentage, productNames) => ipcRenderer.invoke('db:benali:pdfSettings:save', percentage, productNames)
   },
 
   // PDF Files API
@@ -314,9 +343,7 @@ contextBridge.exposeInMainWorld('electron', {
     openPdf: (filePath) => ipcRenderer.invoke('pdf:openPdf', filePath),
     deletePdf: (filePath) => ipcRenderer.invoke('pdf:deletePdf', filePath),
     exportAll: (company, userCompany) => ipcRenderer.invoke('pdf:exportAll', company, userCompany),
-    importAll: (company) => ipcRenderer.invoke('pdf:importAll', company),
-    exportEverything: () => ipcRenderer.invoke('pdf:exportEverything'),
-    importEverything: () => ipcRenderer.invoke('pdf:importEverything')
+    importAll: (company) => ipcRenderer.invoke('pdf:importAll', company)
   },
 
   // Attachments Storage API
@@ -342,6 +369,11 @@ contextBridge.exposeInMainWorld('electron', {
     onUpdateAvailable: (callback) => ipcRenderer.on('update-available', (event, info) => callback(info)),
     onDownloadProgress: (callback) => ipcRenderer.on('download-progress', (event, percent) => callback(percent)),
     onUpdateDownloaded: (callback) => ipcRenderer.on('update-downloaded', (event, info) => callback(info))
+  },
+
+  // Schema Import
+  schema: {
+    import: (filePath) => ipcRenderer.invoke('schema:import', filePath)
   },
 
   // Add your API methods here

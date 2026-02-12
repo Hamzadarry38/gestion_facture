@@ -97,6 +97,48 @@ window.downloadSKMDevisPDF = async function (invoiceId) {
             return;
         }
 
+        // Call the new global function to handle PDF generation with loading overlay
+        await window.generateSKMPDFWithCustomization(invoice, customizationData, includeZeroProducts);
+
+    } catch (error) {
+        console.error('❌ Error generating SKM PDF:', error);
+        await customAlert('Erreur de génération', 'Une erreur est survenue lors de la génération du PDF SKM: ' + error.message, 'error');
+    }
+};
+
+// Global function to generate SKM PDF with customizations
+window.generateSKMPDFWithCustomization = async function (invoice, customizationData, includeZeroProducts = true) {
+    // Create loading overlay
+    const loadingOverlay = document.createElement('div');
+    loadingOverlay.style.cssText = `
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(0, 0, 0, 0.8);
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        z-index: 10000;
+        backdrop-filter: blur(4px);
+    `;
+    loadingOverlay.innerHTML = `
+        <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 2rem 3rem; border-radius: 16px; box-shadow: 0 20px 60px rgba(0,0,0,0.5); text-align: center;">
+            <div style="width: 60px; height: 60px; border: 4px solid rgba(255,255,255,0.3); border-top-color: white; border-radius: 50%; animation: spin 1s linear infinite; margin: 0 auto 1.5rem;"></div>
+            <h3 style="color: white; margin: 0 0 0.5rem 0; font-size: 1.5rem; font-weight: 600;">Génération du PDF SMART SERVICES</h3>
+            <p style="color: rgba(255,255,255,0.9); margin: 0; font-size: 1rem;">Veuillez patienter...</p>
+        </div>
+        <style>
+            @keyframes spin {
+                to { transform: rotate(360deg); }
+            }
+        </style>
+    `;
+    document.body.appendChild(loadingOverlay);
+
+    try {
         // Check if jsPDF is loaded
         if (typeof window.jspdf === 'undefined') {
             await loadJsPDF();
@@ -169,9 +211,8 @@ window.downloadSKMDevisPDF = async function (invoiceId) {
         const invoiceNumber = customizedInvoice.document_numero_devis || customizedInvoice.document_numero || 'N-A';
         const fileName = `SMART_SERVICES_${docType}_${customizedInvoice.client_nom}_${invoiceNumber}.pdf`;
 
-        // Get PDF as blob and save to disk
-        const pdfBlob = doc.output('blob');
-        const pdfArrayBuffer = await pdfBlob.arrayBuffer();
+        // Get PDF as ArrayBuffer and save to disk
+        const pdfArrayBuffer = doc.output('arraybuffer');
         const pdfUint8Array = new Uint8Array(pdfArrayBuffer);
 
         // Save PDF to disk using electron API (include creator company)
@@ -201,6 +242,11 @@ window.downloadSKMDevisPDF = async function (invoiceId) {
     } catch (error) {
         console.error('❌ Error generating SKM PDF:', error);
         await customAlert('Erreur de génération', 'Une erreur est survenue lors de la génération du PDF SKM: ' + error.message, 'error');
+    } finally {
+        // Remove loading overlay
+        if (loadingOverlay && loadingOverlay.parentNode) {
+            loadingOverlay.remove();
+        }
     }
 };
 
@@ -839,21 +885,23 @@ async function generateSKMPDF(doc, invoice, includeZeroProducts = true) {
                     doc.text(line, colPositions[0] + 2, rowY + 5 + (chunkIndex * 4));
                 });
 
-                // Draw quantity, price and total for this visual row
-                const otherColumns = [quantityText, unitPriceText, totalHtText];
-                otherColumns.forEach((data, offset) => {
-                    const colIndex = offset + 1; // 1, 2, 3
-                    const x = colPositions[colIndex];
-                    const width = colWidths[colIndex];
+                // Draw quantity, price and total for this visual row - ONLY ON FIRST PAGE OF PRODUCT
+                if (lineIndex === 0) {
+                    const otherColumns = [quantityText, unitPriceText, totalHtText];
+                    otherColumns.forEach((data, offset) => {
+                        const colIndex = offset + 1; // 1, 2, 3
+                        const x = colPositions[colIndex];
+                        const width = colWidths[colIndex];
 
-                    // Use same positioning as header: x + 2 for left align, x + width - 2 for right align
-                    const align = colIndex > 1 ? 'right' : 'left';
-                    const textX = align === 'right' ? x + width - 2 : x + 2;
+                        // Use same positioning as header: x + 2 for left align, x + width - 2 for right align
+                        const align = colIndex > 1 ? 'right' : 'left';
+                        const textX = align === 'right' ? x + width - 2 : x + 2;
 
-                    doc.setFontSize(8);
-                    doc.text(data, textX, rowY + 5, { align });
-                    doc.setFontSize(9);
-                });
+                        doc.setFontSize(8);
+                        doc.text(data, textX, rowY + 5, { align });
+                        doc.setFontSize(9);
+                    });
+                }
 
                 // Add borders around this row
                 doc.setDrawColor(0, 0, 0);

@@ -206,6 +206,32 @@ function setupIpcHandlers() {
 
 // PDF Files handlers
 function setupPdfHandlers() {
+  // Schema Import Handler
+  ipcMain.handle('schema:import', async (event, filePath) => {
+    try {
+      console.log('📥 Importing schema from:', filePath);
+
+      const formData = new FormData();
+      const fileBuffer = fs.readFileSync(filePath);
+      const blob = new Blob([fileBuffer], { type: 'application/sql' });
+      formData.append('schema', blob, path.basename(filePath));
+
+      // Import fetch for Node environment (Electron main process)
+      const fetch = (...args) => import('node-fetch').then(({ default: fetch }) => fetch(...args));
+
+      const response = await fetch('http://localhost:3000/api/schema/import', {
+        method: 'POST',
+        body: formData
+      });
+
+      const result = await response.json();
+      return result;
+    } catch (error) {
+      console.error('❌ Error handling schema import:', error);
+      return { success: false, error: 'Failed to import schema: ' + error.message };
+    }
+  });
+
   // Save PDF file
   ipcMain.handle('pdf:savePdf', async (event, pdfData, company, devisNumber, createdBy) => {
     try {

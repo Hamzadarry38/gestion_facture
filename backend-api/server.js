@@ -10,6 +10,40 @@ const fs = require('fs');
 const app = express();
 const port = 8001;
 
+let isModifiedColumnExists = null;
+async function checkIsModifiedExists() {
+  if (isModifiedColumnExists !== null) return isModifiedColumnExists;
+  try {
+    const res = await pool.query(`
+      SELECT column_name 
+      FROM information_schema.columns 
+      WHERE table_name = 'invoices' AND column_name = 'is_modified'
+    `);
+    isModifiedColumnExists = res.rows.length > 0;
+    return isModifiedColumnExists;
+  } catch (err) {
+    console.error('Error checking is_modified column:', err);
+    return false;
+  }
+}
+
+let isConvertedColumnExists = null;
+async function checkIsConvertedExists() {
+  if (isConvertedColumnExists !== null) return isConvertedColumnExists;
+  try {
+    const res = await pool.query(`
+      SELECT column_name 
+      FROM information_schema.columns 
+      WHERE table_name = 'invoices' AND column_name = 'is_converted'
+    `);
+    isConvertedColumnExists = res.rows.length > 0;
+    return isConvertedColumnExists;
+  } catch (err) {
+    console.error('Error checking is_converted column:', err);
+    return false;
+  }
+}
+
 // --- FILE UPLOAD CONFIGURATION (Multer) ---
 const storage = multer.diskStorage({
   destination: function (req, file, cb) {
@@ -55,6 +89,47 @@ app.use(bodyParser.urlencoded({ limit: '50mb', extended: true }));
 function hashPassword(password) {
   return crypto.createHash('sha256').update(password).digest('hex');
 }
+
+// --- SCHEMA IMPORT ROUTE ---
+app.post('/api/schema/import', upload.single('schema'), async (req, res) => {
+  console.log('📥 [POST] /api/schema/import requested');
+  try {
+    if (!req.file) {
+      return res.status(400).json({ success: false, error: 'No file uploaded' });
+    }
+
+    const filePath = req.file.path;
+    console.log(`📂 Reading schema file: ${filePath}`);
+    const sql = fs.readFileSync(filePath, 'utf8');
+
+    // Basic validation to ensure it's a SQL file
+    if (!sql.trim().startsWith('--') && !sql.trim().startsWith('BEGIN;') && !sql.trim().toUpperCase().startsWith('CREATE')) {
+      // Cleanup
+      fs.unlinkSync(filePath);
+      return res.status(400).json({ success: false, error: 'Invalid SQL file format' });
+    }
+
+    const client = await pool.connect();
+    try {
+      console.log('⏳ Executing schema import...');
+      await client.query(sql);
+      console.log('✅ Schema import successful');
+      res.json({ success: true, message: 'Schema imported successfully' });
+    } catch (dbErr) {
+      console.error('❌ Database error during import:', dbErr);
+      res.status(500).json({ success: false, error: dbErr.message });
+    } finally {
+      client.release();
+      // Cleanup uploaded file
+      try {
+        fs.unlinkSync(filePath);
+      } catch (e) { console.error('Error deleting temp file:', e); }
+    }
+  } catch (err) {
+    console.error('❌ Error in /api/schema/import:', err);
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
 
 // --- SYSTEM ROUTES ---
 app.get('/test', async (req, res) => {
@@ -366,9 +441,14 @@ app.get('/invoices/pending', async (req, res) => {
 app.get('/invoices/:company', async (req, res) => {
   try {
     const { company } = req.params;
+    const columnExists = await checkIsModifiedExists();
+    const convertedColumnExists = await checkIsConvertedExists();
+
     // Fetch invoices with client info
     const invoicesRes = await pool.query(`
       SELECT i.*, c.nom as client_nom, c.ice as client_ice 
+      ${columnExists ? ', i.is_modified' : ''}
+      ${convertedColumnExists ? ', i.is_converted' : ''}
       FROM invoices i 
       JOIN clients c ON i.client_id = c.id 
       WHERE i.company_code = $1
@@ -441,6 +521,16 @@ app.get('/invoices/id/:id', async (req, res) => {
     const attachmentsRes = await pool.query('SELECT * FROM invoice_attachments WHERE invoice_id = $1 ORDER BY id DESC', [id]);
     invoice.attachments = attachmentsRes.rows;
     invoice.attachment_count = attachmentsRes.rows.length;
+
+    // ✅ Reset is_modified flag when viewed (Safe check)
+    if (invoice.is_modified === true) {
+      try {
+        await pool.query('UPDATE invoices SET is_modified = false WHERE id = $1', [id]);
+        invoice.is_modified = false;
+      } catch (e) {
+        console.warn('is_modified column may be missing, skipping reset.');
+      }
+    }
 
     res.json({ success: true, data: invoice });
   } catch (err) {
@@ -534,23 +624,68 @@ app.post('/invoices', async (req, res) => {
     const checkEmail = resolvedUserEmail || (created_by && created_by.includes('@') ? created_by : null);
 
     if (checkEmail) {
-      const userRes = await client.query('SELECT id, name, email, can_auto_validate FROM users WHERE email = $1', [checkEmail]);
-      if (userRes.rows.length > 0) {
-        const u = userRes.rows[0];
-        resolvedUserId = resolvedUserId || u.id;
-        resolvedUserName = resolvedUserName || u.name;
-        resolvedUserEmail = resolvedUserEmail || u.email;
-        if (u.can_auto_validate) validation_status = 'validated';
+      try {
+        const userRes = await client.query('SELECT id, name, email, can_auto_validate FROM users WHERE email = $1', [checkEmail]);
+        if (userRes.rows.length > 0) {
+          const u = userRes.rows[0];
+          resolvedUserId = resolvedUserId || u.id;
+          resolvedUserName = resolvedUserName || u.name;
+          resolvedUserEmail = resolvedUserEmail || u.email;
+
+          if (u.can_auto_validate === true) {
+            validation_status = 'validated';
+            console.log(`✅ [API DEBUG] User ${checkEmail} has auto-validation permission.`);
+          } else {
+            console.log(`ℹ️ [API DEBUG] User ${checkEmail} does NOT have auto-validation. Status set to pending.`);
+          }
+        }
+      } catch (e) {
+        console.error('❌ [API ERROR] Failed to check user permissions:', e);
       }
     } else if (resolvedUserId) {
-      // Fallback: lookup by ID
-      const userRes = await client.query('SELECT id, name, email, can_auto_validate FROM users WHERE id = $1', [resolvedUserId]);
-      if (userRes.rows.length > 0) {
-        const u = userRes.rows[0];
-        resolvedUserId = u.id;
-        resolvedUserName = resolvedUserName || u.name;
-        resolvedUserEmail = resolvedUserEmail || u.email;
-        if (u.can_auto_validate) validation_status = 'validated';
+      try {
+        // Fallback: lookup by ID
+        const userRes = await client.query('SELECT id, name, email, can_auto_validate FROM users WHERE id = $1', [resolvedUserId]);
+        if (userRes.rows.length > 0) {
+          const u = userRes.rows[0];
+          resolvedUserId = u.id;
+          resolvedUserName = resolvedUserName || u.name;
+          resolvedUserEmail = resolvedUserEmail || u.email;
+
+          if (u.can_auto_validate === true) {
+            validation_status = 'validated';
+            console.log(`✅ [API DEBUG] User ID ${resolvedUserId} has auto-validation permission.`);
+          } else {
+            console.log(`ℹ️ [API DEBUG] User ID ${resolvedUserId} does NOT have auto-validation. Status set to pending.`);
+          }
+        }
+      } catch (e) {
+        console.error('❌ [API ERROR] Failed to check user permissions by ID:', e);
+      }
+    }
+
+    const columnExists = await checkIsModifiedExists();
+    const convertedColumnExists = await checkIsConvertedExists();
+
+    // 🚀 Handle Devis Conversion Logic
+    // If this is a Facture or BL created from a Devis (has document_numero_devis)
+    if (document_numero_devis && (document_type === 'facture' || document_type === 'bon_livraison')) {
+      try {
+        if (convertedColumnExists) {
+          console.log(`🔄 [API] Marking Devis ${document_numero_devis} as converted...`);
+          // Find the devis by numero and update is_converted
+          const updateDevisRes = await client.query(
+            `UPDATE invoices 
+             SET is_converted = TRUE 
+             WHERE (document_numero = $1 OR document_numero_devis = $1)
+             AND document_type = 'devis' 
+             AND company_code = $2`,
+            [document_numero_devis, company_code]
+          );
+          console.log(`✅ [API] Updated ${updateDevisRes.rowCount} Devis to converted status.`);
+        }
+      } catch (err) {
+        console.error('⚠️ [API WARNING] Failed to update Devis conversion status:', err);
       }
     }
 
@@ -563,9 +698,11 @@ app.post('/invoices', async (req, res) => {
         total_ht, tva_rate, montant_tva, total_ttc,
         creation_method, created_by, delivered_by, ar_status, 
         validation_status, 
-        created_by_user_id, created_by_user_name, created_by_user_email,
+        created_by_user_id, created_by_user_name, created_by_user_email
+        ${columnExists ? ', is_modified' : ''}
+        ${convertedColumnExists ? ', is_converted' : ''},
         created_at, updated_at
-      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, NOW(), NOW())
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25 ${columnExists ? ', $26' : ''} ${convertedColumnExists ? (columnExists ? ', $27' : ', $26') : ''}, NOW(), NOW())
       RETURNING id
     `;
 
@@ -582,6 +719,15 @@ app.post('/invoices', async (req, res) => {
       resolvedUserName,
       resolvedUserEmail
     ];
+    if (columnExists) invoiceValues.push(false); // is_modified default
+    if (convertedColumnExists) invoiceValues.push(false); // is_converted default
+
+    console.log(`📝 [API DEBUG] Creating invoice for ${company_code}:`, {
+      numero: document_numero,
+      type: document_type,
+      status: validation_status,
+      creator: resolvedUserName
+    });
 
     const resInvoice = await client.query(insertInvoiceText, invoiceValues);
     const invoiceId = resInvoice.rows[0].id;
@@ -626,6 +772,9 @@ app.put('/invoices/:id', async (req, res) => {
       products
     } = req.body;
 
+    // Fallback: If these are at top-level but NOT in doc, we use them.
+    // However, if doc exists, inner doc takes precedence below.
+
     // Handle nested format from frontend (document, totals)
     if (req.body.document) {
       const doc = req.body.document;
@@ -643,7 +792,15 @@ app.put('/invoices/:id', async (req, res) => {
       if (doc.created_by !== undefined) created_by = doc.created_by;
       if (doc.delivered_by !== undefined) delivered_by = doc.delivered_by;
       if (doc.ar_status !== undefined) ar_status = doc.ar_status;
-      if (doc.validation_status !== undefined) validation_status = doc.validation_status;
+
+      // LOGIC CHANGE: If an invoice is updated, default it back to 'pending' so Admin sees it.
+      // Unless validation_status is explicitly passed (e.g. by Admin validting it).
+      if (doc.validation_status !== undefined) {
+        validation_status = doc.validation_status;
+      } else {
+        // Default to pending on any edit to ensure visibility in "Unseen" filter
+        validation_status = 'pending';
+      }
 
       // User identification
       if (doc.created_by_user_id !== undefined) created_by_user_id = doc.created_by_user_id;
@@ -652,6 +809,9 @@ app.put('/invoices/:id', async (req, res) => {
       if (doc.updated_by_user_id !== undefined) updated_by_user_id = doc.updated_by_user_id;
       if (doc.updated_by_user_name !== undefined) updated_by_user_name = doc.updated_by_user_name;
       if (doc.updated_by_user_email !== undefined) updated_by_user_email = doc.updated_by_user_email;
+    } else {
+      // If doc is NOT sent, we still want to default to pending on edit
+      if (validation_status === undefined) validation_status = 'pending';
     }
 
     if (req.body.totals) {
@@ -715,6 +875,8 @@ app.put('/invoices/:id', async (req, res) => {
     // But if we have 0, it stays 0.
     const val = (v) => v === undefined ? null : v;
 
+    const columnExists = await checkIsModifiedExists();
+
     await client.query(`
             UPDATE invoices SET 
                 client_id = COALESCE($1, client_id),
@@ -737,6 +899,7 @@ app.put('/invoices/:id', async (req, res) => {
                 updated_by_user_id = COALESCE($18, updated_by_user_id),
                 updated_by_user_name = COALESCE($19, updated_by_user_name),
                 updated_by_user_email = COALESCE($20, updated_by_user_email),
+                ${columnExists ? 'is_modified = true,' : ''}
                 updated_at = NOW()
             WHERE id = $21
         `, [
@@ -891,100 +1054,8 @@ app.delete('/attachments/:id', async (req, res) => {
 
 // --- SECONDARY COMPANY ROUTES (Devis/PDF Tracking) ---
 
-// Devis Numbers
-app.get('/devis/:company', async (req, res) => {
-  try {
-    const { company } = req.params;
-    const table = `${company.toLowerCase()}_devis_numbers`;
-    const result = await pool.query(`SELECT * FROM ${table} ORDER BY year DESC, id DESC`);
-    res.json({ success: true, data: result.rows });
-  } catch (err) {
-    res.status(500).json({ success: false, error: err.message });
-  }
-});
+// (Redundant devis and pdf routes removed)
 
-app.get('/devis/:company/last/:year', async (req, res) => {
-  try {
-    const { company, year } = req.params;
-    const table = `${company.toLowerCase()}_devis_numbers`;
-    const result = await pool.query(
-      `SELECT * FROM ${table} WHERE year = $1 ORDER BY used_at DESC, created_at DESC LIMIT 1`,
-      [year]
-    );
-    res.json({ success: true, data: result.rows[0] || null });
-  } catch (err) {
-    res.status(500).json({ success: false, error: err.message });
-  }
-});
-
-app.post('/devis/:company', async (req, res) => {
-  try {
-    const { company } = req.params;
-    const { devis_number, year } = req.body;
-    const table = `${company.toLowerCase()}_devis_numbers`;
-    await pool.query(
-      `INSERT INTO ${table} (devis_number, year, used_at) VALUES ($1, $2, NOW()) ON CONFLICT (devis_number, year) DO NOTHING`,
-      [devis_number, year]
-    );
-    res.json({ success: true });
-  } catch (err) {
-    res.status(500).json({ success: false, error: err.message });
-  }
-});
-
-app.delete('/devis/:company/:number/:year', async (req, res) => {
-  try {
-    const { company, number, year } = req.params;
-    const table = `${company.toLowerCase()}_devis_numbers`;
-    await pool.query(`DELETE FROM ${table} WHERE devis_number = $1 AND year = $2`, [number, year]);
-    res.json({ success: true });
-  } catch (err) {
-    res.status(500).json({ success: false, error: err.message });
-  }
-});
-
-// PDF Paths
-app.get('/pdf/:company', async (req, res) => {
-  try {
-    const { company } = req.params;
-    const table = `${company.toLowerCase()}_pdf_files`;
-    const result = await pool.query(`SELECT * FROM ${table} ORDER BY year DESC, id DESC`);
-    res.json({ success: true, data: result.rows });
-  } catch (err) {
-    res.status(500).json({ success: false, error: err.message });
-  }
-});
-
-app.get('/pdf/:company/:number/:year', async (req, res) => {
-  try {
-    const { company, number, year } = req.params;
-    const table = `${company.toLowerCase()}_pdf_files`;
-    const result = await pool.query(
-      `SELECT * FROM ${table} WHERE devis_number = $1 AND year = $2`,
-      [number, year]
-    );
-    res.json({ success: true, data: result.rows[0] || null });
-  } catch (err) {
-    res.status(500).json({ success: false, error: err.message });
-  }
-});
-
-app.post('/pdf/:company', async (req, res) => {
-  try {
-    const { company } = req.params;
-    const { devis_number, year, file_path, created_by } = req.body;
-    const table = `${company.toLowerCase()}_pdf_files`;
-    await pool.query(
-      `INSERT INTO ${table} (devis_number, year, file_path, created_by) 
-       VALUES ($1, $2, $3, $4) 
-       ON CONFLICT (devis_number, year) DO UPDATE SET file_path = EXCLUDED.file_path, created_by = EXCLUDED.created_by`,
-      [devis_number, year, file_path, created_by]
-    );
-    res.json({ success: true });
-  } catch (err) {
-    res.status(500).json({ success: false, error: err.message });
-  }
-});
 
 // --- DELIVERY PERSONS ROUTES ---
 app.get('/delivery-persons/:company', async (req, res) => {
@@ -1413,7 +1484,7 @@ app.delete('/attachments/:id', async (req, res) => {
 
 // --- SECONDARY COMPANIES (SKM, MSH3, BENALI, SAAISS) ROUTES ---
 
-const ALLOWED_SECONDARY_COMPANIES = ['skm', 'saaiss', 'benali', 'msh3'];
+const ALLOWED_SECONDARY_COMPANIES = ['skm', 'smarts', 'saaiss', 'benali', 'msh3'];
 
 function validateCompany(company) {
   const c = company.toLowerCase();
@@ -1463,9 +1534,9 @@ app.post('/devis/:company', async (req, res) => {
     const { devis_number, year } = req.body;
 
     const result = await pool.query(
-      `INSERT INTO ${tableName} (devis_number, year, created_at, used_at) 
-       VALUES ($1, $2, NOW(), NOW()) 
-       ON CONFLICT (devis_number, year) DO NOTHING 
+      `INSERT INTO ${tableName} (devis_number, year, used_at) 
+       VALUES ($1, $2, NOW()) 
+       ON CONFLICT (devis_number, year) DO UPDATE SET used_at = NOW()
        RETURNING *`,
       [devis_number, year]
     );
@@ -1536,10 +1607,10 @@ app.post('/pdf/:company', async (req, res) => {
     const { devis_number, year, file_path, created_by } = req.body;
 
     const result = await pool.query(
-      `INSERT INTO ${tableName} (devis_number, year, file_path, created_by, created_at)
-       VALUES ($1, $2, $3, $4, NOW())
+      `INSERT INTO ${tableName} (devis_number, year, file_path, created_by)
+       VALUES ($1, $2, $3, $4)
        ON CONFLICT (devis_number, year) 
-       DO UPDATE SET file_path = EXCLUDED.file_path, created_at = NOW()
+       DO UPDATE SET file_path = EXCLUDED.file_path, created_by = EXCLUDED.created_by
        RETURNING *`,
       [devis_number, year, file_path, created_by]
     );
@@ -1550,9 +1621,10 @@ app.post('/pdf/:company', async (req, res) => {
   }
 });
 
-app.post('/api/upload/:company', upload.single('pdf'), (req, res) => {
+app.post('/upload/:company', upload.single('pdf'), (req, res) => {
   try {
     if (!req.file) {
+
       return res.status(400).json({ success: false, error: 'No file uploaded' });
     }
 
@@ -1576,6 +1648,103 @@ app.post('/api/upload/:company', upload.single('pdf'), (req, res) => {
     res.status(500).json({ success: false, error: err.message });
   }
 });
+
+// --- COMPANY PDF SETTINGS TABLE ---
+// Auto-create the company_pdf_settings table if it doesn't exist
+(async () => {
+  try {
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS company_pdf_settings (
+        id SERIAL PRIMARY KEY,
+        company_code VARCHAR(50) NOT NULL UNIQUE,
+        percentage NUMERIC(10, 2) DEFAULT 0,
+        product_names JSONB DEFAULT '{}',
+        updated_at TIMESTAMP DEFAULT NOW()
+      )
+    `);
+    console.log('✅ company_pdf_settings table ready');
+  } catch (err) {
+    console.error('❌ Error creating company_pdf_settings table:', err.message);
+  }
+})();
+
+// GET PDF settings for a company
+app.get('/pdf-settings/:company', async (req, res) => {
+  try {
+    const { company } = req.params;
+    const companyCode = company.toUpperCase();
+    const result = await pool.query(
+      'SELECT * FROM company_pdf_settings WHERE company_code = $1',
+      [companyCode]
+    );
+    if (result.rows.length > 0) {
+      res.json({ success: true, data: result.rows[0] });
+    } else {
+      res.json({ success: true, data: null });
+    }
+  } catch (err) {
+    console.error('❌ Error getting PDF settings:', err);
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// PUT (upsert) PDF settings for a company
+app.put('/pdf-settings/:company', async (req, res) => {
+  try {
+    const { company } = req.params;
+    const companyCode = company.toUpperCase();
+    const { percentage, product_names } = req.body;
+
+    await pool.query(`
+      INSERT INTO company_pdf_settings (company_code, percentage, product_names, updated_at)
+      VALUES ($1, $2, $3, NOW())
+      ON CONFLICT (company_code)
+      DO UPDATE SET percentage = $2, product_names = $3, updated_at = NOW()
+    `, [companyCode, percentage || 0, JSON.stringify(product_names || {})]);
+
+    res.json({ success: true });
+  } catch (err) {
+    console.error('❌ Error saving PDF settings:', err);
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+
+// --- SECONDARY COMPANIES DEVIS & PATHS TABLES (Auto-create) ---
+(async () => {
+  const companies = ['benali', 'smarts', 'msh3']; // Matches IPC codes
+
+  for (const company of companies) {
+    try {
+      // Devis Numbers Table
+      await pool.query(`
+        CREATE TABLE IF NOT EXISTS ${company}_devis_numbers (
+          id SERIAL PRIMARY KEY,
+          devis_number VARCHAR(50) NOT NULL,
+          year INTEGER NOT NULL,
+          used_at TIMESTAMP DEFAULT NOW(),
+          UNIQUE(devis_number, year)
+        )
+      `);
+
+      // PDF Paths Table
+      await pool.query(`
+        CREATE TABLE IF NOT EXISTS ${company}_pdf_paths (
+          id SERIAL PRIMARY KEY,
+          devis_number VARCHAR(50) NOT NULL,
+          year INTEGER NOT NULL,
+          file_path TEXT NOT NULL,
+          created_by VARCHAR(50),
+          created_at TIMESTAMP DEFAULT NOW(),
+          UNIQUE(devis_number, year)
+        )
+      `);
+      console.log(`✅ ${company} tables ready (devis_numbers & pdf_paths)`);
+    } catch (err) {
+      console.error(`❌ Error creating tables for ${company}:`, err.message);
+    }
+  }
+})();
 
 app.listen(port, '0.0.0.0', () => {
   console.log(`API Backend (API 5) running on http://localhost:${port}`);

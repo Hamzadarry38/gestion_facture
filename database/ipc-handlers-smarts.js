@@ -137,6 +137,25 @@ async function registerSmartSHandlers() {
         }
     });
 
+    // SMART SERVICES PDF Settings (percentage, product names)
+    ipcMain.handle('db:smarts:pdfSettings:get', async () => {
+        try {
+            return await apiClient.getPdfSettings('SKM');
+        } catch (error) {
+            console.error('❌ [SMART SERVICES] Error getting PDF settings:', error);
+            return { success: false, error: error.message };
+        }
+    });
+
+    ipcMain.handle('db:smarts:pdfSettings:save', async (event, percentage, productNames) => {
+        try {
+            return await apiClient.savePdfSettings('SKM', percentage, productNames);
+        } catch (error) {
+            console.error('❌ [SMART SERVICES] Error saving PDF settings:', error);
+            return { success: false, error: error.message };
+        }
+    });
+
     console.log('✅ [SMART SERVICES] IPC handlers registered (API Edition)');
 }
 

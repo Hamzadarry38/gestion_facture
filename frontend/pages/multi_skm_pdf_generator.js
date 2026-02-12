@@ -113,6 +113,47 @@ window.downloadMultiSKMDevisPDF = async function (invoiceId) {
 
 // Global function to generate SKM PDF with customizations
 window.generateSKMPDFWithCustomization = async function (invoice, customizationData, context = 'multi') {
+    // Show loading overlay immediately after modal closes
+    let loadingOverlay = null;
+    try {
+        loadingOverlay = document.createElement('div');
+        loadingOverlay.id = 'pdfLoadingOverlay';
+        loadingOverlay.style.cssText = `
+            position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(0, 0, 0, 0.7);
+            display: flex; align-items: center; justify-content: center;
+            z-index: 99999; backdrop-filter: blur(4px);
+        `;
+        loadingOverlay.innerHTML = `
+            <div style="
+                background: #1e1e1e; border-radius: 16px; padding: 2.5rem 3rem;
+                text-align: center; box-shadow: 0 20px 60px rgba(0,0,0,0.5);
+                border: 1px solid rgba(255,152,0,0.3); min-width: 300px;
+            ">
+                <div style="
+                    width: 56px; height: 56px; border: 4px solid #333;
+                    border-top-color: #FF9800; border-radius: 50%;
+                    animation: pdfSpin 0.8s linear infinite;
+                    margin: 0 auto 1.5rem;
+                "></div>
+                <div style="color: #fff; font-size: 1.15rem; font-weight: 600; margin-bottom: 0.5rem;">
+                    Génération du PDF en cours...
+                </div>
+                <div style="color: #FF9800; font-size: 0.95rem; font-weight: 700;">
+                    🏭 SMART SERVICES
+                </div>
+            </div>
+            <style>
+                @keyframes pdfSpin {
+                    to { transform: rotate(360deg); }
+                }
+            </style>
+        `;
+        document.body.appendChild(loadingOverlay);
+    } catch (e) {
+        console.warn('Could not show loading overlay:', e);
+    }
+
     try {
         // Check if jsPDF is loaded
         if (typeof window.jspdf === 'undefined') {
@@ -198,9 +239,8 @@ window.generateSKMPDFWithCustomization = async function (invoice, customizationD
         const invoiceNumber = customizedInvoice.document_numero_devis || customizedInvoice.document_numero || 'N-A';
         const fileName = `SMART_SERVICES_${docType}_${customizedInvoice.client_nom}_${invoiceNumber}.pdf`;
 
-        // Get PDF as blob
-        const pdfBlob = doc.output('blob');
-        const pdfArrayBuffer = await pdfBlob.arrayBuffer();
+        // Get PDF as ArrayBuffer
+        const pdfArrayBuffer = doc.output('arraybuffer');
         const pdfUint8Array = new Uint8Array(pdfArrayBuffer);
 
         // Folder to save: 'chaimae_skm' if context is chaimae, else 'skm'
@@ -244,6 +284,11 @@ window.generateSKMPDFWithCustomization = async function (invoice, customizationD
     } catch (error) {
         console.error('❌ Error in generateSKMPDFWithCustomization:', error);
         throw error;
+    } finally {
+        // Always remove loading overlay
+        if (loadingOverlay && loadingOverlay.parentNode) {
+            loadingOverlay.remove();
+        }
     }
 };
 
@@ -293,6 +338,17 @@ window.showSimpleSKMModal = async function (invoice, notesText = '') {
         nextDevisNumber = '1/' + currentYear;
     }
 
+    // Load last saved settings from PostgreSQL
+    let savedPercentage = '';
+    let savedProductNames = {};
+    try {
+        const settingsResult = await window.electron.dbSmartS.getPdfSettings();
+        if (settingsResult && settingsResult.success && settingsResult.data) {
+            savedPercentage = settingsResult.data.percentage || '';
+            savedProductNames = settingsResult.data.product_names || {};
+        }
+    } catch (e) { console.warn('Could not load SKM settings:', e); }
+
     return new Promise((resolve) => {
         const overlay = document.createElement('div');
         overlay.className = 'custom-modal-overlay';
@@ -318,7 +374,7 @@ window.showSimpleSKMModal = async function (invoice, notesText = '') {
                     <label style="display: block; margin-bottom: 0.5rem; color: #e0e0e0; font-weight: 600;">
                         Pourcentage d'ajustement (%) :
                     </label>
-                    <input type="number" id="percentageInput" placeholder="0" min="0" max="100" step="0.1" 
+                    <input type="number" id="percentageInput" placeholder="0" min="0" max="100" step="0.1" value="${savedPercentage}"
                            style="width: 100%; padding: 0.75rem; background: #2d2d30; border: 1px solid #3e3e42; border-radius: 6px; color: #fff; font-size: 1rem;">
                     <small style="color: #999; display: block; margin-top: 0.5rem;">
                         Ce pourcentage sera appliqué aux prix mais ne sera pas visible dans le PDF
@@ -375,15 +431,17 @@ window.showSimpleSKMModal = async function (invoice, notesText = '') {
                         Personnalisation des produits :
                     </label>
                     <div id="productsList" style="max-height: 200px; overflow-y: auto; border: 1px solid #3e3e42; border-radius: 6px; padding: 1rem; background: #1e1e1e;">
-                        ${invoice.products.map((product, index) => `
+                        ${invoice.products.map((product, index) => {
+            const displayName = savedProductNames[index] || product.designation;
+            return `
                             <div style="margin-bottom: 1rem;">
                                 <label style="display: block; margin-bottom: 0.25rem; color: #999; font-size: 0.9rem;">
                                     Produit ${index + 1}:
                                 </label>
                                 <textarea id="product-name-${index}" 
-                                       style="width: 100%; padding: 0.5rem; background: #2d2d30; border: 1px solid #3e3e42; border-radius: 4px; color: #fff; font-family: inherit; resize: vertical; min-height: 60px;">${product.designation}</textarea>
+                                       style="width: 100%; padding: 0.5rem; background: #2d2d30; border: 1px solid #3e3e42; border-radius: 4px; color: #fff; font-family: inherit; resize: vertical; min-height: 60px;">${displayName}</textarea>
                             </div>
-                        `).join('')}
+                        `}).join('')}
                     </div>
                 </div>
             </div>
@@ -448,6 +506,13 @@ window.showSimpleSKMModal = async function (invoice, notesText = '') {
 
                 // Get selected font size
                 const notesFontSize = document.querySelector('input[name="notesFontSize"]:checked')?.value || 'medium';
+
+                // Save settings to PostgreSQL for next time
+                const productNamesObj = {};
+                customProductNames.forEach((name, idx) => { productNamesObj[idx] = name; });
+                try {
+                    await window.electron.dbSmartS.savePdfSettings(percentage, productNamesObj);
+                } catch (e) { console.warn('Could not save SKM settings:', e); }
 
                 overlay.remove();
                 resolve({
@@ -935,21 +1000,23 @@ async function generateSKMPDF(doc, invoice, includeZeroProducts = true, notesFon
                     doc.text(line, colPositions[0] + 2, rowY + 5 + (chunkIndex * 4));
                 });
 
-                // Draw quantity, price and total for this visual row
-                const otherColumns = [quantityText, unitPriceText, totalHtText];
-                otherColumns.forEach((data, offset) => {
-                    const colIndex = offset + 1; // 1, 2, 3
-                    const x = colPositions[colIndex];
-                    const width = colWidths[colIndex];
+                // Draw quantity, price and total for this visual row - ONLY ON FIRST PAGE OF PRODUCT
+                if (lineIndex === 0) {
+                    const otherColumns = [quantityText, unitPriceText, totalHtText];
+                    otherColumns.forEach((data, offset) => {
+                        const colIndex = offset + 1; // 1, 2, 3
+                        const x = colPositions[colIndex];
+                        const width = colWidths[colIndex];
 
-                    // Use same positioning as header: x + 2 for left align, x + width - 2 for right align
-                    const align = colIndex > 1 ? 'right' : 'left';
-                    const textX = align === 'right' ? x + width - 2 : x + 2;
+                        // Use same positioning as header: x + 2 for left align, x + width - 2 for right align
+                        const align = colIndex > 1 ? 'right' : 'left';
+                        const textX = align === 'right' ? x + width - 2 : x + 2;
 
-                    doc.setFontSize(8);
-                    doc.text(data, textX, rowY + 5, { align });
-                    doc.setFontSize(9);
-                });
+                        doc.setFontSize(8);
+                        doc.text(data, textX, rowY + 5, { align });
+                        doc.setFontSize(9);
+                    });
+                }
 
                 // Add borders around this row
                 doc.setDrawColor(0, 0, 0);

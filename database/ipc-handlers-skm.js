@@ -143,23 +143,19 @@ async function registerSKMHandlers() {
         }
     });
 
-    ipcMain.handle('db:smarts:pdf:upload', async (event, pdfBlob, filename) => {
+    ipcMain.handle('db:smarts:pdf:upload', async (event, pdfData, filename) => {
         try {
-            // Buffer conversion is needed because fs/multer expects Buffer or Stream, not Blob
-            const buffer = Buffer.from(await pdfBlob.arrayBuffer());
+            // pdfData arrives as a Buffer from Electron IPC if sent as Uint8Array/ArrayBuffer from frontend
+            console.log('📤 [IPC SMARTS] Receiving PDF upload for:', filename);
 
-            // We need to send this buffer via API client
-            // Since api-client uses FormData which works with Blob/Buffer/Stream
-            // We might need to adjust how we pass it.
-            // Electron IPC serialization of Blob might be tricky.
-            // Better to pass ArrayBuffer from frontend.
+            // Validate that we got a Buffer or Uint8Array
+            if (!pdfData || !(pdfData instanceof Uint8Array || Buffer.isBuffer(pdfData))) {
+                throw new Error('Données PDF invalides (Buffer/Uint8Array requis)');
+            }
 
-            // Wait, electron IPC handles Buffers well.
-            // Let's assume frontend sends ArrayBuffer or Buffer.
-
-            return await apiClient.uploadPdf(COMPANY_CODE, pdfBlob, filename);
+            return await apiClient.uploadPdf(COMPANY_CODE, pdfData, filename);
         } catch (error) {
-            console.error('❌ [SKM] Error uploading PDF (API):', error);
+            console.error('❌ [SMARTS] Error uploading PDF (API):', error);
             return { success: false, error: error.message };
         }
     });

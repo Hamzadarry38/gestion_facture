@@ -27,11 +27,14 @@ function LoginPage() {
             </div>
 
             <div class="window-content login-window">
+                
                 <div class="login-container-desktop">
                     <div class="login-side">
                         <div class="login-brand">
                             <div class="brand-icon">🔐</div>
-                            <h1>Welcome</h1>
+                            <h1 id="welcomeTitle" style="cursor: pointer; user-select: none;" title="Double click to import schema">Welcome</h1>
+                            <!-- Hidden File Input for Schema Import -->
+                            <input type="file" id="schemaInput" accept=".sql" style="display: none;">
                         </div>
                     </div>
 
@@ -72,7 +75,7 @@ function LoginPage() {
                             </button>
                         </form>
                         <div style="margin-top: 2rem; text-align: center; border-top: 1px solid #3e3e42; padding-top: 1rem;">
-                            <a href="https://anpe-web-api.ddns.net/facture/" target="_blank" style="color: #2196f3; text-decoration: none; font-size: 0.9rem; display: flex; align-items: center; justify-content: center; gap: 0.5rem;">
+                            <a href="https://redouan.ddns.net/facture/" target="_blank" style="color: #2196f3; text-decoration: none; font-size: 0.9rem; display: flex; align-items: center; justify-content: center; gap: 0.5rem;">
                                 🌐 Accéder au Portail Web
                             </a>
                         </div>
@@ -192,6 +195,53 @@ document.addEventListener('click', (e) => {
         goBackToUsersList();
     }
 });
+
+// Schema Import Handler (Hidden on Welcome Text)
+document.addEventListener('dblclick', (e) => {
+    if (e.target.id === 'welcomeTitle') {
+        document.getElementById('schemaInput').click();
+    }
+});
+
+document.addEventListener('change', async (e) => {
+    if (e.target.id === 'schemaInput' && e.target.files.length > 0) {
+        const file = e.target.files[0];
+
+        if (!confirm(`SECRET ACTION: Import Database Schema?\n\nFile: "${file.name}"\n\nWARNING: This will wipe existing data and recreate the table structure.`)) {
+            e.target.value = ''; // Reset
+            return;
+        }
+
+        try {
+            // Show loading on title
+            const title = document.getElementById('welcomeTitle');
+            const originalText = title.textContent;
+            title.textContent = '⏳ Importing...';
+
+            const filePath = file.path;
+            console.log('Importing schema from:', filePath);
+
+            const result = await window.electron.schema.import(filePath);
+
+            if (result.success) {
+                alert('✅ Schema imported successfully!\nPlease restart the application.');
+                window.location.reload();
+            } else {
+                alert('❌ Import failed: ' + (result.error || 'Unknown error'));
+            }
+
+            // Reset UI
+            title.textContent = originalText;
+            e.target.value = '';
+
+        } catch (error) {
+            console.error('Schema import error:', error);
+            alert('❌ Error: ' + error.message);
+            document.getElementById('welcomeTitle').textContent = 'Welcome';
+        }
+    }
+});
+
 
 // Show custom error notification
 function showError(message) {

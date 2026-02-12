@@ -80,9 +80,7 @@ function InvoicesListChaimaePage() {
                                 <span>Nouvelle</span>
                             </button>
 
-                            <button class="action-btn" onclick="handleSQLiteMigration()" style="background: #9C27B0; color: white; border: none; font-weight: 600;">
-                                🔄 Migrer SQLite → PostgreSQL
-                            </button>
+
 
                             
                             <button class="action-btn action-btn-secondary" onclick="router.navigate('/dashboard-chaimae')">
@@ -94,37 +92,9 @@ function InvoicesListChaimaePage() {
                         </div>
                     </div>
 
-                    <!-- Validation Queue Section (Super User only) -->
-                    <div id="validationQueueSectionChaimae" style="display: none; margin-bottom: 2rem; background: #1a1a1a; border: 2px solid #ff9800; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 20px rgba(255,152,0,0.2);">
-                        <div style="padding: 1rem 1.5rem; background: linear-gradient(90deg, #ff9800, #f57c00); display: flex; justify-content: space-between; align-items: center;">
-                            <h3 style="margin: 0; color: white; font-size: 1.2rem; display: flex; align-items: center; gap: 0.5rem;">
-                                🛡️ File d'attente de validation (<span id="pendingInvoicesCountChaimae">0</span>)
-                            </h3>
-                            <button onclick="toggleValidationQueueChaimae()" style="background: rgba(255,255,255,0.2); border: none; color: white; padding: 0.4rem 0.8rem; border-radius: 4px; cursor: pointer; font-size: 0.9rem;">
-                                <span id="toggleValidationIconChaimae">▼</span> Afficher/Masquer
-                            </button>
-                        </div>
-                        <div id="validationQueueContentChaimae" style="display: none; padding: 1.5rem;">
-                            <div class="table-container" style="max-height: 400px; overflow-y: auto;">
-                                <table class="invoices-table">
-                                    <thead>
-                                        <tr>
-                                            <th>Type</th>
-                                            <th>N° Document</th>
-                                            <th>Client</th>
-                                            <th>Date</th>
-                                            <th>Total TTC</th>
-                                            <th>Par</th>
-                                            <th style="width: 200px; text-align: center;">Actions</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody id="pendingInvoicesTableBodyChaimae">
-                                        <!-- Pending invoices loaded here -->
-                                    </tbody>
-                                </table>
-                            </div>
-                        </div>
-                    </div>
+
+
+
 
                     <!-- Filters -->
                     <div class="filters-section" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem; margin-bottom: 1.5rem;">
@@ -202,6 +172,21 @@ function InvoicesListChaimaePage() {
                                 <option value="normal">Créé normalement</option>
                                 <option value="converted">Converti</option>
                             </select>
+                        </div>
+
+
+                        <!-- Status Filter (Seen/Unseen) - Admins Only -->
+                        <div class="filter-group" id="statusFilterGroupChaimae" style="display: none;">
+                            <label>👁️ Statut:</label>
+                            <div style="position: relative;">
+                                <select id="filterStatusChaimae" onchange="filterInvoicesChaimae()">
+                                    <option value="all">Tous</option>
+                                    <option value="unseen">Non lus (Nouveau)</option>
+                                    <option value="modified">Modifiés (Par un autre)</option>
+                                    <option value="seen">Lus / Traités</option>
+                                </select>
+                                <span id="unseenBadgeChaimae" style="display: none; position: absolute; top: -8px; right: -8px; background: #f44336; color: white; border-radius: 50%; padding: 2px 6px; font-size: 10px; font-weight: bold; box-shadow: 0 2px 4px rgba(0,0,0,0.2);">0</span>
+                            </div>
                         </div>
 
                         <!-- AR Status Filter -->
@@ -313,7 +298,6 @@ function InvoicesListChaimaePage() {
                                                style="width: 18px; height: 18px; cursor: pointer;"
                                                title="Sélectionner tout">
                                     </th>
-                                    <th style="width: 60px;">ID</th>
                                     <th class="col-type-chaimae" style="width: 100px;">Type</th>
                                     <th onclick="sortTableChaimae('numero')" style="cursor: pointer; user-select: none;" title="Cliquez pour trier">
                                         N° Document <span id="sortIconNumeroChaimae">⇅</span>
@@ -469,13 +453,13 @@ window.loadInvoicesChaimae = async function () {
     isSuperUserChaimae = (user.email === 'redouanerrebbahi99@gmail.com' || user.can_auto_validate === true);
 
     // Update UI based on identity
-    const validationSection = document.getElementById('validationQueueSectionChaimae');
     const userMgmtBtn = document.getElementById('userManagementBtnChaimae');
-    if (validationSection) validationSection.style.display = isSuperUserChaimae ? 'block' : 'none';
     if (userMgmtBtn) userMgmtBtn.style.display = isSuperUserChaimae ? 'block' : 'none';
 
-    if (isSuperUserChaimae) {
-        loadPendingInvoicesChaimae();
+    // Show/Hide Status Filter based on admin status
+    const statusFilterGroup = document.getElementById('statusFilterGroupChaimae');
+    if (statusFilterGroup) {
+        statusFilterGroup.style.display = isSuperUserChaimae ? 'block' : 'none';
     }
 
     try {
@@ -519,10 +503,16 @@ window.loadInvoicesChaimae = async function () {
                 updated_by_user_name: inv.updated_by_user_name || inv.created_by_user_name || '-'
             }));
 
-            // Store only regular invoices in main array
-            // Filter: Main list should ONLY show validated invoices (or rejected/modified)
-            // Pending invoices should ONLY appear in the Validation Queue at the top for admins.
-            allInvoicesChaimae = enrichedInvoices.filter(inv => inv.validation_status !== 'pending');
+            // Store ALL invoices (including pending "Unseen")
+            allInvoicesChaimae = enrichedInvoices;
+
+            // Calculate Unseen (Pending) count
+            const unseenCount = allInvoicesChaimae.filter(inv => inv.validation_status === 'pending').length;
+            const badge = document.getElementById('unseenBadgeChaimae');
+            if (badge) {
+                badge.textContent = unseenCount;
+                badge.style.display = unseenCount > 0 ? 'block' : 'none';
+            }
 
             // Display global invoices separately
             displayGlobalInvoicesChaimae(globalInvoices);
@@ -908,14 +898,24 @@ function displayInvoicesChaimae(invoices) {
             type: typeof invoice.total_ht
         });
 
-        const typeLabel = invoice.document_type === 'facture' ? '📄 Facture' :
-            invoice.document_type === 'devis' ? '📋 Devis' :
-                invoice.document_type === 'facture_globale' ? '📦 Facture Globale' :
-                    '📦 Bon de livraison';
-        const typeBadge = invoice.document_type === 'facture' ? 'badge-facture' :
-            invoice.document_type === 'devis' ? 'badge-devis' :
-                invoice.document_type === 'facture_globale' ? 'badge-global' :
-                    'badge-bon';
+        let typeLabel = '';
+        let badgeStyle = '';
+
+        if (invoice.document_type === 'facture') {
+            typeLabel = '📄 Facture';
+            badgeStyle = 'background: #e3f2fd; color: #1565c0; border: 1px solid #90caf9;';
+        } else if (invoice.document_type === 'devis') {
+            typeLabel = '📋 Devis';
+            badgeStyle = 'background: #fff3e0; color: #ef6c00; border: 1px solid #ffcc80;';
+        } else if (invoice.document_type === 'facture_globale') {
+            typeLabel = '📦 Facture Globale';
+            badgeStyle = 'background: #f3e5f5; color: #7b1fa2; border: 1px solid #ce93d8;';
+        } else {
+            typeLabel = '📦 Bon de livraison';
+            badgeStyle = 'background: #e0f2f1; color: #00695c; border: 1px solid #80cbc4;';
+        }
+
+        const typeBadgeHTML = `<span class="badge" style="${badgeStyle} padding: 4px 8px; border-radius: 6px; font-weight: 500; font-size: 0.85rem; display: inline-flex; align-items: center; gap: 4px;">${typeLabel}</span>`;
         const numero = invoice.document_numero || invoice.document_numero_devis || invoice.document_numero_bl || '-';
 
         // Debug BL field
@@ -963,28 +963,34 @@ function displayInvoicesChaimae(invoices) {
         }
 
         // Determine row class based on creation method
-        const rowClass = invoice.creation_method === 'converted' ? 'row-converted' : '';
+        const isUnseen = invoice.validation_status === 'pending';
+        const isModified = invoice.is_modified === true;
 
-        // Validation status badge
-        let validationBadge = '';
-        if (invoice.validation_status === 'validated') {
-            validationBadge = '<span class="badge badge-validated" style="background:#2e7d32;color:white;font-size:0.7rem;margin-left:0.5rem;">Validé</span>';
-        } else if (invoice.validation_status === 'rejected') {
-            validationBadge = '<span class="badge badge-rejected" style="background:#c62828;color:white;font-size:0.7rem;margin-left:0.5rem;">Rejeté</span>';
-        } else {
-            validationBadge = '<span class="badge badge-pending" style="background:#f57c00;color:white;font-size:0.7rem;margin-left:0.5rem;">En attente</span>';
+        // Determine row style
+        let rowClass = '';
+        let rowStyle = '';
+
+        if (invoice.creation_method === 'converted') {
+            rowClass = 'row-converted';
+        } else if (isModified) {
+            // Modified takes precedence over simple Unseen
+            rowStyle = 'background-color: rgba(255, 152, 0, 0.1); font-weight: bold;'; // Orange tint for modified
+        } else if (isUnseen) {
+            rowClass = 'row-unseen';
+            rowStyle = 'background-color: rgba(244, 67, 54, 0.1); font-weight: bold;'; // Red tint for unseen
         }
 
+        // Validation status badge
+        // Validation badge removed per user request
+        let validationBadge = '';
+
         return `
-            <tr class="${rowClass}">
+            <tr class="${rowClass}" style="${rowStyle}">
                 <td style="text-align: center; padding: 1rem 0.75rem; border-right: 1px solid #3e3e42;">
                     <input type="checkbox" class="invoice-checkbox-chaimae" data-invoice-id="${invoice.id}" 
                            style="width: 18px; height: 18px; cursor: pointer;">
                 </td>
-                <td style="padding: 1rem 0.75rem; border-right: 1px solid #3e3e42; text-align: center;">
-                    <strong style="color: #999;">#${displayId}</strong>
-                </td>
-                <td style="padding: 1rem 0.75rem; border-right: 1px solid #3e3e42;"><span class="badge ${typeBadge}">${typeLabel}</span></td>
+                <td style="padding: 1rem 0.75rem; border-right: 1px solid #3e3e42;">${typeBadgeHTML}</td>
                 <td style="padding: 1rem 0.75rem; border-right: 1px solid #3e3e42;">
                     <strong style="color: #2196f3;">${numero}</strong>
                     ${additionalInfo}
@@ -995,7 +1001,12 @@ function displayInvoicesChaimae(invoices) {
                 <td style="padding: 1rem 0.75rem; border-right: 1px solid #3e3e42;"><strong style="color: #4caf50;">${totalTTC} DH</strong></td>
                 <td style="text-align: left; padding: 1rem 0.75rem; border-right: 1px solid #3e3e42;" class="col-totalHT-chaimae"><strong style="color: #cccccc;">${totalHT} DH</strong></td>
                 <td style="padding: 0.5rem; border-right: 1px solid #3e3e42; text-align: center; white-space: nowrap; font-size: 0.85rem;" class="col-createdByCombined-chaimae">
-                    <span style="color: #2196f3; font-weight: bold;">${invoice.created_by || '-'}</span>
+                    <div style="display: flex; flex-direction: column; gap: 0.2rem;">
+                        <span style="color: #2196f3; font-weight: bold;">👤 Créé par: ${invoice.created_by_user_name || invoice.created_by || '-'}</span>
+                         ${invoice.validation_status === 'pending' && invoice.updated_by_user_name && invoice.updated_by_user_name !== invoice.created_by_user_name ?
+                `<span style="color: #ff9800; font-weight: bold;">📝 Modifié par: ${invoice.updated_by_user_name}</span>` : ''}
+                        ${invoice.delivered_by ? `<span style="color: #ff9800;">📦 Livré par: ${invoice.delivered_by}</span>` : ''}
+                    </div>
                 </td>
                 <td style="padding: 1rem 0.75rem; border-right: 1px solid #3e3e42; text-align: center;">
                     <select onchange="updateArStatusChaimae(${invoice.id}, this.value)" 
@@ -1173,8 +1184,10 @@ window.changePaginationPageChaimae = function (direction) {
 // Filter invoices
 window.filterInvoicesChaimae = function () {
     const typeFilter = document.getElementById('filterTypeChaimae')?.value || '';
+    const filterStatus = document.getElementById('filterStatusChaimae')?.value || 'all';
     const filterAttachments = document.getElementById('filterAttachmentsChaimae')?.value || 'all';
     const filterCreationMethod = document.getElementById('filterCreationMethodChaimae')?.value || 'all';
+
     const filterArStatus = document.getElementById('filterArStatusChaimae')?.value || 'all';
     const monthFilter = document.getElementById('filterMonthChaimae')?.value || '';
     const clientFilter = document.getElementById('filterClientChaimae')?.value || '';
@@ -1182,6 +1195,19 @@ window.filterInvoicesChaimae = function () {
     const searchText = document.getElementById('searchInputChaimae')?.value.toLowerCase() || '';
 
     const filtered = allInvoicesChaimae.filter(invoice => {
+        // Status Filter (Seen/Unseen/Modified)
+        const isModified = invoice.is_modified === true;
+
+        if (filterStatus === 'unseen') {
+            // Unseen only shows pending invoices that are NOT modified
+            if (invoice.validation_status !== 'pending' || isModified) return false;
+        }
+        if (filterStatus === 'seen' && invoice.validation_status === 'pending') return false;
+        if (filterStatus === 'modified') {
+            // Show invoices that have been modified (updated_by_user_name exists and is different from creator)
+            if (!isModified) return false;
+        }
+
         // Type filter
         if (typeFilter && invoice.document_type !== typeFilter) return false;
 
@@ -1192,6 +1218,8 @@ window.filterInvoicesChaimae = function () {
         // Creation Method filter
         if (filterCreationMethod === 'normal' && invoice.creation_method !== 'normal') return false;
         if (filterCreationMethod === 'converted' && invoice.creation_method !== 'converted') return false;
+
+
 
         // AR Status filter
         if (filterArStatus !== 'all' && (invoice.ar_status || 'sans_accuse') !== filterArStatus) return false;
@@ -1307,6 +1335,7 @@ window.resetFiltersChaimae = function () {
     document.getElementById('filterClientChaimae').value = '';
     if (document.getElementById('filterAttachmentsChaimae')) document.getElementById('filterAttachmentsChaimae').value = 'all';
     if (document.getElementById('filterCreationMethodChaimae')) document.getElementById('filterCreationMethodChaimae').value = 'all';
+
     if (document.getElementById('filterArStatusChaimae')) document.getElementById('filterArStatusChaimae').value = 'all';
     document.getElementById('searchTypeChaimae').value = 'all';
     document.getElementById('searchInputChaimae').value = '';
@@ -1505,6 +1534,31 @@ window.handleSQLiteMigration = async function () {
     }
 };
 
+// Mark invoice as seen (validated)
+window.markAsSeenChaimae = async function (id) {
+    try {
+        const result = await window.electron.dbChaimae.validateInvoice(id, 'validated');
+        if (result.success) {
+            window.notify.success('Succès', 'Facture marquée comme lue', 3000);
+
+            // Close modal if open
+            const modal = document.querySelector('.invoice-view-overlay');
+            if (modal) modal.remove();
+
+            // Reload list
+            loadInvoicesChaimae();
+
+            // Update badges if function exists
+            if (typeof updatePendingCounts === 'function') updatePendingCounts();
+        } else {
+            window.notify.error('Erreur', 'Impossible de marquer comme lue', 3000);
+        }
+    } catch (error) {
+        console.error('Error marking as seen:', error);
+        window.notify.error('Erreur', 'Erreur serveur', 3000);
+    }
+}
+
 // View invoice
 window.viewInvoiceChaimae = async function (id, documentType) {
     try {
@@ -1528,6 +1582,23 @@ window.viewInvoiceChaimae = async function (id, documentType) {
                 'Bon de livraison';
         const docNumber = invoice.document_numero || invoice.document_numero_devis || invoice.document_numero_bl || '-';
 
+        // Auto-validate if pending (mark as seen automatically)
+        if (invoice.validation_status === 'pending') {
+            console.log('📝 [AUTO-VALIDATE] Invoice is pending, marking as seen automatically...');
+            try {
+                await window.electron.dbChaimae.validateInvoice(id, 'validated');
+                console.log('✅ [AUTO-VALIDATE] Invoice marked as seen');
+                // Update the invoice object to reflect the change
+                invoice.validation_status = 'validated';
+                // Update badges if function exists
+                if (typeof updatePendingCounts === 'function') {
+                    setTimeout(() => updatePendingCounts(), 500);
+                }
+            } catch (error) {
+                console.error('❌ [AUTO-VALIDATE] Error:', error);
+            }
+        }
+
         const overlay = document.createElement('div');
         overlay.className = 'invoice-view-overlay';
         overlay.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.85);z-index:9999;display:flex;align-items:center;justify-content:center;padding:2rem;';
@@ -1544,6 +1615,14 @@ window.viewInvoiceChaimae = async function (id, documentType) {
                     <h2 style="color:#fff;margin:0;font-size:1.3rem;font-weight:600;">Détails du ${typeLabel} #${docNumber}</h2>
                 </div>
                 <div style="display:flex;align-items:center;gap:1rem;">
+                    ${invoice.validation_status === 'pending' ? `
+                    <button onclick="markAsSeenChaimae(${id})" style="padding:0.6rem 1.2rem;background:#4caf50;color:#fff;border:none;border-radius:8px;cursor:pointer;font-size:0.9rem;font-weight:600;display:flex;align-items:center;gap:0.5rem;transition:all 0.2s;box-shadow: 0 4px 6px rgba(0,0,0,0.2);" onmouseover="this.style.transform='translateY(-2px)'" onmouseout="this.style.transform='translateY(0)'">
+                        <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+                            <path d="M12.736 3.97a.733.733 0 0 1 1.047 0c.286.289.29.756.01 1.05L7.88 12.01a.733.733 0 0 1-1.065.02L3.217 8.384a.757.757 0 0 1 0-1.06.733.733 0 0 1 1.047 0l3.052 3.093 5.4-6.425a.247.247 0 0 1 .02-.022Z"/>
+                        </svg>
+                        Marquer comme lu
+                    </button>
+                    ` : ''}
                     <button onclick="downloadInvoicePDFChaimae(${id})" style="padding:0.6rem 1.2rem;background:#2196F3;color:#fff;border:none;border-radius:8px;cursor:pointer;font-size:0.9rem;font-weight:600;display:flex;align-items:center;gap:0.5rem;transition:all 0.2s;" onmouseover="this.style.background='#1976D2'" onmouseout="this.style.background='#2196F3'">
                         <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
                             <path d="M.5 9.9a.5.5 0 0 1 .5.5v2.5a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-2.5a.5.5 0 0 1 1 0v2.5a2 2 0 0 1-2 2H2a2 2 0 0 1-2-2v-2.5a.5.5 0 0 1 .5-.5z"/>
@@ -2854,6 +2933,17 @@ function showConvertInputModalChaimae(newType, newTypeLabel, prefillNumero = '',
                            value="${JSON.parse(localStorage.getItem('user'))?.name || ''}">
                 </div>
             </div>
+
+            <div style="margin-bottom:2rem;">
+                <label style="display:block;color:#ff9800;margin-bottom:0.75rem;font-weight:600;font-size:1.1rem;">Livré par</label>
+                <div style="position:relative;">
+                    <span style="position:absolute;left:12px;top:50%;transform:translateY(-50%);font-size:1.2rem;color:#ff9800;pointer-events:none;z-index:5;">🚛</span>
+                    <input type="text" id="convertInputDeliveredByChaimae" placeholder="Nom du livreur" list="convertDeliveryPersonsList"
+                           style="width:100%;padding:1rem 1rem 1rem 45px;background:#2d2d30;border:2px solid #3e3e42;border-radius:8px;color:#fff;font-size:1.1rem;box-sizing:border-box;outline:none;"
+                           value="${prefillDeliveredBy}">
+                    <datalist id="convertDeliveryPersonsList"></datalist>
+                </div>
+            </div>
             
             <div style="display:flex;gap:1rem;margin-top:2rem;">
                 <button id="convertBtnCancelChaimae" style="flex:1;padding:1rem;background:#fff;color:#333;border:2px solid #ddd;border-radius:8px;cursor:pointer;font-size:1.1rem;font-weight:600;transition:all 0.3s;"
@@ -3580,10 +3670,11 @@ window.downloadInvoicePDFChaimae = async function (invoiceId) {
             doc.setTextColor(0, 0, 0);
             doc.text(`Date: ${dateStr}`, 150, 55);
 
-            // 👤 Added Fields: Créé par / Livrais par (Single Line)
+            // 👤 Added Fields: Créé par / Livrais par (Stacked)
             doc.setFontSize(9);
             doc.setFont(undefined, 'normal');
             doc.text(`Créé par: ${invoice.created_by || '-'}`, 195, 61, { align: 'right' });
+            doc.text(`Livrais par: ${invoice.delivered_by || '-'}`, 195, 66, { align: 'right' });
 
             // Document Number
             doc.setFontSize(14);

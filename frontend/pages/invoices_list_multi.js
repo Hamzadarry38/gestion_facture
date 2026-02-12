@@ -92,43 +92,27 @@ function InvoicesListMultiPage() {
                         </div>
                     </div>
 
-                    <!-- Validation Queue (Super User Only) -->
-                    <div id="validationQueueSectionMulti" style="display: none; margin-bottom: 2rem; background: #2d2d30; border-radius: 8px; border: 1px solid #3e3e42; overflow: hidden; box-shadow: 0 4px 20px rgba(0,0,0,0.3);">
-                        <div style="padding: 1rem 1.5rem; background: #2196f3; color: white; display: flex; justify-content: space-between; align-items: center; cursor: pointer;" onclick="toggleValidationQueueMulti()">
-                            <h3 style="margin: 0; font-size: 1.1rem; display: flex; align-items: center; gap: 0.5rem;">
-                                🛡️ Factures en attente de validation (<span id="pendingInvoicesCountMulti">0</span>)
-                            </h3>
-                            <div style="display: flex; align-items: center; gap: 1rem;">
-                                <span style="font-size: 0.8rem; background: rgba(255,255,255,0.2); padding: 0.2rem 0.6rem; border-radius: 20px;">Section Administrateur</span>
-                                <span id="toggleValidationIconMulti">▼</span>
-                            </div>
-                        </div>
-                        <div id="validationQueueContentMulti" style="display: none; padding: 1rem;">
-                            <div class="table-container" style="max-height: 400px; overflow-y: auto;">
-                                <table class="invoices-table" style="margin-bottom: 0;">
-                                    <thead>
-                                        <tr>
-                                            <th>Type</th>
-                                            <th>N° Document</th>
-                                            <th>Client</th>
-                                            <th>Date</th>
-                                            <th>Montant TTC</th>
-                                            <th>Créé par</th>
-                                            <th style="text-align: center;">Actions</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody id="pendingInvoicesTableBodyMulti">
-                                        <!-- Pending invoices will be loaded here -->
-                                    </tbody>
-                                </table>
-                            </div>
-                        </div>
-                    </div>
+
 
                     <!-- Filters -->
                     <div class="filters-section" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem; margin-bottom: 1.5rem;">
+                        <!-- Status Filter (Seen/Unseen) -->
+                        <!-- Status Filter (Seen/Unseen) - Admins Only -->
+                        <div class="filter-group" id="statusFilterGroupMulti" style="display: none;">
+                            <label>👁️ Statut:</label>
+                            <div style="position: relative;">
+                                <select id="filterStatusMulti" onchange="filterInvoicesMulti()">
+                                    <option value="all">Tous</option>
+                                    <option value="unseen">Non lus (Nouveau)</option>
+                                    <option value="modified">Modifiés (Par un autre)</option>
+                                    <option value="seen">Lus / Traités</option>
+                                </select>
+                                <span id="unseenBadgeMulti" style="display: none; position: absolute; top: -8px; right: -8px; background: #f44336; color: white; border-radius: 50%; padding: 2px 6px; font-size: 10px; font-weight: bold; box-shadow: 0 2px 4px rgba(0,0,0,0.2);">0</span>
+                            </div>
+                        </div>
+
                         <div class="filter-group">
-                            <label>Type de document:</label>
+                            <label>type de document:</label>
                             <select id="filterTypeMulti" onchange="filterInvoicesMulti()">
                                 <option value="">Tous</option>
                                 <option value="facture">Factures</option>
@@ -205,6 +189,16 @@ function InvoicesListMultiPage() {
                                 <option value="converted">Conversion</option>
                             </select>
                         </div>
+
+                        <!-- Devis Conversion Filter -->
+                        <div class="filter-group">
+                            <label>🔄 Etat Devis:</label>
+                            <select id="filterDevisConversionMulti" onchange="filterInvoicesMulti()">
+                                <option value="all">Tous</option>
+                                <option value="converted">Convertis</option>
+                                <option value="not_converted">Non Convertis</option>
+                            </select>
+                        </div>
                         
                         <!-- AR Status Filter -->
                         <div class="filter-group">
@@ -217,13 +211,16 @@ function InvoicesListMultiPage() {
                             </select>
                         </div>
                         
-                        <div class="filter-group">
-                            <button class="btn-refresh" onclick="loadInvoicesMulti()" style="margin-top: 1.5rem;">
+                        <div class="filter-group" style="display: flex; gap: 0.5rem; margin-top: 1.5rem;">
+                            <button class="btn-refresh" onclick="loadInvoicesMulti()" style="margin: 0;">
                                 <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor" style="margin-right: 0.5rem;">
                                     <path fill-rule="evenodd" d="M8 3a5 5 0 1 0 4.546 2.914.5.5 0 0 1 .908-.417A6 6 0 1 1 8 2v1z"/>
                                     <path d="M8 4.466V.534a.25.25 0 0 1 .41-.192l2.36 1.966c.12.1.12.284 0 .384L8.41 4.658A.25.25 0 0 1 8 4.466z"/>
                                 </svg>
                                 <span>Actualiser</span>
+                            </button>
+                            <button class="btn-refresh" onclick="resetFiltersMulti()" style="background: #3e3e42; margin: 0;">
+                                <span>Réinitialiser</span>
                             </button>
                         </div>
                     </div>
@@ -543,12 +540,10 @@ async function loadInvoicesMulti() {
     const user = JSON.parse(localStorage.getItem('user') || '{}');
     isSuperUserMulti = (user.email === 'redouanerrebbahi99@gmail.com' || user.can_auto_validate === true);
 
-    // Update UI based on identity
-    const validationSection = document.getElementById('validationQueueSectionMulti');
-    if (validationSection) validationSection.style.display = isSuperUserMulti ? 'block' : 'none';
-
-    if (isSuperUserMulti) {
-        loadPendingInvoicesMulti();
+    // Show/Hide Status Filter based on admin status
+    const statusFilterGroup = document.getElementById('statusFilterGroupMulti');
+    if (statusFilterGroup) {
+        statusFilterGroup.style.display = isSuperUserMulti ? 'block' : 'none';
     }
 
     const spinner = document.getElementById('loadingSpinnerMulti');
@@ -587,9 +582,17 @@ async function loadInvoicesMulti() {
                 created_by_user_name: inv.created_by_user_name || '-'
             }));
 
-            // Filter: Main list should ONLY show validated invoices (or rejected/modified)
-            // Pending invoices should ONLY appear in the Validation Queue at the top for admins.
-            allInvoicesMulti = enrichedInvoices.filter(inv => inv.validation_status !== 'pending');
+            // Store ALL invoices (including pending "Unseen")
+            allInvoicesMulti = enrichedInvoices;
+
+            // Calculate Unseen (Pending) count
+            const unseenCount = allInvoicesMulti.filter(inv => inv.validation_status === 'pending').length;
+            const badge = document.getElementById('unseenBadgeMulti');
+            if (badge) {
+                badge.textContent = unseenCount;
+                badge.style.display = unseenCount > 0 ? 'block' : 'none';
+            }
+
             filteredInvoicesMulti = [...allInvoicesMulti];
 
             populateFiltersMulti();
@@ -628,6 +631,7 @@ function populateFiltersMulti() {
 // Filter invoices
 function filterInvoicesMulti() {
     const typeFilter = document.getElementById('filterTypeMulti')?.value || '';
+    const filterStatus = document.getElementById('filterStatusMulti')?.value || 'all';
     const yearFilter = document.getElementById('filterYearMulti')?.value || '';
     const monthFilter = document.getElementById('filterMonthMulti')?.value || '';
     const clientFilter = document.getElementById('filterClientMulti')?.value || '';
@@ -638,6 +642,19 @@ function filterInvoicesMulti() {
     const searchInput = document.getElementById('searchInputMulti')?.value.toLowerCase() || '';
 
     filteredInvoicesMulti = allInvoicesMulti.filter(invoice => {
+        // Status Filter (Seen/Unseen/Modified)
+        const isModified = invoice.is_modified === true;
+
+        if (filterStatus === 'unseen') {
+            // Unseen only shows pending invoices that are NOT modified
+            if (invoice.validation_status !== 'pending' || isModified) return false;
+        }
+        if (filterStatus === 'seen' && invoice.validation_status === 'pending') return false;
+        if (filterStatus === 'modified') {
+            // Show invoices that have been modified (updated_by_user_name exists and is different from creator)
+            if (!isModified) return false;
+        }
+
         const matchType = !typeFilter || invoice.document_type === typeFilter;
         const matchYear = !yearFilter || new Date(invoice.document_date).getFullYear().toString() === yearFilter;
         const matchMonth = !monthFilter || new Date(invoice.document_date).toISOString().slice(5, 7) === monthFilter;
@@ -718,7 +735,19 @@ function filterInvoicesMulti() {
             }
         }
 
-        return matchType && matchYear && matchMonth && matchClient && matchAttachments && matchCreationMethod && matchAR && searchMatch;
+        // Devis Conversion filter
+        let matchDevisConversion = true;
+        const filterDevisConversion = document.getElementById('filterDevisConversionMulti')?.value || 'all';
+        if (filterDevisConversion !== 'all') {
+            if (invoice.document_type !== 'devis') {
+                matchDevisConversion = false; // Only Devis can be converted
+            } else {
+                if (filterDevisConversion === 'converted' && !invoice.is_converted) matchDevisConversion = false;
+                if (filterDevisConversion === 'not_converted' && invoice.is_converted) matchDevisConversion = false;
+            }
+        }
+
+        return matchType && matchYear && matchMonth && matchClient && matchAttachments && matchCreationMethod && matchAR && searchMatch && matchDevisConversion;
     });
 
     displayInvoicesMulti();
@@ -771,7 +800,18 @@ function displayInvoicesMulti() {
         const row = document.createElement('tr');
 
         const docNumber = invoice.document_type === 'facture' ? invoice.document_numero : invoice.document_numero_devis || invoice.document_numero;
-        const typeLabel = invoice.document_type === 'facture' ? '📄 Facture' : '📋 Devis';
+
+        let typeLabel = '';
+        let badgeType = invoice.document_type;
+
+        if (invoice.document_type === 'facture') {
+            typeLabel = '📄 Facture';
+        } else if (invoice.document_type === 'devis') {
+            typeLabel = '📋 Devis';
+        } else {
+            typeLabel = '📦 Bon de Livraison';
+        }
+
         const date = new Date(invoice.document_date).toLocaleDateString('fr-FR');
 
         console.log('👤 User info for invoice', invoice.id, ':', {
@@ -779,7 +819,23 @@ function displayInvoicesMulti() {
             created_by_user_id: invoice.created_by_user_id
         });
 
-        const rowClass = invoice.creation_method === 'converted' ? 'row-converted' : '';
+        const isUnseen = invoice.validation_status === 'pending';
+        const isModified = invoice.is_modified === true;
+
+        let rowClass = invoice.creation_method === 'converted' ? 'row-converted' : '';
+
+        row.style.fontWeight = 'normal';
+        row.style.backgroundColor = '';
+
+        if (isModified) {
+            row.style.backgroundColor = 'rgba(255, 152, 0, 0.1)';
+            row.style.fontWeight = 'bold';
+        } else if (isUnseen) {
+            rowClass = isUnseen && !rowClass ? 'row-unseen' : rowClass;
+            row.style.backgroundColor = 'rgba(244, 67, 54, 0.1)';
+            row.style.fontWeight = 'bold';
+        }
+
         row.className = rowClass;
 
         row.innerHTML = `
@@ -788,7 +844,7 @@ function displayInvoicesMulti() {
                        style="width: 18px; height: 18px; cursor: pointer;"
                        onchange="updateSelectedCountMulti()">
             </td>
-            <td><span class="badge badge-${invoice.document_type}">${typeLabel}</span></td>
+            <td><span class="badge badge-${badgeType}" style="${badgeType === 'converted-devis' ? 'background: #e8f5e9; color: #2e7d32; border: 1px solid #a5d6a7;' : ''}">${typeLabel}</span></td>
             <td>
                 <strong>${docNumber || 'N/A'}</strong>
                 ${(invoice.document_numero_Order || invoice.document_numero_order) ? `<div style="font-size:0.75rem;color:#2196f3;font-weight:500;margin-top:0.25rem;">N° Order: ${invoice.document_numero_Order || invoice.document_numero_order}</div>` : ''}
@@ -796,7 +852,13 @@ function displayInvoicesMulti() {
             <td>${invoice.client_nom}</td>
             <td class="col-ice-multi-body" style="${columnVisibilityMulti.ice ? '' : 'display: none;'}">${invoice.client_ice}</td>
             <td>${date}</td>
-            <td><small style="color: #2196f3;">${invoice.created_by_user_name || '-'}</small></td>
+            <td>
+                <div style="display: flex; flex-direction: column; gap: 0.2rem;">
+                    <small style="color: #2196f3; font-weight: 600;">👤 Créé par: ${invoice.created_by_user_name || '-'}</small>
+                    ${invoice.is_modified === true ?
+                `<small style="color: #ff9800; font-weight: 600;">📝 Modifié par: ${invoice.updated_by_user_name}</small>` : ''}
+                </div>
+            </td>
             <td>${Number(invoice.total_ht || 0).toFixed(2)} DH</td>
             <td><strong>${Number(invoice.total_ttc || 0).toFixed(2)} DH</strong></td>
             <td>
@@ -861,6 +923,31 @@ function displayInvoicesMulti() {
 }
 
 
+// Mark invoice as seen (validated)
+window.markAsSeenMulti = async function (id) {
+    try {
+        const result = await window.electron.dbMulti.validateInvoice(id, 'validated');
+        if (result.success) {
+            window.notify.success('Succès', 'Facture marquée comme lue', 3000);
+
+            // Close modal if open
+            const modal = document.querySelector('.invoice-view-overlay');
+            if (modal) modal.remove();
+
+            // Reload list
+            loadInvoicesMulti();
+
+            // Update badges if function exists
+            if (typeof updatePendingCounts === 'function') updatePendingCounts();
+        } else {
+            window.notify.error('Erreur', 'Impossible de marquer comme lue', 3000);
+        }
+    } catch (error) {
+        console.error('Error marking as seen:', error);
+        window.notify.error('Erreur', 'Erreur serveur', 3000);
+    }
+}
+
 // View invoice details
 window.viewInvoiceMulti = async function (id) {
     try {
@@ -875,6 +962,23 @@ window.viewInvoiceMulti = async function (id) {
         const date = new Date(invoice.document_date).toLocaleDateString('fr-FR');
         const docNumber = invoice.document_type === 'facture' ? invoice.document_numero : invoice.document_numero_devis || invoice.document_numero;
         const typeLabel = invoice.document_type === 'facture' ? 'Facture' : 'Devis';
+
+        // Auto-validate if pending (mark as seen automatically)
+        if (invoice.validation_status === 'pending') {
+            console.log('📝 [AUTO-VALIDATE] Invoice is pending, marking as seen automatically...');
+            try {
+                await window.electron.dbMulti.validateInvoice(id, 'validated');
+                console.log('✅ [AUTO-VALIDATE] Invoice marked as seen');
+                // Update the invoice object to reflect the change
+                invoice.validation_status = 'validated';
+                // Update badges if function exists
+                if (typeof updatePendingCounts === 'function') {
+                    setTimeout(() => updatePendingCounts(), 500);
+                }
+            } catch (error) {
+                console.error('❌ [AUTO-VALIDATE] Error:', error);
+            }
+        }
 
         const overlay = document.createElement('div');
         overlay.className = 'invoice-view-overlay';
@@ -892,6 +996,14 @@ window.viewInvoiceMulti = async function (id) {
                     <h2 style="color:#fff;margin:0;font-size:1.3rem;font-weight:600;">Détails de la ${typeLabel} #${docNumber}</h2>
                 </div>
                 <div style="display:flex;align-items:center;gap:1rem;flex-wrap:wrap;">
+                    ${invoice.validation_status === 'pending' ? `
+                    <button onclick="markAsSeenMulti(${id})" style="padding:0.6rem 1.2rem;background:#4caf50;color:#fff;border:none;border-radius:8px;cursor:pointer;font-size:0.9rem;font-weight:600;display:flex;align-items:center;gap:0.5rem;transition:all 0.2s;box-shadow: 0 4px 6px rgba(0,0,0,0.2);" onmouseover="this.style.transform='translateY(-2px)'" onmouseout="this.style.transform='translateY(0)'">
+                        <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+                            <path d="M12.736 3.97a.733.733 0 0 1 1.047 0c.286.289.29.756.01 1.05L7.88 12.01a.733.733 0 0 1-1.065.02L3.217 8.384a.757.757 0 0 1 0-1.06.733.733 0 0 1 1.047 0l3.052 3.093 5.4-6.425a.247.247 0 0 1 .02-.022Z"/>
+                        </svg>
+                        Marquer comme lu
+                    </button>
+                    ` : ''}
                     <button onclick="downloadInvoicePDFMulti(${id})" style="padding:0.6rem 1.2rem;background:#2196F3;color:#fff;border:none;border-radius:8px;cursor:pointer;font-size:0.9rem;font-weight:600;display:flex;align-items:center;gap:0.5rem;transition:all 0.2s;" onmouseover="this.style.background='#1976D2'" onmouseout="this.style.background='#2196F3'">
                         <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
                             <path d="M.5 9.9a.5.5 0 0 1 .5.5v2.5a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-2.5a.5.5 0 0 1 1 0v2.5a2 2 0 0 1-2 2H2a2 2 0 0 1-2-2v-2.5a.5.5 0 0 1 .5-.5z"/>
@@ -2458,6 +2570,36 @@ window.sortTableMulti = function (column) {
     displayInvoicesMulti();
 
     console.log('✅ [MULTI SORT] Sorted successfully:', column, currentSortDirectionMulti);
+};
+
+// Reset filters
+window.resetFiltersMulti = function () {
+    const typeFilter = document.getElementById('filterTypeMulti');
+    const statusFilter = document.getElementById('filterStatusMulti');
+    const yearFilter = document.getElementById('filterYearMulti');
+    const monthFilter = document.getElementById('filterMonthMulti');
+    const clientFilter = document.getElementById('filterClientMulti');
+    const attachmentFilter = document.getElementById('filterAttachmentsMulti');
+    const methodFilter = document.getElementById('filterCreationMethodMulti');
+    const convFilter = document.getElementById('filterDevisConversionMulti');
+    const arFilter = document.getElementById('filterArStatusMulti');
+    const searchType = document.getElementById('searchTypeMulti');
+    const searchInput = document.getElementById('searchInputMulti');
+
+    if (typeFilter) typeFilter.value = '';
+    if (statusFilter) statusFilter.value = 'all';
+    if (yearFilter) yearFilter.value = '';
+    if (monthFilter) monthFilter.value = '';
+    if (clientFilter) clientFilter.value = '';
+    if (attachmentFilter) attachmentFilter.value = 'all';
+    if (methodFilter) methodFilter.value = 'all';
+    if (convFilter) convFilter.value = 'all';
+    if (arFilter) arFilter.value = 'all';
+    if (searchType) searchType.value = 'all';
+    if (searchInput) searchInput.value = '';
+
+    currentPageMulti = 1;
+    filterInvoicesMulti();
 };
 
 

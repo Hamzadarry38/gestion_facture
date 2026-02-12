@@ -143,6 +143,25 @@ async function registerMsh3Handlers() {
         }
     });
 
+    // MSH3 PDF Settings (percentage, product names)
+    ipcMain.handle('db:msh3:pdfSettings:get', async () => {
+        try {
+            return await apiClient.getPdfSettings('SAAISS');
+        } catch (error) {
+            console.error('❌ [MSH3] Error getting PDF settings:', error);
+            return { success: false, error: error.message };
+        }
+    });
+
+    ipcMain.handle('db:msh3:pdfSettings:save', async (event, percentage, productNames) => {
+        try {
+            return await apiClient.savePdfSettings('SAAISS', percentage, productNames);
+        } catch (error) {
+            console.error('❌ [MSH3] Error saving PDF settings:', error);
+            return { success: false, error: error.message };
+        }
+    });
+
     console.log('✅ [MSH3 SERVICES] IPC handlers registered (API Edition)');
 }
 

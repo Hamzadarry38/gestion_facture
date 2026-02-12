@@ -119,6 +119,14 @@ function CreateInvoiceChaimaePage() {
                                         <input type="text" id="createdByChaimae" readonly style="background: #1e1e1e; color: #aaa; cursor: not-allowed;" placeholder="Chargement...">
                                     </div>
                                 </div>
+                                <div class="form-field" id="deliveredByContainerChaimae">
+                                    <label>Livré par</label>
+                                    <div class="input-with-icon">
+                                        <span class="input-icon">🚛</span>
+                                        <input type="text" id="deliveredByChaimae" placeholder="Nom du livreur (Ex: Abderrahim)" list="deliveryPersonsListChaimae" required>
+                                        <datalist id="deliveryPersonsListChaimae"></datalist>
+                                    </div>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -530,7 +538,19 @@ window.handleDocumentTypeChangeChaimae = async function () {
 
     container.innerHTML = html;
 
-    // "Livrais par" field removed
+    // Show/Hide "Livré par" field based on document type
+    const deliveredByContainer = document.getElementById('deliveredByContainerChaimae');
+    const deliveredByInput = document.getElementById('deliveredByChaimae');
+
+    if (deliveredByContainer && deliveredByInput) {
+        if (type === 'devis') {
+            deliveredByContainer.style.display = 'none';
+            deliveredByInput.required = false;
+        } else {
+            deliveredByContainer.style.display = 'block';
+            deliveredByInput.required = true;
+        }
+    }
 }
 
 // Use suggested number for Chaimae (Global)
@@ -1842,13 +1862,49 @@ window.initCreateInvoiceChaimaePage = function () {
 }
 
 // Handle form submission for Chaimae (Global)
+// Handle form submission for Chaimae (Global)
 async function handleFormSubmitChaimae(e) {
     e.preventDefault();
+
+    // 🚀 High-Visibility Loading Overlay
+    const overlay = document.createElement('div');
+    overlay.id = 'global-loading-overlay-chaimae-create';
+    overlay.style.cssText = `
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(0, 0, 0, 0.7);
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        z-index: 99999;
+        color: white;
+        font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    `;
+    overlay.innerHTML = `
+        <div style="margin-bottom: 20px;">
+            <svg width="60" height="60" viewBox="0 0 50 50" style="animation: rotate 2s linear infinite;">
+                <circle cx="25" cy="25" r="20" fill="none" stroke="#2196F3" stroke-width="5" stroke-dasharray="80, 200" stroke-dashoffset="0" stroke-linecap="round">
+                    <animateTransform attributeName="transform" type="rotate" from="0 25 25" to="360 25 25" dur="1.5s" repeatCount="indefinite"/>
+                </circle>
+            </svg>
+        </div>
+        <h2 style="margin: 0; font-size: 1.5rem; font-weight: 600;">Enregistrement...</h2>
+        <p style="margin: 10px 0 0; opacity: 0.8;">Veuillez patienter pendant la création de votre facture</p>
+        <style>
+            @keyframes rotate { 100% { transform: rotate(360deg); } }
+        </style>
+    `;
+    document.body.appendChild(overlay);
 
     // Validation: Livré par is mandatory unless it's a Devis
     const docType = document.getElementById('documentType').value;
     const deliveredByValue = document.getElementById('deliveredByChaimae')?.value;
     if (docType !== 'devis' && !deliveredByValue) {
+        if (overlay) overlay.remove();
         window.notify.warning('Attention', 'Le champ "Livré par" est obligatoire', 3000);
         return;
     }
@@ -1864,6 +1920,7 @@ async function handleFormSubmitChaimae(e) {
 
         // Collect form data
         const formData = {
+            company_code: 'CHAIMAE',
             client: {
                 nom: document.getElementById('clientNom').value,
                 ICE: document.getElementById('clientICE').value
@@ -1896,7 +1953,7 @@ async function handleFormSubmitChaimae(e) {
         };
 
         // Get document numbers based on type
-        const docType = formData.document.type;
+        // const docType is already defined above
         const mainNumero = document.getElementById('documentNumeroChaimae')?.value;
 
         if (docType === 'facture') {
@@ -2042,6 +2099,7 @@ async function handleFormSubmitChaimae(e) {
                 });
 
                 if (duplicateMain) {
+                    if (overlay) overlay.remove();
                     window.notify.error('Erreur', `Le numéro "${mainNumero}" existe déjà pour le type ${docType} (Insensible à la casse)`, 5000);
                     return;
                 }
@@ -2058,6 +2116,7 @@ async function handleFormSubmitChaimae(e) {
                 );
 
                 if (duplicateGlobal) {
+                    if (overlay) overlay.remove();
                     window.notify.error('Erreur', `Le numéro "${mainNumero}" existe déjà dans una facture globale (Insensible à la casse)`, 5000);
                     return;
                 }
@@ -2075,6 +2134,7 @@ async function handleFormSubmitChaimae(e) {
                     (inv.document_numero_Order || inv.document_numero_order).toLowerCase().trim() === searchOrder
                 );
                 if (duplicateOrder) {
+                    if (overlay) overlay.remove();
                     window.notify.error('Erreur', `Le N° Order "${formData.document.numero_Order}" existe déjà (Insensible à la casse)`, 5000);
                     return;
                 }
@@ -2087,6 +2147,7 @@ async function handleFormSubmitChaimae(e) {
                     inv.document_bon_de_livraison && inv.document_bon_de_livraison.toLowerCase().trim() === searchBL
                 );
                 if (duplicateBL) {
+                    if (overlay) overlay.remove();
                     window.notify.error('Erreur', `Le Bon de livraison "${formData.document.bon_de_livraison}" existe déjà (Insensible à la casse)`, 5000);
                     return;
                 }
@@ -2101,6 +2162,7 @@ async function handleFormSubmitChaimae(e) {
                     inv.document_numero_commande.toLowerCase().trim() === searchBC
                 );
                 if (duplicateBC) {
+                    if (overlay) overlay.remove();
                     window.notify.error('Erreur', `Le N° Order "${formData.document.numero_commande}" existe déjà (Insensible à la casse)`, 5000);
                     return;
                 }
@@ -2166,16 +2228,23 @@ async function handleFormSubmitChaimae(e) {
                 await window.electron.dbChaimae.saveNote(invoiceId, noteText);
             }
 
+            // Remove loading overlay
+            if (overlay) overlay.remove();
+
             window.notify.success('Succès', 'Document créé avec succès!', 3000);
             setTimeout(() => {
                 router.navigate('/dashboard-chaimae');
             }, 1500);
         } else {
+            // Remove loading overlay on error
+            if (overlay) overlay.remove();
             window.notify.error('Erreur', result.error || 'Erreur lors de la création', 4000);
         }
 
     } catch (error) {
         console.error('Error creating invoice for Chaimae:', error);
+        // Remove loading overlay on catch
+        if (overlay) overlay.remove();
         window.notify.error('Erreur', 'Une erreur est survenue: ' + error.message, 5000);
     }
 }

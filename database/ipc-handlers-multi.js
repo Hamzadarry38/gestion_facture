@@ -283,6 +283,25 @@ async function registerMultiHandlers() {
         }
     });
 
+    // Validation API (Global)
+    ipcMain.handle('api:invoices:getPending', async (event, companyCode) => {
+        try {
+            return await apiClient.getPendingInvoices(companyCode);
+        } catch (error) {
+            console.error('[API] Error getting pending invoices:', error);
+            return { success: false, error: error.message };
+        }
+    });
+
+    ipcMain.handle('api:invoices:validate', async (event, id, status) => {
+        try {
+            return await apiClient.validateInvoice(id, status);
+        } catch (error) {
+            console.error('[API] Error validating invoice:', error);
+            return { success: false, error: error.message };
+        }
+    });
+
     console.log('✅ [MULTI] All Multi Company handlers registered successfully (API Edition)');
 }
 

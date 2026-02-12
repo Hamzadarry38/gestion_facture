@@ -482,6 +482,8 @@ async function handleEditInvoiceSubmitSimpleMRY(e) {
     try {
         const documentNumeroValue = document.getElementById('editDocumentNumeroSimpleMRY').value;
 
+        const currentUser = JSON.parse(localStorage.getItem('user'));
+
         const formData = {
             client: {
                 nom: document.getElementById('editClientNomSimpleMRY').value,
@@ -489,7 +491,13 @@ async function handleEditInvoiceSubmitSimpleMRY(e) {
             },
             document: {
                 type: currentDocumentTypeSimpleMRY,
-                date: document.getElementById('editDocumentDateSimpleMRY').value
+                date: document.getElementById('editDocumentDateSimpleMRY').value,
+                // ✅ Add user tracking
+                updated_by_user_id: currentUser?.id || null,
+                updated_by_user_name: currentUser?.name || null,
+                updated_by_user_email: currentUser?.email || null,
+                // ✅ Always reset to pending on edit so it appears in "Modified" filter
+                validation_status: 'pending'
             },
             products: [],
             totals: {

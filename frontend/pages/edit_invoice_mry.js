@@ -620,15 +620,47 @@ window.selectClientEditMRY = function (nom, ice) {
 async function handleEditInvoiceSubmitMRY(e) {
     e.preventDefault();
 
-    const loadingNotif = window.notify.loading('Mise à jour en cours...', 'Veuillez patienter');
+    // 🚀 High-Visibility Loading Overlay
+    const overlay = document.createElement('div');
+    overlay.id = 'global-loading-overlay-mry';
+    overlay.style.cssText = `
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(0, 0, 0, 0.7);
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        z-index: 99999;
+        color: white;
+        font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    `;
+    overlay.innerHTML = `
+        <div style="margin-bottom: 20px;">
+            <svg width="60" height="60" viewBox="0 0 50 50" style="animation: rotate 2s linear infinite;">
+                <circle cx="25" cy="25" r="20" fill="none" stroke="#2196F3" stroke-width="5" stroke-dasharray="80, 200" stroke-dashoffset="0" stroke-linecap="round">
+                    <animateTransform attributeName="transform" type="rotate" from="0 25 25" to="360 25 25" dur="1.5s" repeatCount="indefinite"/>
+                </circle>
+            </svg>
+        </div>
+        <h2 style="margin: 0; font-size: 1.5rem; font-weight: 600;">Enregistrement...</h2>
+        <p style="margin: 10px 0 0; opacity: 0.8;">Veuillez patienter pendant le traitement de votre facture</p>
+        <style>
+            @keyframes rotate { 100% { transform: rotate(360deg); } }
+        </style>
+    `;
+    document.body.appendChild(overlay);
 
     const submitBtn = e.target.querySelector('button[type="submit"]');
-    const originalText = submitBtn.innerHTML;
-    submitBtn.innerHTML = '<span>⏳ Enregistrement...</span>';
-    submitBtn.disabled = true;
+    if (submitBtn) submitBtn.disabled = true;
 
     try {
         const documentNumeroValue = document.getElementById('editDocumentNumeroMRY').value;
+
+        const currentUser = JSON.parse(localStorage.getItem('user'));
 
         const formData = {
             client: {
@@ -637,7 +669,13 @@ async function handleEditInvoiceSubmitMRY(e) {
             },
             document: {
                 type: currentDocumentTypeMRY,
-                date: document.getElementById('editDocumentDateMRY').value
+                date: document.getElementById('editDocumentDateMRY').value,
+                // ✅ Add user tracking
+                updated_by_user_id: currentUser?.id || null,
+                updated_by_user_name: currentUser?.name || null,
+                updated_by_user_email: currentUser?.email || null,
+                // ✅ Always reset to pending on edit so it appears in "Modified" filter
+                validation_status: 'pending'
             },
             products: [],
             totals: {
@@ -765,7 +803,7 @@ async function handleEditInvoiceSubmitMRY(e) {
                 }
             }
 
-            window.notify.remove(loadingNotif);
+            if (overlay) overlay.remove();
             window.notify.success('Succès', 'Facture mise à jour avec succès!', 3000);
 
             setTimeout(() => {
@@ -776,10 +814,9 @@ async function handleEditInvoiceSubmitMRY(e) {
         }
     } catch (error) {
         console.error('[MRY] Error updating invoice:', error);
-        window.notify.remove(loadingNotif);
+        if (overlay) overlay.remove();
         window.notify.error('Erreur', error.message || 'Une erreur est survenue.', 5000);
-        submitBtn.innerHTML = originalText;
-        submitBtn.disabled = false;
+        if (submitBtn) submitBtn.disabled = false;
     }
 }
 
@@ -843,6 +880,40 @@ window.showConvertDocumentTypeModalMRY = async function () {
 
         const { newNumero, newNumeroOrder, newDate } = inputData;
 
+        // 🚀 High-Visibility Loading Overlay
+        const overlay = document.createElement('div');
+        overlay.id = 'global-loading-overlay-mry-convert';
+        overlay.style.cssText = `
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.7);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            z-index: 99999;
+            color: white;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        `;
+        overlay.innerHTML = `
+            <div style="margin-bottom: 20px;">
+                <svg width="60" height="60" viewBox="0 0 50 50" style="animation: rotate 2s linear infinite;">
+                    <circle cx="25" cy="25" r="20" fill="none" stroke="#2196F3" stroke-width="5" stroke-dasharray="80, 200" stroke-dashoffset="0" stroke-linecap="round">
+                        <animateTransform attributeName="transform" type="rotate" from="0 25 25" to="360 25 25" dur="1.5s" repeatCount="indefinite"/>
+                    </circle>
+                </svg>
+            </div>
+            <h2 style="margin: 0; font-size: 1.5rem; font-weight: 600;">Conversion en cours...</h2>
+            <p style="margin: 10px 0 0; opacity: 0.8;">Veuillez patienter pendant la création du nouveau document</p>
+            <style>
+                @keyframes rotate { 100% { transform: rotate(360deg); } }
+            </style>
+        `;
+        document.body.appendChild(overlay);
+
         // Check uniqueness
         const allInvoicesResult = await window.electron.db.getAllInvoices('MRY');
         if (allInvoicesResult.success) {
@@ -862,6 +933,7 @@ window.showConvertDocumentTypeModalMRY = async function () {
             });
 
             if (duplicateNumero) {
+                if (overlay) overlay.remove();
                 const label = newType === 'facture' ? 'N° Facture' : 'N° Devis';
                 window.notify.error('Erreur', `Ce ${label} "${newNumero}" existe déjà (Insensible à la casse)`, 5000);
                 return;
@@ -875,6 +947,7 @@ window.showConvertDocumentTypeModalMRY = async function () {
                     (inv.document_numero_Order || inv.document_numero_order).toLowerCase().trim() === searchOrder
                 );
                 if (duplicateOrder) {
+                    if (overlay) overlay.remove();
                     window.notify.error('Erreur', `Le N° Order "${newNumeroOrder}" existe déjà (Insensible à la casse)`, 5000);
                     return;
                 }
@@ -893,12 +966,13 @@ window.showConvertDocumentTypeModalMRY = async function () {
                 type: newType,
                 date: newDate || invoice.document_date || new Date().toISOString().split('T')[0],
                 numero: newType === 'facture' ? newNumero : null,
-                numero_devis: newType === 'devis' ? newNumero : null,
+                numero_devis: newType === 'devis' ? newNumero : (currentType === 'devis' ? currentNumero : null),
                 numero_Order: newType === 'facture' ? (newNumeroOrder || null) : null,
                 created_by_user_id: user?.id || null,
                 created_by_user_name: user?.name || null,
                 created_by_user_email: user?.email || null,
-                creation_method: 'converted'
+                creation_method: 'converted',
+                source_document_id: currentInvoiceIdMRY // Added for extra traceability
             },
             products: (invoice.products || []).map(p => ({
                 designation: p.designation || '',
@@ -917,6 +991,7 @@ window.showConvertDocumentTypeModalMRY = async function () {
         const createResult = await window.electron.db.createInvoice(newInvoiceData, 'MRY');
 
         if (createResult.success) {
+            if (overlay) overlay.remove();
             window.notify.success(
                 'Succès',
                 `${newTypeText} créé(e) avec succès à partir du ${currentTypeText}`,
@@ -925,13 +1000,14 @@ window.showConvertDocumentTypeModalMRY = async function () {
 
             setTimeout(() => {
                 router.navigate('/invoices-list-mry');
-            }, 1500);
+            }, 1000);
         } else {
+            if (overlay) overlay.remove();
             throw new Error(createResult.error || 'Erreur lors de la création du document');
         }
-
     } catch (error) {
         console.error('[MRY] Error converting invoice:', error);
+        if (typeof overlay !== 'undefined' && overlay) overlay.remove();
         window.notify.error('Erreur', 'Erreur lors de la conversion: ' + error.message, 5000);
     }
 }

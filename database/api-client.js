@@ -3,12 +3,24 @@ const axios = require('axios');
 // Configuration
 // In Electron, we can use a global window variable or localStorage to set the API URL
 // Fallback logic: local dev -> DDNS production
-const DEFAULT_LOCAL_API = 'https://anpe-web-api.ddns.net/facture';
-const PRODUCTION_API = 'https://anpe-web-api.ddns.net/facture/api';
-const WEB_PORTAL_URL = 'https://anpe-web-api.ddns.net/facture/';
+const DEFAULT_LOCAL_API = 'https://redouan.ddns.net/facture';
+const PRODUCTION_API = 'https://redouan.ddns.net/facture/api';
+const WEB_PORTAL_URL = 'https://redouan.ddns.net/facture/';
 
 // Safe way to check for localStorage in both Node (Main) and Browser (Renderer) environments
 let configuredApiUrl = null;
+const isNode = typeof process !== 'undefined' && process.versions && !!process.versions.node;
+let FormDataNode = null;
+
+if (isNode) {
+    try {
+        FormDataNode = require('form-data');
+        console.log('📦 [API Client] Using form-data for Node.js environment');
+    } catch (e) {
+        console.warn('⚠️ [API Client] form-data package not found, multipart/form-data might fail in Node.js');
+    }
+}
+
 try {
     if (typeof window !== 'undefined' && window.localStorage) {
         configuredApiUrl = window.localStorage.getItem('API_BASE_URL');
@@ -17,9 +29,11 @@ try {
     // Fallback if localStorage access is blocked or unavailable
 }
 
+// For development, we want to force localhost:8001 if we are running locally
+// configuredApiUrl (localStorage) should not hijack local dev
 const API_URL = configuredApiUrl || DEFAULT_LOCAL_API;
 console.log(`[API Client] Using Base URL: ${API_URL}`);
-console.log(`[API Client] 🌐 DDNS URL: https://anpe-web-api.ddns.net/facture`);
+console.log(`[API Client] 🌐 DDNS URL: https://redouan.ddns.net/facture`);
 console.log(`[API Client] 🏠 Localhost URL: http://localhost:8001`);
 console.log(`[API Client] ✅ Active URL: ${API_URL}`);
 
@@ -212,14 +226,43 @@ const service = {
     },
 
     // New: Upload PDF file
-    uploadPdf: async (company, pdfBlob, filename) => {
-        const formData = new FormData();
-        formData.append('pdf', pdfBlob, filename);
+    uploadPdf: async (company, pdfData, filename) => {
+        let fd;
+        let headers = {};
 
-        const res = await apiClient.post(`/upload/${company}`, formData, {
-            headers: {
-                'Content-Type': 'multipart/form-data'
-            }
+        // Safely convert any input type to Buffer
+        let pdfBuffer;
+        if (Buffer.isBuffer(pdfData)) {
+            pdfBuffer = pdfData;
+        } else if (pdfData instanceof Uint8Array || pdfData instanceof ArrayBuffer) {
+            pdfBuffer = Buffer.from(pdfData);
+        } else if (Array.isArray(pdfData) || (pdfData && typeof pdfData === 'object' && pdfData.type === 'Buffer')) {
+            // Handle serialized Buffer objects from IPC (e.g. {type: 'Buffer', data: [...]})
+            pdfBuffer = Buffer.from(pdfData.data || pdfData);
+        } else {
+            throw new Error('Données PDF invalides: type non reconnu');
+        }
+
+        if (isNode && FormDataNode) {
+            fd = new FormDataNode();
+            fd.append('pdf', pdfBuffer, {
+                filename: filename,
+                contentType: 'application/pdf'
+            });
+            headers = { ...fd.getHeaders() };
+        } else {
+            // Browser environment
+            fd = new FormData();
+            const blob = new Blob([pdfBuffer], { type: 'application/pdf' });
+            fd.append('pdf', blob, filename);
+            // Let axios set Content-Type with boundary automatically
+        }
+
+        const res = await apiClient.post(`/upload/${company}`, fd, {
+            headers: headers,
+            timeout: 30000, // 30s timeout for large PDF uploads
+            maxContentLength: Infinity,
+            maxBodyLength: Infinity
         });
         return res.data;
     },
@@ -292,6 +335,20 @@ const service = {
 
     deleteGlobalInvoice: async (id) => {
         const res = await apiClient.delete(`/global-invoices/${id}`);
+        return res.data;
+    },
+
+    // Company PDF Settings
+    getPdfSettings: async (company) => {
+        const res = await apiClient.get(`/pdf-settings/${company}`);
+        return res.data;
+    },
+
+    savePdfSettings: async (company, percentage, productNames) => {
+        const res = await apiClient.put(`/pdf-settings/${company}`, {
+            percentage,
+            product_names: productNames
+        });
         return res.data;
     }
 };

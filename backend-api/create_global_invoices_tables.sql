@@ -10,7 +10,15 @@ CREATE TABLE IF NOT EXISTS global_invoices (
     montant_tva DECIMAL(15, 3),
     total_ttc DECIMAL(15, 3),
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    created_by_user_id INTEGER,
+    created_by_user_name VARCHAR(255),
+    created_by_user_email VARCHAR(255),
+    updated_by_user_id INTEGER,
+    updated_by_user_name VARCHAR(255),
+    updated_by_user_email VARCHAR(255),
+    is_modified BOOLEAN DEFAULT FALSE,
+    is_converted BOOLEAN DEFAULT FALSE
 );
 
 -- Create global_invoice_bons table for linking global invoices to delivery notes

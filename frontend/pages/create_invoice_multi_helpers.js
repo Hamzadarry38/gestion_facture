@@ -857,10 +857,43 @@ window.checkDocumentNumberUniqueMulti = async function (type, numero, numeroOrde
     }
 }
 
+// Handle invoice submission for Multi Company
 async function handleInvoiceSubmitMulti(e) {
     e.preventDefault();
 
-    const loadingNotif = window.notify.loading('Enregistrement en cours...', 'Veuillez patienter');
+    // 🚀 High-Visibility Loading Overlay
+    const overlay = document.createElement('div');
+    overlay.id = 'global-loading-overlay-multi-create';
+    overlay.style.cssText = `
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(0, 0, 0, 0.7);
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        z-index: 99999;
+        color: white;
+        font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    `;
+    overlay.innerHTML = `
+        <div style="margin-bottom: 20px;">
+            <svg width="60" height="60" viewBox="0 0 50 50" style="animation: rotate 2s linear infinite;">
+                <circle cx="25" cy="25" r="20" fill="none" stroke="#2196F3" stroke-width="5" stroke-dasharray="80, 200" stroke-dashoffset="0" stroke-linecap="round">
+                    <animateTransform attributeName="transform" type="rotate" from="0 25 25" to="360 25 25" dur="1.5s" repeatCount="indefinite"/>
+                </circle>
+            </svg>
+        </div>
+        <h2 style="margin: 0; font-size: 1.5rem; font-weight: 600;">Enregistrement...</h2>
+        <p style="margin: 10px 0 0; opacity: 0.8;">Veuillez patienter pendant la création de votre facture</p>
+        <style>
+            @keyframes rotate { 100% { transform: rotate(360deg); } }
+        </style>
+    `;
+    document.body.appendChild(overlay);
 
     const submitBtn = e.target.querySelector('button[type="submit"]');
     const originalText = submitBtn.innerHTML;
@@ -914,7 +947,7 @@ async function handleInvoiceSubmitMulti(e) {
         );
 
         if (!isUnique) {
-            window.notify.remove(loadingNotif);
+            if (overlay) overlay.remove();
             submitBtn.innerHTML = originalText;
             submitBtn.disabled = false;
             return;
@@ -990,7 +1023,7 @@ async function handleInvoiceSubmitMulti(e) {
                 await window.electron.dbMulti.saveNote(invoiceId, noteText);
             }
 
-            window.notify.remove(loadingNotif);
+            if (overlay) overlay.remove();
             window.notify.success('Facture enregistrée avec succès!', `ID: ${invoiceId} - ${formData.client.nom}`, 4000);
 
             setTimeout(() => {
@@ -1001,7 +1034,7 @@ async function handleInvoiceSubmitMulti(e) {
         }
     } catch (error) {
         console.error('[MULTI] Error saving invoice:', error);
-        window.notify.remove(loadingNotif);
+        if (overlay) overlay.remove();
         window.notify.error('Erreur lors de l\'enregistrement', error.message || 'Une erreur est survenue.', 5000);
         submitBtn.innerHTML = originalText;
         submitBtn.disabled = false;

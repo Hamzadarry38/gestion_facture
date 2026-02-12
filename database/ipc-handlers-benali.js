@@ -143,6 +143,25 @@ async function registerBenAliHandlers() {
         }
     });
 
+    // BEN ALI PDF Settings (percentage, product names)
+    ipcMain.handle('db:benali:pdfSettings:get', async () => {
+        try {
+            return await apiClient.getPdfSettings('BENALI');
+        } catch (error) {
+            console.error('❌ [BEN ALI] Error getting PDF settings:', error);
+            return { success: false, error: error.message };
+        }
+    });
+
+    ipcMain.handle('db:benali:pdfSettings:save', async (event, percentage, productNames) => {
+        try {
+            return await apiClient.savePdfSettings('BENALI', percentage, productNames);
+        } catch (error) {
+            console.error('❌ [BEN ALI] Error saving PDF settings:', error);
+            return { success: false, error: error.message };
+        }
+    });
+
     console.log('✅ [BEN ALI] IPC handlers registered (API Edition)');
 }
 

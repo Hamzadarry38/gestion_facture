@@ -95,110 +95,163 @@ window.downloadSAAISSDevisPDF = async function (invoiceId) {
             return;
         }
 
-        // Check if jsPDF is loaded
-        if (typeof window.jspdf === 'undefined') {
-            await loadJsPDF();
-        }
-
-        const { jsPDF } = window.jspdf;
-        const doc = new jsPDF();
-
-        // Create customized invoice copy
-        const customizedInvoice = JSON.parse(JSON.stringify(invoice));
-        customizedInvoice.document_numero_devis = customizationData.customDevisNumber;
-        customizedInvoice.document_date = customizationData.customDate;
-
-        // Apply percentage to products (but don't show percentage in PDF)
-        if (customizationData.percentage && customizationData.percentage > 0) {
-            customizedInvoice.products = customizedInvoice.products.map(product => ({
-                ...product,
-                prix_unitaire_ht: parseFloat(product.prix_unitaire_ht) * (1 + customizationData.percentage / 100),
-                total_ht: parseFloat(product.total_ht) * (1 + customizationData.percentage / 100)
-            }));
-            // Recalculate totals
-            const newTotalHT = customizedInvoice.products.reduce((sum, p) => sum + parseFloat(p.total_ht), 0);
-            const newMontantTVA = newTotalHT * (parseFloat(customizedInvoice.tva_rate) / 100);
-            const newTotalTTC = newTotalHT + newMontantTVA;
-            customizedInvoice.total_ht = newTotalHT;
-            customizedInvoice.montant_tva = newMontantTVA;
-            customizedInvoice.total_ttc = newTotalTTC;
-        }
-        // Apply modified product names
-        if (customizationData.modifiedProducts) {
-            customizedInvoice.products = customizedInvoice.products.map((product, index) => ({
-                ...product,
-                designation: customizationData.modifiedProducts[index] || product.designation
-            }));
-        }
-
-        // Check if devis number already exists
+        // Show loading overlay immediately after modal closes
+        let loadingOverlay = null;
         try {
-            const currentYear = new Date().getFullYear();
-            const existsResult = await window.electron.dbSaaiss.checkDevisExists(customizationData.customDevisNumber, currentYear);
-            if (existsResult.success && existsResult.data) {
-                throw new Error(`Le numéro de Devis "${customizationData.customDevisNumber}" existe déjà pour l'année ${currentYear}`);
+            loadingOverlay = document.createElement('div');
+            loadingOverlay.id = 'pdfLoadingOverlay';
+            loadingOverlay.style.cssText = `
+                position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+                background: rgba(0, 0, 0, 0.7);
+                display: flex; align-items: center; justify-content: center;
+                z-index: 99999; backdrop-filter: blur(4px);
+            `;
+            loadingOverlay.innerHTML = `
+                <div style="
+                    background: #1e1e1e; border-radius: 16px; padding: 2.5rem 3rem;
+                    text-align: center; box-shadow: 0 20px 60px rgba(0,0,0,0.5);
+                    border: 1px solid rgba(156,39,176,0.3); min-width: 300px;
+                ">
+                    <div style="
+                        width: 56px; height: 56px; border: 4px solid #333;
+                        border-top-color: #9C27B0; border-radius: 50%;
+                        animation: pdfSpin 0.8s linear infinite;
+                        margin: 0 auto 1.5rem;
+                    "></div>
+                    <div style="color: #fff; font-size: 1.15rem; font-weight: 600; margin-bottom: 0.5rem;">
+                        Génération du PDF en cours...
+                    </div>
+                    <div style="color: #9C27B0; font-size: 0.95rem; font-weight: 700;">
+                        🏭 MSH3 SERVICES
+                    </div>
+                </div>
+                <style>
+                    @keyframes pdfSpin {
+                        to { transform: rotate(360deg); }
+                    }
+                </style>
+            `;
+            document.body.appendChild(loadingOverlay);
+        } catch (e) {
+            console.warn('Could not show loading overlay:', e);
+        }
+
+        try {
+            // Check if jsPDF is loaded
+            if (typeof window.jspdf === 'undefined') {
+                await loadJsPDF();
             }
-        } catch (error) {
-            showSAAISSErrorModal('Numéro de Devis en doublon', error.message);
-            return;
-        }
 
-        // Add Devis number to SAAISS database
-        try {
-            const currentYear = new Date().getFullYear();
-            await window.electron.dbSaaiss.addDevisNumber(customizationData.customDevisNumber, currentYear);
-        } catch (error) {
-            console.error('Error saving devis number:', error);
-        }
+            const { jsPDF } = window.jspdf;
+            const doc = new jsPDF();
 
-        // Generate SAAISS PDF with special design
-        await generateSAAISSPDF(doc, customizedInvoice, includeZeroProducts);
+            // Create customized invoice copy
+            const customizedInvoice = JSON.parse(JSON.stringify(invoice));
+            customizedInvoice.document_numero_devis = customizationData.customDevisNumber;
+            customizedInvoice.document_date = customizationData.customDate;
 
-        // Save the PDF with new format: SAAISS_TYPE_ClientName_InvoiceNumber
-        const docType = customizedInvoice.document_type === 'devis' ? 'Devis' : 'Facture';
-        const invoiceNumber = customizedInvoice.document_numero_devis || customizedInvoice.document_numero || 'N-A';
-        const fileName = `STé_MSH3_SERVICES_${docType}_${customizedInvoice.client_nom}_${invoiceNumber}.pdf`;
+            // Apply percentage to products (but don't show percentage in PDF)
+            if (customizationData.percentage && customizationData.percentage > 0) {
+                customizedInvoice.products = customizedInvoice.products.map(product => ({
+                    ...product,
+                    prix_unitaire_ht: parseFloat(product.prix_unitaire_ht) * (1 + customizationData.percentage / 100),
+                    total_ht: parseFloat(product.total_ht) * (1 + customizationData.percentage / 100)
+                }));
+                // Recalculate totals
+                const newTotalHT = customizedInvoice.products.reduce((sum, p) => sum + parseFloat(p.total_ht), 0);
+                const newMontantTVA = newTotalHT * (parseFloat(customizedInvoice.tva_rate) / 100);
+                const newTotalTTC = newTotalHT + newMontantTVA;
+                customizedInvoice.total_ht = newTotalHT;
+                customizedInvoice.montant_tva = newMontantTVA;
+                customizedInvoice.total_ttc = newTotalTTC;
+            }
+            // Apply modified product names
+            if (customizationData.modifiedProducts) {
+                customizedInvoice.products = customizedInvoice.products.map((product, index) => ({
+                    ...product,
+                    designation: customizationData.modifiedProducts[index] || product.designation
+                }));
+            }
 
-        // Create PDF Blob for upload
-        const pdfBlob = doc.output('blob');
-        const currentYear = new Date().getFullYear();
-
-        // Upload PDF to Server (Cloud Storage)
-        console.log('☁️ Uploading SAAISS PDF to server...');
-        const uploadResult = await window.electron.dbSmartS.uploadPdf(pdfBlob, fileName); // Using dbSmartS upload handler as it is generic for upload
-        // Note: We used dbSmartS.uploadPdf. We should probably make sure dbMsh3 also has it or use a generic one.
-        // In preload.js, only dbSmartS has uploadPdf currently. Let's use that one or add to others.
-        // For simplicity, let's use window.electron.dbSmartS.uploadPdf which points to 'db:smarts:pdf:upload'
-        // Ideally we should have a generic 'uploadPdf' in the main API.
-
-        if (uploadResult.success) {
-            console.log('✅ SAAISS PDF uploaded to server:', uploadResult.filePath);
-
-            // Record PDF path in database for metadata tracking
+            // Check if devis number already exists
             try {
-                // SAAISS uses dbMsh3 for PDF paths
-                await window.electron.dbMsh3.savePdfPath(customizedInvoice.document_numero_devis, currentYear, uploadResult.filePath, createdBy);
-                console.log('✅ PDF metadata synced to PostgreSQL');
-            } catch (dbErr) {
-                console.error('⚠️ Failed to sync PDF metadata to PostgreSQL:', dbErr);
+                const currentYear = new Date().getFullYear();
+                const existsResult = await window.electron.dbSaaiss.checkDevisExists(customizationData.customDevisNumber, currentYear);
+                if (existsResult.success && existsResult.data) {
+                    throw new Error(`Le numéro de Devis "${customizationData.customDevisNumber}" existe déjà pour l'année ${currentYear}`);
+                }
+            } catch (error) {
+                showSAAISSErrorModal('Numéro de Devis en doublon', error.message);
+                return;
             }
 
-            // Also save to downloads
-            doc.save(fileName);
-            console.log('✅ SAAISS PDF generated successfully:', fileName);
-            showSAAISSSuccessModal('PDF généré avec succès', `Le fichier ${fileName} a été sauvegardé en ligne et téléchargé !`);
-        } else {
-            console.error('❌ Error uploading PDF to server:', uploadResult.error);
+            // Add Devis number to SAAISS database
+            try {
+                const currentYear = new Date().getFullYear();
+                await window.electron.dbSaaiss.addDevisNumber(customizationData.customDevisNumber, currentYear);
+            } catch (error) {
+                console.error('Error saving devis number:', error);
+            }
 
-            // Fallback: Try to save locally
-            const pdfArrayBuffer = await pdfBlob.arrayBuffer();
+            // Generate SAAISS PDF with special design
+            await generateSAAISSPDF(doc, customizedInvoice, includeZeroProducts);
+
+            // Save the PDF with new format: SAAISS_TYPE_ClientName_InvoiceNumber
+            const docType = customizedInvoice.document_type === 'devis' ? 'Devis' : 'Facture';
+            const invoiceNumber = customizedInvoice.document_numero_devis || customizedInvoice.document_numero || 'N-A';
+            const fileName = `STé_MSH3_SERVICES_${docType}_${customizedInvoice.client_nom}_${invoiceNumber}.pdf`;
+
+            // Create PDF ArrayBuffer for upload
+            const pdfArrayBuffer = doc.output('arraybuffer');
             const pdfUint8Array = new Uint8Array(pdfArrayBuffer);
-            const saveResult = await window.electron.pdf.savePdf(pdfUint8Array, 'saaiss', customizedInvoice.document_numero_devis, createdBy);
+            const currentYear = new Date().getFullYear();
 
-            if (saveResult.success) {
-                showSAAISSWarningModal('Mode Hors Ligne', 'Le PDF a été sauvegardé localement car le serveur est inaccessible.');
+            // Get createdBy
+            const selectedCompany = JSON.parse(localStorage.getItem('selectedCompany') || '{}');
+            const createdBy = selectedCompany.code || selectedCompany.name || 'Unknown';
+
+            // Upload PDF to Server (Cloud Storage)
+            console.log('☁️ Uploading SAAISS PDF to server...');
+            const uploadResult = await window.electron.dbSmartS.uploadPdf(pdfUint8Array, fileName);
+            // Note: We used dbSmartS.uploadPdf. We should probably make sure dbMsh3 also has it or use a generic one.
+            // In preload.js, only dbSmartS has uploadPdf currently. Let's use that one or add to others.
+            // For simplicity, let's use window.electron.dbSmartS.uploadPdf which points to 'db:smarts:pdf:upload'
+            // Ideally we should have a generic 'uploadPdf' in the main API.
+
+            if (uploadResult.success) {
+                console.log('✅ SAAISS PDF uploaded to server:', uploadResult.filePath);
+
+                // Record PDF path in database for metadata tracking
+                try {
+                    // SAAISS uses dbMsh3 for PDF paths
+                    await window.electron.dbMsh3.savePdfPath(customizedInvoice.document_numero_devis, currentYear, uploadResult.filePath, createdBy);
+                    console.log('✅ PDF metadata synced to PostgreSQL');
+                } catch (dbErr) {
+                    console.error('⚠️ Failed to sync PDF metadata to PostgreSQL:', dbErr);
+                }
+
+                // Also save to downloads
+                doc.save(fileName);
+                console.log('✅ SAAISS PDF generated successfully:', fileName);
+                showSAAISSSuccessModal('PDF généré avec succès', `Le fichier ${fileName} a été sauvegardé en ligne et téléchargé !`);
             } else {
-                showSAAISSErrorModal('Erreur', 'Échec de la sauvegarde (En ligne et Locale).');
+                console.error('❌ Error uploading PDF to server:', uploadResult.error);
+
+                // Fallback: Try to save locally
+                const pdfUint8ArrayFallback = new Uint8Array(doc.output('arraybuffer'));
+                const saveResult = await window.electron.pdf.savePdf(pdfUint8ArrayFallback, 'saaiss', customizedInvoice.document_numero_devis, createdBy);
+
+                if (saveResult.success) {
+                    showSAAISSWarningModal('Mode Hors Ligne', 'Le PDF a été sauvegardé localement car le serveur est inaccessible.');
+                } else {
+                    showSAAISSErrorModal('Erreur', 'Échec de la sauvegarde (En ligne et Locale).');
+                }
+            }
+
+        } finally {
+            // Always remove loading overlay
+            if (loadingOverlay && loadingOverlay.parentNode) {
+                loadingOverlay.remove();
             }
         }
 
@@ -240,6 +293,17 @@ async function showSimpleSAAISSModal(invoice) {
         console.log('Could not get last devis number:', error);
     }
 
+    // Load last saved settings from PostgreSQL
+    let savedPercentage = '';
+    let savedProductNames = {};
+    try {
+        const settingsResult = await window.electron.dbSaaiss.getPdfSettings();
+        if (settingsResult && settingsResult.success && settingsResult.data) {
+            savedPercentage = settingsResult.data.percentage || '';
+            savedProductNames = settingsResult.data.product_names || {};
+        }
+    } catch (e) { console.warn('Could not load SAAISS settings:', e); }
+
     return new Promise((resolve) => {
         const overlay = document.createElement('div');
         overlay.className = 'custom-modal-overlay';
@@ -247,6 +311,9 @@ async function showSimpleSAAISSModal(invoice) {
         const modal = document.createElement('div');
         modal.className = 'custom-modal';
         modal.style.maxWidth = '700px';
+        modal.style.maxHeight = '80vh';
+        modal.style.display = 'flex';
+        modal.style.flexDirection = 'column';
 
         // Extract next devis number and add current year
         let nextDevisNumber = lastDevisNumber;
@@ -274,12 +341,12 @@ async function showSimpleSAAISSModal(invoice) {
                     🏢 Créé par: <strong>${companyName}</strong>
                 </div>
             </div>
-            <div class="custom-modal-body">
+            <div class="custom-modal-body" style="overflow-y: auto; flex: 1; max-height: calc(80vh - 140px);">
                 <div style="margin-bottom: 1.5rem;">
                     <label style="display: block; margin-bottom: 0.5rem; color: #e0e0e0; font-weight: 600;">
                         Pourcentage d'ajustement (%) :
                     </label>
-                    <input type="number" id="percentageInput" placeholder="0" min="0" max="100" step="0.1" 
+                    <input type="number" id="percentageInput" placeholder="0" min="0" max="100" step="0.1" value="${savedPercentage}"
                            style="width: 100%; padding: 0.75rem; background: #2d2d30; border: 1px solid #3e3e42; border-radius: 6px; color: #fff; font-size: 1rem;">
                     <small style="color: #999; display: block; margin-top: 0.5rem;">
                         Ce pourcentage sera appliqué aux prix mais ne sera pas visible dans le PDF
@@ -311,16 +378,18 @@ async function showSimpleSAAISSModal(invoice) {
                         Modifier les noms des produits :
                     </label>
                     <div id="productsContainer" style="background: #1e1e1e; border: 1px solid #3e3e42; border-radius: 6px; padding: 1rem; max-height: 250px; overflow-y: auto;">
-                        ${invoice.products.map((product, index) => `
+                        ${invoice.products.map((product, index) => {
+            const displayName = savedProductNames[index] || product.designation;
+            return `
                             <div style="margin-bottom: 0.75rem;">
                                 <div style="display: flex; gap: 0.5rem; align-items: center; margin-bottom: 0.5rem;">
                                     <label style="color: #999; font-size: 0.85rem;">Produit ${index + 1}:</label>
                                     <span style="color: #999; font-size: 0.85rem;">Quantité: ${product.quantite}</span>
                                 </div>
                                 <textarea class="product-name-input" data-index="${index}" 
-                                       style="width: 100%; padding: 0.5rem; background: #2d2d30; border: 1px solid #3e3e42; border-radius: 4px; color: #fff; font-size: 0.9rem; font-family: inherit; resize: vertical; min-height: 60px;">${product.designation}</textarea>
+                                       style="width: 100%; padding: 0.5rem; background: #2d2d30; border: 1px solid #3e3e42; border-radius: 4px; color: #fff; font-size: 0.9rem; font-family: inherit; resize: vertical; min-height: 60px;">${displayName}</textarea>
                             </div>
-                        `).join('')}
+                        `}).join('')}
                     </div>
                 </div>
             </div>
@@ -372,6 +441,11 @@ async function showSimpleSAAISSModal(invoice) {
                     }
                 }
             });
+
+            // Save settings to PostgreSQL for next time
+            try {
+                await window.electron.dbSaaiss.savePdfSettings(percentage, modifiedProducts);
+            } catch (e) { console.warn('Could not save SAAISS settings:', e); }
 
             overlay.remove();
             resolve({
@@ -755,8 +829,10 @@ async function generateSAAISSPDF(doc, invoice, includeZeroProducts = true) {
                 doc.setFont(undefined, 'normal');
                 doc.setFontSize(9);
 
-                // Draw quantity in first column
-                doc.text(quantityText, colPositions[0] + 2, rowY + 6, { align: 'left' });
+                // Draw quantity in first column - ONLY ON FIRST PAGE OF PRODUCT
+                if (lineIndex === 0) {
+                    doc.text(quantityText, colPositions[0] + 2, rowY + 6, { align: 'left' });
+                }
 
                 console.log(`  Row Y: ${rowY}, Row Height: ${rowHeight}`);
                 console.log(`  QTE Position: X=${colPositions[0] + 2}, Y=${rowY + 6}`);
@@ -774,15 +850,17 @@ async function generateSAAISSPDF(doc, invoice, includeZeroProducts = true) {
                     });
                 });
 
-                // Draw unit price and total for this visual row
-                const otherColumns = [unitPriceText, totalHtText];
-                otherColumns.forEach((data, offset) => {
-                    const colIndex = offset + 2; // columns 2,3
-                    const align = 'right';
-                    const x = colPositions[colIndex] + colWidths[colIndex] - 2;
-                    console.log(`  Column ${colIndex} (${tableHeaders[colIndex]}): "${data}" at X=${x}, Y=${rowY + 6}`);
-                    doc.text(data, x, rowY + 6, { align });
-                });
+                // Draw unit price and total for this visual row - ONLY ON FIRST PAGE OF PRODUCT
+                if (lineIndex === 0) {
+                    const otherColumns = [unitPriceText, totalHtText];
+                    otherColumns.forEach((data, offset) => {
+                        const colIndex = offset + 2; // columns 2,3
+                        const align = 'right';
+                        const x = colPositions[colIndex] + colWidths[colIndex] - 2;
+                        console.log(`  Column ${colIndex} (${tableHeaders[colIndex]}): "${data}" at X=${x}, Y=${rowY + 6}`);
+                        doc.text(data, x, rowY + 6, { align });
+                    });
+                }
 
                 // Bottom border for this visual row
                 doc.setDrawColor(0, 0, 0); // Black border

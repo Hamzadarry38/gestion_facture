@@ -88,38 +88,7 @@ function InvoicesListMRYPage() {
                         </div>
                     </div>
                     
-                    <!-- Validation Queue (Super User Only) -->
-                    <div id="validationQueueSectionMRY" style="display: none; margin-bottom: 2rem; background: #2d2d30; border-radius: 8px; border: 1px solid #3e3e42; overflow: hidden; box-shadow: 0 4px 20px rgba(0,0,0,0.3);">
-                        <div style="padding: 1rem 1.5rem; background: #2196f3; color: white; display: flex; justify-content: space-between; align-items: center; cursor: pointer;" onclick="toggleValidationQueueMRY()">
-                            <h3 style="margin: 0; font-size: 1.1rem; display: flex; align-items: center; gap: 0.5rem;">
-                                🛡️ Factures en attente de validation (<span id="pendingInvoicesCountMRY">0</span>)
-                            </h3>
-                            <div style="display: flex; align-items: center; gap: 1rem;">
-                                <span style="font-size: 0.8rem; background: rgba(255,255,255,0.2); padding: 0.2rem 0.6rem; border-radius: 20px;">Section Administrateur</span>
-                                <span id="toggleValidationIconMRY">▼</span>
-                            </div>
-                        </div>
-                        <div id="validationQueueContentMRY" style="display: none; padding: 1rem;">
-                            <div class="table-container" style="max-height: 400px; overflow-y: auto;">
-                                <table class="invoices-table" style="margin-bottom: 0;">
-                                    <thead>
-                                        <tr>
-                                            <th>Type</th>
-                                            <th>N° Document</th>
-                                            <th>Client</th>
-                                            <th>Date</th>
-                                            <th>Montant TTC</th>
-                                            <th>Créé par</th>
-                                            <th style="text-align: center;">Actions</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody id="pendingInvoicesTableBodyMRY">
-                                        <!-- Pending invoices will be loaded here -->
-                                    </tbody>
-                                </table>
-                            </div>
-                        </div>
-                    </div>
+
 
 
                     <!-- Filters -->
@@ -201,6 +170,30 @@ function InvoicesListMRYPage() {
                                 <option value="normal">Normal</option>
                                 <option value="converted">Conversion</option>
                             </select>
+                        </div>
+
+                        <!-- Devis Conversion Filter -->
+                        <div class="filter-group">
+                            <label>🔄 Etat Devis:</label>
+                            <select id="filterDevisConversionMRY" onchange="filterInvoices()">
+                                <option value="all">Tous</option>
+                                <option value="converted">Convertis</option>
+                                <option value="not_converted">Non Convertis</option>
+                            </select>
+                        </div>
+                        
+                        <!-- Status Filter (Seen/Unseen) - Admins Only -->
+                        <div class="filter-group" id="statusFilterGroupMRY" style="display: none;">
+                            <label>👁️ Statut:</label>
+                            <div style="position: relative;">
+                                <select id="filterStatusMRY" onchange="filterInvoices()">
+                                    <option value="all">Tous</option>
+                                    <option value="unseen">Non lus (Nouveau)</option>
+                                    <option value="modified">Modifiés (Par un autre)</option>
+                                    <option value="seen">Lus / Traités</option>
+                                </select>
+                                <span id="unseenBadgeMRY" style="display: none; position: absolute; top: -8px; right: -8px; background: #f44336; color: white; border-radius: 50%; padding: 2px 6px; font-size: 10px; font-weight: bold; box-shadow: 0 2px 4px rgba(0,0,0,0.2);">0</span>
+                            </div>
                         </div>
                         
                         <!-- AR Status Filter -->
@@ -511,18 +504,16 @@ window.loadInvoices = async function () {
     const user = JSON.parse(localStorage.getItem('user') || '{}');
     isSuperUserMRY = (user.email === 'redouanerrebbahi99@gmail.com' || user.can_auto_validate === true);
 
-    // Update UI based on identity
-    const validationSection = document.getElementById('validationQueueSectionMRY');
-    if (validationSection) validationSection.style.display = isSuperUserMRY ? 'block' : 'none';
-
-    if (isSuperUserMRY) {
-        loadPendingInvoicesMRY();
-    }
-
     console.log('🔄 [LOAD] Starting to load invoices from database...');
     const loadingSpinner = document.getElementById('loadingSpinner');
     const tableBody = document.getElementById('invoicesTableBody');
     const emptyState = document.getElementById('emptyState');
+
+    // Show/Hide Status Filter based on admin status
+    const statusFilterGroup = document.getElementById('statusFilterGroupMRY');
+    if (statusFilterGroup) {
+        statusFilterGroup.style.display = isSuperUserMRY ? 'block' : 'none';
+    }
 
     if (!loadingSpinner || !tableBody || !emptyState) {
         console.error('❌ Required elements not found in DOM');
@@ -566,11 +557,18 @@ window.loadInvoices = async function () {
                 created_by_user_name: inv.created_by_user_name || '-'
             }));
 
-            // Filter: Main list should ONLY show validated invoices (or rejected/modified)
-            // Pending invoices should ONLY appear in the Validation Queue at the top.
-            // So we filter out 'pending' for EVERYONE from this main table.
-            allInvoices = enrichedInvoices.filter(inv => inv.validation_status !== 'pending');
-            console.log('✅ [LOAD] All invoices stored in memory (excluding pending):', allInvoices.length);
+            // Filter: Main list should show detailed list based on user role, but for this feature we want ALL invoices
+            // "Pending" invoices are "Unseen".
+            allInvoices = enrichedInvoices;
+            console.log('✅ [LOAD] All invoices stored in memory:', allInvoices.length);
+
+            // Calculate Unseen (Pending) count
+            const unseenCount = allInvoices.filter(inv => inv.validation_status === 'pending').length;
+            const badge = document.getElementById('unseenBadgeMRY');
+            if (badge) {
+                badge.textContent = unseenCount;
+                badge.style.display = unseenCount > 0 ? 'block' : 'none';
+            }
 
             // Log first 3 invoices for debugging
             if (allInvoices.length > 0) {
@@ -651,8 +649,19 @@ function displayInvoices(invoices) {
             total_ttc: invoice.total_ttc
         });
 
-        const typeLabel = invoice.document_type === 'facture' ? '📄 Facture' : '📋 Devis';
-        const typeBadge = invoice.document_type === 'facture' ? 'badge-facture' : 'badge-devis';
+        let typeLabel = '';
+        let typeBadge = '';
+
+        if (invoice.document_type === 'facture') {
+            typeLabel = '📄 Facture';
+            typeBadge = 'badge-facture';
+        } else if (invoice.document_type === 'devis') {
+            typeLabel = '📋 Devis';
+            typeBadge = 'badge-devis';
+        } else {
+            typeLabel = '📦 Bon de Livraison';
+            typeBadge = 'badge-bl';
+        }
         const numero = invoice.document_numero || invoice.document_numero_devis || '-';
         const numeroOrder = invoice.document_numero_Order || invoice.document_numero_order;
 
@@ -682,22 +691,36 @@ function displayInvoices(invoices) {
         const arStatus = invoice.ar_status || 'sans_accuse';
         const arBg = arStatus === 'accuse' ? '#4caf50' : (arStatus === 'en_attente' ? '#ff9800' : '#424242');
 
-        const rowClass = invoice.creation_method === 'converted' ? 'row-converted' : '';
+        const isUnseen = invoice.validation_status === 'pending';
+        const isModified = invoice.is_modified === true;
+
+        let rowClass = invoice.creation_method === 'converted' ? 'row-converted' : '';
+        let rowStyle = '';
+
+        if (isModified) {
+            // Modified takes precedence
+            rowStyle = 'background-color: rgba(255, 152, 0, 0.1); font-weight: bold;';
+        } else if (isUnseen) {
+            rowClass = isUnseen && !rowClass ? 'row-unseen' : rowClass;
+            rowStyle = 'background-color: rgba(244, 67, 54, 0.1); font-weight: bold;';
+        }
 
         return `
-            <tr class="${rowClass}">
+            <tr class="${rowClass}" style="${rowStyle}">
                 <td>
                     <input type="checkbox" class="invoice-checkbox" data-invoice-id="${invoice.id}"
                            style="width: 18px; height: 18px; cursor: pointer;">
                 </td>
-                <td><span class="badge ${typeBadge}">${typeLabel}</span></td>
+                <td><span class="badge ${typeBadge}" style="${typeBadge === 'badge-converted' ? 'background: #e8f5e9; color: #2e7d32; border: 1px solid #a5d6a7;' : ''}">${typeLabel}</span></td>
                 <td>${documentDisplay}</td>
                 <td>${invoice.client_nom}</td>
                 <td class="col-ice-mry-body" style="${columnVisibilityMRY.ice ? '' : 'display: none;'}">${invoice.client_ice}</td>
                 <td>${date}</td>
                 <td>
-                    <div style="display: flex; align-items: center; gap: 0.5rem;">
-                        <small style="color: #2196f3; font-weight: 600;">👤 ${invoice.created_by_user_name || '-'}</small>
+                    <div style="display: flex; flex-direction: column; gap: 0.2rem;">
+                        <small style="color: #2196f3; font-weight: 600;">👤 Créé par: ${invoice.created_by_user_name || '-'}</small>
+                        ${invoice.is_modified === true ?
+                `<small style="color: #ff9800; font-weight: 600;">📝 Modifié par: ${invoice.updated_by_user_name}</small>` : ''}
                     </div>
                 </td>
                 <td>${formatNumber(invoice.total_ht)} DH</td>
@@ -884,7 +907,9 @@ window.resetFilters = function () {
     document.getElementById('filterYear').value = '';
     document.getElementById('filterMonth').value = '';
     document.getElementById('filterClient').value = '';
-    document.getElementById('filterAttachments').checked = false;
+    document.getElementById('filterAttachments').value = 'all';
+    document.getElementById('filterMethod').value = 'all';
+    if (document.getElementById('filterDevisConversionMRY')) document.getElementById('filterDevisConversionMRY').value = 'all';
     document.getElementById('searchType').value = 'all';
     document.getElementById('searchInput').value = '';
     currentPage = 1;
@@ -900,7 +925,9 @@ window.filterInvoices = async function () {
     const filterClient = document.getElementById('filterClient').value;
     const filterAttachments = document.getElementById('filterAttachments').value;
     const filterMethod = document.getElementById('filterMethod')?.value || 'all';
+    const filterDevisConversion = document.getElementById('filterDevisConversionMRY')?.value || 'all';
     const arStatusFilter = document.getElementById('filterArStatusMRY').value;
+    const filterStatus = document.getElementById('filterStatusMRY')?.value || 'all';
     const searchInput = document.getElementById('searchInput').value.toLowerCase();
 
     // Show loading if search is active
@@ -910,6 +937,19 @@ window.filterInvoices = async function () {
     }
 
     let filtered = allInvoices;
+
+    // Filter by Status (Seen/Unseen/Modified)
+    if (filterStatus === 'unseen') {
+        filtered = filtered.filter(inv => {
+            const isModified = inv.is_modified === true;
+            return inv.validation_status === 'pending' && !isModified;
+        });
+    } else if (filterStatus === 'seen') {
+        filtered = filtered.filter(inv => inv.validation_status !== 'pending');
+    } else if (filterStatus === 'modified') {
+        // Show invoices that have been modified (new is_modified flag)
+        filtered = filtered.filter(inv => inv.is_modified === true);
+    }
 
     // Filter by type
     if (filterType) {
@@ -950,6 +990,16 @@ window.filterInvoices = async function () {
         filtered = filtered.filter(inv => !inv.creation_method || inv.creation_method === 'normal');
     } else if (filterMethod === 'converted') {
         filtered = filtered.filter(inv => inv.creation_method === 'converted');
+    }
+
+    // Devis Conversion filter
+    if (filterDevisConversion !== 'all') {
+        filtered = filtered.filter(inv => {
+            if (inv.document_type !== 'devis') return false;
+            if (filterDevisConversion === 'converted' && !inv.is_converted) return false;
+            if (filterDevisConversion === 'not_converted' && inv.is_converted) return false;
+            return true;
+        });
     }
 
     // Filter by AR Status
@@ -1161,6 +1211,31 @@ window.sortTableMry = function (column) {
     console.log(`📊 [MRY] Sorted by ${column} (${currentSortDirectionMry})`);
 };
 
+// Mark invoice as seen (validated)
+window.markAsSeenMRY = async function (id) {
+    try {
+        const result = await window.electron.api.validateInvoice(id, 'validated');
+        if (result.success) {
+            window.notify.success('Succès', 'Facture marquée comme lue', 3000);
+
+            // Close modal if open
+            const modal = document.querySelector('.invoice-view-overlay');
+            if (modal) modal.remove();
+
+            // Reload list
+            loadInvoices();
+
+            // Update badges globally if needed (usually handled by reload or separate event)
+            if (typeof updatePendingCounts === 'function') updatePendingCounts();
+        } else {
+            window.notify.error('Erreur', 'Impossible de marquer comme lue', 3000);
+        }
+    } catch (error) {
+        console.error('Error marking as seen:', error);
+        window.notify.error('Erreur', 'Erreur serveur', 3000);
+    }
+}
+
 // View invoice details
 window.viewInvoice = async function (id) {
     try {
@@ -1176,6 +1251,23 @@ window.viewInvoice = async function (id) {
         const date = new Date(invoice.document_date).toLocaleDateString('fr-FR');
         const docNumber = invoice.document_numero || invoice.document_numero_devis || '-';
         const typeLabel = invoice.document_type === 'facture' ? 'Facture' : 'Devis';
+
+        // Auto-validate if pending (mark as seen automatically)
+        if (invoice.validation_status === 'pending') {
+            console.log('📝 [AUTO-VALIDATE] Invoice is pending, marking as seen automatically...');
+            try {
+                await window.electron.db.validateInvoice(id, 'validated');
+                console.log('✅ [AUTO-VALIDATE] Invoice marked as seen');
+                // Update the invoice object to reflect the change
+                invoice.validation_status = 'validated';
+                // Update badges if function exists
+                if (typeof updatePendingCounts === 'function') {
+                    setTimeout(() => updatePendingCounts(), 500);
+                }
+            } catch (error) {
+                console.error('❌ [AUTO-VALIDATE] Error:', error);
+            }
+        }
 
         console.log('👁️ [VIEW] Creating overlay and modal...');
         const overlay = document.createElement('div');
@@ -1194,6 +1286,14 @@ window.viewInvoice = async function (id) {
                     <h2 style="color:#fff;margin:0;font-size:1.3rem;font-weight:600;">Détails de la ${typeLabel} #${docNumber}</h2>
                 </div>
                 <div style="display:flex;align-items:center;gap:1rem;flex-wrap:wrap;">
+                    ${invoice.validation_status === 'pending' ? `
+                    <button onclick="markAsSeenMRY(${id})" style="padding:0.6rem 1.2rem;background:#4caf50;color:#fff;border:none;border-radius:8px;cursor:pointer;font-size:0.9rem;font-weight:600;display:flex;align-items:center;gap:0.5rem;transition:all 0.2s;box-shadow: 0 4px 6px rgba(0,0,0,0.2);" onmouseover="this.style.transform='translateY(-2px)'" onmouseout="this.style.transform='translateY(0)'">
+                        <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+                            <path d="M12.736 3.97a.733.733 0 0 1 1.047 0c.286.289.29.756.01 1.05L7.88 12.01a.733.733 0 0 1-1.065.02L3.217 8.384a.757.757 0 0 1 0-1.06.733.733 0 0 1 1.047 0l3.052 3.093 5.4-6.425a.247.247 0 0 1 .02-.022Z"/>
+                        </svg>
+                        Marquer comme lu
+                    </button>
+                    ` : ''}
                     <button onclick="downloadInvoicePDF(${id})" style="padding:0.6rem 1.2rem;background:#2196F3;color:#fff;border:none;border-radius:8px;cursor:pointer;font-size:0.9rem;font-weight:600;display:flex;align-items:center;gap:0.5rem;transition:all 0.2s;" onmouseover="this.style.background='#1976D2'" onmouseout="this.style.background='#2196F3'">
                         <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
                             <path d="M.5 9.9a.5.5 0 0 1 .5.5v2.5a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-2.5a.5.5 0 0 1 1 0v2.5a2 2 0 0 1-2 2H2a2 2 0 0 1-2-2v-2.5a.5.5 0 0 1 .5-.5z"/>

@@ -143,6 +143,14 @@ window.EditInvoiceChaimaePage = function () {
                                         <input type="text" id="editCreatedByChaimae" readonly style="background: #1e1e1e; color: #aaa; cursor: not-allowed;" placeholder="Chargement...">
                                     </div>
                                 </div>
+                                <div class="form-field" id="editDeliveredByContainerChaimae">
+                                    <label>Livré par</label>
+                                    <div class="input-with-icon">
+                                        <span class="input-icon">🚛</span>
+                                        <input type="text" id="editDeliveredByChaimae" placeholder="Nom du livreur (Ex: Abderrahim)" list="editDeliveryPersonsListChaimae" required>
+                                        <datalist id="editDeliveryPersonsListChaimae"></datalist>
+                                    </div>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -325,7 +333,19 @@ window.loadInvoiceDataChaimae = async function (invoiceId) {
             optionalBLFields.style.display = 'none';
         }
 
-        // "Livrais par" field removed
+        const deliveredByContainer = document.getElementById('editDeliveredByContainerChaimae');
+        const deliveredByInput = document.getElementById('editDeliveredByChaimae');
+
+        if (deliveredByContainer && deliveredByInput) {
+            if (invoice.document_type === 'devis') {
+                deliveredByContainer.style.display = 'none';
+                deliveredByInput.required = false;
+            } else {
+                deliveredByContainer.style.display = 'block';
+                deliveredByInput.required = true;
+            }
+            deliveredByInput.value = invoice.delivered_by || '';
+        }
 
         document.getElementById('editTvaRateChaimae').value = invoice.tva_rate;
 
@@ -719,14 +739,49 @@ window.selectClientEditChaimae = function (nom, ice) {
 window.handleEditInvoiceSubmitChaimae = async function (e) {
     e.preventDefault();
 
-    // "Livré par" validation removed
+    // Validation: Livré par is mandatory unless it's a Devis
+    const deliveredByValue = document.getElementById('editDeliveredByChaimae')?.value;
+    if (currentDocumentTypeChaimae !== 'devis' && !deliveredByValue) {
+        window.notify.warning('Attention', 'Le champ "Livré par" est obligatoire', 3000);
+        return;
+    }
 
-    const loadingNotif = window.notify.loading('Mise à jour en cours...', 'Veuillez patienter');
+    // 🚀 High-Visibility Loading Overlay
+    const overlay = document.createElement('div');
+    overlay.id = 'global-loading-overlay-chaimae';
+    overlay.style.cssText = `
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(0, 0, 0, 0.7);
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        z-index: 99999;
+        color: white;
+        font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    `;
+    overlay.innerHTML = `
+        <div style="margin-bottom: 20px;">
+            <svg width="60" height="60" viewBox="0 0 50 50" style="animation: rotate 2s linear infinite;">
+                <circle cx="25" cy="25" r="20" fill="none" stroke="#2196F3" stroke-width="5" stroke-dasharray="80, 200" stroke-dashoffset="0" stroke-linecap="round">
+                    <animateTransform attributeName="transform" type="rotate" from="0 25 25" to="360 25 25" dur="1.5s" repeatCount="indefinite"/>
+                </circle>
+            </svg>
+        </div>
+        <h2 style="margin: 0; font-size: 1.5rem; font-weight: 600;">Enregistrement...</h2>
+        <p style="margin: 10px 0 0; opacity: 0.8;">Veuillez patienter pendant le traitement de votre facture</p>
+        <style>
+            @keyframes rotate { 100% { transform: rotate(360deg); } }
+        </style>
+    `;
+    document.body.appendChild(overlay);
 
     const submitBtn = e.target.querySelector('button[type="submit"]');
-    const originalText = submitBtn.innerHTML;
-    submitBtn.innerHTML = '<span>⏳ Enregistrement...</span>';
-    submitBtn.disabled = true;
+    if (submitBtn) submitBtn.disabled = true;
 
     try {
         const documentNumeroValue = document.getElementById('editDocumentNumeroChaimae').value;
@@ -744,12 +799,13 @@ window.handleEditInvoiceSubmitChaimae = async function (e) {
                 date: document.getElementById('editDocumentDateChaimae').value,
                 // 📦 Add Chaimae specific fields
                 created_by: document.getElementById('editCreatedByChaimae')?.value || null,
+                delivered_by: document.getElementById('editDeliveredByChaimae')?.value || null,
                 // ✅ Add user tracking
                 updated_by_user_id: currentUser?.id || null,
                 updated_by_user_name: currentUser?.name || null,
                 updated_by_user_email: currentUser?.email || null,
-                // ✅ Add validation status if user has permissions
-                ...(autoValidate ? { validation_status: 'validated' } : {})
+                // ✅ Always reset to pending on edit so it appears in "Modified" filter
+                validation_status: 'pending'
             },
             products: [],
             totals: {
@@ -936,7 +992,7 @@ window.handleEditInvoiceSubmitChaimae = async function (e) {
                 }
             }
 
-            window.notify.remove(loadingNotif);
+            if (overlay) overlay.remove();
             window.notify.success('Succès', 'Facture mise à jour avec succès!', 3000);
 
             setTimeout(() => {
@@ -947,10 +1003,9 @@ window.handleEditInvoiceSubmitChaimae = async function (e) {
         }
     } catch (error) {
         console.error('[Chaimae] Error updating invoice:', error);
-        window.notify.remove(loadingNotif);
+        if (overlay) overlay.remove();
         window.notify.error('Erreur', error.message || 'Une erreur est survenue.', 5000);
-        submitBtn.innerHTML = originalText;
-        submitBtn.disabled = false;
+        if (submitBtn) submitBtn.disabled = false;
     }
 }
 
@@ -1033,10 +1088,10 @@ window.showConvertDocumentTypeModalChaimae = async function () {
         console.log('🔄 [CONVERT] Current numero:', currentNumero);
         console.log('🔄 [CONVERT] New type:', selectedNewType);
 
-        // Get existing order number based on current type
+        // Get existing order number based on current type - support both casings
         let existingOrderNumber = '';
         if (currentType === 'facture') {
-            existingOrderNumber = invoice.document_numero_Order || '';
+            existingOrderNumber = invoice.document_numero_Order || invoice.document_numero_order || '';
         } else if (currentType === 'bon_livraison') {
             existingOrderNumber = invoice.document_numero_commande || '';
         } else {
@@ -1044,7 +1099,6 @@ window.showConvertDocumentTypeModalChaimae = async function () {
         }
 
         // Get existing BL number (to prefill when converting from BL to facture)
-        // If converting FROM bon_livraison, use the BL number for the "Bon de livraison" field in facture
         let existingBLNumber = '';
         if (currentType === 'bon_livraison') {
             existingBLNumber = invoice.document_numero_bl || '';
@@ -1055,6 +1109,21 @@ window.showConvertDocumentTypeModalChaimae = async function () {
         // Get existing Delivered by value - prioritize current form value if present
         const existingDeliveredBy = document.getElementById('editDeliveredByChaimae')?.value || invoice.delivered_by || '';
 
+        // Mapping for Order/Command field
+        if (currentType === 'bon_livraison' && selectedNewType === 'facture') {
+            // BL -> Facture: Pre-fill Order with BL number if no existing command number
+            if (!existingOrderNumber && currentNumero) {
+                existingOrderNumber = currentNumero;
+            }
+        }
+        // Note: Facture -> BL conversion now correctly keeps existingOrderNumber as is (original order or empty)
+        // without falling back to the Facture number.
+
+        // Refinement: If converting to Facture and BL field is still empty, pre-fill it with Order number if available
+        if (selectedNewType === 'facture' && !existingBLNumber && existingOrderNumber) {
+            existingBLNumber = existingOrderNumber;
+        }
+
         // Use current number as prefill (user can modify if needed)
         const inputData = await showConvertInputModalChaimae(selectedNewType, newTypeText, currentNumero, existingOrderNumber, existingBLNumber, existingDeliveredBy);
 
@@ -1064,6 +1133,40 @@ window.showConvertDocumentTypeModalChaimae = async function () {
         }
 
         const { newNumero, numeroOrder, bonLivraison, newDate, createdBy, deliveredBy } = inputData;
+
+        // 🚀 High-Visibility Loading Overlay
+        const overlay = document.createElement('div');
+        overlay.id = 'global-loading-overlay-chaimae-convert';
+        overlay.style.cssText = `
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.7);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            z-index: 99999;
+            color: white;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        `;
+        overlay.innerHTML = `
+            <div style="margin-bottom: 20px;">
+                <svg width="60" height="60" viewBox="0 0 50 50" style="animation: rotate 2s linear infinite;">
+                    <circle cx="25" cy="25" r="20" fill="none" stroke="#2196F3" stroke-width="5" stroke-dasharray="80, 200" stroke-dashoffset="0" stroke-linecap="round">
+                        <animateTransform attributeName="transform" type="rotate" from="0 25 25" to="360 25 25" dur="1.5s" repeatCount="indefinite"/>
+                    </circle>
+                </svg>
+            </div>
+            <h2 style="margin: 0; font-size: 1.5rem; font-weight: 600;">Conversion en cours...</h2>
+            <p style="margin: 10px 0 0; opacity: 0.8;">Veuillez patienter pendant la création du nouveau document</p>
+            <style>
+                @keyframes rotate { 100% { transform: rotate(360deg); } }
+            </style>
+        `;
+        document.body.appendChild(overlay);
 
         // Check for duplicate numbers
         const allInvoicesResult = await window.electron.dbChaimae.getAllInvoices();
@@ -1161,9 +1264,9 @@ window.showConvertDocumentTypeModalChaimae = async function () {
             document: {
                 type: selectedNewType,
                 date: newDate || invoice.document_date || new Date().toISOString().split('T')[0],
-                numero: selectedNewType === 'facture' ? newNumero : (selectedNewType === 'bon_livraison' ? null : null),
-                numero_devis: selectedNewType === 'devis' ? newNumero : null,
-                numero_bl: selectedNewType === 'bon_livraison' ? newNumero : null,
+                numero: selectedNewType === 'facture' ? newNumero : null,
+                numero_devis: selectedNewType === 'devis' ? newNumero : (currentType === 'devis' ? currentNumero : null),
+                numero_bl: selectedNewType === 'bon_livraison' ? newNumero : (currentType === 'bon_livraison' ? currentNumero : null),
                 numero_Order: selectedNewType === 'facture' ? (numeroOrder || null) : null,
                 numero_commande: selectedNewType === 'bon_livraison' ? (numeroOrder || null) : null,
                 bon_de_livraison: selectedNewType === 'facture' ? (bonLivraison || null) : null,
@@ -1173,6 +1276,7 @@ window.showConvertDocumentTypeModalChaimae = async function () {
                 created_by_user_name: user?.name || null,
                 created_by_user_email: user?.email || null,
                 creation_method: 'converted',
+                source_document_id: currentInvoiceIdChaimae, // Added for extra traceability
                 ar_status: 'sans_accuse'
             },
             products: (invoice.products || []).map(p => ({
@@ -1192,6 +1296,7 @@ window.showConvertDocumentTypeModalChaimae = async function () {
         const createResult = await window.electron.dbChaimae.createInvoice(newInvoiceData);
 
         if (createResult.success) {
+            if (overlay) overlay.remove();
             window.notify.success(
                 'Succès',
                 `${newTypeText} créé(e) avec succès`,
@@ -1200,13 +1305,11 @@ window.showConvertDocumentTypeModalChaimae = async function () {
 
             setTimeout(() => {
                 router.navigate('/invoices-list-chaimae');
-            }, 1500);
-        } else {
-            throw new Error(createResult.error);
+            }, 1000);
         }
-
     } catch (error) {
         console.error('[Chaimae] Error converting invoice:', error);
+        if (typeof overlay !== 'undefined' && overlay) overlay.remove();
         window.notify.error('Erreur', 'Erreur lors de la conversion: ' + error.message, 5000);
     }
 }
@@ -1317,6 +1420,8 @@ window.showConfirmDialogChaimae = function (message) {
 window.showConvertInputModalChaimae = function (newType, newTypeLabel, prefillNumero = '', prefillOrder = '', prefillBL = '', prefillDeliveredBy = '') {
     return new Promise(async (resolve) => {
         let highestNumber = 'Aucun';
+        let suggestedNumber = prefillNumero;
+
         try {
             const invoicesResult = await window.electron.dbChaimae.getAllInvoices();
             if (invoicesResult.success && invoicesResult.data && invoicesResult.data.length > 0) {
@@ -1364,15 +1469,24 @@ window.showConvertInputModalChaimae = function (newType, newTypeLabel, prefillNu
                         }
                     });
 
-                    // Set initial highestNumber based on selected prefix
+                    // Set initial highestNumber and suggestedNumber based on selected prefix
                     const currentPrefix = window.selectedPrefix || 'MG';
                     if (window.highestByPrefix[currentPrefix]) {
                         highestNumber = window.highestByPrefix[currentPrefix].full;
+                        const nextNum = window.highestByPrefix[currentPrefix].num + 1;
+                        suggestedNumber = `${nextNum}/${currentYear}`;
+                    } else {
+                        suggestedNumber = `1/${currentYear}`;
                     }
                 }
             }
         } catch (error) {
             console.error('Error getting highest numbers for conversion:', error);
+        }
+
+        // Override prefill if we calculated a better one for BL
+        if (newType === 'bon_livraison') {
+            prefillNumero = suggestedNumber;
         }
 
         const overlay = document.createElement('div');
@@ -1691,19 +1805,35 @@ window.selectConvertPrefixChaimae = function (prefix) {
     window.selectedPrefix = prefix;
     const prefixInput = document.getElementById('convertPrefixInputChaimae');
     const prefixExample = document.getElementById('convertPrefixExampleChaimae');
+    const numberInput = document.getElementById('convertInputChaimae1');
 
     if (prefixInput) prefixInput.value = prefix;
     if (prefixExample) prefixExample.textContent = prefix;
 
-    // Update highest number display based on selected prefix
+    // Update highest number display and input value based on selected prefix
     const highestDisplay = document.getElementById('convertHighestNumberChaimae');
     const highestContainer = document.getElementById('convertHighestNumberContainerChaimae');
+
     if (highestDisplay && highestContainer && window.highestByPrefix) {
         if (window.highestByPrefix[prefix]) {
-            highestDisplay.textContent = window.highestByPrefix[prefix].full;
+            const highestFull = window.highestByPrefix[prefix].full;
+            highestDisplay.textContent = highestFull;
             highestContainer.style.display = 'block';
+
+            // Auto-increment for the input field
+            const nextNum = window.highestByPrefix[prefix].num + 1;
+            const currentYear = new Date().getFullYear();
+            if (numberInput) {
+                numberInput.value = `${nextNum}/${currentYear}`;
+                numberInput.style.background = 'rgba(74, 144, 226, 0.1)';
+                setTimeout(() => numberInput.style.background = '#2d2d30', 500);
+            }
         } else {
             highestContainer.style.display = 'none';
+            const currentYear = new Date().getFullYear();
+            if (numberInput) {
+                numberInput.value = `1/${currentYear}`;
+            }
         }
     }
 
