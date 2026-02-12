@@ -3,9 +3,9 @@ const axios = require('axios');
 // Configuration
 // In Electron, we can use a global window variable or localStorage to set the API URL
 // Fallback logic: local dev -> DDNS production
-const DEFAULT_LOCAL_API = 'https://anpe-web-api.ddns.net/facture';
-const PRODUCTION_API = 'https://anpe-web-api.ddns.net/facture/api';
-const WEB_PORTAL_URL = 'https://anpe-web-api.ddns.net/facture/';
+const DEFAULT_LOCAL_API = 'https://redouan.ddns.net/facture';
+const PRODUCTION_API = 'https://redouan.ddns.net/facture/api';
+const WEB_PORTAL_URL = 'https://redouan.ddns.net/facture/';
 
 // Safe way to check for localStorage in both Node (Main) and Browser (Renderer) environments
 let configuredApiUrl = null;
@@ -33,7 +33,7 @@ try {
 // configuredApiUrl (localStorage) should not hijack local dev
 const API_URL = configuredApiUrl || DEFAULT_LOCAL_API;
 console.log(`[API Client] Using Base URL: ${API_URL}`);
-console.log(`[API Client] 🌐 DDNS URL: https://anpe-web-api.ddns.net/facture`);
+console.log(`[API Client] 🌐 DDNS URL: https://redouan.ddns.net/facture`);
 console.log(`[API Client] 🏠 Localhost URL: http://localhost:8001`);
 console.log(`[API Client] ✅ Active URL: ${API_URL}`);
 

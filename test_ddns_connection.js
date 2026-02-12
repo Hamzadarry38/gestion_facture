@@ -5,7 +5,7 @@ async function testDDNSConnection() {
 
     const urls = [
         'http://localhost:8001/test',
-        'https://anpe-web-api.ddns.net/facture/test'
+        'https://redouan.ddns.net/facture/test'
     ];
 
     for (const url of urls) {
