@@ -4,13 +4,11 @@ const path = require('path');
 const fs = require('fs');
 
 // --- CONFIGURATION ---
-const dbPassword = process.argv[2] || process.env.DB_PASSWORD || '123456';
-
 const POSTGRES_CONFIG = {
     user: 'postgres',
     host: 'localhost',
     database: 'facture_db',
-    password: dbPassword,
+    password: 'Azer190@',
     port: 5432,
 };
 

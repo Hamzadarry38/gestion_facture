@@ -1496,20 +1496,12 @@ window.handleSQLiteMigration = async function () {
     const loadingNotif = window.notify.loading('Migration en cours...', 'Ceci peut prendre plusieurs minutes pour 2000+ factures');
 
     try {
-        // Ask for password
-        const dbPassword = await customPrompt('🔒 Mot de passe PostgreSQL', 'Veuillez saisir le mot de passe de l\'utilisateur "postgres" :', 'password');
-
-        if (!dbPassword) {
-            window.notify.remove(loadingNotif);
-            return;
-        }
-
-        // PostgreSQL config
+        // PostgreSQL config (matching server.js)
         const pgConfig = {
             user: 'postgres',
             host: 'localhost',
             database: 'facture_db',
-            password: dbPassword,
+            password: 'Azer190@',
             port: 5432
         };
 

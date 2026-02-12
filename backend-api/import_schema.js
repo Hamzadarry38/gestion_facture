@@ -3,7 +3,7 @@ const fs = require('fs');
 const path = require('path');
 
 const SCHEMA_FILE = path.join(__dirname, 'exported_schema.sql');
-const dbPassword = process.argv[2] || '123456';
+const dbPassword = process.argv[2] || 'Azer190@';
 
 const dbConfig = {
     user: 'postgres',

@@ -74,15 +74,15 @@ function TestDataGeneratorPage() {
 }
 
 // Generate test data
-window.generateTestData = async function() {
+window.generateTestData = async function () {
     const progressContainer = document.getElementById('progressContainer');
     const progressText = document.getElementById('progressText');
     const progressBar = document.getElementById('progressBar');
     const logContainer = document.getElementById('logContainer');
-    
+
     progressContainer.style.display = 'block';
     logContainer.innerHTML = '';
-    
+
     function log(message, color = '#4caf50') {
         const line = document.createElement('div');
         line.style.color = color;
@@ -91,23 +91,23 @@ window.generateTestData = async function() {
         logContainer.appendChild(line);
         logContainer.scrollTop = logContainer.scrollHeight;
     }
-    
+
     try {
         log('🚀 Démarrage de la génération des données...', '#667eea');
-        
+
         // Create test client first
         log('👤 Création du client de test...');
         const clientResult = await window.electron.dbChaimae.addClient({
             nom: 'Client Test',
-            ice: 'ICE123456789',
+            ice: 'ICEAzer190@789',
             adresse: 'Adresse Test',
             ville: 'Casablanca',
             telephone: '0600000000'
         });
-        
+
         const clientId = clientResult.data;
         log(`✅ Client créé avec ID: ${clientId}`, '#4caf50');
-        
+
         const years = [
             { year: 2023, count: 5 },
             { year: 2024, count: 8 },
@@ -115,26 +115,26 @@ window.generateTestData = async function() {
             { year: 2026, count: 6 },
             { year: 2027, count: 3 }
         ];
-        
+
         let totalInvoices = years.reduce((sum, y) => sum + y.count, 0);
         let processedInvoices = 0;
-        
+
         for (const yearData of years) {
             log(`\n📅 Ajout de ${yearData.count} factures pour ${yearData.year}...`, '#667eea');
-            
+
             for (let i = 0; i < yearData.count; i++) {
                 const month = Math.floor(Math.random() * 12) + 1;
                 const day = Math.floor(Math.random() * 28) + 1;
                 const date = `${yearData.year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
-                
+
                 const docTypes = ['facture', 'devis', 'bon_livraison'];
                 const docType = docTypes[Math.floor(Math.random() * docTypes.length)];
-                
+
                 const totalHT = Math.floor(Math.random() * 50000) + 1000;
                 const tvaRate = 20;
                 const montantTVA = totalHT * (tvaRate / 100);
                 const totalTTC = totalHT + montantTVA;
-                
+
                 const invoice = {
                     client_id: clientId,
                     document_type: docType,
@@ -146,25 +146,25 @@ window.generateTestData = async function() {
                     total_ttc: totalTTC,
                     items: []
                 };
-                
+
                 await window.electron.dbChaimae.addInvoice(invoice);
-                
+
                 processedInvoices++;
                 const progress = (processedInvoices / totalInvoices) * 100;
                 progressBar.style.width = progress + '%';
                 progressText.textContent = `Progression: ${processedInvoices}/${totalInvoices} factures`;
-                
+
                 log(`  ✅ ${docType} ajouté pour ${date}`, '#8bc34a');
             }
         }
-        
+
         log('\n🎉 SUCCÈS! Toutes les factures de test ont été ajoutées!', '#4caf50');
         log('💡 Vous pouvez maintenant tester le sélecteur d\'année', '#667eea');
-        
+
         setTimeout(() => {
             window.notify.success('Succès', 'Données de test générées avec succès!', 3000);
         }, 500);
-        
+
     } catch (error) {
         console.error('Error generating test data:', error);
         log(`\n❌ Erreur: ${error.message}`, '#f44336');

@@ -1,21 +1,20 @@
 -- Schema exported at 2026-02-12T13:34:00.445Z
 -- Database: facture_db
 -- This file contains ONLY table structures (no data)
--- Fixed Table Order to satisfy Foreign Key constraints
 
 BEGIN;
 
--- Drop all existing tables (Order: Child tables first)
+-- Drop all existing tables
 DROP TABLE IF EXISTS audit_log CASCADE;
-DROP TABLE IF EXISTS invoice_attachments CASCADE;
-DROP TABLE IF EXISTS invoice_products CASCADE;
-DROP TABLE IF EXISTS invoices CASCADE;
-DROP TABLE IF EXISTS clients CASCADE;
 DROP TABLE IF EXISTS benali_devis_numbers CASCADE;
 DROP TABLE IF EXISTS benali_pdf_files CASCADE;
 DROP TABLE IF EXISTS benali_pdf_paths CASCADE;
+DROP TABLE IF EXISTS clients CASCADE;
 DROP TABLE IF EXISTS company_pdf_settings CASCADE;
 DROP TABLE IF EXISTS delivery_persons CASCADE;
+DROP TABLE IF EXISTS invoice_attachments CASCADE;
+DROP TABLE IF EXISTS invoice_products CASCADE;
+DROP TABLE IF EXISTS invoices CASCADE;
 DROP TABLE IF EXISTS msh3_devis_numbers CASCADE;
 DROP TABLE IF EXISTS msh3_pdf_files CASCADE;
 DROP TABLE IF EXISTS msh3_pdf_paths CASCADE;
@@ -30,19 +29,53 @@ DROP TABLE IF EXISTS smarts_pdf_files CASCADE;
 DROP TABLE IF EXISTS smarts_pdf_paths CASCADE;
 DROP TABLE IF EXISTS users CASCADE;
 
--- 1. Table: users (Independent)
-CREATE TABLE users (
+-- Table: audit_log
+CREATE TABLE audit_log (
     id SERIAL,
-    name VARCHAR(255) NOT NULL,
-    email VARCHAR(255) NOT NULL,
-    password VARCHAR(255) NOT NULL,
-    can_auto_validate BOOLEAN DEFAULT false,
+    invoice_id INTEGER NOT NULL,
+    action TEXT NOT NULL,
+    user_id INTEGER,
+    user_name TEXT,
+    user_email TEXT,
+    changes TEXT,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     PRIMARY KEY (id),
-    UNIQUE(email)
+    FOREIGN KEY (invoice_id) REFERENCES invoices(id) ON DELETE CASCADE
 );
 
--- 2. Table: clients (Independent)
+-- Table: benali_devis_numbers
+CREATE TABLE benali_devis_numbers (
+    id SERIAL,
+    devis_number VARCHAR(50) NOT NULL,
+    year INTEGER NOT NULL,
+    used_at TIMESTAMP DEFAULT now(),
+    PRIMARY KEY (id),
+    UNIQUE(devis_number, year)
+);
+
+-- Table: benali_pdf_files
+CREATE TABLE benali_pdf_files (
+    devis_number VARCHAR(50) NOT NULL,
+    year INTEGER NOT NULL,
+    file_path TEXT,
+    created_by VARCHAR(255),
+    created_at TIMESTAMP,
+    PRIMARY KEY (devis_number, year)
+);
+
+-- Table: benali_pdf_paths
+CREATE TABLE benali_pdf_paths (
+    id SERIAL,
+    devis_number VARCHAR(50) NOT NULL,
+    year INTEGER NOT NULL,
+    file_path TEXT NOT NULL,
+    created_by VARCHAR(50),
+    created_at TIMESTAMP DEFAULT now(),
+    PRIMARY KEY (id),
+    UNIQUE(devis_number, year)
+);
+
+-- Table: clients
 CREATE TABLE clients (
     id SERIAL,
     nom VARCHAR(255) NOT NULL,
@@ -52,7 +85,54 @@ CREATE TABLE clients (
     PRIMARY KEY (id)
 );
 
--- 3. Table: invoices (Depends on clients)
+-- Table: company_pdf_settings
+CREATE TABLE company_pdf_settings (
+    id SERIAL,
+    company_code VARCHAR(50) NOT NULL,
+    percentage DECIMAL(10, 2) DEFAULT 0,
+    product_names JSONB DEFAULT '{}'::jsonb,
+    updated_at TIMESTAMP DEFAULT now(),
+    PRIMARY KEY (id),
+    UNIQUE(company_code)
+);
+
+-- Table: delivery_persons
+CREATE TABLE delivery_persons (
+    id SERIAL,
+    name TEXT NOT NULL,
+    company_code VARCHAR(50) NOT NULL,
+    created_at TIMESTAMP DEFAULT now(),
+    PRIMARY KEY (id),
+    UNIQUE(name, company_code)
+);
+
+-- Table: invoice_attachments
+CREATE TABLE invoice_attachments (
+    id SERIAL,
+    invoice_id INTEGER,
+    filename VARCHAR(255) NOT NULL,
+    file_type VARCHAR(50),
+    file_size INTEGER,
+    file_data BYTEA,
+    file_path TEXT,
+    uploaded_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (id),
+    FOREIGN KEY (invoice_id) REFERENCES invoices(id) ON DELETE CASCADE
+);
+
+-- Table: invoice_products
+CREATE TABLE invoice_products (
+    id SERIAL,
+    invoice_id INTEGER,
+    designation TEXT NOT NULL,
+    quantite DECIMAL(15, 3),
+    prix_unitaire_ht DECIMAL(15, 3),
+    total_ht DECIMAL(15, 3),
+    PRIMARY KEY (id),
+    FOREIGN KEY (invoice_id) REFERENCES invoices(id) ON DELETE CASCADE
+);
+
+-- Table: invoices
 CREATE TABLE invoices (
     id SERIAL,
     company_code VARCHAR(50) NOT NULL,
@@ -92,95 +172,7 @@ CREATE TABLE invoices (
     FOREIGN KEY (client_id) REFERENCES clients(id)
 );
 
--- 4. Table: audit_log (Depends on invoices)
-CREATE TABLE audit_log (
-    id SERIAL,
-    invoice_id INTEGER NOT NULL,
-    action TEXT NOT NULL,
-    user_id INTEGER,
-    user_name TEXT,
-    user_email TEXT,
-    changes TEXT,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    PRIMARY KEY (id),
-    FOREIGN KEY (invoice_id) REFERENCES invoices(id) ON DELETE CASCADE
-);
-
--- 5. Table: invoice_attachments (Depends on invoices)
-CREATE TABLE invoice_attachments (
-    id SERIAL,
-    invoice_id INTEGER,
-    filename VARCHAR(255) NOT NULL,
-    file_type VARCHAR(50),
-    file_size INTEGER,
-    file_data BYTEA,
-    file_path TEXT,
-    uploaded_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    PRIMARY KEY (id),
-    FOREIGN KEY (invoice_id) REFERENCES invoices(id) ON DELETE CASCADE
-);
-
--- 6. Table: invoice_products (Depends on invoices)
-CREATE TABLE invoice_products (
-    id SERIAL,
-    invoice_id INTEGER,
-    designation TEXT NOT NULL,
-    quantite DECIMAL(15, 3),
-    prix_unitaire_ht DECIMAL(15, 3),
-    total_ht DECIMAL(15, 3),
-    PRIMARY KEY (id),
-    FOREIGN KEY (invoice_id) REFERENCES invoices(id) ON DELETE CASCADE
-);
-
--- 7. Secondary / Independent Tables
-CREATE TABLE benali_devis_numbers (
-    id SERIAL,
-    devis_number VARCHAR(50) NOT NULL,
-    year INTEGER NOT NULL,
-    used_at TIMESTAMP DEFAULT now(),
-    PRIMARY KEY (id),
-    UNIQUE(devis_number, year)
-);
-
-CREATE TABLE benali_pdf_files (
-    devis_number VARCHAR(50) NOT NULL,
-    year INTEGER NOT NULL,
-    file_path TEXT,
-    created_by VARCHAR(255),
-    created_at TIMESTAMP,
-    PRIMARY KEY (devis_number, year)
-);
-
-CREATE TABLE benali_pdf_paths (
-    id SERIAL,
-    devis_number VARCHAR(50) NOT NULL,
-    year INTEGER NOT NULL,
-    file_path TEXT NOT NULL,
-    created_by VARCHAR(50),
-    created_at TIMESTAMP DEFAULT now(),
-    PRIMARY KEY (id),
-    UNIQUE(devis_number, year)
-);
-
-CREATE TABLE company_pdf_settings (
-    id SERIAL,
-    company_code VARCHAR(50) NOT NULL,
-    percentage DECIMAL(10, 2) DEFAULT 0,
-    product_names JSONB DEFAULT '{}'::jsonb,
-    updated_at TIMESTAMP DEFAULT now(),
-    PRIMARY KEY (id),
-    UNIQUE(company_code)
-);
-
-CREATE TABLE delivery_persons (
-    id SERIAL,
-    name TEXT NOT NULL,
-    company_code VARCHAR(50) NOT NULL,
-    created_at TIMESTAMP DEFAULT now(),
-    PRIMARY KEY (id),
-    UNIQUE(name, company_code)
-);
-
+-- Table: msh3_devis_numbers
 CREATE TABLE msh3_devis_numbers (
     id SERIAL,
     devis_number VARCHAR(50) NOT NULL,
@@ -190,6 +182,7 @@ CREATE TABLE msh3_devis_numbers (
     UNIQUE(devis_number, year)
 );
 
+-- Table: msh3_pdf_files
 CREATE TABLE msh3_pdf_files (
     devis_number VARCHAR(50) NOT NULL,
     year INTEGER NOT NULL,
@@ -199,6 +192,7 @@ CREATE TABLE msh3_pdf_files (
     PRIMARY KEY (devis_number, year)
 );
 
+-- Table: msh3_pdf_paths
 CREATE TABLE msh3_pdf_paths (
     id SERIAL,
     devis_number VARCHAR(50) NOT NULL,
@@ -210,6 +204,7 @@ CREATE TABLE msh3_pdf_paths (
     UNIQUE(devis_number, year)
 );
 
+-- Table: saaiss_devis_numbers
 CREATE TABLE saaiss_devis_numbers (
     devis_number VARCHAR(50) NOT NULL,
     year INTEGER NOT NULL,
@@ -219,6 +214,7 @@ CREATE TABLE saaiss_devis_numbers (
     PRIMARY KEY (devis_number, year)
 );
 
+-- Table: saaiss_pdf_files
 CREATE TABLE saaiss_pdf_files (
     devis_number VARCHAR(50) NOT NULL,
     year INTEGER NOT NULL,
@@ -228,6 +224,7 @@ CREATE TABLE saaiss_pdf_files (
     PRIMARY KEY (devis_number, year)
 );
 
+-- Table: saaiss_pdf_paths
 CREATE TABLE saaiss_pdf_paths (
     id SERIAL,
     devis_number VARCHAR(50) NOT NULL,
@@ -239,6 +236,7 @@ CREATE TABLE saaiss_pdf_paths (
     UNIQUE(devis_number, year)
 );
 
+-- Table: skm_devis_numbers
 CREATE TABLE skm_devis_numbers (
     devis_number VARCHAR(50) NOT NULL,
     year INTEGER NOT NULL,
@@ -248,6 +246,7 @@ CREATE TABLE skm_devis_numbers (
     PRIMARY KEY (devis_number, year)
 );
 
+-- Table: skm_pdf_files
 CREATE TABLE skm_pdf_files (
     devis_number VARCHAR(50) NOT NULL,
     year INTEGER NOT NULL,
@@ -257,6 +256,7 @@ CREATE TABLE skm_pdf_files (
     PRIMARY KEY (devis_number, year)
 );
 
+-- Table: skm_pdf_paths
 CREATE TABLE skm_pdf_paths (
     id SERIAL,
     devis_number VARCHAR(50) NOT NULL,
@@ -268,6 +268,7 @@ CREATE TABLE skm_pdf_paths (
     UNIQUE(devis_number, year)
 );
 
+-- Table: smarts_devis_numbers
 CREATE TABLE smarts_devis_numbers (
     id SERIAL,
     devis_number VARCHAR(50) NOT NULL,
@@ -277,6 +278,7 @@ CREATE TABLE smarts_devis_numbers (
     UNIQUE(devis_number, year)
 );
 
+-- Table: smarts_pdf_files
 CREATE TABLE smarts_pdf_files (
     devis_number VARCHAR(50) NOT NULL,
     year INTEGER NOT NULL,
@@ -286,6 +288,7 @@ CREATE TABLE smarts_pdf_files (
     PRIMARY KEY (devis_number, year)
 );
 
+-- Table: smarts_pdf_paths
 CREATE TABLE smarts_pdf_paths (
     id SERIAL,
     devis_number VARCHAR(50) NOT NULL,
@@ -295,6 +298,18 @@ CREATE TABLE smarts_pdf_paths (
     created_at TIMESTAMP DEFAULT now(),
     PRIMARY KEY (id),
     UNIQUE(devis_number, year)
+);
+
+-- Table: users
+CREATE TABLE users (
+    id SERIAL,
+    name VARCHAR(255) NOT NULL,
+    email VARCHAR(255) NOT NULL,
+    password VARCHAR(255) NOT NULL,
+    can_auto_validate BOOLEAN DEFAULT false,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (id),
+    UNIQUE(email)
 );
 
 -- Indexes

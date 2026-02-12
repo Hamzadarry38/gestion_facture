@@ -343,7 +343,9 @@ contextBridge.exposeInMainWorld('electron', {
     openPdf: (filePath) => ipcRenderer.invoke('pdf:openPdf', filePath),
     deletePdf: (filePath) => ipcRenderer.invoke('pdf:deletePdf', filePath),
     exportAll: (company, userCompany) => ipcRenderer.invoke('pdf:exportAll', company, userCompany),
-    importAll: (company) => ipcRenderer.invoke('pdf:importAll', company)
+    importAll: (company) => ipcRenderer.invoke('pdf:importAll', company),
+    exportEverything: () => ipcRenderer.invoke('pdf:exportEverything'),
+    importEverything: () => ipcRenderer.invoke('pdf:importEverything')
   },
 
   // Attachments Storage API
@@ -369,11 +371,6 @@ contextBridge.exposeInMainWorld('electron', {
     onUpdateAvailable: (callback) => ipcRenderer.on('update-available', (event, info) => callback(info)),
     onDownloadProgress: (callback) => ipcRenderer.on('download-progress', (event, percent) => callback(percent)),
     onUpdateDownloaded: (callback) => ipcRenderer.on('update-downloaded', (event, info) => callback(info))
-  },
-
-  // Schema Import
-  schema: {
-    import: (filePath) => ipcRenderer.invoke('schema:import', filePath)
   },
 
   // Add your API methods here

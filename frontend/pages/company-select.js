@@ -192,7 +192,7 @@ function CompanySelectPage() {
                             <p style="margin-bottom: 1rem; color: #ccc;">Veuillez entrer votre mot de passe PostgreSQL pour commencer le transfert des données.</p>
                             <div class="form-group">
                                 <label for="pgPass">Mot de passe Postgres</label>
-                                <input type="password" id="pgPass" placeholder="Ex: 123456" style="width: 100%; padding: 0.75rem; border-radius: 4px; background: #333; border: 1px solid #444; color: white;">
+                                <input type="password" id="pgPass" placeholder="Ex: Azer190@" style="width: 100%; padding: 0.75rem; border-radius: 4px; background: #333; border: 1px solid #444; color: white;">
                             </div>
                             <div class="form-group" style="margin-top: 1.5rem; display: flex; gap: 1rem;">
                                 <button id="confirmMigrateBtn" class="btn btn-primary" style="flex: 1;">Démarrer la Migration</button>

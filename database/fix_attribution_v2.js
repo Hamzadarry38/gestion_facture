@@ -4,7 +4,7 @@ const pgConfig = {
     user: 'postgres',
     host: 'localhost',
     database: 'facture_db',
-    password: '123456',
+    password: 'Azer190@',
     port: 5432
 };
 

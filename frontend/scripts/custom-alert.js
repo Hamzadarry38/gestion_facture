@@ -135,75 +135,7 @@ window.customConfirm = function (title, message, type = 'warning') {
     });
 };
 
-// Custom Prompt
-window.customPrompt = function (title, message, inputType = 'text', placeholder = '') {
-    return new Promise((resolve) => {
-        // Create overlay
-        const overlay = document.createElement('div');
-        overlay.className = 'custom-modal-overlay';
-
-        overlay.innerHTML = `
-            <div class="custom-modal">
-                <div class="custom-modal-header">
-                    <span class="custom-modal-icon info">❓</span>
-                    <h3 class="custom-modal-title">${title}</h3>
-                </div>
-                <div class="custom-modal-body">
-                    <p style="margin-bottom: 1rem;">${message}</p>
-                    <input type="${inputType}" id="customPromptInput" placeholder="${placeholder}" 
-                           style="width: 100%; padding: 0.75rem; border-radius: 8px; border: 1px solid #3e3e42; background: #1e1e1e; color: #fff; font-size: 1rem; box-sizing: border-box;">
-                </div>
-                <div class="custom-modal-footer">
-                    <button class="custom-modal-btn secondary" id="promptCancelBtn">Annuler</button>
-                    <button class="custom-modal-btn primary" id="promptOkBtn">OK</button>
-                </div>
-            </div>
-        `;
-
-        document.body.appendChild(overlay);
-
-        const input = overlay.querySelector('#customPromptInput');
-        const okBtn = overlay.querySelector('#promptOkBtn');
-        const cancelBtn = overlay.querySelector('#promptCancelBtn');
-
-        // Handle OK
-        const handleOk = () => {
-            const value = input.value;
-            overlay.remove();
-            resolve(value);
-        };
-
-        // Handle Cancel
-        const handleCancel = () => {
-            overlay.remove();
-            resolve(null);
-        };
-
-        okBtn.addEventListener('click', handleOk);
-        cancelBtn.addEventListener('click', handleCancel);
-
-        // Handle Enter key for submit and Escape for cancel
-        input.addEventListener('keydown', (e) => {
-            if (e.key === 'Enter') {
-                e.preventDefault();
-                handleOk();
-            } else if (e.key === 'Escape') {
-                handleCancel();
-            }
-        });
-
-        // Handle overlay click to cancel
-        overlay.addEventListener('click', (e) => {
-            if (e.target === overlay) handleCancel();
-        });
-
-        // Focus input
-        setTimeout(() => input.focus(), 100);
-    });
-};
-
 // Helper to make confirm work with await
 window.confirmAsync = async function (message) {
     return await customConfirm('Confirmation', message, 'warning');
 };
-

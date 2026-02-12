@@ -77,7 +77,7 @@ const pool = new Pool({
   user: 'postgres',
   host: 'localhost',
   database: 'facture_db',
-  password: process.env.DB_PASSWORD || '123456',
+  password: 'Azer190@',
   port: 5432,
 });
 
@@ -89,47 +89,6 @@ app.use(bodyParser.urlencoded({ limit: '50mb', extended: true }));
 function hashPassword(password) {
   return crypto.createHash('sha256').update(password).digest('hex');
 }
-
-// --- SCHEMA IMPORT ROUTE ---
-app.post('/api/schema/import', upload.single('schema'), async (req, res) => {
-  console.log('📥 [POST] /api/schema/import requested');
-  try {
-    if (!req.file) {
-      return res.status(400).json({ success: false, error: 'No file uploaded' });
-    }
-
-    const filePath = req.file.path;
-    console.log(`📂 Reading schema file: ${filePath}`);
-    const sql = fs.readFileSync(filePath, 'utf8');
-
-    // Basic validation to ensure it's a SQL file
-    if (!sql.trim().startsWith('--') && !sql.trim().startsWith('BEGIN;') && !sql.trim().toUpperCase().startsWith('CREATE')) {
-      // Cleanup
-      fs.unlinkSync(filePath);
-      return res.status(400).json({ success: false, error: 'Invalid SQL file format' });
-    }
-
-    const client = await pool.connect();
-    try {
-      console.log('⏳ Executing schema import...');
-      await client.query(sql);
-      console.log('✅ Schema import successful');
-      res.json({ success: true, message: 'Schema imported successfully' });
-    } catch (dbErr) {
-      console.error('❌ Database error during import:', dbErr);
-      res.status(500).json({ success: false, error: dbErr.message });
-    } finally {
-      client.release();
-      // Cleanup uploaded file
-      try {
-        fs.unlinkSync(filePath);
-      } catch (e) { console.error('Error deleting temp file:', e); }
-    }
-  } catch (err) {
-    console.error('❌ Error in /api/schema/import:', err);
-    res.status(500).json({ success: false, error: err.message });
-  }
-});
 
 // --- SYSTEM ROUTES ---
 app.get('/test', async (req, res) => {

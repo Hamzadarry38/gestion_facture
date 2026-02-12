@@ -26,7 +26,7 @@ async function testAttachmentUpload() {
             user: 'postgres',
             host: 'localhost',
             database: 'facture_db',
-            password: process.env.DB_PASSWORD || '123456',
+            password: 'Azer190@',
             port: 5432
         });
 

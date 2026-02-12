@@ -12,7 +12,7 @@ const pool = new Pool({
   user: 'postgres',
   host: 'localhost',
   database: 'facture_db',
-  password: '123456',  // غيّر هذا إذا كانت كلمة المرور مختلفة!
+  password: 'Azer190@',  // غيّر هذا إذا كانت كلمة المرور مختلفة!
   port: 5432,
 });
 ```
