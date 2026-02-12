@@ -1,0 +1,130 @@
+﻿<!DOCTYPE html>
+<html lang="fr">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gestion des Factures</title>
+
+    <!-- Styles -->
+    <link rel="stylesheet" href="../styles.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+
+    <!-- Custom Styles -->
+    <style>
+        /* Base styles */
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #1e1e1e;
+            color: #fff;
+            overflow: hidden;
+        }
+
+        #app {
+            height: 100vh;
+            width: 100vw;
+            overflow: hidden;
+        }
+
+        /* Modal Animations */
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+            }
+
+            to {
+                opacity: 1;
+            }
+        }
+
+        @keyframes slideIn {
+            from {
+                transform: translateY(-20px);
+                opacity: 0;
+            }
+
+            to {
+                transform: translateY(0);
+                opacity: 1;
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <div id="app"></div>
+
+    <!-- External Libraries -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.7.0/chart.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.17.0/xlsx.full.min.js"></script>
+
+    <!-- Application Scripts -->
+    <!-- Core -->
+    <script src="login.js"></script>
+    <script src="dashboard.js"></script>
+    <script src="settings.js"></script>
+    <script src="register.js"></script>
+    <script src="profile.js"></script>
+    <script src="company-select.js"></script>
+    <script src="update-notification.js"></script>
+
+    <!-- PDF Generators & Helpers -->
+    <script src="pdf_manager.js"></script>
+    <script src="skm_pdf.js"></script>
+    <script src="skm_pdf_generator.js"></script>
+    <script src="saaiss_pdf_generator.js"></script>
+    <script src="multi_skm_pdf_generator.js"></script>
+    <script src="multi_saaiss_pdf_generator.js"></script>
+    <script src="unified_company_pdf_generator.js"></script>
+    <script src="pdf_helpers_multi.js"></script>
+    <script src="bon_livraison_pdf_handler.js"></script>
+
+    <!-- Year Selectors -->
+    <script src="year-selector-mry.js"></script>
+    <script src="year-selector-chaimae.js"></script>
+    <script src="year-selector-multi.js"></script>
+
+    <!-- MRY Company -->
+    <script src="dashboard_mry.js"></script>
+    <script src="invoices_list_mry.js"></script>
+    <script src="create_invoice_mry.js"></script>
+    <script src="edit_invoice_mry.js"></script>
+    <script src="edit_invoice_simple_mry.js"></script>
+    <script src="situation_mensuelle_mry.js"></script>
+    <script src="situation_annuelle_mry.js"></script>
+
+    <!-- Chaimae Company -->
+    <script src="dashboard_chaimae.js"></script>
+    <script src="invoices_list_chaimae.js"></script>
+    <script src="create_invoice_chaimae.js"></script>
+    <script src="edit_invoice_chaimae.js"></script>
+    <script src="global_invoices_list_chaimae.js"></script>
+    <script src="create_global_invoice_chaimae.js"></script>
+    <script src="edit_global_invoice_chaimae.js"></script>
+    <script src="situation_mensuelle_chaimae.js"></script>
+    <script src="situation_annuelle_chaimae.js"></script>
+
+    <!-- Multi Company -->
+    <script src="dashboard-multi.js"></script>
+    <script src="invoices_list_multi.js"></script>
+    <script src="invoices_list_multi_helpers.js"></script>
+    <script src="create_invoice_multi.js"></script>
+    <script src="create_invoice_multi_helpers.js"></script>
+    <script src="edit_invoice_multi.js"></script>
+    <script src="situation_mensuelle_multi.js"></script>
+    <script src="situation_annuelle_multi.js"></script>
+    <script src="create-data-multi.js"></script>
+    <script src="view-data-multi.js"></script>
+
+    <!-- Generic List -->
+    <script src="invoices_list_generic.js"></script>
+    <script src="test-data-generator.js"></script>
+
+    <!-- Router (Must be last) -->
+    <script src="../router.js"></script>
+</body>
+
+</html>

@@ -1,0 +1,445 @@
+{
+  "1.1.38": {
+    "ar": [
+      ""
+    ],
+    "fr": [
+      ""
+    ]
+  },
+  "1.1.37": {
+    "ar": [
+      "👤 إضافة معلومات المستخدم عند تحويل الفواتير - يظهر من قام بالتحويل في حقل 'تم الإنشاء بواسطة'"
+    ],
+    "fr": [
+      "👤 Ajout des informations utilisateur lors de la conversion des factures - Affichage de qui a effectué la conversion"
+    ]
+  },
+  "1.1.36": {
+    "ar": [
+      "🎬 تطبيق نظام Netflix Login - اختيار الحساب من قائمة جميلة وإدخال كلمة المرور فقط",
+      "✨ تحسينات التصميم - Scroll، تأثيرات Hover، زر Add New Account احترافي، وتأثيرات حركية رائعة"
+    ],
+    "fr": [
+      "🎬 Implémentation du système Netflix Login - Sélection du compte et saisie du mot de passe",
+      "✨ Améliorations du design - Scroll, effets Hover, bouton Add New Account professionnel et animations"
+    ]
+  },
+  "1.1.35": {
+    "ar": [
+      "📋 إضافة سجل التعديلات (Audit Log) - عرض من قام بالإنشاء والتعديل والتاريخ",
+      "📅 استخراج السنة من حقل التاريخ - الرقم التسلسلي يأخذ السنة المختارة بدلاً من السنة الحالية",
+      "✅ تطبيق الميزات على جميع الشركات (Chaimae, MRY, Multi)"
+    ],
+    "fr": [
+      "📋 Ajout du journal des modifications (Audit Log) - Affichage de qui a créé/modifié et la date",
+      "📅 Extraction de l'année du champ date - Le numéro séquentiel utilise l'année sélectionnée",
+      "✅ Fonctionnalités appliquées à toutes les sociétés (Chaimae, MRY, Multi)"
+    ]
+  },
+  "1.1.34": {
+    "ar": [
+      "✨ تحسين المفردات والنصوص في جميع أنحاء التطبيق"
+    ],
+    "fr": [
+      "✨ Amélioration du vocabulaire et des textes dans toute l'application"
+    ]
+  },
+  "1.1.33": {
+    "ar": [
+      "✨ تحسين المفردات والنصوص في جميع أنحاء التطبيق"
+    ],
+    "fr": [
+      "✨ Amélioration du vocabulaire et des textes dans toute l'application"
+    ]
+  },
+  "1.1.32": {
+    "ar": [
+      "🔧 إصلاح شامل لنظام الأرقام المفقودة (Missing Numbers) في CHAIMAE - تصحيح استعلام قاعدة البيانات للبحث في document_numero_devis بدلاً من document_numero"
+    ],
+    "fr": [
+      "🔧 Correction complète du système des numéros manquants (Missing Numbers) dans CHAIMAE - Correction de la requête de base de données pour rechercher dans document_numero_devis au lieu de document_numero"
+    ]
+  },
+  "1.1.31": {
+    "ar": [
+      "🎨 تحسين شامل لجداول PDF في SAAISS و SKM - تصحيح الأبعاد والمحاذاة وإضافة دعم textarea لتعديل المنتجات"
+    ],
+    "fr": [
+      "🎨 Amélioration complète des tableaux PDF dans SAAISS et SKM - Correction des dimensions, alignement et ajout du support textarea pour la modification des produits"
+    ]
+  },
+  "1.1.30": {
+    "ar": [
+      "📤 تصدير ملفات PDF - حفظ جميع PDFs من أي شركة في ملف ZIP مع تحديد اسم الشركة المصدرة",
+      "� استيراد ملفات PDF - استقبال ملفات PDF من ملف ZIP مع نسخة احتياطية تلقائية"
+    ],
+    "fr": [
+      "📤 Export PDF - Sauvegarder tous les PDFs de n'importe quelle entreprise dans un fichier ZIP avec identification de l'entreprise source",
+      "� Import PDF - Recevoir les fichiers PDF à partir d'un fichier ZIP avec sauvegarde automatique"
+    ]
+  },
+  "1.1.29": {
+  "ar": [
+    "تحسين"
+  ],
+  "fr": [
+    "تحسين"
+  ]
+} ,
+  "1.1.28": {
+  "ar": [
+    "🎨 تحسين تصميم PDF لشركتي SKM و SAAISS"
+  ],
+  "fr": [
+    "🎨 Amélioration de la conception des PDF pour les sociétés SKM et SAAISS"
+  ]
+} ,
+  "1.1.27": {
+    "ar": [
+      "✨ إضافة دعم النسبة المئوية لأسعار المنتجات في PDF SAAISS لشركتي MRY و MULTI",
+      "🐛 إصلاح إخفاء قيم المنتجات الصفرية في ملفات PDF SKM/SAAISS عند اختيار خيار الإخفاء"
+    ],
+    "fr": [
+      "✨ Ajout du support du pourcentage d'ajustement des prix dans les PDFs SAAISS pour les sociétés MRY et MULTI",
+      "🐛 Correction de l'affichage des produits à valeur zéro dans les PDFs SKM/SAAISS lorsque l'option masquer est sélectionnée"
+    ]
+  },
+  "1.1.26": {
+    "ar": [
+      "🐛 حل مشكلة إضافة السنة /2025 إلى حقل N° Order عند التحويل من Devis إلى Facture",
+      "🔧 إصلاح معالجة Bon de livraison في شركة CHAIMAE عند التحويل إلى Facture",
+      "🎯 إضافة ميزات جديدة لتحسين سهولة الاستخدام وتجربة المستخدم"
+    ],
+    "fr": [
+      "🐛 Correction du problème d'ajout automatique de l'année /2025 au champ N° Order lors de la conversion Devis vers Facture",
+      "🔧 Correction du traitement du Bon de livraison dans la société CHAIMAE lors de la conversion vers Facture",
+      "🎯 Ajout de nouvelles fonctionnalités pour améliorer la facilité d'utilisation et l'expérience utilisateur"
+    ]
+  },
+  "1.1.25": {
+    "ar": [
+      "تحسين التطبيق"
+    ],
+    "fr": [
+      "Amélioration de l'application"
+    ]
+  },
+  "1.1.24": {
+    "ar": [
+      "📝 ضبط موضع بداية الملاحظات في الصفحات التالية لشركة CHAIMAE ليكون أسفل الهيدر مباشرة",
+      "📄 الإبقاء على رقم الوثيقة وN° Order ظاهرَين في جميع صفحات الـ PDF",
+      "🎯 تحسين تنسيق عنوان \"Notes (suite)\" ومنع أي تداخل مع عناصر الهيدر"
+    ],
+    "fr": [
+      "📝 Ajustement de la position de début des notes sur les pages suivantes pour CHAIMAE (juste sous l'en-tête)",
+      "📄 Conservation du numéro du document et du N° Order sur toutes les pages du PDF",
+      "🎯 Amélioration de la mise en forme de \"Notes (suite)\" et prévention de tout chevauchement avec l'en-tête"
+    ]
+  },
+  "1.1.23": {
+    "ar": [
+      "🗑️ إضافة نظام حذف العملاء مع مودال تأكيد احترافي وتحقق من الارتباطات",
+      "👁️ إخفاء حقل ICE تلقائياً في القوائم والـ PDF عندما يكون فارغاً أو يساوي صفر",
+      "🔄 إصلاح تحميل قائمة العملاء تلقائياً عند فتح نافذة التعديل في جميع الشركات"
+    ],
+    "fr": [
+      "🗑️ Ajout du système de suppression des clients avec modal de confirmation professionnel et vérification des références",
+      "👁️ Masquage automatique du champ ICE dans les listes et PDF lorsqu'il est vide ou égal à zéro",
+      "🔄 Correction du chargement automatique de la liste des clients lors de l'ouverture de la fenêtre d'édition pour toutes les sociétés"
+    ]
+  },
+  "1.1.22": {
+    "ar": [
+      "📄 إصلاح شامل لمشكلة التداخل بين جدول المنتجات والفوتر في PDF",
+      "🎯 تطبيق الإصلاح على جميع الشركات (CHAIMAE و MRY)"
+    ],
+    "fr": [
+      "📄 Correction complète du problème de chevauchement entre tableau et footer dans PDF",
+      "🎯 Correction appliquée à toutes les sociétés (CHAIMAE et MRY)"
+    ]
+  },
+  "1.1.21": {
+    "ar": [
+      "📝 زيادة حجم خط الملاحظات من 7.5 إلى 9 لسهولة القراءة",
+      "💪 جعل خط الملاحظات غليظاً (Bold) لوضوح أفضل",
+      "📊 تطبيق التحسينات على جميع الشركات (MRY, CHAIMAE, MULTI)"
+    ],
+    "fr": [
+      "✨ Amélioration de l'affichage des notes dans les fichiers PDF",
+      "📝 Augmentation de la taille de police des notes de 7.5 à 9 pour faciliter la lecture",
+      "💪 Mise en gras (Bold) de la police des notes pour une meilleure clarté",
+      "📊 Améliorations appliquées à toutes les sociétés (MRY, CHAIMAE, MULTI)"
+    ]
+  },
+  "1.1.20": {
+    "ar": [
+      "📄 إصلاح شامل لتقسيم المنتجات الطويلة عبر صفحات PDF متعددة",
+      "✅ حل مشكلة الصفحات الفارغة عند وجود منتجات طويلة جداً",
+      "🔧 إضافة فحص ذكي للمساحة المتاحة قبل رسم المنتجات",
+      "📊 تطبيق الإصلاح على جميع الشركات (MRY, CHAIMAE, MULTI)"
+    ],
+    "fr": [
+      "📄 Correction complète de la division des produits longs sur plusieurs pages PDF",
+      "✅ Résolution du problème des pages vides avec des produits très longs",
+      "🔧 Ajout d'une vérification intelligente de l'espace disponible avant le rendu",
+      "📊 Correction appliquée à toutes les sociétés (MRY, CHAIMAE, MULTI)"
+    ]
+  },
+  "1.1.17": {
+    "ar": [
+      "🔧 إصلاح شامل لحفظ الكمية 'F' في edit global chaimae.js",
+      "✅ إصلاح دوال الحساب لدعم الكمية 'F' في Bon de livraison"
+    ],
+    "fr": [
+      "🔧 Correction complète de la sauvegarde de la quantité 'F' dans edit global chaimae.js",
+      "✅ Correction des fonctions de calcul pour supporter la quantité 'F' dans Bon de livraison"
+    ]
+  },
+  "1.1.16": {
+    "ar": [
+      "📄 إضافة ترقيم الصفحات في PDF لشركة Multi Company",
+      "🔧 إصلاح مشكلة حفظ الكمية 'F' في جميع الشركات"
+    ],
+    "fr": [
+      "📄 Ajout de la numérotation des pages dans les PDF pour Multi Company",
+      "🔧 Correction du problème de sauvegarde de la quantité 'F' pour toutes les sociétés"
+    ]
+  },
+  "1.1.15": {
+    "ar": [
+      "🔍 إصلاح البحث في خيار 'الكل' ليشمل جميع الحقول",
+      "✅ إضافة البحث في Prix و Total H.T عند اختيار 'الكل'",
+      "📊 تطبيق الإصلاح على جميع صفحات الفواتير"
+    ],
+    "fr": [
+      "🔍 Correction de la recherche 'Tout' pour inclure tous les champs",
+      "✅ Ajout de la recherche dans Prix et Total H.T pour 'Tout'",
+      "📊 Correction appliquée à toutes les pages de factures"
+    ]
+  },
+  "1.1.13": {
+    "ar": [
+      "📄 إصلاح شامل لمشكلة تداخل النصوص في ملفات PDF",
+      "✅ إصلاح تجاوز أسماء المنتجات (Désignation) لحدود العمود في PDF",
+      "✅ تحسين حساب ارتفاع الصفوف ليتناسب مع عدد الأسطر",
+      "✅ إعادة تصميم مواضع الأعمدة في جداول المنتجات",
+      "📊 تطبيق الإصلاح على جميع الشركات (MRY, CHAIMAE, MULTI)",
+      "📥 إصلاح مشكلة النصوص في التحميل الفردي والمتعدد (Bulk Download)",
+      "🎨 تحسين تنسيق جداول المنتجات في جميع أنواع PDF",
+      "⚡ تحسين دقة عرض النصوص الطويلة في الفواتير"
+    ],
+    "fr": [
+      "📄 Correction complète du problème de chevauchement des textes dans les PDF",
+      "✅ Correction du dépassement des noms de produits (Désignation) dans les PDF",
+      "✅ Amélioration du calcul de la hauteur des lignes selon le nombre de lignes",
+      "✅ Refonte de la disposition des colonnes dans les tableaux de produits",
+      "📊 Correction appliquée à toutes les sociétés (MRY, CHAIMAE, MULTI)",
+      "📥 Correction du problème de textes pour téléchargements uniques et multiples",
+      "🎨 Amélioration de la mise en forme des tableaux de produits dans tous les PDF",
+      "⚡ Amélioration de la précision d'affichage des textes longs dans les factures"
+    ]
+  },
+  "1.1.12": {
+    "ar": [
+      "🔍 إضافة ميزة عرض الأرقام المفقودة - Missing Numbers",
+      "✅ زر 🔍 بنفسجي لعرض أرقام الفواتير المفقودة (N° Facture)",
+      "✅ زر 🔍 أزرق لعرض أرقام الطلبات المفقودة (N° Order)",
+      "✅ زر 🔍 أخضر لعرض أرقام بون التسليم المفقودة (Bon de livraison)",
+      "📊 دعم جلب الأرقام من الفواتير العادية والعامة",
+      "🎨 واجهة جميلة لعرض واختيار الأرقام المفقودة",
+      "🔧 إصلاح تغطية الجدول على عنوان الشهر في Situation Mensuelle",
+      "📄 تحسين المسافات بين العناوين والجداول في الصفحات الجديدة",
+      "⚡ تحسينات في الأداء والاستقرار"
+    ],
+    "fr": [
+      "🔍 Ajout de la fonctionnalité Numéros Manquants - Missing Numbers",
+      "✅ Bouton 🔍 violet pour afficher les numéros de factures manquants (N° Facture)",
+      "✅ Bouton 🔍 bleu pour afficher les numéros de commandes manquants (N° Order)",
+      "✅ Bouton 🔍 vert pour afficher les numéros de bons de livraison manquants",
+      "📊 Support de récupération depuis factures normales et globales",
+      "🎨 Interface élégante pour afficher et sélectionner les numéros manquants",
+      "🔧 Correction du chevauchement du tableau sur le titre du mois dans Situation Mensuelle",
+      "📄 Amélioration des espacements entre titres et tableaux dans les nouvelles pages",
+      "⚡ Améliorations des performances et de la stabilité"
+    ]
+  },
+  "1.1.0": {
+    "ar": [
+      "🎯 تحديث شامل وكامل للتطبيق - الإصدار 1.1.0",
+      "✅ تحسينات كبيرة في نظام التحقق من الفواتير",
+      "📊 إضافة خيارات ترتيب متقدمة للفواتير",
+      "🎨 تحسينات في واجهة المستخدم وتجربة الاستخدام",
+      "🛡️ تعزيز الحماية ضد الأخطاء والتكرار",
+      "⚡ تحسينات في الأداء والاستقرار"
+    ],
+    "fr": [
+      "🎯 Mise à jour complète de l'application - Version 1.1.0",
+      "✅ Améliorations majeures du système de validation des factures",
+      "📊 Ajout d'options de tri avancées pour les factures",
+      "🎨 Améliorations de l'interface utilisateur et de l'expérience",
+      "🛡️ Renforcement de la protection contre les erreurs et doublons",
+      "⚡ Améliorations des performances et de la stabilité"
+    ]
+  },
+  "1.0.53": {
+    "ar": [
+      "🔧 إصلاح شامل لحقل N° Order في جميع الصفحات",
+      "✅ إزالة الإضافة التلقائية للسنة (/2025) من N° Order",
+      "✅ إصلاح التحقق من التكرار في صفحة التعديل (Edit)",
+      "✅ إصلاح التحقق من التكرار في نافذة التحويل (Convert)",
+      "✅ إصلاح التحقق من التكرار في Situation Mensuelle",
+      "✅ تطبيق الإصلاحات على الشركات الثلاث (MRY, CHAIMAE, MULTI)",
+      "🎨 تحسين تصميم حقل N° Order في صفحة التعديل (MULTI)",
+      "🛡️ إضافة حماية كاملة ضد تكرار N° Order في جميع العمليات"
+    ],
+    "fr": [
+      "🔧 Correction complète du champ N° Order dans toutes les pages",
+      "✅ Suppression de l'ajout automatique de l'année (/2025) dans N° Order",
+      "✅ Correction de la vérification des doublons dans la page Modifier",
+      "✅ Correction de la vérification des doublons dans la fenêtre Convertir",
+      "✅ Correction de la vérification des doublons dans Situation Mensuelle",
+      "✅ Corrections appliquées aux trois sociétés (MRY, CHAIMAE, MULTI)",
+      "🎨 Amélioration du design du champ N° Order dans la page Modifier (MULTI)",
+      "🛡️ Protection complète contre la duplication de N° Order dans toutes les opérations"
+    ]
+  },
+  "1.0.52": {
+    "ar": [
+      "تحويل حقل الوصف (Désignation) إلى textarea متعدد الأسطر",
+      "إمكانية كتابة أوصاف طويلة للمنتجات",
+      "تطبيق التحديث على شركات MRY و Chaimae"
+    ],
+    "fr": [
+      "Conversion du champ Désignation en textarea multi-lignes",
+      "Amélioration de la saisie des descriptions de produits",
+      "Possibilité d'écrire des descriptions longues pour les produits",
+      "Mise à jour appliquée aux sociétés MRY et Chaimae"
+    ]
+  },
+  "1.0.51": {
+    "ar": [
+      "إضافة زر تبديل اللغة في نافذة ما الجديد (عربي/فرنسي)",
+      "إزالة نص المبلغ بالحروف من PDF الـ Situation",
+      "تحسين دعم RTL للعربية في نافذة التحديثات",
+      "إمكانية عرض التحديثات بالضغط على رقم الإصدار"
+    ],
+    "fr": [
+      "Ajout d'un bouton de changement de langue dans la fenêtre Nouveautés (AR/FR)",
+      "Suppression du texte du montant en lettres du PDF Situation",
+      "Amélioration du support RTL pour l'arabe dans la fenêtre de mise à jour",
+      "Possibilité d'afficher les nouveautés en cliquant sur le numéro de version"
+    ]
+  },
+  "1.0.5": {
+    "ar": [
+      "إزالة الإضافة التلقائية للسنة في حقل N° Order",
+      "الآن يحفظ فقط ما يكتبه المستخدم في N° Order",
+      "تحسين تجربة المستخدم في إدخال البيانات",
+      "تطبيق التحديث على الشركات الثلاث"
+    ],
+    "en": [
+      "Removed automatic year addition in N° Order field",
+      "Now saves only what user enters in N° Order",
+      "Improved user experience in data entry",
+      "Applied to all three companies"
+    ],
+    "fr": [
+      "Suppression de l'ajout automatique de l'année dans N° Order",
+      "Enregistre uniquement ce que l'utilisateur saisit dans N° Order",
+      "Amélioration de l'expérience utilisateur pour la saisie",
+      "Appliqué aux trois entreprises"
+    ]
+  },
+  "1.0.4": {
+    "ar": [
+      "تحسين تصميم نافذة التحديث بأسلوب Desktop",
+      "إضافة عرض التحديثات بعد اكتمال التنزيل",
+      "تحسين الألوان والخطوط للقراءة الأفضل",
+      "إصلاحات في نظام التحديث التلقائي"
+    ],
+    "en": [
+      "Improved update window design with Desktop style",
+      "Added update display after download completion",
+      "Enhanced colors and fonts for better readability",
+      "Fixes in auto-update system"
+    ],
+    "fr": [
+      "Amélioration du design de la fenêtre de mise à jour style Desktop",
+      "Ajout de l'affichage des mises à jour après téléchargement",
+      "Amélioration des couleurs et polices pour une meilleure lisibilité",
+      "Corrections du système de mise à jour automatique"
+    ]
+  },
+  "1.0.3": {
+    "ar": [
+      "إضافة قسم ما الجديد في نافذة التحديث",
+      "عرض قائمة التحديثات بشكل جميل ومنظم",
+      "تحسين تجربة المستخدم عند التحديث",
+      "إصلاحات وتحسينات عامة"
+    ],
+    "en": [
+      "Added What's New section in update window",
+      "Display update list beautifully and organized",
+      "Improved user experience during updates",
+      "General fixes and improvements"
+    ],
+    "fr": [
+      "Ajout de la section Nouveautés dans la fenêtre de mise à jour",
+      "Affichage de la liste des mises à jour de manière élégante",
+      "Amélioration de l'expérience utilisateur lors des mises à jour",
+      "Corrections et améliorations générales"
+    ]
+  },
+  "1.0.2": {
+    "ar": [
+      "إضافة نظام تحديث تلقائي جميل وحديث",
+      "عرض رقم الإصدار في أسفل التطبيق",
+      "تحسينات في الأداء والاستقرار",
+      "إصلاح بعض الأخطاء البرمجية"
+    ],
+    "en": [
+      "Added beautiful modern auto-update system",
+      "Display version number at bottom of app",
+      "Performance and stability improvements",
+      "Fixed various bugs"
+    ],
+    "fr": [
+      "Ajout d'un système de mise à jour automatique moderne",
+      "Affichage du numéro de version en bas de l'application",
+      "Améliorations des performances et de la stabilité",
+      "Correction de divers bugs"
+    ]
+  },
+  "1.0.1": {
+    "ar": [
+      "تحسينات في واجهة المستخدم",
+      "تحسين سرعة التطبيق"
+    ],
+    "en": [
+      "UI improvements",
+      "Improved app performance"
+    ],
+    "fr": [
+      "Améliorations de l'interface utilisateur",
+      "Amélioration des performances"
+    ]
+  },
+  "1.0.0": {
+    "ar": [
+      "الإصدار الأول من التطبيق",
+      "نظام إدارة الفواتير الكامل",
+      "دعم شركات متعددة"
+    ],
+    "en": [
+      "First release of the application",
+      "Complete invoice management system",
+      "Multi-company support"
+    ],
+    "fr": [
+      "Première version de l'application",
+      "Système complet de gestion des factures",
+      "Support multi-entreprises"
+    ]
+  }
+}

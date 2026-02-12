@@ -1,0 +1,1751 @@
+const express = require('express');
+const { Pool } = require('pg');
+const cors = require('cors');
+const bodyParser = require('body-parser');
+const crypto = require('crypto');
+const multer = require('multer');
+const path = require('path');
+const fs = require('fs');
+
+const app = express();
+const port = 8001;
+
+let isModifiedColumnExists = null;
+async function checkIsModifiedExists() {
+  if (isModifiedColumnExists !== null) return isModifiedColumnExists;
+  try {
+    const res = await pool.query(`
+      SELECT column_name 
+      FROM information_schema.columns 
+      WHERE table_name = 'invoices' AND column_name = 'is_modified'
+    `);
+    isModifiedColumnExists = res.rows.length > 0;
+    return isModifiedColumnExists;
+  } catch (err) {
+    console.error('Error checking is_modified column:', err);
+    return false;
+  }
+}
+
+let isConvertedColumnExists = null;
+async function checkIsConvertedExists() {
+  if (isConvertedColumnExists !== null) return isConvertedColumnExists;
+  try {
+    const res = await pool.query(`
+      SELECT column_name 
+      FROM information_schema.columns 
+      WHERE table_name = 'invoices' AND column_name = 'is_converted'
+    `);
+    isConvertedColumnExists = res.rows.length > 0;
+    return isConvertedColumnExists;
+  } catch (err) {
+    console.error('Error checking is_converted column:', err);
+    return false;
+  }
+}
+
+// --- FILE UPLOAD CONFIGURATION (Multer) ---
+const storage = multer.diskStorage({
+  destination: function (req, file, cb) {
+    const { company } = req.params;
+    const year = new Date().getFullYear().toString();
+    const uploadPath = path.join(__dirname, '..', 'uploads', company, year);
+
+    // Create directory if it doesn't exist
+    if (!fs.existsSync(uploadPath)) {
+      fs.mkdirSync(uploadPath, { recursive: true });
+    }
+
+    cb(null, uploadPath);
+  },
+  filename: function (req, file, cb) {
+    // Keep original filename but sanitize it slightly if needed
+    // In our case, the frontend sends a generated name like "Devis-123.pdf"
+    const safeName = file.originalname.replace(/[^a-zA-Z0-9.\-_]/g, '_');
+    cb(null, safeName);
+  }
+});
+
+const upload = multer({ storage: storage });
+
+// Serve static files from "uploads" directory
+// effectively making http://server:8001/uploads/... accessible
+app.use('/uploads', express.static(path.join(__dirname, '..', 'uploads')));
+
+// Database connection
+const pool = new Pool({
+  user: 'postgres',
+  host: 'localhost',
+  database: 'facture_db',
+  password: '123456',
+  port: 5432,
+});
+
+app.use(cors());
+app.use(bodyParser.json({ limit: '50mb' }));
+app.use(bodyParser.urlencoded({ limit: '50mb', extended: true }));
+
+// Helper: Hash password (matching the original app's crypto logic)
+function hashPassword(password) {
+  return crypto.createHash('sha256').update(password).digest('hex');
+}
+
+// --- SCHEMA IMPORT ROUTE ---
+app.post('/api/schema/import', upload.single('schema'), async (req, res) => {
+  console.log('📥 [POST] /api/schema/import requested');
+  try {
+    if (!req.file) {
+      return res.status(400).json({ success: false, error: 'No file uploaded' });
+    }
+
+    const filePath = req.file.path;
+    console.log(`📂 Reading schema file: ${filePath}`);
+    const sql = fs.readFileSync(filePath, 'utf8');
+
+    // Basic validation to ensure it's a SQL file
+    if (!sql.trim().startsWith('--') && !sql.trim().startsWith('BEGIN;') && !sql.trim().toUpperCase().startsWith('CREATE')) {
+      // Cleanup
+      fs.unlinkSync(filePath);
+      return res.status(400).json({ success: false, error: 'Invalid SQL file format' });
+    }
+
+    const client = await pool.connect();
+    try {
+      console.log('⏳ Executing schema import...');
+      await client.query(sql);
+      console.log('✅ Schema import successful');
+      res.json({ success: true, message: 'Schema imported successfully' });
+    } catch (dbErr) {
+      console.error('❌ Database error during import:', dbErr);
+      res.status(500).json({ success: false, error: dbErr.message });
+    } finally {
+      client.release();
+      // Cleanup uploaded file
+      try {
+        fs.unlinkSync(filePath);
+      } catch (e) { console.error('Error deleting temp file:', e); }
+    }
+  } catch (err) {
+    console.error('❌ Error in /api/schema/import:', err);
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// --- SYSTEM ROUTES ---
+app.get('/test', async (req, res) => {
+  try {
+    const result = await pool.query('SELECT NOW()');
+    res.json({ success: true, time: result.rows[0].now, message: 'Connected to Postgres (API 5)!' });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// --- USER ROUTES ---
+app.post('/auth/login', async (req, res) => {
+  try {
+    const { email, password } = req.body;
+    const hashedPassword = hashPassword(password);
+    const result = await pool.query('SELECT id, name, email, can_auto_validate FROM users WHERE email = $1 AND password = $2', [email, hashedPassword]);
+
+    if (result.rows.length > 0) {
+      res.json({ success: true, user: result.rows[0] });
+    } else {
+      res.status(401).json({ success: false, message: 'Identifiants invalides' });
+    }
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// --- HELPER DATA ROUTES ---
+app.get('/invoices/next-number/:company/:year/:docType', async (req, res) => {
+  try {
+    const { company, year, docType } = req.params;
+    // Logic depends on how you want to number. 
+    // Assuming sequential_id is per year/company/docType or just year/company.
+    // Legacy app seemed to use sequential_id.
+    // Let's get max sequential_id for this year/company.
+    const result = await pool.query(
+      'SELECT MAX(sequential_id) as max_seq FROM invoices WHERE company_code = $1 AND year = $2 AND document_type = $3',
+      [company.toUpperCase(), year, docType]
+    );
+    const nextSeq = (result.rows[0].max_seq || 0) + 1;
+
+    // Format the number (e.g., 2024/001) - implementation detail depends on legacy format
+    // For now, return the sequential id and let frontend format, or return formatted.
+    // Legacy `invoiceOps.getNextInvoiceNumber` likely returned a formatted string.
+    // We'll return just the integer for now or constructing a simple default.
+    res.json({ success: true, data: nextSeq });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+app.get('/invoices/available-years/:company', async (req, res) => {
+  try {
+    const { company } = req.params;
+    const result = await pool.query(
+      'SELECT DISTINCT year FROM invoices WHERE company_code = $1 ORDER BY year DESC',
+      [company.toUpperCase()]
+    );
+    const years = result.rows.map(r => r.year);
+    res.json({ success: true, data: years });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+app.get('/invoices/missing-numbers/:company/:year/:docType', async (req, res) => {
+  try {
+    const { company, year, docType } = req.params;
+    const companyCode = company.toUpperCase();
+    const targetYear = parseInt(year);
+
+    // Map docType to PostgreSQL column
+    let targetColumn = 'document_numero';
+    if (docType === 'bon_livraison') targetColumn = 'document_numero_bl';
+    else if (docType === 'devis') targetColumn = 'document_numero_devis';
+    else if (docType === 'order') targetColumn = 'document_numero_order';
+
+    // Fetch all document numbers for the given company, year, and type
+    const result = await pool.query(
+      `SELECT ${targetColumn} as numero 
+       FROM invoices 
+       WHERE company_code = $1 
+       AND year = $2 
+       AND document_type = $3
+       AND ${targetColumn} IS NOT NULL
+       AND ${targetColumn} != ''`,
+      [companyCode, targetYear, docType]
+    );
+
+    const allNumbers = result.rows.map(r => r.numero);
+
+    if (allNumbers.length === 0) {
+      return res.json({ success: true, data: [], stats: { min: 0, max: 0, used: 0, missing: 0 } });
+    }
+
+    const prefixGroups = {};
+
+    allNumbers.forEach(numStr => {
+      let match = null;
+      let prefix = '';
+      let number = null;
+
+      if (companyCode === 'MULTI') {
+        // Multi format: MTT0012025 or MTT 0012025
+        match = numStr.match(/^MTT\s*(\d+)(\d{4})$/);
+        if (match) {
+          prefix = 'MTT';
+          number = parseInt(match[1]);
+        }
+      } else {
+        // General format: "123", "123/2025", "MG123", "MG123/2025", "MG 123/2025"
+        // Also supports numbers without year suffix since SQL already filters by year
+        match = numStr.match(/^([A-Z]*)\s*(\d+)(?:\/(\d{4}))?$/);
+        if (match) {
+          prefix = match[1] || '';
+          number = parseInt(match[2]);
+        }
+      }
+
+      if (number !== null) {
+        if (!prefixGroups[prefix]) prefixGroups[prefix] = [];
+        prefixGroups[prefix].push(number);
+      }
+    });
+
+    const missingByPrefix = {};
+    let totalMissing = 0;
+
+    Object.keys(prefixGroups).forEach(prefix => {
+      const numbers = [...new Set(prefixGroups[prefix])].sort((a, b) => a - b);
+      if (numbers.length === 0) return;
+
+      const minNumber = Math.min(...numbers);
+      const maxNumber = Math.max(...numbers);
+      const missing = [];
+
+      for (let i = minNumber + 1; i < maxNumber; i++) {
+        if (!numbers.includes(i)) {
+          missing.push(i);
+        }
+      }
+
+      if (missing.length > 0) {
+        missingByPrefix[prefix] = missing;
+        totalMissing += missing.length;
+      }
+    });
+
+    // For backward compatibility with simpler frontend, flatten if only one prefix or empty
+    const flattenedMissing = [].concat(...Object.values(missingByPrefix));
+
+    res.json({
+      success: true,
+      data: flattenedMissing,
+      byPrefix: missingByPrefix,
+      stats: {
+        totalMissing: totalMissing,
+        prefixCount: Object.keys(missingByPrefix).length,
+        used: allNumbers.length
+      }
+    });
+  } catch (err) {
+    console.error('❌ Error in /invoices/missing-numbers:', err);
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+app.post('/auth/register', async (req, res) => {
+  try {
+    const { name, email, password } = req.body;
+    const hashedPassword = hashPassword(password);
+    const result = await pool.query(
+      'INSERT INTO users (name, email, password) VALUES ($1, $2, $3) RETURNING id, name, email',
+      [name, email, hashedPassword]
+    );
+    res.json({ success: true, user: result.rows[0] });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+app.get('/users', async (req, res) => {
+  try {
+    const result = await pool.query('SELECT id, name, email, created_at FROM users ORDER BY id DESC');
+    res.json({ success: true, users: result.rows });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+app.get('/users/count', async (req, res) => {
+  try {
+    const result = await pool.query('SELECT COUNT(*) as count FROM users');
+    res.json({ success: true, count: parseInt(result.rows[0].count) });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+app.put('/auth/password', async (req, res) => {
+  try {
+    const { email, oldPassword, newPassword } = req.body;
+
+    // Verify old password
+    const oldHashed = hashPassword(oldPassword);
+    const userRes = await pool.query('SELECT * FROM users WHERE email = $1 AND password = $2', [email, oldHashed]);
+
+    if (userRes.rows.length === 0) {
+      return res.status(401).json({ success: false, message: 'Ancien mot de passe incorrect' });
+    }
+
+    // Update to new password
+    const newHashed = hashPassword(newPassword);
+    await pool.query('UPDATE users SET password = $1 WHERE email = $2', [newHashed, email]);
+
+    res.json({ success: true, message: 'Mot de passe mis à jour avec succès' });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// --- DATA ROUTES ---
+// --- CLIENT ROUTES ---
+app.get('/clients/:company', async (req, res) => {
+  try {
+    const { company } = req.params;
+    const result = await pool.query('SELECT * FROM clients WHERE company_code = $1 ORDER BY nom', [company.toUpperCase()]);
+    res.json({ success: true, data: result.rows });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+app.post('/clients', async (req, res) => {
+  try {
+    const { nom, ice, company_code } = req.body;
+    const result = await pool.query(
+      'INSERT INTO clients (nom, ice, company_code, created_at) VALUES ($1, $2, $3, NOW()) RETURNING *',
+      [nom, ice, company_code]
+    );
+    res.json({ success: true, data: result.rows[0] });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+app.delete('/clients/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    await pool.query('DELETE FROM clients WHERE id = $1', [id]);
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// --- INVOICE ROUTES ---
+
+// Get all pending invoices (MUST be before /invoices/:company)
+app.get('/invoices/pending', async (req, res) => {
+  try {
+    const { company_code } = req.query;
+    console.log(`🔍 [API DEBUG] GET /invoices/pending called for company: ${company_code || 'ALL'}`);
+
+    let query = `
+      SELECT i.*, c.nom as client_nom, c.ice as client_ice 
+      FROM invoices i 
+      LEFT JOIN clients c ON i.client_id = c.id 
+      WHERE i.validation_status = 'pending'
+    `;
+    const params = [];
+
+    if (company_code) {
+      query += ` AND i.company_code = $1`;
+      params.push(company_code.toUpperCase());
+    }
+
+    query += ` ORDER BY i.id DESC`;
+
+    const result = await pool.query(query, params);
+
+    // Fetch attachment counts for these invoices
+    if (result.rows.length > 0) {
+      const invoiceIds = result.rows.map(inv => inv.id);
+      const countsRes = await pool.query(`
+        SELECT invoice_id, COUNT(*) as count 
+        FROM invoice_attachments 
+        WHERE invoice_id = ANY($1::int[]) 
+        GROUP BY invoice_id
+      `, [invoiceIds]);
+
+      const countsMap = {};
+      countsRes.rows.forEach(r => countsMap[r.invoice_id] = parseInt(r.count));
+
+      result.rows.forEach(inv => {
+        inv.attachment_count = countsMap[inv.id] || 0;
+      });
+    }
+
+    console.log(`🔍 [API DEBUG] Found ${result.rows.length} pending invoices in DB`);
+    res.json({ success: true, data: result.rows });
+  } catch (err) {
+    console.error('❌ [API ERROR] /invoices/pending:', err);
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+app.get('/invoices/:company', async (req, res) => {
+  try {
+    const { company } = req.params;
+    const columnExists = await checkIsModifiedExists();
+    const convertedColumnExists = await checkIsConvertedExists();
+
+    // Fetch invoices with client info
+    const invoicesRes = await pool.query(`
+      SELECT i.*, c.nom as client_nom, c.ice as client_ice 
+      ${columnExists ? ', i.is_modified' : ''}
+      ${convertedColumnExists ? ', i.is_converted' : ''}
+      FROM invoices i 
+      JOIN clients c ON i.client_id = c.id 
+      WHERE i.company_code = $1
+      ORDER BY i.id DESC
+    `, [company.toUpperCase()]);
+
+    const invoices = invoicesRes.rows;
+
+    // Fetch products for these invoices
+    // Optimization: In a real app we might join or batch fetch. For now, let's keep it simple or do a loop.
+    // To match legacy structure, we usually embed products.
+    // Let's do a second query for products.
+    if (invoices.length > 0) {
+      const invoiceIds = invoices.map(inv => inv.id);
+      const productsRes = await pool.query(`SELECT * FROM invoice_products WHERE invoice_id = ANY($1::int[])`, [invoiceIds]);
+
+      // Map products to invoices
+      const productsMap = {};
+      productsRes.rows.forEach(p => {
+        if (!productsMap[p.invoice_id]) productsMap[p.invoice_id] = [];
+        productsMap[p.invoice_id].push(p);
+      });
+
+      invoices.forEach(inv => {
+        inv.products = productsMap[inv.id] || [];
+      });
+
+      // Fetch attachment counts
+      const countsRes = await pool.query(`
+        SELECT invoice_id, COUNT(*) as count 
+        FROM invoice_attachments 
+        WHERE invoice_id = ANY($1::int[]) 
+        GROUP BY invoice_id
+      `, [invoiceIds]);
+
+      const countsMap = {};
+      countsRes.rows.forEach(r => countsMap[r.invoice_id] = parseInt(r.count));
+
+      invoices.forEach(inv => {
+        inv.attachment_count = countsMap[inv.id] || 0;
+      });
+    }
+
+    res.json({ success: true, data: invoices });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+app.get('/invoices/id/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const invoiceRes = await pool.query(`
+      SELECT i.*, c.nom as client_nom, c.ice as client_ice 
+      FROM invoices i 
+      JOIN clients c ON i.client_id = c.id 
+      WHERE i.id = $1
+    `, [id]);
+
+    if (invoiceRes.rows.length === 0) {
+      return res.status(404).json({ success: false, message: 'Invoice not found' });
+    }
+
+    const invoice = invoiceRes.rows[0];
+    const productsRes = await pool.query('SELECT * FROM invoice_products WHERE invoice_id = $1', [id]);
+    invoice.products = productsRes.rows;
+
+    // Fetch attachments
+    // Fetch attachments (Safe fallback: Order by ID if created_at is missing)
+    const attachmentsRes = await pool.query('SELECT * FROM invoice_attachments WHERE invoice_id = $1 ORDER BY id DESC', [id]);
+    invoice.attachments = attachmentsRes.rows;
+    invoice.attachment_count = attachmentsRes.rows.length;
+
+    // ✅ Reset is_modified flag when viewed (Safe check)
+    if (invoice.is_modified === true) {
+      try {
+        await pool.query('UPDATE invoices SET is_modified = false WHERE id = $1', [id]);
+        invoice.is_modified = false;
+      } catch (e) {
+        console.warn('is_modified column may be missing, skipping reset.');
+      }
+    }
+
+    res.json({ success: true, data: invoice });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+app.post('/invoices', async (req, res) => {
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+
+    let {
+      company_code, client_id, document_type, document_date,
+      document_numero, document_numero_order, document_numero_bl,
+      document_numero_devis, document_order_devis, document_bon_de_livraison,
+      document_numero_commande, year, sequential_id,
+      total_ht, tva_rate, montant_tva, total_ttc,
+      creation_method, created_by, delivered_by, ar_status,
+      created_by_user_id, created_by_user_name, created_by_user_email,
+      products
+    } = req.body;
+
+    // Handle nested format from frontend (document, client, totals)
+    if (req.body.document) {
+      const doc = req.body.document;
+      company_code = req.body.company_code || company_code;
+      document_type = doc.type || document_type;
+      document_date = doc.date || document_date;
+      document_numero = doc.numero || document_numero;
+      document_numero_order = doc.numero_order || doc.numero_Order || document_numero_order;
+      document_numero_bl = doc.numero_bl || doc.numero_BL || document_numero_bl;
+      document_numero_devis = doc.numero_devis || document_numero_devis;
+      document_order_devis = doc.order_devis || document_order_devis;
+      document_bon_de_livraison = doc.bon_de_livraison || document_bon_de_livraison;
+      document_numero_commande = doc.numero_commande || document_numero_commande;
+      year = req.body.year || year;
+      creation_method = doc.creation_method || creation_method;
+      created_by = doc.created_by || created_by;
+      delivered_by = doc.delivered_by || delivered_by;
+
+      // User identification
+      req.body.created_by_user_id = doc.created_by_user_id || req.body.created_by_user_id;
+      req.body.created_by_user_name = doc.created_by_user_name || req.body.created_by_user_name;
+      req.body.created_by_user_email = doc.created_by_user_email || req.body.created_by_user_email;
+
+      const ar_status_val = doc.ar_status || req.body.ar_status || 'sans_accuse';
+      req.body.ar_status_resolved = ar_status_val;
+    }
+
+    if (req.body.totals) {
+      const t = req.body.totals;
+      total_ht = t.total_ht || total_ht;
+      tva_rate = t.tva_rate || tva_rate;
+      montant_tva = t.montant_tva || montant_tva;
+      total_ttc = t.total_ttc || total_ttc;
+    }
+
+    // Resolve client_id if missing but client details provided
+    if (!client_id && req.body.client) {
+      const c = req.body.client;
+      // Use company_code to find/create client in correct context
+      const clientRes = await client.query(
+        'SELECT id FROM clients WHERE nom = $1 AND (ice = $2 OR ice IS NULL) AND company_code = $3 LIMIT 1',
+        [c.nom, c.ICE || c.ice || null, company_code]
+      );
+
+      if (clientRes.rows.length > 0) {
+        client_id = clientRes.rows[0].id;
+      } else {
+        const insertClientRes = await client.query(
+          'INSERT INTO clients (nom, ice, company_code, created_at) VALUES ($1, $2, $3, NOW()) RETURNING id',
+          [c.nom, c.ICE || c.ice || null, company_code]
+        );
+        client_id = insertClientRes.rows[0].id;
+      }
+    }
+
+    // Fallback for year if not provided
+    if (!year && document_date) {
+      year = new Date(document_date).getFullYear();
+    }
+
+    // Check for auto-validation permission AND resolve user name
+    let validation_status = 'pending';
+    let resolvedUserId = req.body.created_by_user_id || null;
+    let resolvedUserName = req.body.created_by_user_name || null;
+    let resolvedUserEmail = req.body.created_by_user_email || null;
+
+    // Use email/id to resolve user and check permissions
+    const checkEmail = resolvedUserEmail || (created_by && created_by.includes('@') ? created_by : null);
+
+    if (checkEmail) {
+      try {
+        const userRes = await client.query('SELECT id, name, email, can_auto_validate FROM users WHERE email = $1', [checkEmail]);
+        if (userRes.rows.length > 0) {
+          const u = userRes.rows[0];
+          resolvedUserId = resolvedUserId || u.id;
+          resolvedUserName = resolvedUserName || u.name;
+          resolvedUserEmail = resolvedUserEmail || u.email;
+
+          if (u.can_auto_validate === true) {
+            validation_status = 'validated';
+            console.log(`✅ [API DEBUG] User ${checkEmail} has auto-validation permission.`);
+          } else {
+            console.log(`ℹ️ [API DEBUG] User ${checkEmail} does NOT have auto-validation. Status set to pending.`);
+          }
+        }
+      } catch (e) {
+        console.error('❌ [API ERROR] Failed to check user permissions:', e);
+      }
+    } else if (resolvedUserId) {
+      try {
+        // Fallback: lookup by ID
+        const userRes = await client.query('SELECT id, name, email, can_auto_validate FROM users WHERE id = $1', [resolvedUserId]);
+        if (userRes.rows.length > 0) {
+          const u = userRes.rows[0];
+          resolvedUserId = u.id;
+          resolvedUserName = resolvedUserName || u.name;
+          resolvedUserEmail = resolvedUserEmail || u.email;
+
+          if (u.can_auto_validate === true) {
+            validation_status = 'validated';
+            console.log(`✅ [API DEBUG] User ID ${resolvedUserId} has auto-validation permission.`);
+          } else {
+            console.log(`ℹ️ [API DEBUG] User ID ${resolvedUserId} does NOT have auto-validation. Status set to pending.`);
+          }
+        }
+      } catch (e) {
+        console.error('❌ [API ERROR] Failed to check user permissions by ID:', e);
+      }
+    }
+
+    const columnExists = await checkIsModifiedExists();
+    const convertedColumnExists = await checkIsConvertedExists();
+
+    // 🚀 Handle Devis Conversion Logic
+    // If this is a Facture or BL created from a Devis (has document_numero_devis)
+    if (document_numero_devis && (document_type === 'facture' || document_type === 'bon_livraison')) {
+      try {
+        if (convertedColumnExists) {
+          console.log(`🔄 [API] Marking Devis ${document_numero_devis} as converted...`);
+          // Find the devis by numero and update is_converted
+          const updateDevisRes = await client.query(
+            `UPDATE invoices 
+             SET is_converted = TRUE 
+             WHERE (document_numero = $1 OR document_numero_devis = $1)
+             AND document_type = 'devis' 
+             AND company_code = $2`,
+            [document_numero_devis, company_code]
+          );
+          console.log(`✅ [API] Updated ${updateDevisRes.rowCount} Devis to converted status.`);
+        }
+      } catch (err) {
+        console.error('⚠️ [API WARNING] Failed to update Devis conversion status:', err);
+      }
+    }
+
+    const insertInvoiceText = `
+      INSERT INTO invoices (
+        company_code, client_id, document_type, document_date, 
+        document_numero, document_numero_order, document_numero_bl,
+        document_numero_devis, document_order_devis, document_bon_de_livraison,
+        document_numero_commande, year, sequential_id,
+        total_ht, tva_rate, montant_tva, total_ttc,
+        creation_method, created_by, delivered_by, ar_status, 
+        validation_status, 
+        created_by_user_id, created_by_user_name, created_by_user_email
+        ${columnExists ? ', is_modified' : ''}
+        ${convertedColumnExists ? ', is_converted' : ''},
+        created_at, updated_at
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25 ${columnExists ? ', $26' : ''} ${convertedColumnExists ? (columnExists ? ', $27' : ', $26') : ''}, NOW(), NOW())
+      RETURNING id
+    `;
+
+    const invoiceValues = [
+      company_code, client_id, document_type, document_date,
+      document_numero, document_numero_order, document_numero_bl,
+      document_numero_devis, document_order_devis, document_bon_de_livraison,
+      document_numero_commande, year, sequential_id || 0,
+      total_ht || 0, tva_rate || 20, montant_tva || 0, total_ttc || 0,
+      creation_method || 'normal', created_by || null, delivered_by || null,
+      req.body.ar_status_resolved || 'sans_accuse',
+      validation_status,
+      resolvedUserId,
+      resolvedUserName,
+      resolvedUserEmail
+    ];
+    if (columnExists) invoiceValues.push(false); // is_modified default
+    if (convertedColumnExists) invoiceValues.push(false); // is_converted default
+
+    console.log(`📝 [API DEBUG] Creating invoice for ${company_code}:`, {
+      numero: document_numero,
+      type: document_type,
+      status: validation_status,
+      creator: resolvedUserName
+    });
+
+    const resInvoice = await client.query(insertInvoiceText, invoiceValues);
+    const invoiceId = resInvoice.rows[0].id;
+
+    if (products && products.length > 0) {
+      const insertProductText = `
+        INSERT INTO invoice_products (invoice_id, designation, quantite, prix_unitaire_ht, total_ht)
+        VALUES ($1, $2, $3, $4, $5)
+      `;
+      for (const p of products) {
+        await client.query(insertProductText, [invoiceId, p.designation, p.quantite, p.prix_unitaire_ht, p.total_ht]);
+      }
+    }
+
+    await client.query('COMMIT');
+    res.json({ success: true, data: { id: invoiceId } });
+  } catch (err) {
+    await client.query('ROLLBACK');
+    console.error('❌ Error in POST /invoices:', err);
+    res.status(500).json({ success: false, error: err.message });
+  } finally {
+    client.release();
+  }
+});
+
+app.put('/invoices/:id', async (req, res) => {
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    const { id } = req.params;
+
+    // Initialize with undefined but we will carefully assign
+    let {
+      company_code, client_id, document_date,
+      document_numero, document_numero_order, document_numero_bl,
+      document_numero_devis, document_order_devis, document_bon_de_livraison,
+      document_numero_commande,
+      total_ht, tva_rate, montant_tva, total_ttc,
+      created_by, delivered_by, ar_status, validation_status,
+      created_by_user_id, created_by_user_name, created_by_user_email,
+      updated_by_user_id, updated_by_user_name, updated_by_user_email,
+      products
+    } = req.body;
+
+    // Fallback: If these are at top-level but NOT in doc, we use them.
+    // However, if doc exists, inner doc takes precedence below.
+
+    // Handle nested format from frontend (document, totals)
+    if (req.body.document) {
+      const doc = req.body.document;
+      // Use undefined check to allow empty strings or 0 (though unlikely for date)
+      if (doc.type !== undefined) document_type = doc.type; // Usually not changed but for reference
+      if (doc.date !== undefined) document_date = doc.date;
+      if (doc.numero !== undefined) document_numero = doc.numero;
+      if (doc.numero_Order !== undefined) document_numero_order = doc.numero_Order; // Note casing from frontend often numero_Order
+      if (doc.numero_bl !== undefined) document_numero_bl = doc.numero_bl;
+      if (doc.numero_devis !== undefined) document_numero_devis = doc.numero_devis;
+      if (doc.order_devis !== undefined) document_order_devis = doc.order_devis; // If used
+      if (doc.bon_de_livraison !== undefined) document_bon_de_livraison = doc.bon_de_livraison;
+      if (doc.numero_commande !== undefined) document_numero_commande = doc.numero_commande;
+
+      if (doc.created_by !== undefined) created_by = doc.created_by;
+      if (doc.delivered_by !== undefined) delivered_by = doc.delivered_by;
+      if (doc.ar_status !== undefined) ar_status = doc.ar_status;
+
+      // LOGIC CHANGE: If an invoice is updated, default it back to 'pending' so Admin sees it.
+      // Unless validation_status is explicitly passed (e.g. by Admin validting it).
+      if (doc.validation_status !== undefined) {
+        validation_status = doc.validation_status;
+      } else {
+        // Default to pending on any edit to ensure visibility in "Unseen" filter
+        validation_status = 'pending';
+      }
+
+      // User identification
+      if (doc.created_by_user_id !== undefined) created_by_user_id = doc.created_by_user_id;
+      if (doc.created_by_user_name !== undefined) created_by_user_name = doc.created_by_user_name;
+      if (doc.created_by_user_email !== undefined) created_by_user_email = doc.created_by_user_email;
+      if (doc.updated_by_user_id !== undefined) updated_by_user_id = doc.updated_by_user_id;
+      if (doc.updated_by_user_name !== undefined) updated_by_user_name = doc.updated_by_user_name;
+      if (doc.updated_by_user_email !== undefined) updated_by_user_email = doc.updated_by_user_email;
+    } else {
+      // If doc is NOT sent, we still want to default to pending on edit
+      if (validation_status === undefined) validation_status = 'pending';
+    }
+
+    if (req.body.totals) {
+      const t = req.body.totals;
+      // Vital: check undefined because 0 is falsy
+      if (t.total_ht !== undefined) total_ht = t.total_ht;
+      if (t.tva_rate !== undefined) tva_rate = t.tva_rate;
+      if (t.montant_tva !== undefined) montant_tva = t.montant_tva;
+      if (t.total_ttc !== undefined) total_ttc = t.total_ttc;
+    }
+
+    // Resolve client_id if client info provided
+    if (req.body.client) {
+      const c = req.body.client;
+      if (!company_code) {
+        const invRes = await client.query('SELECT company_code FROM invoices WHERE id = $1', [id]);
+        if (invRes.rows.length > 0) company_code = invRes.rows[0].company_code;
+      }
+
+      const clientRes = await client.query(
+        'SELECT id FROM clients WHERE nom = $1 AND (ice = $2 OR ice IS NULL) AND company_code = $3 LIMIT 1',
+        [c.nom, c.ICE || c.ice || null, company_code]
+      );
+
+      if (clientRes.rows.length > 0) {
+        client_id = clientRes.rows[0].id;
+      } else {
+        const insertClientRes = await client.query(
+          'INSERT INTO clients (nom, ice, company_code, created_at) VALUES ($1, $2, $3, NOW()) RETURNING id',
+          [c.nom, c.ICE || c.ice || null, company_code]
+        );
+        client_id = insertClientRes.rows[0].id;
+      }
+    }
+
+    let year = null;
+    if (document_date) {
+      year = new Date(document_date).getFullYear();
+    }
+
+    // Prepare values for update - using NULL for undefined to avoid pg error if we want to nullify?
+    // Actually COALESCE logic in SQL: COALESCE($1, column) means "if $1 is NULL, keep column".
+    // So if we want to UPDATE to NULL, we can't use COALESCE($1, col).
+    // But usually undefined means "no change".
+    // If value is explicitly NULL, we might want to set to NULL.
+    // However, for simplicity and to match previous pattern:
+    // We pass undefined as null, so COALESCE keeps existing.
+    // EXCEPT if we want to support clearing a field (sending null).
+    // Our frontend sends null for cleared fields.
+    // So if frontend sends null, we behave like "keep existing"?
+    // No, if frontend sends null, meaningful "clear".
+    // But COALESCE($1, col) prevents setting to NULL.
+    // We should fix the query to allow setting NULL if explicitly requested?
+    // For "created_by", if I send null, do I want to clear it?
+    // Probably not for created_by.
+    // For totals, definitely not.
+    // So COALESCE pattern is safer for "undefined means no change".
+    // But we must ensure 0 is passed as 0, not undefined.
+
+    // Helper: convert undefined to null (for COALESCE to skip)
+    // But if we have 0, it stays 0.
+    const val = (v) => v === undefined ? null : v;
+
+    const columnExists = await checkIsModifiedExists();
+
+    await client.query(`
+            UPDATE invoices SET 
+                client_id = COALESCE($1, client_id),
+                document_date = COALESCE($2, document_date), 
+                year = COALESCE($3, year),
+                total_ht = COALESCE($4, total_ht), 
+                tva_rate = COALESCE($5, tva_rate), 
+                montant_tva = COALESCE($6, montant_tva), 
+                total_ttc = COALESCE($7, total_ttc), 
+                created_by = COALESCE($8, created_by), 
+                delivered_by = COALESCE($9, delivered_by),
+                document_numero = COALESCE($10, document_numero),
+                document_numero_order = COALESCE($11, document_numero_order),
+                document_numero_bl = COALESCE($12, document_numero_bl),
+                document_numero_devis = COALESCE($13, document_numero_devis),
+                document_bon_de_livraison = COALESCE($14, document_bon_de_livraison),
+                document_numero_commande = COALESCE($15, document_numero_commande),
+                ar_status = COALESCE($16, ar_status),
+                validation_status = COALESCE($17, validation_status),
+                updated_by_user_id = COALESCE($18, updated_by_user_id),
+                updated_by_user_name = COALESCE($19, updated_by_user_name),
+                updated_by_user_email = COALESCE($20, updated_by_user_email),
+                ${columnExists ? 'is_modified = true,' : ''}
+                updated_at = NOW()
+            WHERE id = $21
+        `, [
+      val(client_id),
+      val(document_date),
+      val(year),
+      val(total_ht),
+      val(tva_rate),
+      val(montant_tva),
+      val(total_ttc),
+      val(created_by),
+      val(delivered_by),
+      val(document_numero),
+      val(document_numero_order),
+      val(document_numero_bl),
+      val(document_numero_devis),
+      val(document_bon_de_livraison),
+      val(document_numero_commande),
+      val(ar_status),
+      val(validation_status),
+      val(updated_by_user_id),
+      val(updated_by_user_name),
+      val(updated_by_user_email),
+      id
+    ]);
+
+    // Replace products
+    await client.query('DELETE FROM invoice_products WHERE invoice_id = $1', [id]);
+
+    if (products && products.length > 0) {
+      const insertProductText = `
+                INSERT INTO invoice_products (invoice_id, designation, quantite, prix_unitaire_ht, total_ht)
+                VALUES ($1, $2, $3, $4, $5)
+            `;
+      for (const p of products) {
+        await client.query(insertProductText, [id, p.designation, p.quantite, p.prix_unitaire_ht, p.total_ht]);
+      }
+    }
+
+    await client.query('COMMIT');
+    res.json({ success: true });
+  } catch (err) {
+    await client.query('ROLLBACK');
+    console.error('❌ Error in PUT /invoices/:id:', err);
+    res.status(500).json({ success: false, error: err.message });
+  } finally {
+    client.release();
+  }
+});
+
+app.delete('/invoices/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    // Cascade delete should handle products/attachments if configured, but let's be safe
+    await pool.query('DELETE FROM invoice_products WHERE invoice_id = $1', [id]);
+    await pool.query('DELETE FROM invoice_attachments WHERE invoice_id = $1', [id]);
+    await pool.query('DELETE FROM invoices WHERE id = $1', [id]);
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// --- ATTACHMENT ROUTES ---
+app.get('/attachments/id/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const result = await pool.query('SELECT *, created_at as uploaded_at FROM invoice_attachments WHERE id = $1', [id]);
+    if (result.rows.length === 0) {
+      return res.status(404).json({ success: false, message: 'Attachment not found' });
+    }
+    const file = result.rows[0];
+    if (file.file_data) {
+      file.file_data = Buffer.from(file.file_data).toString('base64');
+    }
+    res.json({ success: true, data: file });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+app.get('/attachments/invoice/:invoiceId', async (req, res) => {
+  try {
+    const { invoiceId } = req.params;
+    const result = await pool.query('SELECT id, filename, file_type, file_size, created_at as uploaded_at, file_data FROM invoice_attachments WHERE invoice_id = $1 ORDER BY id DESC', [invoiceId]);
+    const attachments = result.rows.map(att => {
+      if (att.file_data) {
+        att.file_data = Buffer.from(att.file_data).toString('base64');
+      }
+      return att;
+    });
+    res.json({ success: true, data: attachments });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+app.post('/attachments', async (req, res) => {
+  console.log('🔵 [API] POST /attachments called');
+  const client = await pool.connect();
+  try {
+    const { invoice_id, filename, file_type, file_size, file_data, file_path } = req.body;
+
+    console.log(`📝 [API] Attempting to add attachment: ${filename} for invoice: ${invoice_id}`);
+
+    await client.query('BEGIN');
+
+    // Convert base64 to buffer if provided
+    let dataBuffer = null;
+    if (file_data) {
+      dataBuffer = Buffer.from(file_data, 'base64');
+      console.log(`📊 [API] Converted file_data to buffer (${dataBuffer.length} bytes)`);
+    }
+
+    const result = await client.query(
+      `INSERT INTO invoice_attachments (invoice_id, filename, file_type, file_size, file_path, file_data, created_at)
+       VALUES ($1, $2, $3, $4, $5, $6, NOW())
+       RETURNING id`,
+      [invoice_id, filename, file_type, file_size, file_path, dataBuffer]
+    );
+
+    const attachmentId = result.rows[0].id;
+    console.log(`✅ [API] Inserted attachment record ID: ${attachmentId}`);
+
+    // Update attachment_count in invoices for performance (if column exists)
+    await client.query(
+      'UPDATE invoices SET attachment_count = (SELECT COUNT(*) FROM invoice_attachments WHERE invoice_id = $1) WHERE id = $1',
+      [invoice_id]
+    );
+
+    await client.query('COMMIT');
+    console.log(`✨ [API] Transaction committed successfully for invoice ${invoice_id}`);
+    res.json({ success: true, data: { id: attachmentId } });
+  } catch (err) {
+    if (client) await client.query('ROLLBACK');
+    console.error('❌ [API] Transaction ERROR:', err);
+    res.status(500).json({ success: false, error: err.message });
+  } finally {
+    client.release();
+  }
+});
+
+app.delete('/attachments/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    await pool.query('DELETE FROM invoice_attachments WHERE id = $1', [id]);
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// --- SECONDARY COMPANY ROUTES (Devis/PDF Tracking) ---
+
+// (Redundant devis and pdf routes removed)
+
+
+// --- DELIVERY PERSONS ROUTES ---
+app.get('/delivery-persons/:company', async (req, res) => {
+  try {
+    const { company } = req.params;
+    // Get unique delivery persons from invoices AND from a dedicated delivery_persons table if we want it truly persistent
+    // For now, let's use the invoices as the source of truth, but we could add a table later.
+    const result = await pool.query(
+      'SELECT DISTINCT delivered_by FROM invoices WHERE company_code = $1 AND delivered_by IS NOT NULL AND delivered_by != \'\' ORDER BY delivered_by',
+      [company.toUpperCase()]
+    );
+    const persons = result.rows.map(r => r.delivered_by);
+    res.json({ success: true, data: persons });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+app.post('/delivery-persons', async (req, res) => {
+  try {
+    const { name, company_code } = req.body;
+    // This could just be a dummy endpoint if we rely on invoices, 
+    // or we could actually insert into a dedicated table.
+    // Let's implement a dedicated table for better persistence.
+    await pool.query(
+      'INSERT INTO delivery_persons (name, company_code) VALUES ($1, $2) ON CONFLICT (name, company_code) DO NOTHING',
+      [name, company_code.toUpperCase()]
+    );
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// --- VALIDATION & PERMISSIONS ROUTES ---
+
+// Get all pending invoices
+// Route moved up to avoid conflict with /invoices/:company
+
+// Validate or Reject an invoice
+app.put('/invoices/:id/validation', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { status } = req.body; // 'validated' or 'rejected'
+
+    if (!['validated', 'rejected'].includes(status)) {
+      return res.status(400).json({ success: false, message: 'Invalid status' });
+    }
+
+    if (status === 'rejected') {
+      // User request: Rejecting a pending invoice should delete it
+      await pool.query('DELETE FROM invoice_products WHERE invoice_id = $1', [id]);
+      await pool.query('DELETE FROM invoice_attachments WHERE invoice_id = $1', [id]);
+      const deleteResult = await pool.query('DELETE FROM invoices WHERE id = $1 RETURNING id', [id]);
+
+      if (deleteResult.rows.length > 0) {
+        res.json({ success: true, message: 'Invoice rejected and deleted successfully' });
+      } else {
+        res.status(404).json({ success: false, message: 'Invoice not found' });
+      }
+      return;
+    }
+
+    const result = await pool.query(
+      'UPDATE invoices SET validation_status = $1, updated_at = NOW() WHERE id = $2 RETURNING id',
+      [status, id]
+    );
+
+    if (result.rows.length > 0) {
+      res.json({ success: true, message: `Invoice ${status} successfully` });
+    } else {
+      res.status(404).json({ success: false, message: 'Invoice not found' });
+    }
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// Get all users for permissions management
+app.get('/users', async (req, res) => {
+  try {
+    const result = await pool.query('SELECT id, name, email, can_auto_validate FROM users ORDER BY name ASC');
+    res.json({ success: true, data: result.rows });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// Update user permissions
+app.put('/users/:id/permissions', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { can_auto_validate } = req.body;
+
+    const result = await pool.query(
+      'UPDATE users SET can_auto_validate = $1 WHERE id = $2 RETURNING id',
+      [can_auto_validate, id]
+    );
+
+    if (result.rows.length > 0) {
+      res.json({ success: true, message: 'Permissions updated successfully' });
+    } else {
+      res.status(404).json({ success: false, message: 'User not found' });
+    }
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// --- AUDIT LOG ROUTES ---
+app.get('/audit-log/:invoiceId', async (req, res) => {
+  try {
+    const { invoiceId } = req.params;
+    const result = await pool.query(
+      'SELECT * FROM audit_log WHERE invoice_id = $1 ORDER BY id DESC',
+      [invoiceId]
+    );
+    res.json({ success: true, data: result.rows });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+app.post('/audit-log', async (req, res) => {
+  try {
+    const { invoice_id, action, user_id, user_name, user_email, changes } = req.body;
+    await pool.query(
+      'INSERT INTO audit_log (invoice_id, action, user_id, user_name, user_email, changes, created_at) VALUES ($1, $2, $3, $4, $5, $6, NOW())',
+      [invoice_id, action, user_id, user_name, user_email, JSON.stringify(changes)]
+    );
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// --- ATTACHMENT ROUTES ---
+// Get attachments for an invoice
+app.get('/attachments/invoice/:invoiceId', async (req, res) => {
+  try {
+    const { invoiceId } = req.params;
+    const result = await pool.query(
+      'SELECT *, created_at as uploaded_at FROM invoice_attachments WHERE invoice_id = $1 ORDER BY id DESC',
+      [invoiceId]
+    );
+    res.json({ success: true, data: result.rows });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// Get single attachment by ID
+app.get('/attachments/id/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const result = await pool.query('SELECT *, created_at as uploaded_at FROM invoice_attachments WHERE id = $1', [id]);
+    if (result.rows.length > 0) {
+      res.json({ success: true, data: result.rows[0] });
+    } else {
+      res.status(404).json({ success: false, message: 'Attachment not found' });
+    }
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// Add attachment
+app.post('/attachments', async (req, res) => {
+  console.log('🔵 [API] POST /attachments called');
+  const client = await pool.connect();
+  try {
+    const { invoice_id, filename, file_type, file_size, file_path, file_data } = req.body;
+
+    console.log(`📝 [API] Attempting to add attachment: ${filename} for invoice: ${invoice_id}`);
+
+    await client.query('BEGIN');
+
+    // Convert base64 to buffer if provided
+    let dataBuffer = null;
+    if (file_data) {
+      dataBuffer = Buffer.from(file_data, 'base64');
+      console.log(`📊 [API] Converted file_data to buffer (${dataBuffer.length} bytes)`);
+    }
+
+    const result = await client.query(
+      `INSERT INTO invoice_attachments (invoice_id, filename, file_type, file_size, file_path, file_data, created_at)
+       VALUES ($1, $2, $3, $4, $5, $6, NOW())
+       RETURNING id`,
+      [invoice_id, filename, file_type, file_size, file_path, dataBuffer]
+    );
+
+    const attachmentId = result.rows[0].id;
+    console.log(`✅ [API] Inserted attachment record ID: ${attachmentId}`);
+
+    // Update attachment_count in invoices
+    await client.query(
+      'UPDATE invoices SET attachment_count = (SELECT COUNT(*) FROM invoice_attachments WHERE invoice_id = $1) WHERE id = $1',
+      [invoice_id]
+    );
+
+    await client.query('COMMIT');
+    console.log(`✨ [API] Transaction committed successfully for invoice ${invoice_id}`);
+    res.json({ success: true, data: { id: attachmentId } });
+  } catch (err) {
+    if (client) await client.query('ROLLBACK');
+    console.error('❌ [API] Transaction ERROR:', err);
+    res.status(500).json({ success: false, error: err.message });
+  } finally {
+    client.release();
+  }
+});
+
+// --- GLOBAL INVOICE ROUTES ---
+
+app.get('/global-invoices/:company', async (req, res) => {
+  try {
+    const { company } = req.params;
+    const result = await pool.query(`
+      SELECT gi.*, c.nom as client_nom, c.ice as client_ice 
+      FROM global_invoices gi 
+      JOIN clients c ON gi.client_id = c.id 
+      WHERE gi.company_code = $1
+      ORDER BY gi.id DESC
+    `, [company.toUpperCase()]);
+
+    const globalInvoices = result.rows;
+
+    // Fetch linked bon IDs for each global invoice
+    if (globalInvoices.length > 0) {
+      const giIds = globalInvoices.map(gi => gi.id);
+      const bonsRes = await pool.query(`
+        SELECT global_invoice_id, bon_livraison_id 
+        FROM global_invoice_bons 
+        WHERE global_invoice_id = ANY($1::int[])
+      `, [giIds]);
+
+      const bonsMap = {};
+      bonsRes.rows.forEach(b => {
+        if (!bonsMap[b.global_invoice_id]) bonsMap[b.global_invoice_id] = [];
+        bonsMap[b.global_invoice_id].push(b.bon_livraison_id);
+      });
+
+      globalInvoices.forEach(gi => {
+        gi.bon_livraison_ids = bonsMap[gi.id] || [];
+        gi.bon_count = gi.bon_livraison_ids.length;
+      });
+    }
+
+    res.json({ success: true, data: globalInvoices });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+app.get('/global-invoices/id/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const result = await pool.query(`
+      SELECT gi.*, c.nom as client_nom, c.ice as client_ice 
+      FROM global_invoices gi 
+      JOIN clients c ON gi.client_id = c.id 
+      WHERE gi.id = $1
+    `, [id]);
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ success: false, message: 'Global invoice not found' });
+    }
+
+    const gi = result.rows[0];
+
+    // Fetch linked bon IDs
+    const bonsIdsRes = await pool.query(`
+      SELECT bon_livraison_id 
+      FROM global_invoice_bons 
+      WHERE global_invoice_id = $1
+    `, [id]);
+    gi.bon_livraison_ids = bonsIdsRes.rows.map(b => b.bon_livraison_id);
+    gi.bon_count = gi.bon_livraison_ids.length;
+
+    // Fetch full details of linked bons
+    if (gi.bon_livraison_ids.length > 0) {
+      const bonsRes = await pool.query(`
+        SELECT i.*, c.nom as client_nom 
+        FROM invoices i 
+        JOIN clients c ON i.client_id = c.id 
+        WHERE i.id = ANY($1::int[])
+      `, [gi.bon_livraison_ids]);
+
+      gi.bons = bonsRes.rows.map(pgInv => ({
+        id: pgInv.id,
+        document_numero: pgInv.document_numero || pgInv.document_numero_bl,
+        document_numero_bl: pgInv.document_numero_bl,
+        document_numero_commande: pgInv.document_numero_commande,
+        document_date: pgInv.document_date,
+        total_ht: pgInv.total_ht,
+        total_ttc: pgInv.total_ttc,
+        client_nom: pgInv.client_nom
+      }));
+    } else {
+      gi.bons = [];
+    }
+
+    res.json({ success: true, data: gi });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+app.post('/global-invoices', async (req, res) => {
+  console.log('📥 [API] POST /global-invoices called');
+  console.log('📦 Request Body:', JSON.stringify(req.body, null, 2));
+
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    const {
+      company_code, client_id, document_numero, document_date,
+      total_ht, tva_rate, montant_tva, total_ttc,
+      bon_livraison_ids
+    } = req.body;
+
+    console.log('📝 Inserting global invoice...');
+    const giRes = await client.query(`
+      INSERT INTO global_invoices (
+        company_code, client_id, document_numero, document_date, 
+        total_ht, tva_rate, montant_tva, total_ttc, 
+        created_at, updated_at
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, NOW(), NOW())
+      RETURNING id
+    `, [
+      company_code ? company_code.toUpperCase() : null, client_id, document_numero, document_date,
+      total_ht, tva_rate, montant_tva, total_ttc
+    ]);
+
+    const giId = giRes.rows[0].id;
+    console.log('✅ Global invoice created with ID:', giId);
+
+    if (bon_livraison_ids && bon_livraison_ids.length > 0) {
+      console.log(`🔗 Linking ${bon_livraison_ids.length} delivery notes...`);
+      for (const bonId of bon_livraison_ids) {
+        await client.query(`
+          INSERT INTO global_invoice_bons (global_invoice_id, bon_livraison_id)
+          VALUES ($1, $2)
+        `, [giId, bonId]);
+      }
+    }
+
+    await client.query('COMMIT');
+    console.log('🎉 Transaction committed successfully');
+    res.json({ success: true, data: { id: giId } });
+  } catch (err) {
+    await client.query('ROLLBACK');
+    console.error('❌ [API ERROR] POST /global-invoices:', err);
+    res.status(500).json({ success: false, error: err.message });
+  } finally {
+    client.release();
+  }
+});
+
+app.put('/global-invoices/:id', async (req, res) => {
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    const { id } = req.params;
+    const {
+      document_numero, document_date,
+      total_ht, tva_rate, montant_tva, total_ttc,
+      bon_livraison_ids
+    } = req.body;
+
+    await client.query(`
+      UPDATE global_invoices SET 
+        document_numero = COALESCE($1, document_numero),
+        document_date = COALESCE($2, document_date),
+        total_ht = COALESCE($3, total_ht),
+        tva_rate = COALESCE($4, tva_rate),
+        montant_tva = COALESCE($5, montant_tva),
+        total_ttc = COALESCE($6, total_ttc),
+        updated_at = NOW()
+      WHERE id = $7
+    `, [document_numero, document_date, total_ht, tva_rate, montant_tva, total_ttc, id]);
+
+    if (bon_livraison_ids !== undefined) {
+      await client.query('DELETE FROM global_invoice_bons WHERE global_invoice_id = $1', [id]);
+      if (bon_livraison_ids && bon_livraison_ids.length > 0) {
+        for (const bonId of bon_livraison_ids) {
+          await client.query(`
+            INSERT INTO global_invoice_bons (global_invoice_id, bon_livraison_id)
+            VALUES ($1, $2)
+          `, [id, bonId]);
+        }
+      }
+    }
+
+    await client.query('COMMIT');
+    res.json({ success: true });
+  } catch (err) {
+    await client.query('ROLLBACK');
+    res.status(500).json({ success: false, error: err.message });
+  } finally {
+    client.release();
+  }
+});
+
+app.delete('/global-invoices/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    await pool.query('DELETE FROM global_invoice_bons WHERE global_invoice_id = $1', [id]);
+    await pool.query('DELETE FROM global_invoices WHERE id = $1', [id]);
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// Delete attachment
+app.delete('/attachments/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    await pool.query('DELETE FROM invoice_attachments WHERE id = $1', [id]);
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// --- SECONDARY COMPANIES (SKM, MSH3, BENALI, SAAISS) ROUTES ---
+
+const ALLOWED_SECONDARY_COMPANIES = ['skm', 'smarts', 'saaiss', 'benali', 'msh3'];
+
+function validateCompany(company) {
+  const c = company.toLowerCase();
+  if (ALLOWED_SECONDARY_COMPANIES.includes(c)) return c;
+  throw new Error('Code société invalide');
+}
+
+// --- DEVIS NUMBER TRACKING ---
+
+// Get all devis numbers
+app.get('/devis/:company', async (req, res) => {
+  try {
+    const companyPrefix = validateCompany(req.params.company);
+    const tableName = `${companyPrefix}_devis_numbers`;
+
+    // Check if table exists (basic SQL injection prevention is done via validateCompany)
+    const result = await pool.query(`SELECT * FROM ${tableName} ORDER BY year DESC, id DESC`);
+    res.json({ success: true, data: result.rows });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// Get last devis number for a year
+app.get('/devis/:company/last/:year', async (req, res) => {
+  try {
+    const companyPrefix = validateCompany(req.params.company);
+    const { year } = req.params;
+    const tableName = `${companyPrefix}_devis_numbers`;
+
+    const result = await pool.query(
+      `SELECT devis_number FROM ${tableName} WHERE year = $1 ORDER BY id DESC LIMIT 1`,
+      [year]
+    );
+
+    res.json({ success: true, data: result.rows[0] });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// Add new devis number
+app.post('/devis/:company', async (req, res) => {
+  try {
+    const companyPrefix = validateCompany(req.params.company);
+    const tableName = `${companyPrefix}_devis_numbers`;
+    const { devis_number, year } = req.body;
+
+    const result = await pool.query(
+      `INSERT INTO ${tableName} (devis_number, year, used_at) 
+       VALUES ($1, $2, NOW()) 
+       ON CONFLICT (devis_number, year) DO UPDATE SET used_at = NOW()
+       RETURNING *`,
+      [devis_number, year]
+    );
+
+    res.json({ success: true, data: result.rows[0] });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// Delete devis number
+app.delete('/devis/:company/:number/:year', async (req, res) => {
+  try {
+    const companyPrefix = validateCompany(req.params.company);
+    const tableName = `${companyPrefix}_devis_numbers`;
+    const { number, year } = req.params;
+
+    await pool.query(
+      `DELETE FROM ${tableName} WHERE devis_number = $1 AND year = $2`,
+      [number, year]
+    );
+
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+
+// --- PDF PATH MANAGEMENT ---
+
+// Get all PDF paths
+app.get('/pdf/:company', async (req, res) => {
+  try {
+    const companyPrefix = validateCompany(req.params.company);
+    const tableName = `${companyPrefix}_pdf_paths`;
+
+    const result = await pool.query(`SELECT * FROM ${tableName} ORDER BY created_at DESC`);
+    res.json({ success: true, data: result.rows });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// Get specific PDF path
+app.get('/pdf/:company/:number/:year', async (req, res) => {
+  try {
+    const companyPrefix = validateCompany(req.params.company);
+    const tableName = `${companyPrefix}_pdf_paths`;
+    const { number, year } = req.params;
+
+    const result = await pool.query(
+      `SELECT * FROM ${tableName} WHERE devis_number = $1 AND year = $2`,
+      [number, year]
+    );
+
+    res.json({ success: true, data: result.rows[0] });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// Save PDF path
+app.post('/pdf/:company', async (req, res) => {
+  try {
+    const companyPrefix = validateCompany(req.params.company);
+    const tableName = `${companyPrefix}_pdf_paths`;
+    const { devis_number, year, file_path, created_by } = req.body;
+
+    const result = await pool.query(
+      `INSERT INTO ${tableName} (devis_number, year, file_path, created_by)
+       VALUES ($1, $2, $3, $4)
+       ON CONFLICT (devis_number, year) 
+       DO UPDATE SET file_path = EXCLUDED.file_path, created_by = EXCLUDED.created_by
+       RETURNING *`,
+      [devis_number, year, file_path, created_by]
+    );
+
+    res.json({ success: true, data: result.rows[0] });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+app.post('/upload/:company', upload.single('pdf'), (req, res) => {
+  try {
+    if (!req.file) {
+
+      return res.status(400).json({ success: false, error: 'No file uploaded' });
+    }
+
+    const { company } = req.params;
+    const year = new Date().getFullYear().toString();
+
+    // Construct the relative path to store in database
+    // Use forward slashes for database consistency (URL style)
+    // IMPORTANT: Storing relative path from server root (e.g. /uploads/skm/2025/file.pdf)
+    const relativePath = `/uploads/${company}/${year}/${req.file.filename}`;
+
+    console.log(`✅ File uploaded: ${relativePath}`);
+
+    res.json({
+      success: true,
+      filePath: relativePath,
+      fullPath: req.file.path
+    });
+  } catch (err) {
+    console.error('❌ Upload error:', err);
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// --- COMPANY PDF SETTINGS TABLE ---
+// Auto-create the company_pdf_settings table if it doesn't exist
+(async () => {
+  try {
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS company_pdf_settings (
+        id SERIAL PRIMARY KEY,
+        company_code VARCHAR(50) NOT NULL UNIQUE,
+        percentage NUMERIC(10, 2) DEFAULT 0,
+        product_names JSONB DEFAULT '{}',
+        updated_at TIMESTAMP DEFAULT NOW()
+      )
+    `);
+    console.log('✅ company_pdf_settings table ready');
+  } catch (err) {
+    console.error('❌ Error creating company_pdf_settings table:', err.message);
+  }
+})();
+
+// GET PDF settings for a company
+app.get('/pdf-settings/:company', async (req, res) => {
+  try {
+    const { company } = req.params;
+    const companyCode = company.toUpperCase();
+    const result = await pool.query(
+      'SELECT * FROM company_pdf_settings WHERE company_code = $1',
+      [companyCode]
+    );
+    if (result.rows.length > 0) {
+      res.json({ success: true, data: result.rows[0] });
+    } else {
+      res.json({ success: true, data: null });
+    }
+  } catch (err) {
+    console.error('❌ Error getting PDF settings:', err);
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// PUT (upsert) PDF settings for a company
+app.put('/pdf-settings/:company', async (req, res) => {
+  try {
+    const { company } = req.params;
+    const companyCode = company.toUpperCase();
+    const { percentage, product_names } = req.body;
+
+    await pool.query(`
+      INSERT INTO company_pdf_settings (company_code, percentage, product_names, updated_at)
+      VALUES ($1, $2, $3, NOW())
+      ON CONFLICT (company_code)
+      DO UPDATE SET percentage = $2, product_names = $3, updated_at = NOW()
+    `, [companyCode, percentage || 0, JSON.stringify(product_names || {})]);
+
+    res.json({ success: true });
+  } catch (err) {
+    console.error('❌ Error saving PDF settings:', err);
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+
+// --- SECONDARY COMPANIES DEVIS & PATHS TABLES (Auto-create) ---
+(async () => {
+  const companies = ['benali', 'smarts', 'msh3']; // Matches IPC codes
+
+  for (const company of companies) {
+    try {
+      // Devis Numbers Table
+      await pool.query(`
+        CREATE TABLE IF NOT EXISTS ${company}_devis_numbers (
+          id SERIAL PRIMARY KEY,
+          devis_number VARCHAR(50) NOT NULL,
+          year INTEGER NOT NULL,
+          used_at TIMESTAMP DEFAULT NOW(),
+          UNIQUE(devis_number, year)
+        )
+      `);
+
+      // PDF Paths Table
+      await pool.query(`
+        CREATE TABLE IF NOT EXISTS ${company}_pdf_paths (
+          id SERIAL PRIMARY KEY,
+          devis_number VARCHAR(50) NOT NULL,
+          year INTEGER NOT NULL,
+          file_path TEXT NOT NULL,
+          created_by VARCHAR(50),
+          created_at TIMESTAMP DEFAULT NOW(),
+          UNIQUE(devis_number, year)
+        )
+      `);
+      console.log(`✅ ${company} tables ready (devis_numbers & pdf_paths)`);
+    } catch (err) {
+      console.error(`❌ Error creating tables for ${company}:`, err.message);
+    }
+  }
+})();
+
+app.listen(port, '0.0.0.0', () => {
+  console.log(`API Backend (API 5) running on http://localhost:${port}`);
+});

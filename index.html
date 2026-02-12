@@ -1,0 +1,254 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Electron App</title>
+    <link rel="stylesheet" href="frontend/styles.css">
+    <link rel="stylesheet" href="frontend/styles/desktop.css">
+    <link rel="stylesheet" href="frontend/styles/invoice.css">
+    <link rel="stylesheet" href="frontend/styles/notifications.css">
+    <link rel="stylesheet" href="frontend/styles/invoices-list.css">
+    <link rel="stylesheet" href="frontend/styles/custom-alert.css">
+    <link rel="stylesheet" href="frontend/styles/update-notification.css">
+</head>
+
+<body>
+    <!-- App Container -->
+    <div id="app"></div>
+
+    <!-- Version Badge (Bottom Left) -->
+    <div class="app-version" id="appVersion"></div>
+
+    <!-- PDF Libraries -->
+    <script src="frontend/scripts/jspdf.umd.min.js"></script>
+
+    <!-- Window Controls -->
+    <script src="frontend/scripts/window-controls.js"></script>
+
+    <!-- Asset Loader -->
+    <script src="frontend/scripts/asset-loader.js"></script>
+
+    <!-- Custom Alert System -->
+    <script src="frontend/scripts/custom-alert.js"></script>
+
+    <!-- Notifications -->
+    <script src="frontend/scripts/notifications.js"></script>
+
+    <!-- Update Notification -->
+    <script src="frontend/pages/update-notification.js"></script>
+
+    <!-- Router -->
+    <script src="frontend/router.js"></script>
+
+    <!-- Initialize App Version -->
+    <script>
+        // Display app version dynamically
+        const versionBadge = document.getElementById('appVersion');
+        if (versionBadge && window.electron) {
+            window.electron.getAppVersion().then(version => {
+                versionBadge.textContent = `v${version}`;
+
+                // Add click event to show changelog
+                versionBadge.addEventListener('click', async () => {
+                    try {
+                        const response = await fetch('./changelog.json');
+                        const changelog = await response.json();
+                        const currentLanguage = localStorage.getItem('language') || 'ar';
+
+                        if (changelog[version]) {
+                            const changes = changelog[version][currentLanguage] || changelog[version]['en'];
+
+                            // Show changelog modal
+                            showChangelogModal(version, changes, currentLanguage);
+                        }
+                    } catch (error) {
+                        console.log('Could not load changelog:', error);
+                    }
+                });
+            });
+        }
+
+        function showChangelogModal(version, changes, language) {
+            const translations = {
+                ar: {
+                    title: 'ما الجديد في الإصدار',
+                    close: 'إغلاق',
+                    switchLang: 'FR'
+                },
+                fr: {
+                    title: 'Nouveautés de la version',
+                    close: 'Fermer',
+                    switchLang: 'عربي'
+                }
+            };
+
+            const t = translations[language] || translations['fr'];
+            const isRTL = language === 'ar';
+
+            const overlay = document.createElement('div');
+            overlay.className = 'update-overlay';
+            overlay.innerHTML = `
+                <div class="update-modal" dir="${isRTL ? 'rtl' : 'ltr'}">
+                    <div class="update-header">
+                        <button class="lang-switch-btn" onclick="switchChangelogLanguage('${version}', '${language === 'ar' ? 'fr' : 'ar'}')">
+                            ${t.switchLang}
+                        </button>
+                        <div class="update-icon">
+                            <svg width="48" height="48" viewBox="0 0 24 24" fill="none">
+                                <path d="M12 2L2 7L12 12L22 7L12 2Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                                <path d="M2 17L12 22L22 17" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                                <path d="M2 12L12 17L22 12" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                            </svg>
+                        </div>
+                        <h2>${t.title} v${version}</h2>
+                    </div>
+                    
+                    <div class="update-body">
+                        <div class="whats-new">
+                            <ul class="changelog-list">
+                                ${changes.map(change => `<li>${change}</li>`).join('')}
+                            </ul>
+                        </div>
+                    </div>
+                    
+                    <div class="update-footer">
+                        <button class="btn-primary" onclick="this.closest('.update-overlay').remove()">
+                            ${t.close}
+                        </button>
+                    </div>
+                </div>
+            `;
+
+            document.body.appendChild(overlay);
+
+            // Close on overlay click
+            overlay.addEventListener('click', (e) => {
+                if (e.target === overlay) {
+                    overlay.remove();
+                }
+            });
+        }
+
+        async function switchChangelogLanguage(version, newLang) {
+            // Remove current modal
+            const currentOverlay = document.querySelector('.update-overlay');
+            if (currentOverlay) currentOverlay.remove();
+
+            // Load changelog and show in new language
+            try {
+                const response = await fetch('./changelog.json');
+                const changelog = await response.json();
+
+                if (changelog[version]) {
+                    const changes = changelog[version][newLang] || changelog[version]['fr'];
+                    showChangelogModal(version, changes, newLang);
+                }
+            } catch (error) {
+                console.log('Could not load changelog:', error);
+            }
+        }
+
+        window.switchChangelogLanguage = switchChangelogLanguage;
+    </script>
+
+    <!-- Pages -->
+    <script src="frontend/pages/login.js"></script>
+    <script src="frontend/pages/register.js"></script>
+    <script src="frontend/pages/company-select.js"></script>
+    <script src="frontend/pages/dashboard_mry.js"></script>
+    <script src="frontend/pages/dashboard_chaimae.js"></script>
+    <script src="frontend/pages/create_invoice_mry.js"></script>
+    <script src="frontend/pages/create_invoice_chaimae.js"></script>
+    <script src="frontend/pages/invoices_list_mry.js"></script>
+    <script src="frontend/pages/invoices_list_chaimae.js"></script>
+    <script src="frontend/pages/year-selector-mry.js"></script>
+    <script src="frontend/pages/year-selector-chaimae.js"></script>
+    <script src="frontend/pages/year-selector-multi.js"></script>
+    <script src="frontend/pages/test-data-generator.js"></script>
+    <script src="frontend/pages/situation_mensuelle_mry.js"></script>
+    <script src="frontend/pages/situation_annuelle_mry.js"></script>
+    <script src="frontend/pages/situation_mensuelle_chaimae.js"></script>
+    <script src="frontend/pages/situation_annuelle_chaimae.js"></script>
+    <script src="frontend/pages/create_global_invoice_chaimae.js"></script>
+    <script src="frontend/pages/edit_global_invoice_chaimae.js"></script>
+    <script src="frontend/pages/profile.js"></script>
+    <script src="frontend/pages/settings.js"></script>
+    <script src="frontend/pages/dashboard-multi.js"></script>
+    <script src="frontend/pages/create-data-multi.js"></script>
+    <script src="frontend/pages/view-data-multi.js"></script>
+    <script src="frontend/pages/create_invoice_multi.js"></script>
+    <script src="frontend/pages/create_invoice_multi_helpers.js"></script>
+    <script src="frontend/pages/invoices_list_multi.js"></script>
+    <script src="frontend/pages/invoices_list_multi_helpers.js"></script>
+    <script src="frontend/pages/pdf_helpers_multi.js"></script>
+    <script src="frontend/pages/edit_invoice_multi.js"></script>
+    <script src="frontend/pages/edit_invoice_mry.js"></script>
+    <script src="frontend/pages/edit_invoice_simple_mry.js"></script>
+    <script src="frontend/pages/edit_invoice_chaimae.js"></script>
+    <script src="frontend/pages/situation_mensuelle_multi.js"></script>
+    <script src="frontend/pages/situation_annuelle_multi.js"></script>
+    <script src="frontend/pages/skm_pdf_generator.js"></script>
+    <script src="frontend/pages/saaiss_pdf_generator.js"></script>
+    <script src="frontend/pages/multi_skm_pdf_generator.js"></script>
+    <script src="frontend/pages/multi_saaiss_pdf_generator.js"></script>
+    <script src="frontend/pages/unified_company_pdf_generator.js"></script>
+    <script src="frontend/pages/pdf_manager.js"></script>
+
+    <!-- Initialize App -->
+    <script>
+        // Register routes
+        router.addRoute('/login', LoginPage);
+        router.addRoute('/register', RegisterPage);
+        router.addRoute('/company-select', CompanySelectPage);
+        router.addRoute('/dashboard-mry', DashboardMRYPage);
+        router.addRoute('/dashboard-chaimae', DashboardChaimaePage);
+        router.addRoute('/create-invoice-mry', CreateInvoiceMRYPage);
+        router.addRoute('/create-invoice-chaimae', CreateInvoiceChaimaePage);
+        router.addRoute('/invoices-list-mry', InvoicesListMRYPage);
+        router.addRoute('/invoices-list-chaimae', InvoicesListChaimaePage);
+        router.addRoute('/year-selector-mry', YearSelectorMRYPage);
+        router.addRoute('/year-selector-chaimae', YearSelectorChaimaePage);
+        router.addRoute('/year-selector-multi', YearSelectorMultiPage);
+        router.addRoute('/test-data-generator', TestDataGeneratorPage);
+        router.addRoute('/create-global-invoice-chaimae', CreateGlobalInvoiceChaimaePage);
+        router.addRoute('/edit-global-invoice-chaimae', EditGlobalInvoiceChaimaePage);
+        router.addRoute('/profile', ProfilePage);
+        router.addRoute('/settings', SettingsPage);
+        router.addRoute('/dashboard-multi', DashboardMultiPage);
+        router.addRoute('/create-data-multi', CreateDataMultiPage);
+        router.addRoute('/view-data-multi', ViewDataMultiPage);
+        router.addRoute('/create-invoice-multi', CreateInvoiceMultiPage);
+        router.addRoute('/invoices-list-multi', InvoicesListMultiPage);
+        router.addRoute('/edit-invoice-multi', EditInvoiceMultiPage);
+        router.addRoute('/edit-invoice-mry', EditInvoiceMRYPage);
+        router.addRoute('/edit-invoice-simple-mry', EditInvoiceSimpleMRYPage);
+        router.addRoute('/edit-invoice-chaimae', EditInvoiceChaimaePage);
+
+        // Start router
+        router.init();
+
+        // Global logout handler
+        document.addEventListener('click', function (e) {
+            if (e.target.closest('#logoutBtn') || e.target.closest('[data-action="logout"]')) {
+                e.preventDefault();
+
+                // Clear all authentication data
+                localStorage.removeItem('isAuthenticated');
+                localStorage.removeItem('user');
+                localStorage.removeItem('selectedCompany');
+
+                // Navigate to login page
+                router.navigate('/login');
+
+                // Show notification
+                if (typeof showNotification === 'function') {
+                    showNotification('success', 'Déconnexion réussie', 'Vous avez été déconnecté avec succès');
+                }
+            }
+        });
+    </script>
+</body>
+
+</html>

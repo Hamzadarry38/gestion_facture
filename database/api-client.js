@@ -1,0 +1,356 @@
+const axios = require('axios');
+
+// Configuration
+// In Electron, we can use a global window variable or localStorage to set the API URL
+// Fallback logic: local dev -> DDNS production
+const DEFAULT_LOCAL_API = 'https://redouan.ddns.net/facture';
+const PRODUCTION_API = 'https://redouan.ddns.net/facture/api';
+const WEB_PORTAL_URL = 'https://redouan.ddns.net/facture/';
+
+// Safe way to check for localStorage in both Node (Main) and Browser (Renderer) environments
+let configuredApiUrl = null;
+const isNode = typeof process !== 'undefined' && process.versions && !!process.versions.node;
+let FormDataNode = null;
+
+if (isNode) {
+    try {
+        FormDataNode = require('form-data');
+        console.log('📦 [API Client] Using form-data for Node.js environment');
+    } catch (e) {
+        console.warn('⚠️ [API Client] form-data package not found, multipart/form-data might fail in Node.js');
+    }
+}
+
+try {
+    if (typeof window !== 'undefined' && window.localStorage) {
+        configuredApiUrl = window.localStorage.getItem('API_BASE_URL');
+    }
+} catch (e) {
+    // Fallback if localStorage access is blocked or unavailable
+}
+
+// For development, we want to force localhost:8001 if we are running locally
+// configuredApiUrl (localStorage) should not hijack local dev
+const API_URL = configuredApiUrl || DEFAULT_LOCAL_API;
+console.log(`[API Client] Using Base URL: ${API_URL}`);
+console.log(`[API Client] 🌐 DDNS URL: https://redouan.ddns.net/facture`);
+console.log(`[API Client] 🏠 Localhost URL: http://localhost:8001`);
+console.log(`[API Client] ✅ Active URL: ${API_URL}`);
+
+
+const apiClient = axios.create({
+    baseURL: API_URL,
+    timeout: 10000,
+    headers: {
+        'Content-Type': 'application/json'
+    },
+    // Add this to allow connecting to HTTPS sites with self-signed/unverified certificates (Common in DDNS)
+    httpsAgent: new (require('https')).Agent({
+        rejectUnauthorized: false
+    })
+});
+
+// Add request interceptor to log every API call
+apiClient.interceptors.request.use(
+    (config) => {
+        console.log(`[API Request] 🚀 ${config.method.toUpperCase()} ${config.baseURL}${config.url}`);
+        return config;
+    },
+    (error) => {
+        console.error('[API Request Error]', error);
+        return Promise.reject(error);
+    }
+);
+
+// Add response interceptor to log responses
+apiClient.interceptors.response.use(
+    (response) => {
+        console.log(`[API Response] ✅ ${response.config.method.toUpperCase()} ${response.config.url} - Status: ${response.status}`);
+        return response;
+    },
+    (error) => {
+        if (error.response) {
+            console.error(`[API Response Error] ❌ ${error.config.method.toUpperCase()} ${error.config.url} - Status: ${error.response.status}`);
+        } else if (error.request) {
+            console.error(`[API Network Error] ❌ No response received for ${error.config.method.toUpperCase()} ${error.config.url}`);
+            console.error(`[API Network Error] ❌ Server not reachable at: ${error.config.baseURL}`);
+        } else {
+            console.error('[API Error]', error.message);
+        }
+        return Promise.reject(error);
+    }
+);
+
+const service = {
+    // Auth
+    login: async (email, password) => {
+        const res = await apiClient.post('/auth/login', { email, password });
+        return res.data;
+    },
+
+    register: async (name, email, password) => {
+        const res = await apiClient.post('/auth/register', { name, email, password });
+        return res.data;
+    },
+
+    getUsers: async () => {
+        const res = await apiClient.get('/users');
+        return res.data;
+    },
+
+    getUsersCount: async () => {
+        const res = await apiClient.get('/users/count');
+        return res.data;
+    },
+
+    updatePassword: async (email, oldPassword, newPassword) => {
+        const res = await apiClient.put('/auth/password', { email, oldPassword, newPassword });
+        return res.data;
+    },
+
+    // Clients
+    getClients: async (companyCode) => {
+        const res = await apiClient.get(`/clients/${companyCode}`);
+        return res.data;
+    },
+
+    createClient: async (clientData) => {
+        const res = await apiClient.post('/clients', clientData);
+        return res.data;
+    },
+
+    deleteClient: async (id) => {
+        const res = await apiClient.delete(`/clients/${id}`);
+        return res.data;
+    },
+
+    // Invoices
+    getInvoices: async (companyCode) => {
+        const res = await apiClient.get(`/invoices/${companyCode}`);
+        return res.data;
+    },
+
+    getInvoiceById: async (id) => {
+        const res = await apiClient.get(`/invoices/id/${id}`);
+        return res.data;
+    },
+
+    createInvoice: async (invoiceData) => {
+        const res = await apiClient.post('/invoices', invoiceData);
+        return res.data;
+    },
+
+    updateInvoice: async (id, invoiceData) => {
+        const res = await apiClient.put(`/invoices/${id}`, invoiceData);
+        return res.data;
+    },
+
+    deleteInvoice: async (id) => {
+        const res = await apiClient.delete(`/invoices/${id}`);
+        return res.data;
+    },
+
+    getNextInvoiceNumber: async (companyCode, year, docType) => {
+        const res = await apiClient.get(`/invoices/next-number/${companyCode}/${year}/${docType}`);
+        return res.data;
+    },
+
+    getAvailableYears: async (companyCode) => {
+        const res = await apiClient.get(`/invoices/available-years/${companyCode}`);
+        return res.data;
+    },
+
+    // Attachments
+    getAttachments: async (invoiceId) => {
+        const res = await apiClient.get(`/attachments/${invoiceId}`);
+        return res.data;
+    },
+
+    getAttachment: async (id) => {
+        const res = await apiClient.get(`/attachments/id/${id}`);
+        return res.data;
+    },
+
+    addAttachment: async (attachmentData) => {
+        // attachmentData should include { invoice_id, filename, file_type, file_size, file_data (base64) }
+        const res = await apiClient.post('/attachments', attachmentData);
+        return res.data;
+    },
+
+    deleteAttachment: async (id) => {
+        const res = await apiClient.delete(`/attachments/${id}`);
+        return res.data;
+    },
+
+    // Test
+    testConnection: async () => {
+        const res = await apiClient.get('/test');
+        return res.data;
+    },
+
+    // Devis Tracking
+    getDevis: async (company) => {
+        const res = await apiClient.get(`/devis/${company}`);
+        return res.data;
+    },
+
+    getLastDevis: async (company, year) => {
+        const res = await apiClient.get(`/devis/${company}/last/${year}`);
+        return res.data;
+    },
+
+    addDevis: async (company, devisNumber, year) => {
+        const res = await apiClient.post(`/devis/${company}`, { devis_number: devisNumber, year });
+        return res.data;
+    },
+
+    deleteDevis: async (company, number, year) => {
+        const res = await apiClient.delete(`/devis/${company}/${number}/${year}`);
+        return res.data;
+    },
+
+    // PDF Path Management
+    getAllPdfPaths: async (company) => {
+        const res = await apiClient.get(`/pdf/${company}`);
+        return res.data;
+    },
+
+    getPdfPath: async (company, number, year) => {
+        const res = await apiClient.get(`/pdf/${company}/${number}/${year}`);
+        return res.data;
+    },
+
+    savePdfPath: async (company, devisNumber, year, filePath, createdBy) => {
+        const res = await apiClient.post(`/pdf/${company}`, { devis_number: devisNumber, year, file_path: filePath, created_by: createdBy });
+        return res.data;
+    },
+
+    // New: Upload PDF file
+    uploadPdf: async (company, pdfData, filename) => {
+        let fd;
+        let headers = {};
+
+        // Safely convert any input type to Buffer
+        let pdfBuffer;
+        if (Buffer.isBuffer(pdfData)) {
+            pdfBuffer = pdfData;
+        } else if (pdfData instanceof Uint8Array || pdfData instanceof ArrayBuffer) {
+            pdfBuffer = Buffer.from(pdfData);
+        } else if (Array.isArray(pdfData) || (pdfData && typeof pdfData === 'object' && pdfData.type === 'Buffer')) {
+            // Handle serialized Buffer objects from IPC (e.g. {type: 'Buffer', data: [...]})
+            pdfBuffer = Buffer.from(pdfData.data || pdfData);
+        } else {
+            throw new Error('Données PDF invalides: type non reconnu');
+        }
+
+        if (isNode && FormDataNode) {
+            fd = new FormDataNode();
+            fd.append('pdf', pdfBuffer, {
+                filename: filename,
+                contentType: 'application/pdf'
+            });
+            headers = { ...fd.getHeaders() };
+        } else {
+            // Browser environment
+            fd = new FormData();
+            const blob = new Blob([pdfBuffer], { type: 'application/pdf' });
+            fd.append('pdf', blob, filename);
+            // Let axios set Content-Type with boundary automatically
+        }
+
+        const res = await apiClient.post(`/upload/${company}`, fd, {
+            headers: headers,
+            timeout: 30000, // 30s timeout for large PDF uploads
+            maxContentLength: Infinity,
+            maxBodyLength: Infinity
+        });
+        return res.data;
+    },
+
+    // Delivery Persons
+    getDeliveryPersons: async (company) => {
+        const res = await apiClient.get(`/delivery-persons/${company}`);
+        return res.data;
+    },
+
+    addDeliveryPerson: async (name, companyCode) => {
+        const res = await apiClient.post('/delivery-persons', { name, company_code: companyCode });
+        return res.data;
+    },
+
+    // Audit Log
+    getAuditLog: async (invoiceId) => {
+        const res = await apiClient.get(`/audit-log/${invoiceId}`);
+        return res.data;
+    },
+
+    addAuditLog: async (logData) => {
+        const res = await apiClient.post('/audit-log', logData);
+        return res.data;
+    },
+
+    // Validation & Permissions
+    getPendingInvoices: async (companyCode) => {
+        const res = await apiClient.get('/invoices/pending', {
+            params: { company_code: companyCode }
+        });
+        return res.data;
+    },
+
+    validateInvoice: async (id, status) => {
+        const res = await apiClient.put(`/invoices/${id}/validation`, { status });
+        return res.data;
+    },
+
+    updateUserPermissions: async (id, can_auto_validate) => {
+        const res = await apiClient.put(`/users/${id}/permissions`, { can_auto_validate });
+        return res.data;
+    },
+
+    getMissingNumbers: async (companyCode, year, docType) => {
+        const res = await apiClient.get(`/invoices/missing-numbers/${companyCode}/${year}/${docType}`);
+        return res.data;
+    },
+
+    // Global Invoices
+    getGlobalInvoices: async (companyCode) => {
+        const res = await apiClient.get(`/global-invoices/${companyCode}`);
+        return res.data;
+    },
+
+    getGlobalInvoiceById: async (id) => {
+        const res = await apiClient.get(`/global-invoices/id/${id}`);
+        return res.data;
+    },
+
+    createGlobalInvoice: async (giData) => {
+        const res = await apiClient.post('/global-invoices', giData);
+        return res.data;
+    },
+
+    updateGlobalInvoice: async (id, giData) => {
+        const res = await apiClient.put(`/global-invoices/${id}`, giData);
+        return res.data;
+    },
+
+    deleteGlobalInvoice: async (id) => {
+        const res = await apiClient.delete(`/global-invoices/${id}`);
+        return res.data;
+    },
+
+    // Company PDF Settings
+    getPdfSettings: async (company) => {
+        const res = await apiClient.get(`/pdf-settings/${company}`);
+        return res.data;
+    },
+
+    savePdfSettings: async (company, percentage, productNames) => {
+        const res = await apiClient.put(`/pdf-settings/${company}`, {
+            percentage,
+            product_names: productNames
+        });
+        return res.data;
+    }
+};
+
+module.exports = service;
