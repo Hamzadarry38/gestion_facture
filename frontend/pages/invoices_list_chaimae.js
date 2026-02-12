@@ -3670,12 +3670,6 @@ window.downloadInvoicePDFChaimae = async function (invoiceId) {
             doc.setTextColor(0, 0, 0);
             doc.text(`Date: ${dateStr}`, 150, 55);
 
-            // 👤 Added Fields: Créé par / Livrais par (Stacked)
-            doc.setFontSize(9);
-            doc.setFont(undefined, 'normal');
-            doc.text(`Créé par: ${invoice.created_by || '-'}`, 195, 61, { align: 'right' });
-            doc.text(`Livrais par: ${invoice.delivered_by || '-'}`, 195, 66, { align: 'right' });
-
             // Document Number
             doc.setFontSize(14);
             doc.setFont(undefined, 'bold');

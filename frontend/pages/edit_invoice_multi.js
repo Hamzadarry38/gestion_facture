@@ -1174,6 +1174,10 @@ window.showConvertDocumentTypeModal = async function () {
         // Create new invoice
         const createResult = await window.electron.dbMulti.createInvoice(newInvoiceData);
 
+        // Remove loading overlay
+        const loadingOverlay = document.getElementById('global-loading-overlay-multi-convert');
+        if (loadingOverlay) loadingOverlay.remove();
+
         if (createResult.success) {
             window.notify.success(
                 'Succès',
@@ -1190,6 +1194,10 @@ window.showConvertDocumentTypeModal = async function () {
         }
 
     } catch (error) {
+        // Remove loading overlay on error too
+        const loadingOverlay = document.getElementById('global-loading-overlay-multi-convert');
+        if (loadingOverlay) loadingOverlay.remove();
+
         console.error('[MULTI] Error converting invoice:', error);
         window.notify.error('Erreur', 'Erreur lors de la conversion: ' + error.message, 5000);
     }
