@@ -43,13 +43,32 @@ try {
         const commitMessage = `Release v${version}`;
         execSync(`git commit -m "${commitMessage}"`, { stdio: 'inherit' });
         
-        // Push to GitHub
+        // Create git tag for this version
+        try {
+            execSync(`git tag -f v${version}`, { stdio: 'inherit' });
+            console.log(`🏷️  Tag v${version} created`);
+        } catch (tagError) {
+            console.log('⚠️  Tag creation warning (may already exist)');
+        }
+
+        // Push to GitHub (code + tags)
         console.log('\n📤 Pushing to GitHub...');
         execSync('git push', { stdio: 'inherit' });
+        execSync('git push --tags -f', { stdio: 'inherit' });
         
-        console.log('✅ Changes pushed successfully!\n');
+        console.log('✅ Changes and tags pushed successfully!\n');
     } else {
-        console.log('✅ No changes to commit, repository is up to date.\n');
+        console.log('✅ No changes to commit, repository is up to date.');
+        
+        // Still create/update tag for this version
+        try {
+            execSync(`git tag -f v${version}`, { stdio: 'inherit' });
+            console.log(`🏷️  Tag v${version} created`);
+            execSync('git push --tags -f', { stdio: 'inherit' });
+            console.log('✅ Tags pushed successfully!\n');
+        } catch (tagError) {
+            console.log('⚠️  Tag push warning\n');
+        }
     }
 } catch (gitError) {
     console.log('⚠️  Git operation completed (may have warnings)\n');
