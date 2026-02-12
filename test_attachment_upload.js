@@ -13,10 +13,10 @@ async function testAttachmentUpload() {
             file_path: '/path/to/test.pdf'
         };
 
-        console.log('📤 Sending POST request to https://redouan.ddns.net/facture/attachments');
+        console.log('📤 Sending POST request to https://anpe-web-api.ddns.net/facture/attachments');
         console.log('Data:', testData);
 
-        const response = await axios.post('https://redouan.ddns.net/facture/attachments', testData);
+        const response = await axios.post('https://anpe-web-api.ddns.net/facture/attachments', testData);
 
         console.log('✅ Response:', response.data);
 
@@ -26,7 +26,7 @@ async function testAttachmentUpload() {
             user: 'postgres',
             host: 'localhost',
             database: 'facture_db',
-            password: '123456',
+            password: process.env.DB_PASSWORD || '123456',
             port: 5432
         });
 
