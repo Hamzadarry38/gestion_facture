@@ -276,7 +276,7 @@ window.loadInvoiceDataChaimae = async function (invoiceId) {
             docTypeDisplay = 'Bon de livraison';
         }
         document.getElementById('editDocumentTypeChaimae').value = docTypeDisplay;
-        document.getElementById('editDocumentDateChaimae').value = invoice.document_date ? invoice.document_date.split('T')[0] : '';
+        document.getElementById('editDocumentDateChaimae').value = window.safeDateString ? window.safeDateString(invoice.document_date) : (invoice.document_date ? invoice.document_date.split('T')[0] : '');
 
         const convertBtnText = invoice.document_type === 'facture' ? 'Convertir' : 'Convertir';
         const convertBtn = document.getElementById('convertButtonTextChaimae');
@@ -686,8 +686,8 @@ window.searchClientsEditChaimae = function (query) {
     } else {
         const searchTerm = query.toLowerCase().trim();
         filteredClientsEditChaimae = allClientsEditChaimae.filter(client =>
-            client.nom.toLowerCase().includes(searchTerm) ||
-            client.ice.toLowerCase().includes(searchTerm)
+            (client.nom || '').toLowerCase().includes(searchTerm) ||
+            (client.ice || '').toLowerCase().includes(searchTerm)
         );
     }
     displayClientsListEditChaimae();

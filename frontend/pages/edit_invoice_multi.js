@@ -216,7 +216,7 @@ async function loadInvoiceDataMulti(invoiceId) {
         // Fill document info
         const docTypeDisplay = invoice.document_type === 'facture' ? 'Facture' : 'Devis';
         document.getElementById('editDocumentTypeMulti').value = docTypeDisplay;
-        document.getElementById('editDocumentDateMulti').value = invoice.document_date ? invoice.document_date.split('T')[0] : '';
+        document.getElementById('editDocumentDateMulti').value = window.safeDateString ? window.safeDateString(invoice.document_date) : (invoice.document_date ? invoice.document_date.split('T')[0] : '');
 
         // Update convert button text
         const convertBtnText = invoice.document_type === 'facture' ? 'Convertir en Devis' : 'Convertir en Facture';
@@ -566,8 +566,8 @@ window.searchClientsEditMulti = function (query) {
     } else {
         const searchTerm = query.toLowerCase().trim();
         filteredClientsEditMulti = allClientsEditMulti.filter(client =>
-            client.nom.toLowerCase().includes(searchTerm) ||
-            client.ice.toLowerCase().includes(searchTerm)
+            (client.nom || '').toLowerCase().includes(searchTerm) ||
+            (client.ice || '').toLowerCase().includes(searchTerm)
         );
     }
     displayClientsListEditMulti();

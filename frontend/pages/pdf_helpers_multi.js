@@ -607,7 +607,7 @@ window.downloadInvoicePDFMulti = async function (invoiceId) {
         const darkGrayColor = [96, 125, 139]; // #607D8B
         const lightGrayBg = [236, 239, 241]; // #ECEFF1
 
-        const dateStr = new Date(invoice.document_date).toLocaleDateString('fr-FR');
+        const dateStr = (window.safeParseDate||function(d){return new Date(d)})(invoice.document_date).toLocaleDateString('fr-FR');
 
         // Function to add header to any page
         const addHeader = (isFirstPage = true) => {
@@ -741,7 +741,7 @@ window.downloadInvoicePDFMulti = async function (invoiceId) {
 
         // X Positions (Start of each column)
         const POS_DESC = TABLE_X + 2; // Padding left
-        const POS_QTY = TABLE_X + COL_1_WIDTH + 2; // Left aligned with padding
+        const POS_QTY = TABLE_X + COL_1_WIDTH + COL_2_WIDTH / 2; // Center aligned
         const POS_PU = TABLE_X + COL_1_WIDTH + COL_2_WIDTH + 2; // Left aligned with padding
         const POS_TOTAL = TABLE_X + COL_1_WIDTH + COL_2_WIDTH + COL_3_WIDTH + 2; // Left aligned with padding
 
@@ -756,7 +756,7 @@ window.downloadInvoicePDFMulti = async function (invoiceId) {
 
         // Headers
         doc.text('Description', POS_DESC, startY + 5);
-        doc.text('Quantité', POS_QTY, startY + 5);
+        doc.text('Quantité', POS_QTY, startY + 5, { align: 'center' });
         doc.text('Prix unitaire HT', POS_PU, startY + 5);
         doc.text('Prix total HT', POS_TOTAL, startY + 5);
 
@@ -800,7 +800,7 @@ window.downloadInvoicePDFMulti = async function (invoiceId) {
                     doc.setFontSize(9);
                     doc.setFont(undefined, 'bold');
                     doc.text('Description', POS_DESC, newStartY + 5);
-                    doc.text('Quantité', POS_QTY, newStartY + 5);
+                    doc.text('Quantité', POS_QTY, newStartY + 5, { align: 'center' });
                     doc.text('Prix unitaire HT', POS_PU, newStartY + 5);
                     doc.text('Prix total HT', POS_TOTAL, newStartY + 5);
 
@@ -849,7 +849,7 @@ window.downloadInvoicePDFMulti = async function (invoiceId) {
                     doc.setFontSize(8);
                     const qty = parseFloat(product.quantite);
                     if (showZeroValues || qty !== 0) {
-                        doc.text(String(product.quantite || ''), POS_QTY, currentY + 5 + centerOffset);
+                        doc.text(String(product.quantite || ''), POS_QTY, currentY + 5 + centerOffset, { align: 'center' });
                     }
 
                     // Prices

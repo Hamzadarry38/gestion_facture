@@ -46,7 +46,7 @@ window.downloadMultiSAAISSDevisPDF = async function (invoiceId) {
                                 Certains produits ont une <strong style="color:#ff9800;">quantité = 0</strong> ou un <strong style="color:#ff9800;">prix = 0</strong>.
                             </p>
                             <p style="color:#b0b0b0;font-size:0.9rem;">
-                                Voulez-vous les afficher dans le PDF MSH3 SERVICES ?
+                                Voulez-vous les afficher dans le PDF ${window.getPdfCompanyName ? window.getPdfCompanyName('SAAISS') : 'MSH3 SERVICES'} ?
                             </p>
                         </div>
                         <div class="custom-modal-footer">
@@ -108,7 +108,7 @@ window.downloadMultiSAAISSDevisPDF = async function (invoiceId) {
 
     } catch (error) {
         console.error('❌ Error generating SAAISS PDF:', error);
-        showSAAISSErrorModal('Erreur de génération', 'Une erreur est survenue lors de la génération du PDF MSH3 SERVICES: ' + error.message);
+        showSAAISSErrorModal('Erreur de génération', `Une erreur est survenue lors de la génération du PDF ${window.getPdfCompanyName ? window.getPdfCompanyName('SAAISS') : 'MSH3 SERVICES'}: ` + error.message);
     }
 };
 
@@ -141,7 +141,7 @@ window.generateSAAISSPDFWithCustomization = async function (invoice, customizati
                     Génération du PDF en cours...
                 </div>
                 <div style="color: #9C27B0; font-size: 0.95rem; font-weight: 700;">
-                    🏭 MSH3 SERVICES
+                    🏭 ${window.getPdfCompanyName ? window.getPdfCompanyName('SAAISS') : 'MSH3 SERVICES'}
                 </div>
             </div>
             <style>
@@ -225,7 +225,8 @@ window.generateSAAISSPDFWithCustomization = async function (invoice, customizati
         // Save the PDF with new format: SAAISS_TYPE_ClientName_InvoiceNumber
         const docType = customizedInvoice.document_type === 'devis' ? 'Devis' : 'Facture';
         const invoiceNumber = customizedInvoice.document_numero_devis || customizedInvoice.document_numero || 'N-A';
-        const fileName = `STé_MSH3_SERVICES_${docType}_${customizedInvoice.client_nom}_${invoiceNumber}.pdf`;
+        const companyFileName = window.getPdfCompanyFileName ? window.getPdfCompanyFileName('SAAISS') : 'STé_MSH3_SERVICES';
+        const fileName = `${companyFileName}_${docType}_${customizedInvoice.client_nom}_${invoiceNumber}.pdf`;
 
         // Get PDF as ArrayBuffer
         const pdfArrayBuffer = doc.output('arraybuffer');
@@ -260,7 +261,7 @@ window.generateSAAISSPDFWithCustomization = async function (invoice, customizati
             if (context === 'multi') {
                 showSAAISSSuccessModal('PDF généré avec succès', `Le fichier ${fileName} a été téléchargé et sauvegardé avec succès !`);
             } else {
-                window.notify.success('Succès', `PDF MSH3 SERVICES généré et sauvegardé avec succès !`);
+                window.notify.success('Succès', `PDF ${window.getPdfCompanyName ? window.getPdfCompanyName('SAAISS') : 'MSH3 SERVICES'} généré et sauvegardé avec succès !`);
             }
         } else {
             console.error('❌ Error saving PDF to disk:', saveResult.error);
@@ -317,16 +318,21 @@ window.showSimpleSAAISSModal = async function (invoice, notesText = '') {
         console.log('Could not get last devis number:', error);
     }
 
-    // Load last saved settings from PostgreSQL
+    // Load last saved settings (percentage from PostgreSQL, product names per-invoice from localStorage)
     let savedPercentage = '';
     let savedProductNames = {};
     try {
         const settingsResult = await window.electron.dbSaaiss.getPdfSettings();
         if (settingsResult && settingsResult.success && settingsResult.data) {
             savedPercentage = settingsResult.data.percentage || '';
-            savedProductNames = settingsResult.data.product_names || {};
         }
     } catch (e) { console.warn('Could not load SAAISS settings:', e); }
+    try {
+        const savedProducts = localStorage.getItem(`customPdfProducts_SAAISS_${invoice.id}`);
+        if (savedProducts) {
+            savedProductNames = JSON.parse(savedProducts);
+        }
+    } catch (e) {}
 
     return new Promise((resolve) => {
         const overlay = document.createElement('div');
@@ -372,7 +378,7 @@ window.showSimpleSAAISSModal = async function (invoice, notesText = '') {
         modal.innerHTML = `
             <div class="custom-modal-header">
                 <span class="custom-modal-icon info">🎨</span>
-                <h3 class="custom-modal-title">🏭 MSH3 SERVICES - Personnalisation</h3>
+                <h3 class="custom-modal-title">🏭 ${window.getPdfCompanyName ? window.getPdfCompanyName('SAAISS') : 'MSH3 SERVICES'} - Personnalisation</h3>
                 <div style="position: absolute; top: 1rem; right: 1rem; background: #0078d4; color: #fff; padding: 0.4rem 0.8rem; border-radius: 4px; font-size: 0.85rem; font-weight: 600;">
                     🏢 Créé par: <strong>${companyName}</strong>
                 </div>
@@ -456,7 +462,7 @@ window.showSimpleSAAISSModal = async function (invoice, notesText = '') {
             </div>
             <div class="custom-modal-footer">
                 <button id="cancelBtn" class="custom-modal-btn secondary">Annuler</button>
-                <button id="generateBtn" class="custom-modal-btn primary">Générer PDF MSH3 SERVICES</button>
+                <button id="generateBtn" class="custom-modal-btn primary">Générer PDF ${window.getPdfCompanyName ? window.getPdfCompanyName('SAAISS') : 'MSH3 SERVICES'}</button>
             </div>
         `;
 
@@ -506,10 +512,13 @@ window.showSimpleSAAISSModal = async function (invoice, notesText = '') {
             // Get selected font size
             const notesFontSize = document.querySelector('input[name="notesFontSize"]:checked')?.value || 'medium';
 
-            // Save settings to PostgreSQL for next time
+            // Save settings: percentage to PostgreSQL, product names per-invoice to localStorage
             try {
-                await window.electron.dbSaaiss.savePdfSettings(percentage, modifiedProducts);
+                await window.electron.dbSaaiss.savePdfSettings(percentage, {});
             } catch (e) { console.warn('Could not save SAAISS settings:', e); }
+            try {
+                localStorage.setItem(`customPdfProducts_SAAISS_${invoice.id}`, JSON.stringify(modifiedProducts));
+            } catch (e) {}
 
             overlay.remove();
             resolve({
@@ -681,10 +690,13 @@ function formatNumberForPDF(number) {
 // Generate SAAISS PDF with special design
 async function generateSAAISSPDF(doc, invoice, includeZeroProducts = true, notesFontSize = 'medium', notesText = '') {
     try {
-        // Load SAAISS assets from SAAISS folder
-        const headerImg = await loadSAAISSImage('SAAISS/Hesder.png');
-        const footerImg = await loadSAAISSImage('SAAISS/Footer.png');
-        const signatureImg = await loadSAAISSImage('SAAISS/signature.png');
+        // Load SAAISS assets (use custom images from settings if available)
+        const headerSrc = window.getPdfCompanyImage ? window.getPdfCompanyImage('SAAISS', 'header') : 'SAAISS/Hesder.png';
+        const footerSrc = window.getPdfCompanyImage ? window.getPdfCompanyImage('SAAISS', 'footer') : 'SAAISS/Footer.png';
+        const signatureSrc = window.getPdfCompanyImage ? window.getPdfCompanyImage('SAAISS', 'signature') : 'SAAISS/signature.png';
+        const headerImg = await loadSAAISSImage(headerSrc);
+        const footerImg = await loadSAAISSImage(footerSrc);
+        const signatureImg = await loadSAAISSImage(signatureSrc);
 
         const pageWidth = doc.internal.pageSize.width;
         const pageHeight = doc.internal.pageSize.height;
@@ -745,7 +757,7 @@ async function generateSAAISSPDF(doc, invoice, includeZeroProducts = true, notes
             // Date on the right
             doc.setFontSize(9);
             doc.setFont(undefined, 'bold');
-            const dateStr = new Date(invoice.document_date).toLocaleDateString('fr-FR');
+            const dateStr = (window.safeParseDate||function(d){return new Date(d)})(invoice.document_date).toLocaleDateString('fr-FR');
             doc.text(`DATE : ${dateStr}`, pageWidth - 20, currentY, { align: 'right' });
 
             currentY += 6;
@@ -811,8 +823,17 @@ async function generateSAAISSPDF(doc, invoice, includeZeroProducts = true, notes
             doc.setFontSize(9);
 
             tableHeaders.forEach((header, index) => {
-                const align = index > 1 ? 'right' : 'left';
-                const x = align === 'right' ? colPositions[index] + colWidths[index] - 2 : colPositions[index] + 2;
+                let align, x;
+                if (index === 0) {
+                    align = 'center';
+                    x = colPositions[index] + colWidths[index] / 2;
+                } else if (index > 1) {
+                    align = 'right';
+                    x = colPositions[index] + colWidths[index] - 2;
+                } else {
+                    align = 'left';
+                    x = colPositions[index] + 2;
+                }
                 doc.text(header, x, currentY + 6, { align });
             });
 
@@ -896,7 +917,7 @@ async function generateSAAISSPDF(doc, invoice, includeZeroProducts = true, notes
 
                 // Draw quantity in first column - ONLY ON FIRST PAGE OF PRODUCT
                 if (lineIndex === 0) {
-                    doc.text(quantityText, colPositions[0] + 2, rowY + 6, { align: 'left' });
+                    doc.text(quantityText, colPositions[0] + colWidths[0] / 2, rowY + 6, { align: 'center' });
                 }
 
                 console.log(`  Row Y: ${rowY}, Row Height: ${rowHeight}`);

@@ -314,7 +314,7 @@ window.loadInvoices = async function () {
             if (selectedYear && selectedYear !== '') {
                 // Filter invoices by selected year
                 invoices = invoices.filter(inv => {
-                    const year = inv.year || new Date(inv.document_date).getFullYear();
+                    const year = inv.year || (window.safeParseDate||function(d){return new Date(d)})(inv.document_date).getFullYear();
                     return year.toString() === selectedYear;
                 });
                 console.log(`📊 [LOAD] Filtered to year ${selectedYear}:`, invoices.length, 'invoices');
@@ -412,7 +412,7 @@ function displayInvoices(invoices) {
         const numeroOrder = invoice.document_numero_Order || invoice.document_numero_order;
 
         console.log('📊 [DISPLAY] Displaying numero:', numero, 'for invoice', invoice.id);
-        const date = new Date(invoice.document_date).toLocaleDateString('fr-FR');
+        const date = (window.safeParseDate||function(d){return new Date(d)})(invoice.document_date).toLocaleDateString('fr-FR');
 
         // Build document number display with N° Order below if exists
         let documentDisplay = `<strong>${numero}</strong>`;
@@ -593,7 +593,7 @@ window.changePaginationPage = function (direction) {
 // Populate filter dropdowns
 function populateFilters() {
     // Get unique years from invoices
-    const invoiceYears = [...new Set(allInvoices.map(inv => new Date(inv.document_date).getFullYear()))];
+    const invoiceYears = [...new Set(allInvoices.map(inv => (window.safeParseDate||function(d){return new Date(d)})(inv.document_date).getFullYear()))];
 
     // Add current year and previous 2 years if not present
     const currentYear = new Date().getFullYear();
@@ -650,7 +650,7 @@ window.filterInvoices = async function () {
     // Filter by year
     if (filterYear) {
         filtered = filtered.filter(inv => {
-            const year = new Date(inv.document_date).getFullYear().toString();
+            const year = (window.safeParseDate||function(d){return new Date(d)})(inv.document_date).getFullYear().toString();
             return year === filterYear;
         });
     }
@@ -658,7 +658,7 @@ window.filterInvoices = async function () {
     // Filter by month
     if (filterMonth) {
         filtered = filtered.filter(inv => {
-            const month = new Date(inv.document_date).getMonth() + 1;
+            const month = (window.safeParseDate||function(d){return new Date(d)})(inv.document_date).getMonth() + 1;
             const monthStr = month.toString().padStart(2, '0');
             return monthStr === filterMonth;
         });
@@ -880,7 +880,7 @@ window.viewInvoice = async function (id) {
         }
 
         const invoice = result.data;
-        const date = new Date(invoice.document_date).toLocaleDateString('fr-FR');
+        const date = (window.safeParseDate||function(d){return new Date(d)})(invoice.document_date).toLocaleDateString('fr-FR');
         const docNumber = invoice.document_numero || invoice.document_numero_devis || '-';
         const typeLabel = invoice.document_type === 'facture' ? 'Facture' : 'Devis';
 
@@ -2481,7 +2481,7 @@ window.downloadInvoicePDF = async function (invoiceId) {
         const greenColor = [16, 172, 132]; // #10AC84
         const orangeColor = [255, 152, 0]; // #FF9800
 
-        const dateStr = new Date(invoice.document_date).toLocaleDateString('fr-FR');
+        const dateStr = (window.safeParseDate||function(d){return new Date(d)})(invoice.document_date).toLocaleDateString('fr-FR');
 
         // Function to add header to any page
         const addHeader = (isFirstPage = true) => {
@@ -2923,7 +2923,7 @@ window.downloadBonDeTravauxPDF = async function (invoiceId) {
         const greenColor = [16, 172, 132];
         const purpleColor = [156, 39, 176]; // For "Bon de travaux"
 
-        const dateStr = new Date(invoice.document_date).toLocaleDateString('fr-FR');
+        const dateStr = (window.safeParseDate||function(d){return new Date(d)})(invoice.document_date).toLocaleDateString('fr-FR');
 
         // Function to add header
         const addHeader = (isFirstPage = true) => {
@@ -3512,7 +3512,7 @@ window.startBulkDownload = async function (selectedIds, organizationType, includ
                 const pdfBlob = await generateSinglePDFBlob(invoice, organizationType, folderName, includeOrder);
 
                 // Organize in folders based on type
-                const invoiceDate = new Date(invoice.document_date);
+                const invoiceDate = (window.safeParseDate||function(d){return new Date(d)})(invoice.document_date);
                 const yearMonth = `${invoiceDate.getFullYear()}-${String(invoiceDate.getMonth() + 1).padStart(2, '0')}`;
                 const clientName = invoice.client_nom.replace(/[^a-zA-Z0-9]/g, '_');
                 const numero = (invoice.document_numero || invoice.document_numero_devis || invoice.id).replace(/\//g, '_');
@@ -3592,7 +3592,7 @@ async function generateSinglePDFBlob(invoice, organizationType, folderName, incl
     const blueColor = [33, 97, 140];
     const greenColor = [16, 172, 132];
     const orangeColor = [255, 152, 0];
-    const dateStr = new Date(invoice.document_date).toLocaleDateString('fr-FR');
+    const dateStr = (window.safeParseDate||function(d){return new Date(d)})(invoice.document_date).toLocaleDateString('fr-FR');
 
     // Add header function (same as before)
     const addHeader = () => {
@@ -4057,8 +4057,8 @@ window.searchClientsEdit = function (query) {
     } else {
         const searchTerm = query.toLowerCase().trim();
         filteredClientsEdit = allClients.filter(client =>
-            client.nom.toLowerCase().includes(searchTerm) ||
-            client.ice.toLowerCase().includes(searchTerm)
+            (client.nom || '').toLowerCase().includes(searchTerm) ||
+            (client.ice || '').toLowerCase().includes(searchTerm)
         );
     }
 

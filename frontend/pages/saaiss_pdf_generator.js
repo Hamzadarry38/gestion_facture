@@ -122,7 +122,7 @@ window.downloadSAAISSDevisPDF = async function (invoiceId) {
                         Génération du PDF en cours...
                     </div>
                     <div style="color: #9C27B0; font-size: 0.95rem; font-weight: 700;">
-                        🏭 MSH3 SERVICES
+                        🏭 ${window.getPdfCompanyName ? window.getPdfCompanyName('SAAISS') : 'MSH3 SERVICES'}
                     </div>
                 </div>
                 <style>
@@ -199,7 +199,8 @@ window.downloadSAAISSDevisPDF = async function (invoiceId) {
             // Save the PDF with new format: SAAISS_TYPE_ClientName_InvoiceNumber
             const docType = customizedInvoice.document_type === 'devis' ? 'Devis' : 'Facture';
             const invoiceNumber = customizedInvoice.document_numero_devis || customizedInvoice.document_numero || 'N-A';
-            const fileName = `STé_MSH3_SERVICES_${docType}_${customizedInvoice.client_nom}_${invoiceNumber}.pdf`;
+            const companyFileName = window.getPdfCompanyFileName ? window.getPdfCompanyFileName('SAAISS') : 'STé_MSH3_SERVICES';
+            const fileName = `${companyFileName}_${docType}_${customizedInvoice.client_nom}_${invoiceNumber}.pdf`;
 
             // Create PDF ArrayBuffer for upload
             const pdfArrayBuffer = doc.output('arraybuffer');
@@ -293,16 +294,21 @@ async function showSimpleSAAISSModal(invoice) {
         console.log('Could not get last devis number:', error);
     }
 
-    // Load last saved settings from PostgreSQL
+    // Load last saved settings (percentage from PostgreSQL, product names per-invoice from localStorage)
     let savedPercentage = '';
     let savedProductNames = {};
     try {
         const settingsResult = await window.electron.dbSaaiss.getPdfSettings();
         if (settingsResult && settingsResult.success && settingsResult.data) {
             savedPercentage = settingsResult.data.percentage || '';
-            savedProductNames = settingsResult.data.product_names || {};
         }
     } catch (e) { console.warn('Could not load SAAISS settings:', e); }
+    try {
+        const savedProducts = localStorage.getItem(`customPdfProducts_SAAISS_${invoice.id}`);
+        if (savedProducts) {
+            savedProductNames = JSON.parse(savedProducts);
+        }
+    } catch (e) {}
 
     return new Promise((resolve) => {
         const overlay = document.createElement('div');
@@ -442,10 +448,13 @@ async function showSimpleSAAISSModal(invoice) {
                 }
             });
 
-            // Save settings to PostgreSQL for next time
+            // Save settings: percentage to PostgreSQL, product names per-invoice to localStorage
             try {
-                await window.electron.dbSaaiss.savePdfSettings(percentage, modifiedProducts);
+                await window.electron.dbSaaiss.savePdfSettings(percentage, {});
             } catch (e) { console.warn('Could not save SAAISS settings:', e); }
+            try {
+                localStorage.setItem(`customPdfProducts_SAAISS_${invoice.id}`, JSON.stringify(modifiedProducts));
+            } catch (e) {}
 
             overlay.remove();
             resolve({
@@ -616,10 +625,13 @@ function formatNumberForPDF(number) {
 // Generate SAAISS PDF with special design
 async function generateSAAISSPDF(doc, invoice, includeZeroProducts = true) {
     try {
-        // Load SAAISS assets from SAAISS folder
-        const headerImg = await loadSAAISSImage('SAAISS/Hesder.png');
-        const footerImg = await loadSAAISSImage('SAAISS/Footer.png');
-        const signatureImg = await loadSAAISSImage('SAAISS/signature.png');
+        // Load SAAISS assets (use custom images from settings if available)
+        const headerSrc = window.getPdfCompanyImage ? window.getPdfCompanyImage('SAAISS', 'header') : 'SAAISS/Hesder.png';
+        const footerSrc = window.getPdfCompanyImage ? window.getPdfCompanyImage('SAAISS', 'footer') : 'SAAISS/Footer.png';
+        const signatureSrc = window.getPdfCompanyImage ? window.getPdfCompanyImage('SAAISS', 'signature') : 'SAAISS/signature.png';
+        const headerImg = await loadSAAISSImage(headerSrc);
+        const footerImg = await loadSAAISSImage(footerSrc);
+        const signatureImg = await loadSAAISSImage(signatureSrc);
 
         const pageWidth = doc.internal.pageSize.width;
         const pageHeight = doc.internal.pageSize.height;
@@ -680,7 +692,7 @@ async function generateSAAISSPDF(doc, invoice, includeZeroProducts = true) {
             // Date on the right
             doc.setFontSize(9);
             doc.setFont(undefined, 'bold');
-            const dateStr = new Date(invoice.document_date).toLocaleDateString('fr-FR');
+            const dateStr = (window.safeParseDate||function(d){return new Date(d)})(invoice.document_date).toLocaleDateString('fr-FR');
             doc.text(`DATE : ${dateStr}`, pageWidth - 20, currentY, { align: 'right' });
 
             currentY += 6;

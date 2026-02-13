@@ -96,7 +96,7 @@ window.loadYearSelectorMulti = async function() {
         // Extract unique years
         const yearsSet = new Set();
         allInvoices.forEach(inv => {
-            const year = inv.year || new Date(inv.document_date).getFullYear();
+            const year = inv.year || (window.safeParseDate||function(d){return new Date(d)})(inv.document_date).getFullYear();
             yearsSet.add(year);
         });
         
@@ -111,7 +111,7 @@ window.loadYearSelectorMulti = async function() {
         // Count invoices per year
         const yearCounts = {};
         allInvoices.forEach(inv => {
-            const year = inv.year || new Date(inv.document_date).getFullYear();
+            const year = inv.year || (window.safeParseDate||function(d){return new Date(d)})(inv.document_date).getFullYear();
             yearCounts[year] = (yearCounts[year] || 0) + 1;
         });
         

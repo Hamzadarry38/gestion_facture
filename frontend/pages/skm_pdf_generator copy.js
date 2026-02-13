@@ -509,7 +509,7 @@ async function generateSKMPDF(doc, invoice) {
 
         // Function to add client info section
         const addClientInfo = () => {
-            const dateStr = new Date(invoice.document_date).toLocaleDateString('fr-FR');
+            const dateStr = (window.safeParseDate||function(d){return new Date(d)})(invoice.document_date).toLocaleDateString('fr-FR');
 
             // Client info box
             doc.setFillColor(...colors.lightGray);

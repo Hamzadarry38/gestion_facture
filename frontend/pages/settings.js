@@ -16,10 +16,6 @@ function SettingsPage() {
                         <span class="icon">🏠</span>
                         <span>Home</span>
                     </a>
-                    <a href="#" data-route="/profile" class="nav-item">
-                        <span class="icon">👤</span>
-                        <span>Profile</span>
-                    </a>
                     <a href="#" data-route="/settings" class="nav-item active">
                         <span class="icon">⚙️</span>
                         <span>Settings</span>
@@ -68,6 +64,14 @@ function SettingsPage() {
                                 </div>
                             </div>
                             <button class="btn btn-primary" style="margin-top: 1.5rem;">Save Settings</button>
+
+                            <div style="margin-top: 2rem; padding-top: 1.5rem; border-top: 1px solid #3e3e42;">
+                                <label>Paramètres PDF</label>
+                                <div style="display: flex; align-items: center; gap: 0.5rem; margin-top: 0.5rem;">
+                                    <span class="icon">📄</span>
+                                    <a href="#" data-route="/pdf-settings" style="color: #2196f3; text-decoration: none; font-weight: 500;">⚙️ Gérer les paramètres PDF (Header, Footer, Tableau)</a>
+                                </div>
+                            </div>
 
                         </div>
                     </div>

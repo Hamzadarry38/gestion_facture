@@ -501,9 +501,8 @@ const invoiceOps = {
         // Get or create client
         const client = clientOps.getOrCreate(invoiceData.client.nom, invoiceData.client.ICE);
 
-        // Extract year from document date
-        const documentDate = new Date(invoiceData.document.date);
-        const year = documentDate.getFullYear();
+        // Extract year from document date (avoid timezone shift)
+        const year = parseInt(String(invoiceData.document.date).substring(0, 4)) || new Date().getFullYear();
 
         // Get next sequential_id for this year
         const seqResult = db.exec(`
@@ -768,9 +767,8 @@ const invoiceOps = {
             }
         }
 
-        // Extract year from document_date
-        const documentDate = new Date(invoiceData.document.date);
-        const year = documentDate.getFullYear();
+        // Extract year from document_date (avoid timezone shift)
+        const year = parseInt(String(invoiceData.document.date).substring(0, 4)) || new Date().getFullYear();
 
         // Update invoice with new client_id and other fields
         db.run(`

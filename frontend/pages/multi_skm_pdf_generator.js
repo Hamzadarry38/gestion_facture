@@ -46,7 +46,7 @@ window.downloadMultiSKMDevisPDF = async function (invoiceId) {
                                 Certains produits ont une <strong style="color:#ff9800;">quantité = 0</strong> ou un <strong style="color:#ff9800;">prix = 0</strong>.
                             </p>
                             <p style="color:#b0b0b0;font-size:0.9rem;">
-                                Voulez-vous les afficher dans le PDF SMART SERVICES ?
+                                Voulez-vous les afficher dans le PDF ${window.getPdfCompanyName ? window.getPdfCompanyName('SKM') : 'SMART SERVICES'} ?
                             </p>
                         </div>
                         <div class="custom-modal-footer">
@@ -107,7 +107,7 @@ window.downloadMultiSKMDevisPDF = async function (invoiceId) {
 
     } catch (error) {
         console.error('❌ Error generating SKM PDF:', error);
-        await customAlert('Erreur de génération', 'Une erreur est survenue lors de la génération du PDF SMART SERVICES: ' + error.message, 'error');
+        await customAlert('Erreur de génération', `Une erreur est survenue lors de la génération du PDF ${window.getPdfCompanyName ? window.getPdfCompanyName('SKM') : 'SMART SERVICES'}: ` + error.message, 'error');
     }
 };
 
@@ -140,7 +140,7 @@ window.generateSKMPDFWithCustomization = async function (invoice, customizationD
                     Génération du PDF en cours...
                 </div>
                 <div style="color: #FF9800; font-size: 0.95rem; font-weight: 700;">
-                    🏭 SMART SERVICES
+                    🏭 ${window.getPdfCompanyName ? window.getPdfCompanyName('SKM') : 'SMART SERVICES'}
                 </div>
             </div>
             <style>
@@ -237,7 +237,8 @@ window.generateSKMPDFWithCustomization = async function (invoice, customizationD
         // Save the PDF with new format: CONSAZIZ_TYPE_ClientName_InvoiceNumber
         const docType = customizedInvoice.document_type === 'devis' ? 'Devis' : 'Facture';
         const invoiceNumber = customizedInvoice.document_numero_devis || customizedInvoice.document_numero || 'N-A';
-        const fileName = `SMART_SERVICES_${docType}_${customizedInvoice.client_nom}_${invoiceNumber}.pdf`;
+        const companyFileName = window.getPdfCompanyFileName ? window.getPdfCompanyFileName('SKM') : 'SMART_SERVICES';
+        const fileName = `${companyFileName}_${docType}_${customizedInvoice.client_nom}_${invoiceNumber}.pdf`;
 
         // Get PDF as ArrayBuffer
         const pdfArrayBuffer = doc.output('arraybuffer');
@@ -269,7 +270,7 @@ window.generateSKMPDFWithCustomization = async function (invoice, customizationD
             if (context === 'multi') {
                 await customAlert('PDF généré avec succès', `Le fichier ${fileName} a été téléchargé et sauvegardé avec succès !`, 'success');
             } else {
-                window.notify.success('Succès', `PDF SMART SERVICES généré et sauvegardé avec succès !`);
+                window.notify.success('Succès', `PDF ${window.getPdfCompanyName ? window.getPdfCompanyName('SKM') : 'SMART SERVICES'} généré et sauvegardé avec succès !`);
             }
         } else {
             console.error('❌ Error saving PDF to disk:', saveResult.error);
@@ -338,16 +339,21 @@ window.showSimpleSKMModal = async function (invoice, notesText = '') {
         nextDevisNumber = '1/' + currentYear;
     }
 
-    // Load last saved settings from PostgreSQL
+    // Load last saved settings (percentage from PostgreSQL, product names per-invoice from localStorage)
     let savedPercentage = '';
     let savedProductNames = {};
     try {
         const settingsResult = await window.electron.dbSmartS.getPdfSettings();
         if (settingsResult && settingsResult.success && settingsResult.data) {
             savedPercentage = settingsResult.data.percentage || '';
-            savedProductNames = settingsResult.data.product_names || {};
         }
     } catch (e) { console.warn('Could not load SKM settings:', e); }
+    try {
+        const savedProducts = localStorage.getItem(`customPdfProducts_SKM_${invoice.id}`);
+        if (savedProducts) {
+            savedProductNames = JSON.parse(savedProducts);
+        }
+    } catch (e) {}
 
     return new Promise((resolve) => {
         const overlay = document.createElement('div');
@@ -364,7 +370,7 @@ window.showSimpleSKMModal = async function (invoice, notesText = '') {
         modal.innerHTML = `
             <div class="custom-modal-header">
                 <span class="custom-modal-icon info">🎨</span>
-                <h3 class="custom-modal-title">🏭 SMART SERVICES - Personnalisation</h3>
+                <h3 class="custom-modal-title">🏭 ${window.getPdfCompanyName ? window.getPdfCompanyName('SKM') : 'SMART SERVICES'} - Personnalisation</h3>
                 <div style="position: absolute; top: 1rem; right: 1rem; background: #0078d4; color: #fff; padding: 0.4rem 0.8rem; border-radius: 4px; font-size: 0.85rem; font-weight: 600;">
                     🏢 Créé par: <strong>${companyName}</strong>
                 </div>
@@ -447,7 +453,7 @@ window.showSimpleSKMModal = async function (invoice, notesText = '') {
             </div>
             <div class="custom-modal-footer">
                 <button id="cancelBtn" class="custom-modal-btn secondary">Annuler</button>
-                <button id="generateBtn" class="custom-modal-btn primary">Générer PDF SMART SERVICES</button>
+                <button id="generateBtn" class="custom-modal-btn primary">Générer PDF ${window.getPdfCompanyName ? window.getPdfCompanyName('SKM') : 'SMART SERVICES'}</button>
             </div>
         `;
 
@@ -507,12 +513,15 @@ window.showSimpleSKMModal = async function (invoice, notesText = '') {
                 // Get selected font size
                 const notesFontSize = document.querySelector('input[name="notesFontSize"]:checked')?.value || 'medium';
 
-                // Save settings to PostgreSQL for next time
+                // Save settings: percentage to PostgreSQL, product names per-invoice to localStorage
                 const productNamesObj = {};
                 customProductNames.forEach((name, idx) => { productNamesObj[idx] = name; });
                 try {
-                    await window.electron.dbSmartS.savePdfSettings(percentage, productNamesObj);
+                    await window.electron.dbSmartS.savePdfSettings(percentage, {});
                 } catch (e) { console.warn('Could not save SKM settings:', e); }
+                try {
+                    localStorage.setItem(`customPdfProducts_SKM_${invoice.id}`, JSON.stringify(productNamesObj));
+                } catch (e) {}
 
                 overlay.remove();
                 resolve({
@@ -561,7 +570,7 @@ async function showSKMCustomizationModal(invoice) {
         header.className = 'custom-modal-header';
         header.innerHTML = `
             <span class="custom-modal-icon info">🎨</span>
-            <h3 class="custom-modal-title">Personnalisation PDF SMART SERVICES</h3>
+            <h3 class="custom-modal-title">Personnalisation PDF ${window.getPdfCompanyName ? window.getPdfCompanyName('SKM') : 'SMART SERVICES'}</h3>
         `;
 
         // Modal body
@@ -653,7 +662,7 @@ async function showSKMCustomizationModal(invoice) {
         const generateBtn = document.createElement('button');
         generateBtn.id = 'skmGenerateBtn';
         generateBtn.className = 'custom-modal-btn primary';
-        generateBtn.textContent = 'Générer PDF SMART SERVICES';
+        generateBtn.textContent = `Générer PDF ${window.getPdfCompanyName ? window.getPdfCompanyName('SKM') : 'SMART SERVICES'}`;
 
         footer.appendChild(cancelBtn);
         footer.appendChild(generateBtn);
@@ -754,10 +763,13 @@ async function showSKMCustomizationModal(invoice) {
 // Generate SKM PDF with special design
 async function generateSKMPDF(doc, invoice, includeZeroProducts = true, notesFontSize = 'medium', notesText = '') {
     try {
-        // Load SKM assets
-        const headerImg = await loadSKMImage('SKM/Hesder.png');
-        const footerImg = await loadSKMImage('SKM/Footer.png');
-        const signatureImg = await loadSKMImage('SKM/signature.png');
+        // Load SKM assets (use custom images from settings if available)
+        const headerSrc = window.getPdfCompanyImage ? window.getPdfCompanyImage('SKM', 'header') : 'SKM/Hesder.png';
+        const footerSrc = window.getPdfCompanyImage ? window.getPdfCompanyImage('SKM', 'footer') : 'SKM/Footer.png';
+        const signatureSrc = window.getPdfCompanyImage ? window.getPdfCompanyImage('SKM', 'signature') : 'SKM/signature.png';
+        const headerImg = await loadSKMImage(headerSrc);
+        const footerImg = await loadSKMImage(footerSrc);
+        const signatureImg = await loadSKMImage(signatureSrc);
 
         const pageWidth = doc.internal.pageSize.width;
         const pageHeight = doc.internal.pageSize.height;
@@ -834,7 +846,7 @@ async function generateSKMPDF(doc, invoice, includeZeroProducts = true, notesFon
 
         // Function to add client info section (original beautiful design)
         const addClientInfoSection = () => {
-            const dateStr = new Date(invoice.document_date).toLocaleDateString('fr-FR');
+            const dateStr = (window.safeParseDate||function(d){return new Date(d)})(invoice.document_date).toLocaleDateString('fr-FR');
 
             doc.setFontSize(12);
             doc.setTextColor(0, 0, 0); // Black color
@@ -901,8 +913,12 @@ async function generateSKMPDF(doc, invoice, includeZeroProducts = true, notesFon
                 // Right border for each column
                 doc.line(x + width, currentY, x + width, currentY + 10);
 
-                // Text
-                doc.text(header, x + 2, currentY + 7);
+                // Text - center QTE column (index 1 since headers are [DESCRIPTION, QTE, PRIX HT, TOTAL HT])
+                if (index === 1) {
+                    doc.text(header, x + width / 2, currentY + 7, { align: 'center' });
+                } else {
+                    doc.text(header, x + 2, currentY + 7);
+                }
             });
 
             // Left border
@@ -1008,9 +1024,15 @@ async function generateSKMPDF(doc, invoice, includeZeroProducts = true, notesFon
                         const x = colPositions[colIndex];
                         const width = colWidths[colIndex];
 
-                        // Use same positioning as header: x + 2 for left align, x + width - 2 for right align
-                        const align = colIndex > 1 ? 'right' : 'left';
-                        const textX = align === 'right' ? x + width - 2 : x + 2;
+                        // Center QTE column (colIndex 1), right-align prices
+                        let align, textX;
+                        if (colIndex === 1) {
+                            align = 'center';
+                            textX = x + width / 2;
+                        } else {
+                            align = 'right';
+                            textX = x + width - 2;
+                        }
 
                         doc.setFontSize(8);
                         doc.text(data, textX, rowY + 5, { align });

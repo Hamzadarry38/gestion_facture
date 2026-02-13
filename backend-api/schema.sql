@@ -70,7 +70,7 @@ CREATE TABLE IF NOT EXISTS invoice_products (
     id SERIAL PRIMARY KEY,
     invoice_id INTEGER REFERENCES invoices(id) ON DELETE CASCADE,
     designation TEXT NOT NULL,
-    quantite DECIMAL(15, 3),
+    quantite TEXT,
     prix_unitaire_ht DECIMAL(15, 3),
     total_ht DECIMAL(15, 3)
 );

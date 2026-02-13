@@ -171,8 +171,8 @@ window.showSituationMensuelleModalMulti = async function () {
             } else {
                 const searchTerm = query.toLowerCase().trim();
                 situationFilteredClientsMulti = clients.filter(client =>
-                    client.nom.toLowerCase().includes(searchTerm) ||
-                    client.ice.toLowerCase().includes(searchTerm)
+                    (client.nom || '').toLowerCase().includes(searchTerm) ||
+                    (client.ice || '').toLowerCase().includes(searchTerm)
                 );
             }
             displaySituationClientsListMulti();
@@ -647,7 +647,7 @@ window.generateSituationMensuelleMulti = async function (clientId, month, year, 
         }
 
         let allInvoices = invoicesResult.data.filter(inv => {
-            const invDate = new Date(inv.document_date);
+            const invDate = (window.safeParseDate||function(d){return new Date(d)})(inv.document_date);
             return inv.client_id == clientId &&
                 invDate.getMonth() + 1 === month &&
                 invDate.getFullYear() === year;
@@ -699,13 +699,13 @@ window.generateSituationMensuelleMulti = async function (clientId, month, year, 
         // Sort invoices
         allInvoices.sort((a, b) => {
             if (sortBy === 'date_asc') {
-                const dateCompare = new Date(a.document_date) - new Date(b.document_date);
+                const dateCompare = (window.safeParseDate||function(d){return new Date(d)})(a.document_date) - (window.safeParseDate||function(d){return new Date(d)})(b.document_date);
                 if (dateCompare !== 0) return dateCompare;
                 const numA = parseInt((a.document_numero || a.document_numero_devis || '0').replace(/\D/g, '')) || 0;
                 const numB = parseInt((b.document_numero || b.document_numero_devis || '0').replace(/\D/g, '')) || 0;
                 return numA - numB;
             } else if (sortBy === 'date_desc') {
-                const dateCompare = new Date(b.document_date) - new Date(a.document_date);
+                const dateCompare = (window.safeParseDate||function(d){return new Date(d)})(b.document_date) - (window.safeParseDate||function(d){return new Date(d)})(a.document_date);
                 if (dateCompare !== 0) return dateCompare;
                 const numA = parseInt((a.document_numero || a.document_numero_devis || '0').replace(/\D/g, '')) || 0;
                 const numB = parseInt((b.document_numero || b.document_numero_devis || '0').replace(/\D/g, '')) || 0;
@@ -713,23 +713,23 @@ window.generateSituationMensuelleMulti = async function (clientId, month, year, 
             } else if (sortBy === 'amount_asc') {
                 const amountCompare = (parseFloat(a.total_ht) || 0) - (parseFloat(b.total_ht) || 0);
                 if (amountCompare !== 0) return amountCompare;
-                return new Date(a.document_date) - new Date(b.document_date);
+                return (window.safeParseDate||function(d){return new Date(d)})(a.document_date) - (window.safeParseDate||function(d){return new Date(d)})(b.document_date);
             } else if (sortBy === 'amount_desc') {
                 const amountCompare = (parseFloat(b.total_ht) || 0) - (parseFloat(a.total_ht) || 0);
                 if (amountCompare !== 0) return amountCompare;
-                return new Date(b.document_date) - new Date(a.document_date);
+                return (window.safeParseDate||function(d){return new Date(d)})(b.document_date) - (window.safeParseDate||function(d){return new Date(d)})(a.document_date);
             } else if (sortBy === 'numero_asc') {
                 const numA = parseInt((a.document_numero || a.document_numero_devis || '0').replace(/\D/g, '')) || 0;
                 const numB = parseInt((b.document_numero || b.document_numero_devis || '0').replace(/\D/g, '')) || 0;
                 const numCompare = numA - numB;
                 if (numCompare !== 0) return numCompare;
-                return new Date(a.document_date) - new Date(b.document_date);
+                return (window.safeParseDate||function(d){return new Date(d)})(a.document_date) - (window.safeParseDate||function(d){return new Date(d)})(b.document_date);
             } else if (sortBy === 'numero_desc') {
                 const numA = parseInt((a.document_numero || a.document_numero_devis || '0').replace(/\D/g, '')) || 0;
                 const numB = parseInt((b.document_numero || b.document_numero_devis || '0').replace(/\D/g, '')) || 0;
                 const numCompare = numB - numA;
                 if (numCompare !== 0) return numCompare;
-                return new Date(b.document_date) - new Date(a.document_date);
+                return (window.safeParseDate||function(d){return new Date(d)})(b.document_date) - (window.safeParseDate||function(d){return new Date(d)})(a.document_date);
             }
             return 0;
         });
@@ -874,7 +874,7 @@ window.generateSituationMensuelleMulti = async function (clientId, month, year, 
 
             // DATE column
             doc.setFontSize(8);
-            doc.text(new Date(inv.document_date).toLocaleDateString('fr-FR'), 115, currentY + 3);
+            doc.text((window.safeParseDate||function(d){return new Date(d)})(inv.document_date).toLocaleDateString('fr-FR'), 115, currentY + 3);
 
             // PRIX TOTAL HT column
             doc.setFontSize(7.5);
@@ -1084,7 +1084,7 @@ async function showInvoiceSelectionModalMulti(clientId, month, year, preSelected
 
         // Filter invoices by client, month, and year
         const allInvoices = result.data.filter(inv => {
-            const invDate = new Date(inv.document_date);
+            const invDate = (window.safeParseDate||function(d){return new Date(d)})(inv.document_date);
             const invMonth = invDate.getMonth() + 1;
             const invYear = invDate.getFullYear();
             return inv.client_id == clientId && invMonth === month && invYear === year;
@@ -1102,7 +1102,7 @@ async function showInvoiceSelectionModalMulti(clientId, month, year, preSelected
                 const isSelected = selectedInvoices.includes(inv.id);
                 const docType = inv.document_type === 'devis' ? 'Devis' : inv.document_type === 'situation' ? 'Situation' : 'Facture';
                 const docNum = inv.document_numero || inv.document_numero_devis || 'N/A';
-                const date = new Date(inv.document_date).toLocaleDateString('fr-FR');
+                const date = (window.safeParseDate||function(d){return new Date(d)})(inv.document_date).toLocaleDateString('fr-FR');
                 const amount = parseFloat(inv.total_ttc || 0).toFixed(2);
 
                 return `

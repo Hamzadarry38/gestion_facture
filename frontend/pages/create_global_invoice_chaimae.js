@@ -189,8 +189,8 @@ window.searchClientsGlobal = function(query) {
     }
     
     const filtered = allClientsGlobal.filter(client => 
-        client.nom.toLowerCase().includes(query.toLowerCase()) ||
-        client.ice.toLowerCase().includes(query.toLowerCase())
+        (client.nom || '').toLowerCase().includes(query.toLowerCase()) ||
+        (client.ice || '').toLowerCase().includes(query.toLowerCase())
     );
     
     if (filtered.length === 0) {
@@ -271,7 +271,7 @@ window.loadBonsForClientGlobal = async function() {
             tbody.innerHTML = availableBonsGlobal.map(bon => {
                 const bonNumero = bon.document_numero || '-';
                 const bonCommande = bon.document_numero_commande || '-';
-                const bonDate = new Date(bon.document_date).toLocaleDateString('fr-FR');
+                const bonDate = (window.safeParseDate||function(d){return new Date(d)})(bon.document_date).toLocaleDateString('fr-FR');
                 const bonTotal = formatNumberGlobal(bon.total_ttc || 0);
                 
                 return `

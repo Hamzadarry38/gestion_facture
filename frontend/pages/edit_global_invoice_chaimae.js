@@ -364,7 +364,7 @@ window.initEditGlobalInvoiceChaimaePage = async function () {
         document.getElementById('clientNomEditGlobal').value = currentInvoiceEdit.client_nom;
         document.getElementById('clientICEEditGlobal').value = currentInvoiceEdit.client_ice;
         document.getElementById('documentNumeroEditGlobal').value = currentInvoiceEdit.document_numero;
-        document.getElementById('documentDateEditGlobal').value = currentInvoiceEdit.document_date;
+        document.getElementById('documentDateEditGlobal').value = window.safeDateString ? window.safeDateString(currentInvoiceEdit.document_date) : (currentInvoiceEdit.document_date ? currentInvoiceEdit.document_date.split('T')[0] : '');
         document.getElementById('tvaRateEditGlobal').value = currentInvoiceEdit.tva_rate;
 
         // Display current bons
@@ -396,7 +396,7 @@ function displayCurrentBonsEdit() {
     tbody.innerHTML = currentBonsEdit.map((bon, index) => {
         const bonNumero = bon.document_numero_bl || bon.document_numero || '-';
         const bonCommande = bon.document_numero_commande || '-';
-        const bonDate = new Date(bon.document_date).toLocaleDateString('fr-FR');
+        const bonDate = (window.safeParseDate||function(d){return new Date(d)})(bon.document_date).toLocaleDateString('fr-FR');
         const bonTotal = formatNumberEdit(bon.total_ttc || 0);
 
         const bgColor = index % 2 === 0 ? '#252526' : '#2d2d30';
@@ -453,7 +453,7 @@ window.loadAvailableBonsEdit = async function () {
             tbody.innerHTML = availableBonsEdit.map((bon, index) => {
                 const bonNumero = bon.document_numero_bl || bon.document_numero || '-';
                 const bonCommande = bon.document_numero_commande || '-';
-                const bonDate = new Date(bon.document_date).toLocaleDateString('fr-FR');
+                const bonDate = (window.safeParseDate||function(d){return new Date(d)})(bon.document_date).toLocaleDateString('fr-FR');
                 const bonTotal = formatNumberEdit(bon.total_ttc || 0);
 
                 const bgColor = index % 2 === 0 ? '#252526' : '#2d2d30';

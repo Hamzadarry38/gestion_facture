@@ -42,11 +42,11 @@ window.showPdfManager = async function (company) {
         modal.style.display = 'flex';
         modal.style.flexDirection = 'column';
 
-        // Map company codes to full names
+        // Map company codes to full names (use custom names from PDF settings if available)
         let companyDisplayName = company.toUpperCase();
-        if (company === 'skm' || company === 'chaimae_skm') companyDisplayName = 'SMART SERVICES';
-        if (company === 'saaiss' || company === 'chaimae_saaiss') companyDisplayName = 'MSH3 SERVICES';
-        if (company === 'benali' || company === 'chaimae_benali') companyDisplayName = 'BEN ALI';
+        if (company === 'skm' || company === 'chaimae_skm') companyDisplayName = window.getPdfCompanyName ? window.getPdfCompanyName('SKM') : 'SMART SERVICES';
+        if (company === 'saaiss' || company === 'chaimae_saaiss') companyDisplayName = window.getPdfCompanyName ? window.getPdfCompanyName('SAAISS') : 'MSH3 SERVICES';
+        if (company === 'benali' || company === 'chaimae_benali') companyDisplayName = window.getPdfCompanyName ? window.getPdfCompanyName('BENALI') : 'BEN ALI';
 
         modal.innerHTML = `
             <div class="custom-modal-header">

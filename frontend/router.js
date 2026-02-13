@@ -170,6 +170,16 @@ class Router {
             } else if (path === '/edit-invoice-chaimae') {
                 console.error('❌ Router: initEditInvoiceChaimaePage function not found!');
             }
+            
+            if (path === '/pdf-settings' && typeof window.initPdfSettingsPage === 'function') {
+                console.log('✅ Router: Calling initPdfSettingsPage');
+                window.initPdfSettingsPage();
+            }
+            
+            if (path === '/pdf-files' && typeof window.initPdfFilesPage === 'function') {
+                console.log('✅ Router: Calling initPdfFilesPage');
+                window.initPdfFilesPage();
+            }
         } else {
             console.error(`❌ Route ${path} not found`);
             console.log('Available routes:', Object.keys(this.routes));

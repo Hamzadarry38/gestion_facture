@@ -190,7 +190,7 @@ async function loadInvoiceDataSimpleMRY(invoiceId) {
         // Fill document info
         const docTypeDisplay = invoice.document_type === 'facture' ? 'Facture' : 'Devis';
         document.getElementById('editDocumentTypeSimpleMRY').value = docTypeDisplay;
-        document.getElementById('editDocumentDateSimpleMRY').value = invoice.document_date ? invoice.document_date.split('T')[0] : '';
+        document.getElementById('editDocumentDateSimpleMRY').value = window.safeDateString ? window.safeDateString(invoice.document_date) : (invoice.document_date ? invoice.document_date.split('T')[0] : '');
 
         // Fill document number
         const docNumero = invoice.document_type === 'facture' ? invoice.document_numero : invoice.document_numero_devis;
@@ -419,8 +419,8 @@ window.searchClientsEditSimpleMRY = function (query) {
     } else {
         const searchTerm = query.toLowerCase().trim();
         filteredClientsEditSimpleMRY = allClientsEditSimpleMRY.filter(client =>
-            client.nom.toLowerCase().includes(searchTerm) ||
-            client.ice.toLowerCase().includes(searchTerm)
+            (client.nom || '').toLowerCase().includes(searchTerm) ||
+            (client.ice || '').toLowerCase().includes(searchTerm)
         );
     }
     displayClientsListEditSimpleMRY();

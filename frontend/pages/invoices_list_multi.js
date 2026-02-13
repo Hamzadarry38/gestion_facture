@@ -444,7 +444,7 @@ function displayPendingInvoicesMulti(invoices) {
             <td><span class="badge badge-${inv.document_type}">${inv.document_type}</span></td>
             <td><strong>${inv.document_numero}</strong></td>
             <td>${inv.client_nom || '-'}</td>
-            <td>${new Date(inv.document_date).toLocaleDateString('fr-FR')}</td>
+            <td>${(window.safeParseDate||function(d){return new Date(d)})(inv.document_date).toLocaleDateString('fr-FR')}</td>
             <td><strong>${formatNumberMulti(inv.total_ttc)}</strong> DH</td>
             <td><span style="color:#2196f3;">${inv.created_by_user_name || '-'}</span></td>
             <td style="text-align:center;">
@@ -564,7 +564,7 @@ async function loadInvoicesMulti() {
             if (selectedYear && selectedYear !== '') {
                 // Filter invoices by selected year
                 invoices = invoices.filter(inv => {
-                    const year = inv.year || new Date(inv.document_date).getFullYear();
+                    const year = inv.year || (window.safeParseDate||function(d){return new Date(d)})(inv.document_date).getFullYear();
                     return year.toString() === selectedYear;
                 });
                 console.log(`📊 [MULTI] Filtered to year ${selectedYear}:`, invoices.length, 'invoices');
@@ -620,7 +620,7 @@ function populateFiltersMulti() {
     if (!yearFilter || !clientFilter) return;
 
     // Get unique years
-    const years = [...new Set(allInvoicesMulti.map(inv => new Date(inv.document_date).getFullYear()))].sort((a, b) => b - a);
+    const years = [...new Set(allInvoicesMulti.map(inv => (window.safeParseDate||function(d){return new Date(d)})(inv.document_date).getFullYear()))].sort((a, b) => b - a);
     yearFilter.innerHTML = '<option value="">Toutes</option>' + years.map(year => `<option value="${year}">${year}</option>`).join('');
 
     // Get unique clients
@@ -656,8 +656,8 @@ function filterInvoicesMulti() {
         }
 
         const matchType = !typeFilter || invoice.document_type === typeFilter;
-        const matchYear = !yearFilter || new Date(invoice.document_date).getFullYear().toString() === yearFilter;
-        const matchMonth = !monthFilter || new Date(invoice.document_date).toISOString().slice(5, 7) === monthFilter;
+        const matchYear = !yearFilter || (window.safeParseDate||function(d){return new Date(d)})(invoice.document_date).getFullYear().toString() === yearFilter;
+        const matchMonth = !monthFilter || window.safeDateString(invoice.document_date).slice(5, 7) === monthFilter;
         const matchClient = !clientFilter || invoice.client_nom === clientFilter;
 
         let matchAttachments = true;
@@ -812,7 +812,7 @@ function displayInvoicesMulti() {
             typeLabel = '📦 Bon de Livraison';
         }
 
-        const date = new Date(invoice.document_date).toLocaleDateString('fr-FR');
+        const date = (window.safeParseDate||function(d){return new Date(d)})(invoice.document_date).toLocaleDateString('fr-FR');
 
         console.log('👤 User info for invoice', invoice.id, ':', {
             created_by_user_name: invoice.created_by_user_name,
@@ -862,13 +862,13 @@ function displayInvoicesMulti() {
             <td>${Number(invoice.total_ht || 0).toFixed(2)} DH</td>
             <td><strong>${Number(invoice.total_ttc || 0).toFixed(2)} DH</strong></td>
             <td>
-                <select onchange="window.updateArStatusMulti('${invoice.id}', this.value)"
+                ${invoice.document_type === 'devis' ? '<span style="color:#666;">—</span>' : `<select onchange="window.updateArStatusMulti('${invoice.id}', this.value)"
                         style="padding: 0.4rem; background: ${invoice.ar_status === 'accuse' ? '#4caf50' : (invoice.ar_status === 'en_attente' ? '#ff9800' : '#424242')}; color: white; border: none; border-radius: 4px; font-size: 0.85rem; cursor: pointer; width: 100%; transition: background 0.3s;"
                         onclick="event.stopPropagation()">
                     <option value="sans_accuse" ${(!invoice.ar_status || invoice.ar_status === 'sans_accuse') ? 'selected' : ''} style="background: #424242;">Sans accusé</option>
                     <option value="en_attente" ${invoice.ar_status === 'en_attente' ? 'selected' : ''} style="background: #ff9800;">En attente</option>
                     <option value="accuse" ${invoice.ar_status === 'accuse' ? 'selected' : ''} style="background: #4caf50;">Accusé</option>
-                </select>
+                </select>`}
             </td>
             <td style="text-align: center; color: #757575;">
                 <span style="${invoice.attachment_count > 0 ? 'color: #2196f3; font-weight: bold;' : ''}">${invoice.attachment_count || 0}</span>
@@ -959,7 +959,7 @@ window.viewInvoiceMulti = async function (id) {
         }
 
         const invoice = result.data;
-        const date = new Date(invoice.document_date).toLocaleDateString('fr-FR');
+        const date = (window.safeParseDate||function(d){return new Date(d)})(invoice.document_date).toLocaleDateString('fr-FR');
         const docNumber = invoice.document_type === 'facture' ? invoice.document_numero : invoice.document_numero_devis || invoice.document_numero;
         const typeLabel = invoice.document_type === 'facture' ? 'Facture' : 'Devis';
 
@@ -1670,7 +1670,7 @@ window.downloadBonDeTravaux = async function (invoiceId) {
         const darkGrayColor = [96, 125, 139]; // #607D8B
         const lightGrayBg = [236, 239, 241]; // #ECEFF1
 
-        const dateStr = new Date(invoice.document_date).toLocaleDateString('fr-FR');
+        const dateStr = (window.safeParseDate||function(d){return new Date(d)})(invoice.document_date).toLocaleDateString('fr-FR');
 
         // Function to add header
         const addHeader = (isFirstPage = true) => {
@@ -2115,7 +2115,7 @@ window.downloadInvoicePDFMulti = async function (invoiceId) {
         const darkGrayColor = [96, 125, 139]; // #607D8B
         const lightGrayBg = [236, 239, 241]; // #ECEFF1
 
-        const dateStr = new Date(invoice.document_date).toLocaleDateString('fr-FR');
+        const dateStr = (window.safeParseDate||function(d){return new Date(d)})(invoice.document_date).toLocaleDateString('fr-FR');
 
         // Helper function to format numbers
         const formatNumberForPDF = (num) => {
@@ -2543,8 +2543,8 @@ window.sortTableMulti = function (column) {
                 valueB = parseInt((b.document_numero || b.document_numero_devis || '0').replace(/\D/g, '')) || 0;
                 break;
             case 'date':
-                valueA = new Date(a.document_date).getTime();
-                valueB = new Date(b.document_date).getTime();
+                valueA = (window.safeParseDate||function(d){return new Date(d)})(a.document_date).getTime();
+                valueB = (window.safeParseDate||function(d){return new Date(d)})(b.document_date).getTime();
                 break;
             case 'total_ht':
                 valueA = parseFloat(a.total_ht) || 0;

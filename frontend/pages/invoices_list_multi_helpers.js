@@ -450,7 +450,7 @@ window.startBulkDownloadMulti = async function (selectedIds, organizationType, i
                 const pdfBlob = await generatePDFBlobMulti(invoice, includeOrder);
 
                 // Organize files
-                const date = new Date(invoice.document_date);
+                const date = (window.safeParseDate||function(d){return new Date(d)})(invoice.document_date);
                 const yearMonth = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
                 const clientName = invoice.client_nom.replace(/[^a-z0-9]/gi, '_');
                 const numero = (invoice.document_numero || invoice.document_numero_devis || 'N').replace(/[^a-z0-9]/gi, '_');
@@ -682,7 +682,7 @@ async function generatePDFBlobMulti(invoice, includeOrder = true) {
     // Colors - MULTI TRAVAUX TETOUAN design
     const darkGrayColor = [96, 125, 139];
     const lightGrayBg = [236, 239, 241];
-    const dateStr = new Date(invoice.document_date).toLocaleDateString('fr-FR');
+    const dateStr = (window.safeParseDate||function(d){return new Date(d)})(invoice.document_date).toLocaleDateString('fr-FR');
 
     // Helper function to format numbers
     const formatNumberForPDF = (num) => {

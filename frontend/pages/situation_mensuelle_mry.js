@@ -171,8 +171,8 @@ window.showSituationMensuelleModalMRY = async function () {
             } else {
                 const searchTerm = query.toLowerCase().trim();
                 situationFilteredClientsMRY = clients.filter(client =>
-                    client.nom.toLowerCase().includes(searchTerm) ||
-                    client.ice.toLowerCase().includes(searchTerm)
+                    (client.nom || '').toLowerCase().includes(searchTerm) ||
+                    (client.ice || '').toLowerCase().includes(searchTerm)
                 );
             }
             displaySituationClientsListMRY();
@@ -661,7 +661,7 @@ window.generateSituationMensuelleMRY = async function (clientId, month, year, so
         }
 
         let allInvoices = invoicesResult.data.filter(inv => {
-            const invDate = new Date(inv.document_date);
+            const invDate = (window.safeParseDate||function(d){return new Date(d)})(inv.document_date);
             return inv.client_id == clientId &&
                 invDate.getMonth() + 1 === month &&
                 invDate.getFullYear() === year;
@@ -715,14 +715,14 @@ window.generateSituationMensuelleMRY = async function (clientId, month, year, so
         // Sort invoices based on user selection
         allInvoices.sort((a, b) => {
             if (sortBy === 'date_asc') {
-                const dateCompare = new Date(a.document_date) - new Date(b.document_date);
+                const dateCompare = (window.safeParseDate||function(d){return new Date(d)})(a.document_date) - (window.safeParseDate||function(d){return new Date(d)})(b.document_date);
                 if (dateCompare !== 0) return dateCompare;
                 // Secondary sort by invoice number if dates are equal
                 const numA = parseInt((a.document_numero || a.document_numero_devis || '0').replace(/\D/g, '')) || 0;
                 const numB = parseInt((b.document_numero || b.document_numero_devis || '0').replace(/\D/g, '')) || 0;
                 return numA - numB;
             } else if (sortBy === 'date_desc') {
-                const dateCompare = new Date(b.document_date) - new Date(a.document_date);
+                const dateCompare = (window.safeParseDate||function(d){return new Date(d)})(b.document_date) - (window.safeParseDate||function(d){return new Date(d)})(a.document_date);
                 if (dateCompare !== 0) return dateCompare;
                 // Secondary sort by invoice number if dates are equal
                 const numA = parseInt((a.document_numero || a.document_numero_devis || '0').replace(/\D/g, '')) || 0;
@@ -732,26 +732,26 @@ window.generateSituationMensuelleMRY = async function (clientId, month, year, so
                 const amountCompare = (parseFloat(a.total_ht) || 0) - (parseFloat(b.total_ht) || 0);
                 if (amountCompare !== 0) return amountCompare;
                 // Secondary sort by date if amounts are equal
-                return new Date(a.document_date) - new Date(b.document_date);
+                return (window.safeParseDate||function(d){return new Date(d)})(a.document_date) - (window.safeParseDate||function(d){return new Date(d)})(b.document_date);
             } else if (sortBy === 'amount_desc') {
                 const amountCompare = (parseFloat(b.total_ht) || 0) - (parseFloat(a.total_ht) || 0);
                 if (amountCompare !== 0) return amountCompare;
                 // Secondary sort by date if amounts are equal
-                return new Date(b.document_date) - new Date(a.document_date);
+                return (window.safeParseDate||function(d){return new Date(d)})(b.document_date) - (window.safeParseDate||function(d){return new Date(d)})(a.document_date);
             } else if (sortBy === 'numero_asc') {
                 // Sort by document number ascending
                 const numA = parseInt((a.document_numero || a.document_numero_devis || '0').replace(/\D/g, '')) || 0;
                 const numB = parseInt((b.document_numero || b.document_numero_devis || '0').replace(/\D/g, '')) || 0;
                 if (numA !== numB) return numA - numB;
                 // Secondary sort by date if numbers are equal
-                return new Date(a.document_date) - new Date(b.document_date);
+                return (window.safeParseDate||function(d){return new Date(d)})(a.document_date) - (window.safeParseDate||function(d){return new Date(d)})(b.document_date);
             } else if (sortBy === 'numero_desc') {
                 // Sort by document number descending
                 const numA = parseInt((a.document_numero || a.document_numero_devis || '0').replace(/\D/g, '')) || 0;
                 const numB = parseInt((b.document_numero || b.document_numero_devis || '0').replace(/\D/g, '')) || 0;
                 if (numA !== numB) return numB - numA;
                 // Secondary sort by date if numbers are equal
-                return new Date(b.document_date) - new Date(a.document_date);
+                return (window.safeParseDate||function(d){return new Date(d)})(b.document_date) - (window.safeParseDate||function(d){return new Date(d)})(a.document_date);
             }
             return 0;
         });
@@ -902,7 +902,7 @@ window.generateSituationMensuelleMRY = async function (clientId, month, year, so
             doc.setTextColor(0, 0, 0);
             doc.setFontSize(8);
             doc.setFont(undefined, 'normal');
-            doc.text(new Date(inv.document_date).toLocaleDateString('fr-FR'), 130, currentY + 2.5);
+            doc.text((window.safeParseDate||function(d){return new Date(d)})(inv.document_date).toLocaleDateString('fr-FR'), 130, currentY + 2.5);
 
             // TOTAL H.T column
             doc.setTextColor(0, 0, 0);
@@ -1105,7 +1105,7 @@ async function showInvoiceSelectionModalMRY(clientId, month, year, preSelectedIn
 
         // Filter invoices by client, month, and year
         const allInvoices = result.data.filter(inv => {
-            const invDate = new Date(inv.document_date);
+            const invDate = (window.safeParseDate||function(d){return new Date(d)})(inv.document_date);
             const invMonth = invDate.getMonth() + 1;
             const invYear = invDate.getFullYear();
             return inv.client_id == clientId && invMonth === month && invYear === year;
@@ -1123,7 +1123,7 @@ async function showInvoiceSelectionModalMRY(clientId, month, year, preSelectedIn
                 const isSelected = selectedInvoices.includes(inv.id);
                 const docType = inv.document_type === 'devis' ? 'Devis' : 'Facture';
                 const docNum = inv.document_numero || inv.document_numero_devis || 'N/A';
-                const date = new Date(inv.document_date).toLocaleDateString('fr-FR');
+                const date = (window.safeParseDate||function(d){return new Date(d)})(inv.document_date).toLocaleDateString('fr-FR');
                 const amount = parseFloat(inv.total_ttc || 0).toFixed(2);
 
                 return `

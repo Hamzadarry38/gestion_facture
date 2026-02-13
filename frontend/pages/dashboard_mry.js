@@ -64,32 +64,21 @@ function DashboardMRYPage() {
                         <div class="option-arrow">→</div>
                     </div>
 
-                    <div class="option-card" data-action="view-pdf-skm">
-                        <div class="option-icon">📁</div>
-                        <div class="option-info">
-                            <h2>Fichiers PDF - SMART SERVICES</h2>
-                            <p>Afficher tous les fichiers PDF sauvegardés pour SMART SERVICES</p>
-                        </div>
-                        <div class="option-arrow">→</div>
-                    </div>
-
-                    <div class="option-card" data-action="view-pdf-saaiss">
-                        <div class="option-icon">📁</div>
-                        <div class="option-info">
-                            <h2>Fichiers PDF - MSH3 SERVICES</h2>
-                            <p>Afficher tous les fichiers PDF sauvegardés pour MSH3 SERVICES</p>
-                        </div>
-                        <div class="option-arrow">→</div>
-                    </div>
-
-                    <div class="option-card" data-action="view-pdf-benali">
-                        <div class="option-icon">📁</div>
-                        <div class="option-info">
-                            <h2>Fichiers PDF - BEN ALI</h2>
-                            <p>Afficher tous les fichiers PDF sauvegardés pour BEN ALI</p>
-                        </div>
-                        <div class="option-arrow">→</div>
-                    </div>
+                    ${(window.getEnabledCompanies ? window.getEnabledCompanies() : [
+                        { code: 'SKM', name: 'SMART SERVICES' },
+                        { code: 'SAAISS', name: 'MSH3 SERVICES' },
+                        { code: 'BENALI', name: 'BEN ALI' }
+                    ]).map(c => {
+                        const name = window.getPdfCompanyName ? window.getPdfCompanyName(c.code) : c.name;
+                        return `<div class="option-card" data-action="view-pdf-${c.code.toLowerCase()}">
+                            <div class="option-icon">📁</div>
+                            <div class="option-info">
+                                <h2>Fichiers PDF - ${name}</h2>
+                                <p>Afficher tous les fichiers PDF sauvegardés pour ${name}</p>
+                            </div>
+                            <div class="option-arrow">→</div>
+                        </div>`;
+                    }).join('')}
                 </div>
 
                 <div class="dashboard-footer">

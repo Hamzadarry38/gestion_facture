@@ -171,11 +171,11 @@ async function loadGlobalInvoices() {
                 const numCompare = numA - numB;
                 if (numCompare !== 0) return numCompare;
                 // Secondary sort by date if numbers are equal
-                return new Date(a.document_date) - new Date(b.document_date);
+                return (window.safeParseDate||function(d){return new Date(d)})(a.document_date) - (window.safeParseDate||function(d){return new Date(d)})(b.document_date);
             });
 
             // Populate year filter
-            const years = [...new Set(allGlobalInvoices.map(inv => new Date(inv.document_date).getFullYear()))].sort((a, b) => b - a);
+            const years = [...new Set(allGlobalInvoices.map(inv => (window.safeParseDate||function(d){return new Date(d)})(inv.document_date).getFullYear()))].sort((a, b) => b - a);
             const yearFilter = document.getElementById('filterYearGlobalInvoices');
             yearFilter.innerHTML = '<option value="">Toutes les années</option>' +
                 years.map(year => `<option value="${year}">${year}</option>`).join('');
@@ -206,7 +206,7 @@ window.filterGlobalInvoices = function () {
     const searchText = document.getElementById('searchGlobalInvoices').value.toLowerCase();
 
     filteredGlobalInvoices = allGlobalInvoices.filter(invoice => {
-        const invoiceDate = new Date(invoice.document_date);
+        const invoiceDate = (window.safeParseDate||function(d){return new Date(d)})(invoice.document_date);
         const invoiceYear = invoiceDate.getFullYear().toString();
         const invoiceMonth = (invoiceDate.getMonth() + 1).toString();
 
@@ -245,7 +245,7 @@ window.filterGlobalInvoices = function () {
         const numCompare = numA - numB;
         if (numCompare !== 0) return numCompare;
         // Secondary sort by date if numbers are equal
-        return new Date(a.document_date) - new Date(b.document_date);
+        return (window.safeParseDate||function(d){return new Date(d)})(a.document_date) - (window.safeParseDate||function(d){return new Date(d)})(b.document_date);
     });
 
     displayGlobalInvoices();
@@ -278,7 +278,7 @@ function displayGlobalInvoices() {
     console.log('🔘 [BUTTONS] Buttons rendered with onclick handlers');
 
     tbody.innerHTML = filteredGlobalInvoices.map((invoice, index) => {
-        const date = new Date(invoice.document_date).toLocaleDateString('fr-FR');
+        const date = (window.safeParseDate||function(d){return new Date(d)})(invoice.document_date).toLocaleDateString('fr-FR');
 
         console.log(`📋 [INVOICE ${index + 1}] Rendering invoice #${invoice.id}`);
         console.log('📊 Global Invoice:', {
@@ -405,7 +405,7 @@ window.viewGlobalInvoice = async function (id) {
                         const numCompare = numA - numB;
                         if (numCompare !== 0) return numCompare;
                         // Secondary sort by date if numbers are equal
-                        return new Date(a.document_date) - new Date(b.document_date);
+                        return (window.safeParseDate||function(d){return new Date(d)})(a.document_date) - (window.safeParseDate||function(d){return new Date(d)})(b.document_date);
                     });
                 } else if (sortOrder === 'numero_desc') {
                     // Sort by document number descending (largest to smallest)
@@ -420,14 +420,14 @@ window.viewGlobalInvoice = async function (id) {
                         const numCompare = numB - numA;
                         if (numCompare !== 0) return numCompare;
                         // Secondary sort by date if numbers are equal
-                        return new Date(b.document_date) - new Date(a.document_date);
+                        return (window.safeParseDate||function(d){return new Date(d)})(b.document_date) - (window.safeParseDate||function(d){return new Date(d)})(a.document_date);
                     });
                 } else if (sortOrder === 'oldest') {
                     // Sort from oldest to newest (ascending by date)
-                    sortedBons.sort((a, b) => new Date(a.document_date) - new Date(b.document_date));
+                    sortedBons.sort((a, b) => (window.safeParseDate||function(d){return new Date(d)})(a.document_date) - (window.safeParseDate||function(d){return new Date(d)})(b.document_date));
                 } else if (sortOrder === 'newest') {
                     // Sort from newest to oldest (descending by date)
-                    sortedBons.sort((a, b) => new Date(b.document_date) - new Date(a.document_date));
+                    sortedBons.sort((a, b) => (window.safeParseDate||function(d){return new Date(d)})(b.document_date) - (window.safeParseDate||function(d){return new Date(d)})(a.document_date));
                 }
                 // If sortOrder is null, keep original order
 
@@ -460,7 +460,7 @@ function showGlobalInvoiceDetailsModal(invoice) {
             <tr style="border-bottom: 1px solid #3e3e42;">
                 <td style="padding: 0.75rem; color: #2196f3;">${bon.document_numero || '-'}</td>
                 <td style="padding: 0.75rem; color: #cccccc;">${bon.document_numero_commande || '-'}</td>
-                <td style="padding: 0.75rem; color: #cccccc;">${new Date(bon.document_date).toLocaleDateString('fr-FR')}</td>
+                <td style="padding: 0.75rem; color: #cccccc;">${(window.safeParseDate||function(d){return new Date(d)})(bon.document_date).toLocaleDateString('fr-FR')}</td>
                 <td style="padding: 0.75rem; color: #4caf50;">${formatNumberGlobalList(bon.total_ttc || 0)} DH</td>
             </tr>
         `).join('')
@@ -489,7 +489,7 @@ function showGlobalInvoiceDetailsModal(invoice) {
                     </div>
                     <div>
                         <p style="color: #999; margin: 0 0 0.25rem 0; font-size: 0.85rem;">Date</p>
-                        <p style="color: #cccccc; margin: 0;">${new Date(invoice.document_date).toLocaleDateString('fr-FR')}</p>
+                        <p style="color: #cccccc; margin: 0;">${(window.safeParseDate||function(d){return new Date(d)})(invoice.document_date).toLocaleDateString('fr-FR')}</p>
                     </div>
                     <div>
                         <p style="color: #999; margin: 0 0 0.25rem 0; font-size: 0.85rem;">Client</p>
@@ -633,7 +633,7 @@ window.addBonAutomatic = async function (globalInvoiceId) {
                             <strong style="color: #2196f3;">${bon.document_numero}</strong>
                         </div>
                         <div>
-                            ${new Date(bon.document_date).toLocaleDateString('fr-FR')}
+                            ${(window.safeParseDate||function(d){return new Date(d)})(bon.document_date).toLocaleDateString('fr-FR')}
                         </div>
                         <div style="text-align: right;">
                             <strong style="color: #4caf50;">${formatNumberGlobalList(bon.total_ttc)} DH</strong>
@@ -878,7 +878,7 @@ window.downloadGlobalInvoicePDF = async function (invoiceId, sortOrder = null) {
         // Colors
         const blueColor = [52, 103, 138]; // #34678A - Dark blue from image
 
-        const dateStr = new Date(invoice.document_date).toLocaleDateString('fr-FR');
+        const dateStr = (window.safeParseDate||function(d){return new Date(d)})(invoice.document_date).toLocaleDateString('fr-FR');
 
         // Function to add header
         const addHeader = () => {
@@ -1000,7 +1000,7 @@ window.downloadGlobalInvoicePDF = async function (invoiceId, sortOrder = null) {
                     const numCompare = numA - numB;
                     if (numCompare !== 0) return numCompare;
                     // Secondary sort by date if numbers are equal
-                    return new Date(a.document_date) - new Date(b.document_date);
+                    return (window.safeParseDate||function(d){return new Date(d)})(a.document_date) - (window.safeParseDate||function(d){return new Date(d)})(b.document_date);
                 });
             } else if (sortOrder === 'numero_desc') {
                 // Sort by document number descending (largest to smallest)
@@ -1015,14 +1015,14 @@ window.downloadGlobalInvoicePDF = async function (invoiceId, sortOrder = null) {
                     const numCompare = numB - numA;
                     if (numCompare !== 0) return numCompare;
                     // Secondary sort by date if numbers are equal
-                    return new Date(b.document_date) - new Date(a.document_date);
+                    return (window.safeParseDate||function(d){return new Date(d)})(b.document_date) - (window.safeParseDate||function(d){return new Date(d)})(a.document_date);
                 });
             } else if (sortOrder === 'oldest') {
                 // Sort from oldest to newest (ascending by date)
-                sortedBons.sort((a, b) => new Date(a.document_date) - new Date(b.document_date));
+                sortedBons.sort((a, b) => (window.safeParseDate||function(d){return new Date(d)})(a.document_date) - (window.safeParseDate||function(d){return new Date(d)})(b.document_date));
             } else if (sortOrder === 'newest') {
                 // Sort from newest to oldest (descending by date)
-                sortedBons.sort((a, b) => new Date(b.document_date) - new Date(a.document_date));
+                sortedBons.sort((a, b) => (window.safeParseDate||function(d){return new Date(d)})(b.document_date) - (window.safeParseDate||function(d){return new Date(d)})(a.document_date));
             }
             // If sortOrder is null, keep original order
 
@@ -1067,7 +1067,7 @@ window.downloadGlobalInvoicePDF = async function (invoiceId, sortOrder = null) {
 
                 doc.text(bon.document_numero_bl || bon.document_numero || '-', 20, currentY + 3);
                 doc.text(bon.document_numero_commande || '-', 70, currentY + 3);
-                doc.text(new Date(bon.document_date).toLocaleDateString('fr-FR'), 120, currentY + 3);
+                doc.text((window.safeParseDate||function(d){return new Date(d)})(bon.document_date).toLocaleDateString('fr-FR'), 120, currentY + 3);
                 doc.text(`${formatNumber(bonHT)} DH`, 180, currentY + 3, { align: 'right' });
 
                 currentY += 8;

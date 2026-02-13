@@ -138,8 +138,8 @@ window.showSituationAnnuelleModalMRY = async function () {
             } else {
                 const searchTerm = query.toLowerCase().trim();
                 filteredClients = clients.filter(client =>
-                    client.nom.toLowerCase().includes(searchTerm) ||
-                    client.ice.toLowerCase().includes(searchTerm)
+                    (client.nom || '').toLowerCase().includes(searchTerm) ||
+                    (client.ice || '').toLowerCase().includes(searchTerm)
                 );
             }
             displaySituationAnnuelleClientsListMRY();
@@ -250,7 +250,7 @@ window.generateSituationAnnuelleMRY = async function (clientId, year, selectedMo
 
         // Filter invoices for the selected year and client
         const yearInvoices = invoicesResult.data.filter(inv => {
-            const invDate = new Date(inv.document_date);
+            const invDate = (window.safeParseDate||function(d){return new Date(d)})(inv.document_date);
             return inv.client_id == clientId && invDate.getFullYear() === year;
         });
 
@@ -270,7 +270,7 @@ window.generateSituationAnnuelleMRY = async function (clientId, year, selectedMo
         // Iterate only through selected months
         for (const m of selectedMonths.sort((a, b) => a - b)) {
             const monthInvoices = yearInvoices.filter(inv => {
-                const d = new Date(inv.document_date);
+                const d = (window.safeParseDate||function(d){return new Date(d)})(inv.document_date);
                 const invType = (inv.document_type || '').toLowerCase();
 
                 const isMonthMatch = d.getMonth() + 1 === m;
@@ -718,7 +718,7 @@ window.generateSituationAnnuelleClientsMRY = async function (clientIds, year, se
         const allClients = clientsResult.success ? clientsResult.data : [];
 
         const yearInvoices = invoicesResult.data.filter(inv => {
-            const invDate = new Date(inv.document_date);
+            const invDate = (window.safeParseDate||function(d){return new Date(d)})(inv.document_date);
             const month = invDate.getMonth() + 1;
             return clientIds.includes(String(inv.client_id)) &&
                 invDate.getFullYear() === year &&

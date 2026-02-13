@@ -216,7 +216,7 @@ async function loadInvoiceDataMRY(invoiceId) {
         // Fill document info
         const docTypeDisplay = invoice.document_type === 'facture' ? 'Facture' : 'Devis';
         document.getElementById('editDocumentTypeMRY').value = docTypeDisplay;
-        document.getElementById('editDocumentDateMRY').value = invoice.document_date ? invoice.document_date.split('T')[0] : '';
+        document.getElementById('editDocumentDateMRY').value = window.safeDateString ? window.safeDateString(invoice.document_date) : (invoice.document_date ? invoice.document_date.split('T')[0] : '');
 
         // Update convert button text
         const convertBtnText = invoice.document_type === 'facture' ? 'Convertir en Devis' : 'Convertir en Facture';
@@ -567,8 +567,8 @@ window.searchClientsEditMRY = function (query) {
     } else {
         const searchTerm = query.toLowerCase().trim();
         filteredClientsEditMRY = allClientsEditMRY.filter(client =>
-            client.nom.toLowerCase().includes(searchTerm) ||
-            client.ice.toLowerCase().includes(searchTerm)
+            (client.nom || '').toLowerCase().includes(searchTerm) ||
+            (client.ice || '').toLowerCase().includes(searchTerm)
         );
     }
     displayClientsListEditMRY();

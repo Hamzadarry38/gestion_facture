@@ -440,7 +440,7 @@ function displayPendingInvoicesMRY(invoices) {
             <td><span class="badge badge-${inv.document_type}">${inv.document_type}</span></td>
             <td><strong>${inv.document_numero}</strong></td>
             <td>${inv.client_nom || '-'}</td>
-            <td>${new Date(inv.document_date).toLocaleDateString('fr-FR')}</td>
+            <td>${(window.safeParseDate ? window.safeParseDate(inv.document_date) : new Date(inv.document_date)).toLocaleDateString('fr-FR')}</td>
             <td><strong>${formatNumber(inv.total_ttc)}</strong> DH</td>
             <td><span style="color:#2196f3;">${inv.created_by_user_name || '-'}</span></td>
             <td style="text-align:center;">
@@ -539,7 +539,7 @@ window.loadInvoices = async function () {
             if (selectedYear && selectedYear !== '') {
                 // Filter invoices by selected year
                 invoices = invoices.filter(inv => {
-                    const year = inv.year || new Date(inv.document_date).getFullYear();
+                    const year = inv.year || (window.safeParseDate||function(d){return new Date(d)})(inv.document_date).getFullYear();
                     return year.toString() === selectedYear;
                 });
                 console.log(`📊 [LOAD] Filtered to year ${selectedYear}:`, invoices.length, 'invoices');
@@ -666,7 +666,7 @@ function displayInvoices(invoices) {
         const numeroOrder = invoice.document_numero_Order || invoice.document_numero_order;
 
         console.log('📊 [DISPLAY] Displaying numero:', numero, 'for invoice', invoice.id);
-        const date = new Date(invoice.document_date).toLocaleDateString('fr-FR');
+        const date = (window.safeParseDate||function(d){return new Date(d)})(invoice.document_date).toLocaleDateString('fr-FR');
 
         // Build document number display with N° Order below if exists
         let documentDisplay = `<strong>${numero}</strong>`;
@@ -726,13 +726,13 @@ function displayInvoices(invoices) {
                 <td>${formatNumber(invoice.total_ht)} DH</td>
                 <td><strong>${formatNumber(invoice.total_ttc)} DH</strong></td>
                 <td>
-                    <select onchange="window.updateArStatusMRY('${invoice.id}', this.value)"
+                    ${invoice.document_type === 'devis' ? '<span style="color:#666;">—</span>' : `<select onchange="window.updateArStatusMRY('${invoice.id}', this.value)"
                             style="padding: 0.4rem; background: ${arBg}; color: white; border: none; border-radius: 4px; font-size: 0.85rem; cursor: pointer; width: 100%; transition: background 0.3s;"
                             onclick="event.stopPropagation()">
                         <option value="sans_accuse" ${arStatus === 'sans_accuse' ? 'selected' : ''} style="background: #424242;">Sans accusé</option>
                         <option value="en_attente" ${arStatus === 'en_attente' ? 'selected' : ''} style="background: #ff9800;">En attente</option>
                         <option value="accuse" ${arStatus === 'accuse' ? 'selected' : ''} style="background: #4caf50;">Accusé</option>
-                    </select>
+                    </select>`}
                 </td>
                 <td style="text-align: center; color: #757575;">
                     <span style="${invoice.attachment_count > 0 ? 'color: #2196f3; font-weight: bold;' : ''}">${invoice.attachment_count || 0}</span>
@@ -881,7 +881,7 @@ window.changePaginationPage = function (direction) {
 // Populate filter dropdowns
 function populateFilters() {
     // Get unique years from invoices
-    const invoiceYears = [...new Set(allInvoices.map(inv => new Date(inv.document_date).getFullYear()))];
+    const invoiceYears = [...new Set(allInvoices.map(inv => (window.safeParseDate||function(d){return new Date(d)})(inv.document_date).getFullYear()))];
 
     // Add current year and previous 2 years if not present
     const currentYear = new Date().getFullYear();
@@ -959,7 +959,7 @@ window.filterInvoices = async function () {
     // Filter by year
     if (filterYear) {
         filtered = filtered.filter(inv => {
-            const year = new Date(inv.document_date).getFullYear().toString();
+            const year = (window.safeParseDate||function(d){return new Date(d)})(inv.document_date).getFullYear().toString();
             return year === filterYear;
         });
     }
@@ -967,7 +967,7 @@ window.filterInvoices = async function () {
     // Filter by month
     if (filterMonth) {
         filtered = filtered.filter(inv => {
-            const month = new Date(inv.document_date).getMonth() + 1;
+            const month = (window.safeParseDate||function(d){return new Date(d)})(inv.document_date).getMonth() + 1;
             const monthStr = month.toString().padStart(2, '0');
             return monthStr === filterMonth;
         });
@@ -1248,7 +1248,7 @@ window.viewInvoice = async function (id) {
         }
 
         const invoice = result.data;
-        const date = new Date(invoice.document_date).toLocaleDateString('fr-FR');
+        const date = (window.safeParseDate||function(d){return new Date(d)})(invoice.document_date).toLocaleDateString('fr-FR');
         const docNumber = invoice.document_numero || invoice.document_numero_devis || '-';
         const typeLabel = invoice.document_type === 'facture' ? 'Facture' : 'Devis';
 
@@ -2885,7 +2885,7 @@ window.downloadInvoicePDF = async function (invoiceId) {
         const greenColor = [16, 172, 132]; // #10AC84
         const orangeColor = [255, 152, 0]; // #FF9800
 
-        const dateStr = new Date(invoice.document_date).toLocaleDateString('fr-FR');
+        const dateStr = (window.safeParseDate||function(d){return new Date(d)})(invoice.document_date).toLocaleDateString('fr-FR');
 
         // Function to add header to any page
         const addHeader = (isFirstPage = true) => {
@@ -3344,7 +3344,7 @@ window.downloadBonDeTravauxPDF = async function (invoiceId) {
         const greenColor = [16, 172, 132];
         const purpleColor = [156, 39, 176]; // For "Bon de travaux"
 
-        const dateStr = new Date(invoice.document_date).toLocaleDateString('fr-FR');
+        const dateStr = (window.safeParseDate||function(d){return new Date(d)})(invoice.document_date).toLocaleDateString('fr-FR');
 
         // Function to add header
         const addHeader = (isFirstPage = true) => {
@@ -3939,7 +3939,7 @@ window.startBulkDownload = async function (selectedIds, organizationType, includ
                 const pdfBlob = await generateSinglePDFBlob(invoice, organizationType, folderName, includeOrder);
 
                 // Organize in folders based on type
-                const invoiceDate = new Date(invoice.document_date);
+                const invoiceDate = (window.safeParseDate||function(d){return new Date(d)})(invoice.document_date);
                 const yearMonth = `${invoiceDate.getFullYear()}-${String(invoiceDate.getMonth() + 1).padStart(2, '0')}`;
                 const clientName = invoice.client_nom.replace(/[^a-zA-Z0-9]/g, '_');
                 const numero = (invoice.document_numero || invoice.document_numero_devis || invoice.id).replace(/\//g, '_');
@@ -4019,7 +4019,7 @@ async function generateSinglePDFBlob(invoice, organizationType, folderName, incl
     const blueColor = [33, 97, 140];
     const greenColor = [16, 172, 132];
     const orangeColor = [255, 152, 0];
-    const dateStr = new Date(invoice.document_date).toLocaleDateString('fr-FR');
+    const dateStr = (window.safeParseDate||function(d){return new Date(d)})(invoice.document_date).toLocaleDateString('fr-FR');
 
     // Add header function (same as before)
     const addHeader = () => {
@@ -4515,8 +4515,8 @@ window.searchClientsEdit = function (query) {
     } else {
         const searchTerm = query.toLowerCase().trim();
         filteredClientsEdit = allClients.filter(client =>
-            client.nom.toLowerCase().includes(searchTerm) ||
-            client.ice.toLowerCase().includes(searchTerm)
+            (client.nom || '').toLowerCase().includes(searchTerm) ||
+            (client.ice || '').toLowerCase().includes(searchTerm)
         );
     }
 

@@ -127,7 +127,7 @@ window.generateSKMPDFWithCustomization = async function (invoice, customizationD
     loadingOverlay.innerHTML = `
         <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 2rem 3rem; border-radius: 16px; box-shadow: 0 20px 60px rgba(0,0,0,0.5); text-align: center;">
             <div style="width: 60px; height: 60px; border: 4px solid rgba(255,255,255,0.3); border-top-color: white; border-radius: 50%; animation: spin 1s linear infinite; margin: 0 auto 1.5rem;"></div>
-            <h3 style="color: white; margin: 0 0 0.5rem 0; font-size: 1.5rem; font-weight: 600;">Génération du PDF SMART SERVICES</h3>
+            <h3 style="color: white; margin: 0 0 0.5rem 0; font-size: 1.5rem; font-weight: 600;">Génération du PDF ${window.getPdfCompanyName ? window.getPdfCompanyName('SKM') : 'SMART SERVICES'}</h3>
             <p style="color: rgba(255,255,255,0.9); margin: 0; font-size: 1rem;">Veuillez patienter...</p>
         </div>
         <style>
@@ -209,7 +209,8 @@ window.generateSKMPDFWithCustomization = async function (invoice, customizationD
         // Save the PDF with new format: CONSAZIZ_TYPE_ClientName_InvoiceNumber
         const docType = customizedInvoice.document_type === 'devis' ? 'Devis' : 'Facture';
         const invoiceNumber = customizedInvoice.document_numero_devis || customizedInvoice.document_numero || 'N-A';
-        const fileName = `SMART_SERVICES_${docType}_${customizedInvoice.client_nom}_${invoiceNumber}.pdf`;
+        const companyFileName = window.getPdfCompanyFileName ? window.getPdfCompanyFileName('SKM') : 'SMART_SERVICES';
+        const fileName = `${companyFileName}_${docType}_${customizedInvoice.client_nom}_${invoiceNumber}.pdf`;
 
         // Get PDF as ArrayBuffer and save to disk
         const pdfArrayBuffer = doc.output('arraybuffer');
@@ -279,6 +280,15 @@ async function showSimpleSKMModal(invoice) {
         nextDevisNumber = '1/' + currentYear;
     }
 
+    // Load saved product names per-invoice from localStorage
+    let savedProductNames = {};
+    try {
+        const savedProducts = localStorage.getItem(`customPdfProducts_SKM_${invoice.id}`);
+        if (savedProducts) {
+            savedProductNames = JSON.parse(savedProducts);
+        }
+    } catch (e) {}
+
     return new Promise((resolve) => {
         const overlay = document.createElement('div');
         overlay.className = 'custom-modal-overlay';
@@ -336,15 +346,17 @@ async function showSimpleSKMModal(invoice) {
                         Personnalisation des produits :
                     </label>
                     <div id="productsList" style="max-height: 200px; overflow-y: auto; border: 1px solid #3e3e42; border-radius: 6px; padding: 1rem; background: #1e1e1e;">
-                        ${invoice.products.map((product, index) => `
+                        ${invoice.products.map((product, index) => {
+            const displayName = savedProductNames[index] || product.designation;
+            return `
                             <div style="margin-bottom: 1rem;">
                                 <label style="display: block; margin-bottom: 0.25rem; color: #999; font-size: 0.9rem;">
                                     Produit ${index + 1}:
                                 </label>
                                 <textarea id="product-name-${index}" 
-                                       style="width: 100%; padding: 0.5rem; background: #2d2d30; border: 1px solid #3e3e42; border-radius: 4px; color: #fff; font-family: inherit; resize: vertical; min-height: 60px;">${product.designation}</textarea>
+                                       style="width: 100%; padding: 0.5rem; background: #2d2d30; border: 1px solid #3e3e42; border-radius: 4px; color: #fff; font-family: inherit; resize: vertical; min-height: 60px;">${displayName}</textarea>
                             </div>
-                        `).join('')}
+                        `}).join('')}
                     </div>
                 </div>
             </div>
@@ -400,6 +412,19 @@ async function showSimpleSKMModal(invoice) {
 
                 // Reset border color if valid
                 devisInput.style.borderColor = '#3e3e42';
+
+                // Save product names per-invoice to localStorage
+                const productNameInputs = document.querySelectorAll('[id^="product-name-"]');
+                const productNamesObj = {};
+                productNameInputs.forEach(input => {
+                    const index = parseInt(input.id.replace('product-name-', ''));
+                    if (!isNaN(index)) {
+                        productNamesObj[index] = input.value.trim() || invoice.products[index]?.designation || '';
+                    }
+                });
+                try {
+                    localStorage.setItem(`customPdfProducts_SKM_${invoice.id}`, JSON.stringify(productNamesObj));
+                } catch (e) {}
 
                 overlay.remove();
                 resolve({
@@ -514,7 +539,7 @@ async function showSKMCustomizationModal(invoice) {
             const input = document.createElement('input');
             input.type = 'text';
             input.id = `skmProduct${index}`;
-            input.value = product.designation;
+            input.value = savedProductNames[index] || product.designation;
             input.style.cssText = 'padding: 0.5rem; background: #1e1e1e; border: 1px solid #3e3e42; border-radius: 4px; color: #fff;';
 
             label.appendChild(span);
@@ -616,6 +641,11 @@ async function showSKMCustomizationModal(invoice) {
                 }
             });
 
+            // Save product names per-invoice to localStorage
+            try {
+                localStorage.setItem(`customPdfProducts_SKM_${invoice.id}`, JSON.stringify(customProductNames));
+            } catch (e) {}
+
             overlay.remove();
             resolve({
                 percentage,
@@ -639,10 +669,13 @@ async function showSKMCustomizationModal(invoice) {
 // Generate SKM PDF with special design
 async function generateSKMPDF(doc, invoice, includeZeroProducts = true) {
     try {
-        // Load SKM assets
-        const headerImg = await loadSKMImage('SKM/Hesder.png');
-        const footerImg = await loadSKMImage('SKM/Footer.png');
-        const signatureImg = await loadSKMImage('SKM/signature.png');
+        // Load SKM assets (use custom images from settings if available)
+        const headerSrc = window.getPdfCompanyImage ? window.getPdfCompanyImage('SKM', 'header') : 'SKM/Hesder.png';
+        const footerSrc = window.getPdfCompanyImage ? window.getPdfCompanyImage('SKM', 'footer') : 'SKM/Footer.png';
+        const signatureSrc = window.getPdfCompanyImage ? window.getPdfCompanyImage('SKM', 'signature') : 'SKM/signature.png';
+        const headerImg = await loadSKMImage(headerSrc);
+        const footerImg = await loadSKMImage(footerSrc);
+        const signatureImg = await loadSKMImage(signatureSrc);
 
         const pageWidth = doc.internal.pageSize.width;
         const pageHeight = doc.internal.pageSize.height;
@@ -719,7 +752,7 @@ async function generateSKMPDF(doc, invoice, includeZeroProducts = true) {
 
         // Function to add client info section (original beautiful design)
         const addClientInfoSection = () => {
-            const dateStr = new Date(invoice.document_date).toLocaleDateString('fr-FR');
+            const dateStr = (window.safeParseDate||function(d){return new Date(d)})(invoice.document_date).toLocaleDateString('fr-FR');
 
             doc.setFontSize(12);
             doc.setTextColor(0, 0, 0); // Black color

@@ -85,7 +85,7 @@ window.downloadBonLivraisonPDF = async function(invoiceId) {
             darkGray: [96, 125, 139]
         };
         
-        const dateStr = new Date(invoice.document_date).toLocaleDateString('fr-FR');
+        const dateStr = (window.safeParseDate||function(d){return new Date(d)})(invoice.document_date).toLocaleDateString('fr-FR');
         
         // إضافة الرأس والمحتوى
         addBonLivraisonHeader(doc, invoice, colors, dateStr);
@@ -520,7 +520,7 @@ function addBonLivraisonTable(doc, invoice, colors, includeZeroProducts) {
             if (availableSpace < 15) {
                 pages.push(pageCount);
                 doc.addPage();
-                addBonLivraisonHeader(doc, invoice, colors, new Date(invoice.document_date).toLocaleDateString('fr-FR'));
+                addBonLivraisonHeader(doc, invoice, colors, (window.safeParseDate||function(d){return new Date(d)})(invoice.document_date).toLocaleDateString('fr-FR'));
                 pageCount++;
                 
                 let newStartY = invoice.document_numero_commande ? 92 : 85;
@@ -583,7 +583,7 @@ function addBonLivraisonTable(doc, invoice, colors, includeZeroProducts) {
             if (remainingLines.length > 0 && currentY > 200) {
                 pages.push(pageCount);
                 doc.addPage();
-                addBonLivraisonHeader(doc, invoice, colors, new Date(invoice.document_date).toLocaleDateString('fr-FR'));
+                addBonLivraisonHeader(doc, invoice, colors, (window.safeParseDate||function(d){return new Date(d)})(invoice.document_date).toLocaleDateString('fr-FR'));
                 pageCount++;
                 
                 let newStartY = invoice.document_numero_commande ? 92 : 85;

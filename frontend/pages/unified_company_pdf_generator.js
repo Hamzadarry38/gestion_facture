@@ -52,11 +52,36 @@ async function loadCompanyImage(path) {
     });
 }
 
-// Show company selection modal
+// Show company selection modal (dynamic - only enabled companies)
 window.showCompanySelectionModal = function (invoiceId, sourceCompany) {
     return new Promise((resolve) => {
         const overlay = document.createElement('div');
         overlay.className = 'custom-modal-overlay';
+
+        // Get enabled companies dynamically
+        const enabledCompanies = window.getEnabledCompanies ? window.getEnabledCompanies() : [
+            { code: 'SKM', name: 'SMART SERVICES', color: '#FF9800' },
+            { code: 'SAAISS', name: 'MSH3 SERVICES', color: '#9C27B0' },
+            { code: 'BENALI', name: 'BEN ALI', color: '#4CAF50' }
+        ];
+
+        // Build company buttons dynamically
+        const cols = enabledCompanies.length <= 3 ? enabledCompanies.length : 3;
+        let buttonsHtml = '';
+        enabledCompanies.forEach(c => {
+            const displayName = window.getPdfCompanyName ? window.getPdfCompanyName(c.code) : c.name;
+            buttonsHtml += `
+                <button class="company-select-btn" data-company="${c.code}" style="
+                    background: linear-gradient(135deg, ${c.color}, ${c.color}dd);
+                    border: none; border-radius: 12px; padding: 1.5rem 1rem; cursor: pointer;
+                    transition: all 0.3s; display: flex; flex-direction: column; align-items: center; gap: 0.5rem;
+                " onmouseover="this.style.transform='scale(1.05)'; this.style.boxShadow='0 8px 25px ${c.color}66'"
+                   onmouseout="this.style.transform='scale(1)'; this.style.boxShadow='none'">
+                    <span style="font-size: 2rem;">🏭</span>
+                    <span style="color: #fff; font-weight: 700; font-size: 0.85rem;">${displayName}</span>
+                </button>
+            `;
+        });
 
         overlay.innerHTML = `
             <div class="custom-modal" style="max-width: 500px;">
@@ -68,60 +93,8 @@ window.showCompanySelectionModal = function (invoiceId, sourceCompany) {
                     <p style="margin-bottom: 1.5rem; color: #b0b0b0; font-size: 0.95rem; text-align: center;">
                         Choisissez la société pour générer le PDF :
                     </p>
-                    <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 1rem;">
-                        <button id="selectSKM" class="company-select-btn" style="
-                            background: linear-gradient(135deg, #FF9800, #F57C00);
-                            border: none;
-                            border-radius: 12px;
-                            padding: 1.5rem 1rem;
-                            cursor: pointer;
-                            transition: all 0.3s;
-                            display: flex;
-                            flex-direction: column;
-                            align-items: center;
-                            gap: 0.5rem;
-                        " onmouseover="this.style.transform='scale(1.05)'; this.style.boxShadow='0 8px 25px rgba(255,152,0,0.4)'" 
-                           onmouseout="this.style.transform='scale(1)'; this.style.boxShadow='none'">
-                            <span style="font-size: 2rem;">🏭</span>
-                            <span style="color: #fff; font-weight: 700; font-size: 0.9rem;">SMART</span>
-                            <span style="color: rgba(255,255,255,0.8); font-size: 0.7rem;">SERVICES</span>
-                        </button>
-                        
-                        <button id="selectSAAISS" class="company-select-btn" style="
-                            background: linear-gradient(135deg, #9C27B0, #7B1FA2);
-                            border: none;
-                            border-radius: 12px;
-                            padding: 1.5rem 1rem;
-                            cursor: pointer;
-                            transition: all 0.3s;
-                            display: flex;
-                            flex-direction: column;
-                            align-items: center;
-                            gap: 0.5rem;
-                        " onmouseover="this.style.transform='scale(1.05)'; this.style.boxShadow='0 8px 25px rgba(156,39,176,0.4)'" 
-                           onmouseout="this.style.transform='scale(1)'; this.style.boxShadow='none'">
-                            <span style="font-size: 2rem;">🏭</span>
-                            <span style="color: #fff; font-weight: 700; font-size: 0.8rem;">MSH3</span>
-                            <span style="color: rgba(255,255,255,0.8); font-size: 0.7rem;">SERVICES</span>
-                        </button>
-                        
-                        <button id="selectBENALI" class="company-select-btn" style="
-                            background: linear-gradient(135deg, #4CAF50, #388E3C);
-                            border: none;
-                            border-radius: 12px;
-                            padding: 1.5rem 1rem;
-                            cursor: pointer;
-                            transition: all 0.3s;
-                            display: flex;
-                            flex-direction: column;
-                            align-items: center;
-                            gap: 0.5rem;
-                        " onmouseover="this.style.transform='scale(1.05)'; this.style.boxShadow='0 8px 25px rgba(76,175,80,0.4)'" 
-                           onmouseout="this.style.transform='scale(1)'; this.style.boxShadow='none'">
-                            <span style="font-size: 2rem;">🏭</span>
-                            <span style="color: #fff; font-weight: 700; font-size: 0.9rem;">BEN ALI</span>
-                            <span style="color: rgba(255,255,255,0.8); font-size: 0.7rem;"> </span>
-                        </button>
+                    <div style="display: grid; grid-template-columns: repeat(${cols}, 1fr); gap: 1rem;">
+                        ${buttonsHtml}
                     </div>
                 </div>
                 <div class="custom-modal-footer" style="justify-content: center;">
@@ -132,20 +105,13 @@ window.showCompanySelectionModal = function (invoiceId, sourceCompany) {
 
         document.body.appendChild(overlay);
 
-        // Event handlers
-        document.getElementById('selectSKM').addEventListener('click', () => {
-            overlay.remove();
-            resolve({ company: 'SKM', invoiceId, sourceCompany });
-        });
-
-        document.getElementById('selectSAAISS').addEventListener('click', () => {
-            overlay.remove();
-            resolve({ company: 'SAAISS', invoiceId, sourceCompany });
-        });
-
-        document.getElementById('selectBENALI').addEventListener('click', () => {
-            overlay.remove();
-            resolve({ company: 'BENALI', invoiceId, sourceCompany });
+        // Event handlers for all company buttons
+        overlay.querySelectorAll('.company-select-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const companyCode = btn.dataset.company;
+                overlay.remove();
+                resolve({ company: companyCode, invoiceId, sourceCompany });
+            });
         });
 
         document.getElementById('cancelCompanySelect').addEventListener('click', () => {
@@ -201,6 +167,9 @@ window.downloadAsOtherCompany = async function (invoiceId, sourceDb) {
         } else if (selection.company === 'BENALI') {
             // BEN ALI (new)
             await generateBenAliPDF(invoiceId, sourceDb);
+        } else {
+            // Custom company - use generic PDF generation
+            await generateCustomCompanyPDF(invoiceId, sourceDb, selection.company);
         }
 
     } catch (error) {
@@ -211,18 +180,13 @@ window.downloadAsOtherCompany = async function (invoiceId, sourceDb) {
 
 // Create a loading overlay for PDF generation
 function createPDFLoadingOverlay(companyCode) {
-    const companyNames = {
-        'SKM': 'SMART SERVICES',
-        'SAAISS': 'MSH3 SERVICES',
-        'BENALI': 'BEN ALI'
-    };
-    const companyColors = {
-        'SKM': '#FF9800',
-        'SAAISS': '#9C27B0',
-        'BENALI': '#4CAF50'
-    };
-    const name = companyNames[companyCode] || companyCode;
-    const color = companyColors[companyCode] || '#2196F3';
+    const name = window.getPdfCompanyName ? window.getPdfCompanyName(companyCode) : companyCode;
+    // Get color dynamically from company list
+    let color = '#2196F3';
+    if (window.getAllPdfCompanies) {
+        const comp = window.getAllPdfCompanies().find(c => c.code === companyCode);
+        if (comp) color = comp.color;
+    }
 
     const overlay = document.createElement('div');
     overlay.id = 'pdfLoadingOverlay';
@@ -324,7 +288,7 @@ async function generateBenAliPDF(invoiceId, sourceDb) {
                         Génération du PDF en cours...
                     </div>
                     <div style="color: #4CAF50; font-size: 0.95rem; font-weight: 700;">
-                        🏭 BEN ALI
+                        🏭 ${window.getPdfCompanyName ? window.getPdfCompanyName('BENALI') : 'BEN ALI'}
                     </div>
                 </div>
                 <style>
@@ -396,7 +360,8 @@ async function generateBenAliPDF(invoiceId, sourceDb) {
             // Save the PDF
             const docType = customizedInvoice.document_type === 'devis' ? 'Devis' : 'Facture';
             const invoiceNumber = customizedInvoice.document_numero_devis || customizedInvoice.document_numero || 'N-A';
-            const fileName = `BENALI_${docType}_${customizedInvoice.client_nom}_${invoiceNumber}.pdf`;
+            const companyFileName = window.getPdfCompanyFileName ? window.getPdfCompanyFileName('BENALI') : 'BENALI';
+            const fileName = `${companyFileName}_${docType}_${customizedInvoice.client_nom}_${invoiceNumber}.pdf`;
 
             // Get PDF as ArrayBuffer and save to backend
             const pdfArrayBuffer = doc.output('arraybuffer');
@@ -426,7 +391,7 @@ async function generateBenAliPDF(invoiceId, sourceDb) {
 
                 // Also download in browser
                 doc.save(fileName);
-                window.notify.success('Succès', `PDF BEN ALI généré et sauvegardé en ligne: ${fileName}`, 3000);
+                window.notify.success('Succès', `PDF ${window.getPdfCompanyName ? window.getPdfCompanyName('BENALI') : 'BEN ALI'} généré et sauvegardé en ligne: ${fileName}`, 3000);
             } else {
                 console.error('❌ Error uploading BEN ALI PDF to server:', uploadResult.error);
 
@@ -454,7 +419,7 @@ async function generateBenAliPDF(invoiceId, sourceDb) {
 
     } catch (error) {
         console.error('❌ Error generating BEN ALI PDF:', error);
-        window.notify.error('Erreur', 'Impossible de générer le PDF BEN ALI: ' + error.message, 4000);
+        window.notify.error('Erreur', `Impossible de générer le PDF ${window.getPdfCompanyName ? window.getPdfCompanyName('BENALI') : 'BEN ALI'}: ` + error.message, 4000);
     }
 }
 
@@ -505,16 +470,21 @@ async function showBenAliModal(invoice) {
         nextDevisNumber = '1/' + currentYear;
     }
 
-    // Load last saved settings from PostgreSQL
+    // Load last saved settings (percentage from PostgreSQL, product names per-invoice from localStorage)
     let savedPercentage = '';
     let savedProductNames = {};
     try {
         const settingsResult = await window.electron.dbBenAli.getPdfSettings();
         if (settingsResult && settingsResult.success && settingsResult.data) {
             savedPercentage = settingsResult.data.percentage || '';
-            savedProductNames = settingsResult.data.product_names || {};
         }
     } catch (e) { console.warn('Could not load BEN ALI settings:', e); }
+    try {
+        const savedProducts = localStorage.getItem(`customPdfProducts_BENALI_${invoice.id}`);
+        if (savedProducts) {
+            savedProductNames = JSON.parse(savedProducts);
+        }
+    } catch (e) {}
 
     return new Promise((resolve) => {
         const overlay = document.createElement('div');
@@ -541,7 +511,7 @@ async function showBenAliModal(invoice) {
             <div class="custom-modal" style="max-width: 600px; max-height: 80vh; display: flex; flex-direction: column;">
                 <div class="custom-modal-header" style="background: linear-gradient(135deg, #4CAF50, #388E3C);">
                     <span class="custom-modal-icon info">🎨</span>
-                    <h3 class="custom-modal-title" style="color: #fff;">PDF BEN ALI - Personnalisation</h3>
+                    <h3 class="custom-modal-title" style="color: #fff;">PDF ${window.getPdfCompanyName ? window.getPdfCompanyName('BENALI') : 'BEN ALI'} - Personnalisation</h3>
                     <div style="position: absolute; top: 1rem; right: 1rem; background: rgba(255,255,255,0.2); color: #fff; padding: 0.4rem 0.8rem; border-radius: 4px; font-size: 0.85rem; font-weight: 600;">
                         🏢 Créé par: <strong>${companyName}</strong>
                     </div>
@@ -587,7 +557,7 @@ async function showBenAliModal(invoice) {
                 </div>
                 <div class="custom-modal-footer">
                     <button id="benaliCancelBtn" class="custom-modal-btn secondary">Annuler</button>
-                    <button id="benaliGenerateBtn" class="custom-modal-btn primary" style="background: linear-gradient(135deg, #4CAF50, #388E3C);">Générer PDF BEN ALI</button>
+                    <button id="benaliGenerateBtn" class="custom-modal-btn primary" style="background: linear-gradient(135deg, #4CAF50, #388E3C);">Générer PDF ${window.getPdfCompanyName ? window.getPdfCompanyName('BENALI') : 'BEN ALI'}</button>
                 </div>
             </div>
         `;
@@ -649,10 +619,13 @@ async function showBenAliModal(invoice) {
                     }
                 });
 
-                // Save settings to PostgreSQL for next time
+                // Save settings: percentage to PostgreSQL, product names per-invoice to localStorage
                 try {
-                    await window.electron.dbBenAli.savePdfSettings(percentage, modifiedProducts);
+                    await window.electron.dbBenAli.savePdfSettings(percentage, {});
                 } catch (e) { console.warn('Could not save BEN ALI settings:', e); }
+                try {
+                    localStorage.setItem(`customPdfProducts_BENALI_${invoice.id}`, JSON.stringify(modifiedProducts));
+                } catch (e) {}
 
                 overlay.remove();
                 resolve({ percentage, customDate, customDevisNumber, modifiedProducts });
@@ -676,10 +649,13 @@ async function showBenAliModal(invoice) {
 async function generateBenAliPDFContent(doc, invoice) {
     const config = COMPANY_CONFIGS.BENALI;
 
-    // Load BEN ALI assets
-    const headerImg = await loadCompanyImage(config.headerPath);
-    const footerImg = await loadCompanyImage(config.footerPath);
-    const signatureImg = await loadCompanyImage(config.signaturePath);
+    // Load BEN ALI assets (use custom images from settings if available)
+    const headerSrc = window.getPdfCompanyImage ? window.getPdfCompanyImage('BENALI', 'header') : config.headerPath;
+    const footerSrc = window.getPdfCompanyImage ? window.getPdfCompanyImage('BENALI', 'footer') : config.footerPath;
+    const signatureSrc = window.getPdfCompanyImage ? window.getPdfCompanyImage('BENALI', 'signature') : config.signaturePath;
+    const headerImg = await loadCompanyImage(headerSrc);
+    const footerImg = await loadCompanyImage(footerSrc);
+    const signatureImg = await loadCompanyImage(signatureSrc);
 
     const pageWidth = doc.internal.pageSize.width;
     const pageHeight = doc.internal.pageSize.height;
@@ -724,7 +700,7 @@ async function generateBenAliPDFContent(doc, invoice) {
 
     // Function to add client/invoice header info
     const addInfoSection = () => {
-        const dateStr = new Date(invoice.document_date).toLocaleDateString('fr-FR');
+        const dateStr = (window.safeParseDate||function(d){return new Date(d)})(invoice.document_date).toLocaleDateString('fr-FR');
 
         doc.setFontSize(12);
         doc.setTextColor(0, 0, 0);
@@ -924,6 +900,535 @@ async function generateBenAliPDFContent(doc, invoice) {
     doc.text(parseFloat(invoice.total_ttc).toFixed(2) + ' DH', totalsX + 62, currentY + 5, { align: 'right' });
 
     // Add footer to all pages
+    const totalPages = pageCount;
+    for (let i = 1; i <= totalPages; i++) {
+        doc.setPage(i);
+        addFooter(i, totalPages);
+    }
+}
+
+// ==========================================
+// Generic Custom Company PDF Generation
+// ==========================================
+
+// Generate PDF for any custom company
+async function generateCustomCompanyPDF(invoiceId, sourceDb, companyCode) {
+    const companyName = window.getPdfCompanyName ? window.getPdfCompanyName(companyCode) : companyCode;
+    const allCompanies = window.getAllPdfCompanies ? window.getAllPdfCompanies() : [];
+    const companyData = allCompanies.find(c => c.code === companyCode);
+    const companyColor = companyData ? companyData.color : '#2196F3';
+
+    try {
+        console.log(`📥 Generating ${companyCode} PDF for invoice:`, invoiceId);
+
+        // Get invoice data from source database
+        let result;
+        if (sourceDb === 'multi' && window.electron.dbMulti) {
+            result = await window.electron.dbMulti.getInvoiceById(invoiceId);
+        } else if (sourceDb === 'chaimae' && window.electron.dbChaimae) {
+            result = await window.electron.dbChaimae.getInvoiceById(invoiceId);
+        } else if (window.electron.db) {
+            result = await window.electron.db.getInvoiceById(invoiceId);
+        } else {
+            throw new Error('Base de données non disponible');
+        }
+
+        if (!result.success || !result.data) {
+            throw new Error('Document introuvable');
+        }
+
+        const invoice = result.data;
+
+        if (invoice.document_type !== 'devis') {
+            window.notify.warning('Type incorrect', 'Cette fonction est disponible uniquement pour les devis.', 4000);
+            return;
+        }
+
+        // Show customization modal
+        const customizationData = await showCustomCompanyModal(invoice, companyCode, companyName, companyColor);
+        if (!customizationData) {
+            console.log(`❌ User cancelled ${companyCode} PDF generation`);
+            return;
+        }
+
+        // Show loading overlay
+        let loadingOverlay = null;
+        try {
+            loadingOverlay = createPDFLoadingOverlay(companyCode);
+            document.body.appendChild(loadingOverlay);
+        } catch (e) {
+            console.warn('Could not show loading overlay:', e);
+        }
+
+        try {
+            if (typeof window.jspdf === 'undefined') {
+                await loadJsPDF();
+            }
+
+            const { jsPDF } = window.jspdf;
+            const doc = new jsPDF();
+
+            // Apply customizations
+            const customizedInvoice = { ...invoice };
+
+            if (customizationData.percentage && customizationData.percentage > 0) {
+                customizedInvoice.products = customizedInvoice.products.map(product => ({
+                    ...product,
+                    prix_unitaire_ht: parseFloat(product.prix_unitaire_ht) * (1 + customizationData.percentage / 100),
+                    total_ht: parseFloat(product.total_ht) * (1 + customizationData.percentage / 100)
+                }));
+
+                const newTotalHT = customizedInvoice.products.reduce((sum, p) => sum + parseFloat(p.total_ht), 0);
+                const newMontantTVA = newTotalHT * (parseFloat(customizedInvoice.tva_rate) / 100);
+                const newTotalTTC = newTotalHT + newMontantTVA;
+
+                customizedInvoice.total_ht = newTotalHT;
+                customizedInvoice.montant_tva = newMontantTVA;
+                customizedInvoice.total_ttc = newTotalTTC;
+            }
+
+            if (customizationData.customDate) {
+                customizedInvoice.document_date = customizationData.customDate;
+            }
+            if (customizationData.customDevisNumber) {
+                customizedInvoice.document_numero_devis = customizationData.customDevisNumber;
+            }
+
+            if (customizationData.modifiedProducts) {
+                customizedInvoice.products = customizedInvoice.products.map((product, index) => ({
+                    ...product,
+                    designation: customizationData.modifiedProducts[index] || product.designation
+                }));
+            }
+
+            // Generate PDF content with dynamic company color
+            await generateGenericPDFContent(doc, customizedInvoice, companyCode, companyColor);
+
+            // Save the PDF
+            const docType = customizedInvoice.document_type === 'devis' ? 'Devis' : 'Facture';
+            const invoiceNumber = customizedInvoice.document_numero_devis || customizedInvoice.document_numero || 'N-A';
+            const companyFileName = window.getPdfCompanyFileName ? window.getPdfCompanyFileName(companyCode) : companyCode;
+            const fileName = `${companyFileName}_${docType}_${customizedInvoice.client_nom}_${invoiceNumber}.pdf`;
+
+            // Try to upload to server
+            const pdfArrayBuffer = doc.output('arraybuffer');
+            const pdfUint8Array = new Uint8Array(pdfArrayBuffer);
+
+            const selectedCompany = JSON.parse(localStorage.getItem('selectedCompany') || '{}');
+            const createdBy = selectedCompany.code || selectedCompany.name || 'Unknown';
+
+            let uploaded = false;
+            try {
+                console.log(`☁️ Uploading ${companyCode} PDF to server...`);
+                const uploadResult = await window.electron.dbSmartS.uploadPdf(pdfUint8Array, fileName);
+                if (uploadResult.success) {
+                    console.log(`✅ ${companyCode} PDF uploaded to server:`, uploadResult.filePath);
+                    uploaded = true;
+                    doc.save(fileName);
+                    window.notify.success('Succès', `PDF ${companyName} généré et sauvegardé: ${fileName}`, 3000);
+                }
+            } catch (e) {
+                console.warn(`Could not upload ${companyCode} PDF:`, e);
+            }
+
+            if (!uploaded) {
+                // Fallback: save locally
+                const saveFolder = companyCode.toLowerCase();
+                const pdfUint8ArrayFallback = new Uint8Array(doc.output('arraybuffer'));
+
+                try {
+                    const saveResult = await window.electron.pdf.savePdf(pdfUint8ArrayFallback, saveFolder, invoiceNumber, createdBy);
+                    if (saveResult.success) {
+                        window.notify.warning('Mode Hors Ligne', 'Le PDF a été sauvegardé localement.', 4000);
+                    }
+                } catch (e) {
+                    console.warn('Local save failed:', e);
+                }
+                doc.save(fileName);
+            }
+
+        } finally {
+            if (loadingOverlay && loadingOverlay.parentNode) {
+                loadingOverlay.remove();
+            }
+        }
+
+    } catch (error) {
+        console.error(`❌ Error generating ${companyCode} PDF:`, error);
+        window.notify.error('Erreur', `Impossible de générer le PDF ${companyName}: ` + error.message, 4000);
+    }
+}
+
+// Show customization modal for any custom company
+function showCustomCompanyModal(invoice, companyCode, companyName, companyColor) {
+    return new Promise((resolve) => {
+        const overlay = document.createElement('div');
+        overlay.className = 'custom-modal-overlay';
+
+        const selectedCompany = JSON.parse(localStorage.getItem('selectedCompany') || '{}');
+        const creatorName = selectedCompany.name || 'Inconnue';
+
+        // Load saved settings from localStorage (percentage is per-company, product names are per-invoice)
+        let savedPercentage = '';
+        let savedProductNames = {};
+        try {
+            const saved = localStorage.getItem(`customPdfSettings_${companyCode}`);
+            if (saved) {
+                const parsed = JSON.parse(saved);
+                savedPercentage = parsed.percentage || '';
+            }
+        } catch (e) {}
+        try {
+            const savedProducts = localStorage.getItem(`customPdfProducts_${companyCode}_${invoice.id}`);
+            if (savedProducts) {
+                savedProductNames = JSON.parse(savedProducts);
+            }
+        } catch (e) {}
+
+        const currentYear = new Date().getFullYear();
+
+        // Generate product inputs
+        const productsHtml = invoice.products.map((product, index) => {
+            const displayName = savedProductNames[index] || product.designation || '';
+            return `
+            <div style="margin-bottom: 0.5rem;">
+                <label style="display: block; margin-bottom: 0.2rem; color: #aaa; font-size: 0.8rem;">
+                    Produit ${index + 1}: Quantité: ${product.quantite}
+                </label>
+                <textarea class="product-name-input" data-index="${index}"
+                       style="width: 100%; padding: 0.5rem; background: #2d2d30; border: 1px solid #3e3e42; border-radius: 4px; color: #fff; font-size: 0.9rem; resize: vertical; min-height: 40px;"
+                       placeholder="Nom du produit">${displayName}</textarea>
+            </div>
+        `}).join('');
+
+        overlay.innerHTML = `
+            <div class="custom-modal" style="max-width: 600px; max-height: 80vh; display: flex; flex-direction: column;">
+                <div class="custom-modal-header" style="background: linear-gradient(135deg, ${companyColor}, ${companyColor}cc);">
+                    <span class="custom-modal-icon info">🎨</span>
+                    <h3 class="custom-modal-title" style="color: #fff;">PDF ${companyName} - Personnalisation</h3>
+                    <div style="position: absolute; top: 1rem; right: 1rem; background: rgba(255,255,255,0.2); color: #fff; padding: 0.4rem 0.8rem; border-radius: 4px; font-size: 0.85rem; font-weight: 600;">
+                        🏢 Créé par: <strong>${creatorName}</strong>
+                    </div>
+                </div>
+                <div class="custom-modal-body" style="overflow-y: auto; flex: 1; max-height: calc(80vh - 140px);">
+                    <div style="margin-bottom: 1.5rem;">
+                        <label style="display: block; margin-bottom: 0.5rem; color: #e0e0e0; font-weight: 600;">
+                            Pourcentage d'ajustement (%) :
+                        </label>
+                        <input type="number" id="customPercentageInput" placeholder="0" min="0" max="100" step="0.1" value="${savedPercentage}"
+                               style="width: 100%; padding: 0.75rem; background: #2d2d30; border: 1px solid #3e3e42; border-radius: 6px; color: #fff; font-size: 1rem;">
+                        <small style="color: #888; display: block; margin-top: 0.3rem;">Ce pourcentage sera appliqué aux prix mais ne sera pas visible dans le PDF</small>
+                    </div>
+                    
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1.5rem;">
+                        <div>
+                            <label style="display: block; margin-bottom: 0.5rem; color: #e0e0e0; font-weight: 600;">
+                                Date personnalisée :
+                            </label>
+                            <input type="date" id="customDateInput" value="${new Date().toISOString().slice(0, 10)}"
+                                   style="width: 100%; padding: 0.75rem; background: #2d2d30; border: 1px solid #3e3e42; border-radius: 6px; color: #fff; font-size: 1rem;">
+                        </div>
+                        <div>
+                            <label style="display: block; margin-bottom: 0.5rem; color: #e0e0e0; font-weight: 600;">
+                                N° Devis personnalisé :
+                            </label>
+                            <input type="text" id="customDevisInput" value="1/${currentYear}" placeholder="1/${currentYear}"
+                                   style="width: 100%; padding: 0.75rem; background: #2d2d30; border: 1px solid #3e3e42; border-radius: 6px; color: #fff; font-size: 1rem;">
+                        </div>
+                    </div>
+
+                    <div style="margin-top: 1.5rem;">
+                        <label style="display: block; margin-bottom: 0.5rem; color: #e0e0e0; font-weight: 600;">
+                            Modifier les noms des produits :
+                        </label>
+                        <div style="background: #252526; padding: 1rem; border-radius: 6px; max-height: 200px; overflow-y: auto; border: 1px solid #3e3e42;">
+                            ${productsHtml}
+                        </div>
+                    </div>
+                </div>
+                <div class="custom-modal-footer">
+                    <button id="customCancelBtn" class="custom-modal-btn secondary">Annuler</button>
+                    <button id="customGenerateBtn" class="custom-modal-btn primary" style="background: linear-gradient(135deg, ${companyColor}, ${companyColor}cc);">Générer PDF ${companyName}</button>
+                </div>
+            </div>
+        `;
+
+        document.body.appendChild(overlay);
+
+        const devisInput = document.getElementById('customDevisInput');
+
+        devisInput.addEventListener('blur', () => {
+            let value = devisInput.value.trim();
+            if (value && !value.includes('/')) {
+                devisInput.value = value + '/' + currentYear;
+            }
+        });
+
+        document.getElementById('customCancelBtn').addEventListener('click', () => {
+            overlay.remove();
+            resolve(null);
+        });
+
+        document.getElementById('customGenerateBtn').addEventListener('click', () => {
+            const percentage = parseFloat(document.getElementById('customPercentageInput').value) || 0;
+            const customDate = document.getElementById('customDateInput').value;
+            const customDevisNumber = devisInput.value.trim();
+
+            if (!customDevisNumber) {
+                window.notify.warning('Champ requis', 'Veuillez saisir un numéro de Devis.');
+                devisInput.focus();
+                return;
+            }
+
+            // Collect product names
+            const productNameInputs = document.querySelectorAll('.product-name-input');
+            const modifiedProducts = {};
+            productNameInputs.forEach(input => {
+                const indexStr = input.getAttribute('data-index');
+                if (indexStr !== null) {
+                    const index = parseInt(indexStr);
+                    if (!isNaN(index) && invoice.products[index]) {
+                        modifiedProducts[index] = input.value.trim() || invoice.products[index].designation;
+                    }
+                }
+            });
+
+            // Save settings to localStorage for next time (percentage per-company, product names per-invoice)
+            try {
+                localStorage.setItem(`customPdfSettings_${companyCode}`, JSON.stringify({
+                    percentage: percentage
+                }));
+                localStorage.setItem(`customPdfProducts_${companyCode}_${invoice.id}`, JSON.stringify(modifiedProducts));
+            } catch (e) {}
+
+            overlay.remove();
+            resolve({ percentage, customDate, customDevisNumber, modifiedProducts });
+        });
+
+        overlay.addEventListener('click', (e) => {
+            if (e.target === overlay) {
+                overlay.remove();
+                resolve(null);
+            }
+        });
+    });
+}
+
+// Generate PDF content for any company (generic version)
+async function generateGenericPDFContent(doc, invoice, companyCode, companyColor) {
+    // Load company assets
+    const headerSrc = window.getPdfCompanyImage ? window.getPdfCompanyImage(companyCode, 'header') : null;
+    const footerSrc = window.getPdfCompanyImage ? window.getPdfCompanyImage(companyCode, 'footer') : null;
+    const signatureSrc = window.getPdfCompanyImage ? window.getPdfCompanyImage(companyCode, 'signature') : null;
+    const headerImg = headerSrc ? await loadCompanyImage(headerSrc) : null;
+    const footerImg = footerSrc ? await loadCompanyImage(footerSrc) : null;
+    const signatureImg = signatureSrc ? await loadCompanyImage(signatureSrc) : null;
+
+    // Parse company color to RGB
+    const hexToRgb = (hex) => {
+        const r = parseInt(hex.slice(1, 3), 16);
+        const g = parseInt(hex.slice(3, 5), 16);
+        const b = parseInt(hex.slice(5, 7), 16);
+        return [r, g, b];
+    };
+    const [cr, cg, cb] = hexToRgb(companyColor);
+    const [dr, dg, db] = [Math.max(0, cr - 30), Math.max(0, cg - 30), Math.max(0, cb - 30)]; // darker variant
+
+    const pageWidth = doc.internal.pageSize.width;
+    const pageHeight = doc.internal.pageSize.height;
+
+    let currentY = 20;
+    let pageCount = 1;
+
+    const addHeader = () => {
+        if (headerImg) {
+            const headerHeight = 40;
+            doc.addImage(headerImg, 'PNG', 0, 0, pageWidth, headerHeight);
+            currentY = headerHeight + 10;
+        } else {
+            currentY = 20;
+        }
+    };
+
+    const addFooter = (pageNum, totalPages) => {
+        if (footerImg) {
+            const footerHeight = 35;
+            const footerY = pageHeight - footerHeight - 5;
+            doc.addImage(footerImg, 'PNG', 0, footerY, pageWidth, footerHeight);
+
+            if (signatureImg) {
+                const signatureWidth = 60;
+                const signatureHeight = 30;
+                const signatureX = (pageWidth - signatureWidth) / 2;
+                const signatureY = footerY - 25;
+                doc.addImage(signatureImg, 'PNG', signatureX, signatureY, signatureWidth, signatureHeight);
+            }
+
+            doc.setFontSize(10);
+            doc.setTextColor(100, 100, 100);
+            doc.text(`${pageNum}/${totalPages}`, pageWidth / 2, pageHeight - 8, { align: 'center' });
+        }
+    };
+
+    const addInfoSection = () => {
+        const dateStr = (window.safeParseDate||function(d){return new Date(d)})(invoice.document_date).toLocaleDateString('fr-FR');
+
+        doc.setFontSize(12);
+        doc.setTextColor(0, 0, 0);
+        doc.setFont(undefined, 'bold');
+        doc.text(`CLIENT: ${invoice.client_nom}`, 20, currentY);
+        doc.text(`Date: ${dateStr}`, pageWidth - 20, currentY, { align: 'right' });
+        currentY += 6;
+
+        doc.setFont(undefined, 'normal');
+        doc.setFontSize(10);
+        const iceValue = invoice.client_ice && invoice.client_ice !== '0' ? invoice.client_ice : 'Non spécifié';
+        doc.text(`ICE: ${iceValue}`, 20, currentY);
+        currentY += 14;
+
+        doc.setFontSize(14);
+        doc.setFont(undefined, 'bold');
+        doc.text(`N° Devis: ${invoice.document_numero_devis}`, 20, currentY);
+        currentY += 10;
+    };
+
+    const tableStartX = 15;
+    const tableWidth = 180;
+
+    const addTableHeader = () => {
+        const headerStartY = currentY;
+
+        doc.setFillColor(cr, cg, cb);
+        doc.rect(tableStartX, currentY, tableWidth, 8, 'F');
+        doc.setTextColor(255, 255, 255);
+        doc.setFontSize(9);
+        doc.setFont(undefined, 'bold');
+        doc.text('Désignation', 18, currentY + 5.5);
+        doc.text('Quantité', 120, currentY + 5.5);
+        doc.text('P.U HT', 145, currentY + 5.5);
+        doc.text('Total HT', 178, currentY + 5.5);
+        currentY += 10;
+
+        return headerStartY;
+    };
+
+    addHeader();
+    currentY += 5;
+    addInfoSection();
+    const firstTableStartY = addTableHeader();
+
+    let tableSegments = [];
+    let currentSegmentStart = firstTableStartY;
+
+    doc.setTextColor(0, 0, 0);
+    doc.setFont(undefined, 'normal');
+
+    invoice.products.forEach((product, index) => {
+        const designation = product.designation || '';
+        const descriptionLines = doc.splitTextToSize(designation, 95);
+        const quantityText = String(product.quantite || '');
+        const unitPriceText = parseFloat(product.prix_unitaire_ht).toFixed(2);
+        const totalHtText = parseFloat(product.total_ht).toFixed(2);
+
+        let lineIndex = 0;
+        let isFirstChunkOfProduct = true;
+
+        while (lineIndex < descriptionLines.length) {
+            let availableHeight = pageHeight - 80 - currentY;
+
+            if (availableHeight < 12) {
+                tableSegments.push({ startY: currentSegmentStart, endY: currentY, page: pageCount });
+                doc.addPage();
+                pageCount++;
+                addHeader();
+                currentY += 5;
+                addInfoSection();
+                currentSegmentStart = addTableHeader();
+                doc.setTextColor(0, 0, 0);
+                doc.setFont(undefined, 'normal');
+                doc.setFontSize(8);
+                availableHeight = pageHeight - 80 - currentY;
+            }
+
+            const remainingLines = descriptionLines.length - lineIndex;
+            const maxLinesThisPage = Math.max(1, Math.floor((availableHeight - 4) / 4));
+            const linesForThisRow = Math.min(remainingLines, maxLinesThisPage);
+            const rowHeight = Math.max(8, linesForThisRow * 4 + 4);
+            const rowY = currentY;
+
+            if (isFirstChunkOfProduct && index % 2 === 0) {
+                doc.setFillColor(245, 245, 245);
+                doc.rect(tableStartX, rowY - 2, tableWidth, rowHeight, 'F');
+            }
+
+            doc.setFontSize(8);
+            doc.setTextColor(0, 0, 0);
+            doc.setFont(undefined, 'normal');
+            const descriptionChunk = descriptionLines.slice(lineIndex, lineIndex + linesForThisRow);
+            descriptionChunk.forEach((line, i) => {
+                doc.text(line, 18, rowY + 3 + i * 4);
+            });
+
+            if (isFirstChunkOfProduct) {
+                doc.setFontSize(9);
+                doc.text(quantityText, 120, rowY + 4);
+                doc.text(unitPriceText, 155, rowY + 4, { align: 'right' });
+                doc.text(totalHtText, 193, rowY + 4, { align: 'right' });
+            }
+
+            doc.setDrawColor(220, 220, 220);
+            doc.setLineWidth(0.2);
+            doc.line(tableStartX, rowY + rowHeight - 2, tableStartX + tableWidth, rowY + rowHeight - 2);
+
+            currentY = rowY + rowHeight;
+            lineIndex += linesForThisRow;
+            isFirstChunkOfProduct = false;
+        }
+    });
+
+    tableSegments.push({ startY: currentSegmentStart, endY: currentY, page: pageCount });
+
+    tableSegments.forEach(segment => {
+        doc.setPage(segment.page);
+        doc.setDrawColor(200, 200, 200);
+        doc.setLineWidth(0.3);
+        doc.rect(tableStartX, segment.startY, tableWidth, segment.endY - segment.startY);
+    });
+
+    doc.setPage(pageCount);
+
+    if (currentY + 35 > pageHeight - 80) {
+        doc.addPage();
+        pageCount++;
+        addHeader();
+        currentY += 15;
+    }
+
+    currentY += 10;
+    const totalsX = 130;
+
+    doc.setFillColor(cr, cg, cb);
+    doc.rect(totalsX, currentY, 65, 7, 'F');
+    doc.setTextColor(255, 255, 255);
+    doc.setFontSize(10);
+    doc.setFont(undefined, 'bold');
+    doc.text('Total HT', totalsX + 3, currentY + 5);
+    doc.text(parseFloat(invoice.total_ht).toFixed(2) + ' DH', totalsX + 62, currentY + 5, { align: 'right' });
+    currentY += 8;
+
+    doc.setFillColor(220, 220, 220);
+    doc.rect(totalsX, currentY, 65, 7, 'F');
+    doc.setTextColor(0, 0, 0);
+    doc.text('TVA ' + invoice.tva_rate + '%', totalsX + 3, currentY + 5);
+    doc.text(parseFloat(invoice.montant_tva).toFixed(2) + ' DH', totalsX + 62, currentY + 5, { align: 'right' });
+    currentY += 8;
+
+    doc.setFillColor(dr, dg, db);
+    doc.rect(totalsX, currentY, 65, 7, 'F');
+    doc.setTextColor(255, 255, 255);
+    doc.text('Total TTC', totalsX + 3, currentY + 5);
+    doc.text(parseFloat(invoice.total_ttc).toFixed(2) + ' DH', totalsX + 62, currentY + 5, { align: 'right' });
+
     const totalPages = pageCount;
     for (let i = 1; i <= totalPages; i++) {
         doc.setPage(i);

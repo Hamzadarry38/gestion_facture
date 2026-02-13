@@ -1510,8 +1510,8 @@ window.searchClientsChaimae = function (query) {
     } else {
         const searchTerm = query.toLowerCase().trim();
         filteredClientsChaimae = allClientsChaimae.filter(client =>
-            client.nom.toLowerCase().includes(searchTerm) ||
-            client.ice.toLowerCase().includes(searchTerm)
+            (client.nom || '').toLowerCase().includes(searchTerm) ||
+            (client.ice || '').toLowerCase().includes(searchTerm)
         );
     }
 
@@ -2287,7 +2287,7 @@ window.showMissingNumbersChaimae = async function (selectedYear = null) {
         let availableYears = [new Date().getFullYear()];
         if (invoicesResult.success && invoicesResult.data) {
             const years = invoicesResult.data.map(inv => {
-                const year = new Date(inv.document_date).getFullYear();
+                const year = (window.safeParseDate||function(d){return new Date(d)})(inv.document_date).getFullYear();
                 return year;
             });
             availableYears = [...new Set([...years, new Date().getFullYear()])].sort((a, b) => b - a);
@@ -2451,7 +2451,7 @@ window.showMissingDevisNumbersChaimae = async function (selectedYear = null) {
         let availableYears = [new Date().getFullYear()];
         if (invoicesResult.success && invoicesResult.data) {
             const years = invoicesResult.data.map(inv => {
-                const year = new Date(inv.document_date).getFullYear();
+                const year = (window.safeParseDate||function(d){return new Date(d)})(inv.document_date).getFullYear();
                 return year;
             });
             availableYears = [...new Set([...years, new Date().getFullYear()])].sort((a, b) => b - a);

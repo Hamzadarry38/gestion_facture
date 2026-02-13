@@ -559,7 +559,7 @@ async function populateFiltersChaimae() {
         } else {
             // Fallback: Get unique years from invoices
             const invoiceYears = [...new Set(allInvoicesChaimae.map(inv => {
-                return inv.year || new Date(inv.document_date).getFullYear();
+                return inv.year || (window.safeParseDate||function(d){return new Date(d)})(inv.document_date).getFullYear();
             }))];
 
             // Add current year and previous 2 years if not present
@@ -594,7 +594,7 @@ function renderYearCardsChaimae(years) {
     // Count invoices per year
     const yearCounts = {};
     allInvoicesChaimae.forEach(inv => {
-        const year = inv.year || new Date(inv.document_date).getFullYear();
+        const year = inv.year || (window.safeParseDate||function(d){return new Date(d)})(inv.document_date).getFullYear();
         yearCounts[year] = (yearCounts[year] || 0) + 1;
     });
 
@@ -665,7 +665,7 @@ function displayPendingInvoicesChaimae(invoices) {
             <td><span class="badge badge-${inv.document_type}">${inv.document_type}</span></td>
             <td><strong>${inv.document_numero}</strong></td>
             <td>${inv.client_nom || '-'}</td>
-            <td>${new Date(inv.document_date).toLocaleDateString('fr-FR')}</td>
+            <td>${(window.safeParseDate||function(d){return new Date(d)})(inv.document_date).toLocaleDateString('fr-FR')}</td>
             <td><strong>${formatNumberChaimae(inv.total_ttc)}</strong> DH</td>
             <td><span style="color:#2196f3;">${inv.created_by || '-'}</span></td>
             <td style="text-align:center;">
@@ -743,7 +743,7 @@ function displayGlobalInvoicesChaimae(globalInvoices) {
     count.textContent = globalInvoices.length;
 
     tbody.innerHTML = globalInvoices.map(invoice => {
-        const date = new Date(invoice.document_date).toLocaleDateString('fr-FR');
+        const date = (window.safeParseDate||function(d){return new Date(d)})(invoice.document_date).toLocaleDateString('fr-FR');
         const totalTTC = formatNumberChaimae(invoice.total_ttc || 0);
 
         return `
@@ -903,16 +903,16 @@ function displayInvoicesChaimae(invoices) {
 
         if (invoice.document_type === 'facture') {
             typeLabel = '📄 Facture';
-            badgeStyle = 'background: #e3f2fd; color: #1565c0; border: 1px solid #90caf9;';
+            badgeStyle = 'background: #4caf5020; color: #4caf50; border: 1px solid #4caf50;';
         } else if (invoice.document_type === 'devis') {
             typeLabel = '📋 Devis';
-            badgeStyle = 'background: #fff3e0; color: #ef6c00; border: 1px solid #ffcc80;';
+            badgeStyle = 'background: #2196f320; color: #2196f3; border: 1px solid #2196f3;';
         } else if (invoice.document_type === 'facture_globale') {
             typeLabel = '📦 Facture Globale';
-            badgeStyle = 'background: #f3e5f5; color: #7b1fa2; border: 1px solid #ce93d8;';
+            badgeStyle = 'background: #9c27b020; color: #ce93d8; border: 1px solid #9c27b0;';
         } else {
             typeLabel = '📦 Bon de livraison';
-            badgeStyle = 'background: #e0f2f1; color: #00695c; border: 1px solid #80cbc4;';
+            badgeStyle = 'background: #ff980020; color: #ff9800; border: 1px solid #ff9800;';
         }
 
         const typeBadgeHTML = `<span class="badge" style="${badgeStyle} padding: 4px 8px; border-radius: 6px; font-weight: 500; font-size: 0.85rem; display: inline-flex; align-items: center; gap: 4px;">${typeLabel}</span>`;
@@ -927,7 +927,7 @@ function displayInvoicesChaimae(invoices) {
                 final_numero: numero
             });
         }
-        const date = new Date(invoice.document_date).toLocaleDateString('fr-FR');
+        const date = (window.safeParseDate||function(d){return new Date(d)})(invoice.document_date).toLocaleDateString('fr-FR');
 
         const totalHT = formatNumberChaimae(invoice.total_ht || 0);
         const tva = invoice.tva_rate || 20;
@@ -1009,12 +1009,12 @@ function displayInvoicesChaimae(invoices) {
                     </div>
                 </td>
                 <td style="padding: 1rem 0.75rem; border-right: 1px solid #3e3e42; text-align: center;">
-                    <select onchange="updateArStatusChaimae(${invoice.id}, this.value)" 
+                    ${invoice.document_type === 'devis' ? '<span style="color:#666;">—</span>' : `<select onchange="updateArStatusChaimae(${invoice.id}, this.value)" 
                             style="padding: 0.4rem; background: ${invoice.ar_status === 'accuse' ? '#1b5e20' : invoice.ar_status === 'en_attente' ? '#e65100' : '#424242'}; color: white; border: none; border-radius: 4px; font-size: 0.85rem; cursor: pointer; width: 100%;">
                         <option value="sans_accuse" ${invoice.ar_status === 'sans_accuse' ? 'selected' : ''}>Sans accusé</option>
                         <option value="en_attente" ${invoice.ar_status === 'en_attente' ? 'selected' : ''}>En attente</option>
                         <option value="accuse" ${invoice.ar_status === 'accuse' ? 'selected' : ''}>Accusé</option>
-                    </select>
+                    </select>`}
                 </td>
                 <td style="padding: 1rem 0.75rem; border-right: 1px solid #3e3e42; text-align: center;">
                     <div id="attachmentIndicator-${invoice.id}" onclick="viewAttachmentsChaimae(${invoice.id})" style="cursor: pointer;">
@@ -1226,13 +1226,13 @@ window.filterInvoicesChaimae = function () {
 
         // Year filter (from card selection)
         if (selectedYearChaimae) {
-            const invoiceYear = invoice.year || new Date(invoice.document_date).getFullYear();
+            const invoiceYear = invoice.year || (window.safeParseDate||function(d){return new Date(d)})(invoice.document_date).getFullYear();
             if (invoiceYear.toString() !== selectedYearChaimae) return false;
         }
 
         // Month filter
         if (monthFilter) {
-            const invoiceMonth = String(new Date(invoice.document_date).getMonth() + 1).padStart(2, '0');
+            const invoiceMonth = String((window.safeParseDate||function(d){return new Date(d)})(invoice.document_date).getMonth() + 1).padStart(2, '0');
             if (invoiceMonth !== monthFilter) return false;
         }
 
@@ -1576,7 +1576,7 @@ window.viewInvoiceChaimae = async function (id, documentType) {
         }
 
         const invoice = result.data;
-        const date = new Date(invoice.document_date).toLocaleDateString('fr-FR');
+        const date = (window.safeParseDate||function(d){return new Date(d)})(invoice.document_date).toLocaleDateString('fr-FR');
         const typeLabel = invoice.document_type === 'facture' ? 'Facture' :
             invoice.document_type === 'devis' ? 'Devis' :
                 'Bon de livraison';
@@ -3616,7 +3616,7 @@ window.downloadInvoicePDFChaimae = async function (invoiceId) {
         const greenColor = [76, 175, 80]; // #4caf50
         const orangeColor = [255, 152, 0]; // #FF9800
 
-        const dateStr = new Date(invoice.document_date).toLocaleDateString('fr-FR');
+        const dateStr = (window.safeParseDate||function(d){return new Date(d)})(invoice.document_date).toLocaleDateString('fr-FR');
 
         // Determine document type
         const docType = invoice.document_type === 'facture' ? 'FACTURE' :
@@ -4123,7 +4123,7 @@ window.downloadBonDeTravauxPDFChaimae = async function (invoiceId) {
         const greenColor = [76, 175, 80];
         const purpleColor = [156, 39, 176]; // For "Bon de travaux"
 
-        const dateStr = new Date(invoice.document_date).toLocaleDateString('fr-FR');
+        const dateStr = (window.safeParseDate||function(d){return new Date(d)})(invoice.document_date).toLocaleDateString('fr-FR');
 
         // Function to add header
         const addHeader = (isFirstPage = true) => {
@@ -4480,7 +4480,7 @@ async function generateSinglePDFBlobChaimae(invoice, organizationType, folderNam
     const blueColor = [33, 97, 140];
     const greenColor = [76, 175, 80];
     const orangeColor = [255, 152, 0];
-    const dateStr = new Date(invoice.document_date).toLocaleDateString('fr-FR');
+    const dateStr = (window.safeParseDate||function(d){return new Date(d)})(invoice.document_date).toLocaleDateString('fr-FR');
 
     const docType = invoice.document_type === 'facture' ? 'FACTURE' :
         invoice.document_type === 'devis' ? 'DEVIS' :
@@ -4920,7 +4920,7 @@ async function viewGlobalInvoiceChaimae(id) {
                             <h3>📄 Document</h3>
                             <p><strong>Type:</strong> Facture Globale</p>
                             <p><strong>N°:</strong> ${invoice.document_numero}</p>
-                            <p><strong>Date:</strong> ${new Date(invoice.document_date).toLocaleDateString('fr-FR')}</p>
+                            <p><strong>Date:</strong> ${(window.safeParseDate||function(d){return new Date(d)})(invoice.document_date).toLocaleDateString('fr-FR')}</p>
                         </div>
                         
                         <div class="details-section">
@@ -4939,7 +4939,7 @@ async function viewGlobalInvoiceChaimae(id) {
                                         <tr>
                                             <td>${bon.document_numero_bl || bon.document_numero || '-'}</td>
                                             <td>${bon.document_numero_commande || '-'}</td>
-                                            <td>${new Date(bon.document_date).toLocaleDateString('fr-FR')}</td>
+                                            <td>${(window.safeParseDate||function(d){return new Date(d)})(bon.document_date).toLocaleDateString('fr-FR')}</td>
                                             <td>${formatNumberChaimae(bon.total_ht || 0)} DH</td>
                                         </tr>
                                     `).join('') : '<tr><td colspan="4">Aucun bon de livraison</td></tr>'}
@@ -5426,7 +5426,7 @@ window.startBulkDownloadChaimae = async function (selectedIds, organizationType,
                 const pdfBlob = await generateSinglePDFBlobChaimae(invoice, organizationType, folderName, includeOrder, includeBL, includeBC);
 
                 // Organize in folders based on type
-                const invoiceDate = new Date(invoice.document_date);
+                const invoiceDate = (window.safeParseDate||function(d){return new Date(d)})(invoice.document_date);
                 const yearMonth = `${invoiceDate.getFullYear()}-${String(invoiceDate.getMonth() + 1).padStart(2, '0')}`;
                 const clientName = invoice.client_nom.replace(/[^a-zA-Z0-9]/g, '_');
                 const numero = (invoice.document_numero || invoice.document_numero_devis || invoice.document_numero_bl || invoice.id).toString().replace(/\//g, '_');
@@ -5747,7 +5747,7 @@ window.showCreateGlobalInvoiceModalChaimae = async function () {
             </td>
             <td style="padding: 0.75rem; color: #2196f3;">${inv.document_numero || inv.document_numero_bl || '-'}</td>
             <td style="padding: 0.75rem; color: #cccccc;">${inv.document_numero_commande || '-'}</td>
-            <td style="padding: 0.75rem; color: #cccccc;">${new Date(inv.document_date).toLocaleDateString('fr-FR')}</td>
+            <td style="padding: 0.75rem; color: #cccccc;">${(window.safeParseDate||function(d){return new Date(d)})(inv.document_date).toLocaleDateString('fr-FR')}</td>
             <td style="padding: 0.75rem; color: #4caf50;">${formatNumberChaimae(inv.total_ttc || 0)} DH</td>
         </tr>
     `).join('');
@@ -6124,7 +6124,7 @@ window.initInvoicesListChaimaePage = function () {
                 const { jsPDF } = window.jspdf;
                 const doc = new jsPDF();
                 const blueColor = [52, 103, 138];
-                const dateStr = new Date(invoice.document_date).toLocaleDateString('fr-FR');
+                const dateStr = (window.safeParseDate||function(d){return new Date(d)})(invoice.document_date).toLocaleDateString('fr-FR');
 
                 const addHeader = () => {
                     // Add Logo with detailed logging
@@ -6253,10 +6253,10 @@ window.initInvoicesListChaimaePage = function () {
 
                     if (sortOrder === 'oldest') {
                         // Sort from oldest to newest (ascending by date)
-                        sortedBons.sort((a, b) => new Date(a.document_date) - new Date(b.document_date));
+                        sortedBons.sort((a, b) => (window.safeParseDate||function(d){return new Date(d)})(a.document_date) - (window.safeParseDate||function(d){return new Date(d)})(b.document_date));
                     } else if (sortOrder === 'newest') {
                         // Sort from newest to oldest (descending by date)
-                        sortedBons.sort((a, b) => new Date(b.document_date) - new Date(a.document_date));
+                        sortedBons.sort((a, b) => (window.safeParseDate||function(d){return new Date(d)})(b.document_date) - (window.safeParseDate||function(d){return new Date(d)})(a.document_date));
                     } else if (sortOrder === 'numero_asc') {
                         // Sort by document number ascending (1 → 99)
                         sortedBons.sort((a, b) => {
@@ -6270,7 +6270,7 @@ window.initInvoicesListChaimaePage = function () {
                             const numCompare = numA - numB;
                             if (numCompare !== 0) return numCompare;
                             // Secondary sort by date if numbers are equal
-                            return new Date(a.document_date) - new Date(b.document_date);
+                            return (window.safeParseDate||function(d){return new Date(d)})(a.document_date) - (window.safeParseDate||function(d){return new Date(d)})(b.document_date);
                         });
                     } else if (sortOrder === 'numero_desc') {
                         // Sort by document number descending (99 → 1)
@@ -6285,7 +6285,7 @@ window.initInvoicesListChaimaePage = function () {
                             const numCompare = numB - numA;
                             if (numCompare !== 0) return numCompare;
                             // Secondary sort by date if numbers are equal
-                            return new Date(b.document_date) - new Date(a.document_date);
+                            return (window.safeParseDate||function(d){return new Date(d)})(b.document_date) - (window.safeParseDate||function(d){return new Date(d)})(a.document_date);
                         });
                     }
                     // If sortOrder is null, keep original order
@@ -6319,7 +6319,7 @@ window.initInvoicesListChaimaePage = function () {
                         const bonHT = parseFloat(bon.total_ht) || 0;
                         doc.text(bon.document_numero_bl || bon.document_numero || '-', 20, currentY + 3);
                         doc.text(bon.document_numero_commande || '-', 70, currentY + 3);
-                        doc.text(new Date(bon.document_date).toLocaleDateString('fr-FR'), 120, currentY + 3);
+                        doc.text((window.safeParseDate||function(d){return new Date(d)})(bon.document_date).toLocaleDateString('fr-FR'), 120, currentY + 3);
                         doc.text(`${formatNumber(bonHT)} DH`, 180, currentY + 3, { align: 'right' });
                         currentY += 8;
                     });
@@ -6754,8 +6754,8 @@ window.searchClientsEditChaimae = function (query) {
     } else {
         const searchTerm = query.toLowerCase().trim();
         filteredClientsEditChaimae = allClientsChaimae.filter(client =>
-            client.nom.toLowerCase().includes(searchTerm) ||
-            client.ice.toLowerCase().includes(searchTerm)
+            (client.nom || '').toLowerCase().includes(searchTerm) ||
+            (client.ice || '').toLowerCase().includes(searchTerm)
         );
     }
 
