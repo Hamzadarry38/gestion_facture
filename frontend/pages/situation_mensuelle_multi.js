@@ -1549,7 +1549,7 @@ async function showAddManualInvoiceModalMulti(existingInvoices = []) {
     document.body.appendChild(overlay);
 
     // Set today's date as default
-    const today = new Date().toISOString().split('T')[0];
+    const today = (window.todayDateString ? window.todayDateString() : new Date().toISOString().split('T')[0]);
     document.getElementById('manualInvoiceDate').value = today;
 
     // Update numero when type changes

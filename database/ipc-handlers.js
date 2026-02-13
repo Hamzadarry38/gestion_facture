@@ -44,7 +44,10 @@ async function registerDatabaseHandlers() {
     ipcMain.handle('db:invoices:create', async (event, invoiceData) => {
         try {
             if (!invoiceData.company_code) invoiceData.company_code = 'MRY';
-            return await apiClient.createInvoice(invoiceData);
+            console.log('📅 [IPC DATE DEBUG] Date being sent to API:', invoiceData.document?.date, '| Type:', typeof invoiceData.document?.date);
+            const result = await apiClient.createInvoice(invoiceData);
+            console.log('📅 [IPC DATE DEBUG] Date received from API:', result?.data?.document_date, '| Full data:', JSON.stringify(result?.data));
+            return result;
         } catch (error) {
             console.error('❌ Error creating MRY invoice (API):', error);
             return { success: false, error: error.message };

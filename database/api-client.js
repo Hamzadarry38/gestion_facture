@@ -38,6 +38,51 @@ console.log(`[API Client] 🏠 Localhost URL: http://localhost:8001`);
 console.log(`[API Client] ✅ Active URL: ${API_URL}`);
 
 
+// Fix: Normalize date fields that come back from the API as ISO datetime strings
+// Simply extract the YYYY-MM-DD portion directly from the string without Date parsing
+// This avoids any timezone conversion issues
+const DATE_FIELDS = ['document_date', 'created_at', 'updated_at'];
+function normalizeDateField(value) {
+    if (!value || typeof value !== 'string') return value;
+    // Match ISO datetime format: YYYY-MM-DDTHH:MM:SS
+    if (/^\d{4}-\d{2}-\d{2}T/.test(value)) {
+        // Just take the date part directly from the string - no Date object, no timezone issues
+        return value.substring(0, 10);
+    }
+    return value;
+}
+
+function normalizeInvoiceDates(obj) {
+    if (!obj || typeof obj !== 'object') return obj;
+    if (Array.isArray(obj)) {
+        return obj.map(item => normalizeInvoiceDates(item));
+    }
+    const result = { ...obj };
+    for (const field of DATE_FIELDS) {
+        if (result[field]) {
+            const original = result[field];
+            result[field] = normalizeDateField(result[field]);
+            if (original !== result[field]) {
+                console.log(`📅 [DATE FIX] ${field}: "${original}" -> "${result[field]}"`);
+            }
+        }
+    }
+    return result;
+}
+
+function normalizeResponseDates(data) {
+    if (!data) return data;
+    // Handle { success: true, data: [...] } or { success: true, data: {...} }
+    if (data.data) {
+        data.data = normalizeInvoiceDates(data.data);
+    }
+    // Handle direct array/object responses
+    if (Array.isArray(data)) {
+        return data.map(item => normalizeInvoiceDates(item));
+    }
+    return data;
+}
+
 const apiClient = axios.create({
     baseURL: API_URL,
     timeout: 10000,
@@ -62,10 +107,14 @@ apiClient.interceptors.request.use(
     }
 );
 
-// Add response interceptor to log responses
+// Add response interceptor to log responses AND normalize dates
 apiClient.interceptors.response.use(
     (response) => {
         console.log(`[API Response] ✅ ${response.config.method.toUpperCase()} ${response.config.url} - Status: ${response.status}`);
+        // Normalize date fields in response data to prevent timezone-related off-by-one bugs
+        if (response.data) {
+            response.data = normalizeResponseDates(response.data);
+        }
         return response;
     },
     (error) => {

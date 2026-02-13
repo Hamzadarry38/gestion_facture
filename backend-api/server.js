@@ -1,11 +1,15 @@
 const express = require('express');
-const { Pool } = require('pg');
+const { Pool, types } = require('pg');
 const cors = require('cors');
 const bodyParser = require('body-parser');
 const crypto = require('crypto');
 const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
+
+// Fix: Override pg DATE type parser to return raw strings instead of JS Date objects
+// This prevents timezone-related off-by-one-day bugs (OID 1082 = DATE)
+types.setTypeParser(1082, (val) => val);
 
 const app = express();
 const port = 8001;
@@ -611,7 +615,7 @@ app.post('/invoices', async (req, res) => {
 
     // Fallback for year if not provided
     if (!year && document_date) {
-      year = new Date(document_date).getFullYear();
+      year = parseInt(String(document_date).substring(0, 4)) || new Date().getFullYear();
     }
 
     // Check for auto-validation permission AND resolve user name
@@ -849,7 +853,7 @@ app.put('/invoices/:id', async (req, res) => {
 
     let year = null;
     if (document_date) {
-      year = new Date(document_date).getFullYear();
+      year = parseInt(String(document_date).substring(0, 4)) || new Date().getFullYear();
     }
 
     // Prepare values for update - using NULL for undefined to avoid pg error if we want to nullify?

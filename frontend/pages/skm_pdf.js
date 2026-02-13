@@ -93,7 +93,7 @@ window.downloadSKMDevisPDF = async function (invoiceId) {
         await generateSKMPDF(doc, customizedInvoice);
 
         // Save the PDF
-        const fileName = `SKM_Devis_${customizedInvoice.document_numero_devis}_${new Date().toISOString().slice(0, 10)}.pdf`;
+        const fileName = `SKM_Devis_${customizedInvoice.document_numero_devis}_${window.todayDateString ? window.todayDateString() : new Date().toISOString().slice(0, 10)}.pdf`;
         doc.save(fileName);
 
         console.log('✅ SKM PDF generated successfully:', fileName);
@@ -137,7 +137,7 @@ async function showSimpleSKMModal(invoice) {
                         <label style="display: block; margin-bottom: 0.5rem; color: #e0e0e0; font-weight: 600;">
                             Date personnalisée :
                         </label>
-                        <input type="date" id="dateInput" value="${new Date().toISOString().slice(0, 10)}"
+                        <input type="date" id="dateInput" value="${window.todayDateString ? window.todayDateString() : new Date().toISOString().slice(0, 10)}"
                                style="width: 100%; padding: 0.75rem; background: #2d2d30; border: 1px solid #3e3e42; border-radius: 6px; color: #fff; font-size: 1rem;">
                     </div>
                     <div>

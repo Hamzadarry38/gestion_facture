@@ -1233,7 +1233,7 @@ window.viewInvoiceMulti = async function (id) {
 
                     // Add creation info first
                     if (invoice.created_by_user_name) {
-                        const createdDate = new Date(invoice.created_at).toLocaleDateString('fr-FR');
+                        const createdDate = (window.safeParseDate||function(d){return new Date(d)})(invoice.created_at).toLocaleDateString('fr-FR');
                         auditHTML += `
             <div style="padding:0.75rem;background:#252526;border-radius:6px;margin-bottom:0.5rem;border-left:4px solid #4CAF50;">
                 <div style="display:flex;justify-content:space-between;align-items:start;">
@@ -1250,7 +1250,7 @@ window.viewInvoiceMulti = async function (id) {
 
                     // Add modification logs
                     logs.forEach(log => {
-                        const logDate = new Date(log.created_at).toLocaleDateString('fr-FR');
+                        const logDate = (window.safeParseDate||function(d){return new Date(d)})(log.created_at).toLocaleDateString('fr-FR');
                         auditHTML += `
             <div style="padding:0.75rem;background:#252526;border-radius:6px;margin-bottom:0.5rem;border-left:4px solid #2196F3;">
                 <div style="display:flex;justify-content:space-between;align-items:start;">
@@ -1271,7 +1271,7 @@ window.viewInvoiceMulti = async function (id) {
                     auditLogContent.style.fontStyle = 'normal';
                 } else {
                     console.log('ℹ️ [AUDIT LOG MULTI] No audit logs found');
-                    const createdDate = new Date(invoice.created_at).toLocaleDateString('fr-FR');
+                    const createdDate = (window.safeParseDate||function(d){return new Date(d)})(invoice.created_at).toLocaleDateString('fr-FR');
                     auditLogContent.innerHTML = `
             <div style="padding:0.75rem;background:#252526;border-radius:6px;border-left:4px solid #4CAF50;">
                 <div style="display:flex;justify-content:space-between;align-items:start;">
@@ -1516,25 +1516,22 @@ async function refreshAttachmentsMulti(invoiceId) {
     }
 }
 
-// Load Multi signature image for PDF
-// Load Multi signature image for PDF
+// Load Multi signature image for PDF - direct load without compression
 async function loadMultiSignature() {
-    return new Promise((resolve) => {
-        const img = new Image();
-        img.onload = () => {
-            const canvas = document.createElement('canvas');
-            canvas.width = img.width;
-            canvas.height = img.height;
-            const ctx = canvas.getContext('2d');
-            ctx.drawImage(img, 0, 0);
-            resolve(canvas.toDataURL('image/png'));
-        };
-        img.onerror = () => {
-            console.warn('Could not load Multi signature image');
-            resolve(null);
-        };
-        img.src = 'Signature/Multi.png';
-    });
+    try {
+        const response = await fetch('Signature/Multi.png');
+        if (!response.ok) throw new Error('Failed to fetch');
+        const blob = await response.blob();
+        return await new Promise((resolve) => {
+            const reader = new FileReader();
+            reader.onloadend = () => resolve(reader.result);
+            reader.onerror = () => resolve(null);
+            reader.readAsDataURL(blob);
+        });
+    } catch (e) {
+        console.warn('Could not load Multi signature image:', e);
+        return null;
+    }
 }
 
 // Help functionality for Multi Bon de travaux customization

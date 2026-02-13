@@ -727,7 +727,7 @@ function initializeInvoiceFormMulti() {
     setTimeout(() => {
         const dateInput = document.getElementById('documentDateMulti');
         if (dateInput) {
-            dateInput.value = new Date().toISOString().split('T')[0];
+            dateInput.value = (window.todayDateString ? window.todayDateString() : new Date().toISOString().split('T')[0]);
         }
 
         const form = document.getElementById('invoiceFormMulti');

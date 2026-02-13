@@ -835,8 +835,8 @@ window.sortTable = function (column) {
                 break;
 
             case 'date':
-                valueA = new Date(a.document_date || 0).getTime();
-                valueB = new Date(b.document_date || 0).getTime();
+                valueA = (window.safeParseDate||function(d){return new Date(d)})(a.document_date || 0).getTime();
+                valueB = (window.safeParseDate||function(d){return new Date(d)})(b.document_date || 0).getTime();
                 break;
 
             case 'total_ht':
@@ -2057,7 +2057,7 @@ window.convertInvoiceType = async function (invoiceId, currentType) {
             },
             document: {
                 type: newType,
-                date: invoice.document_date || new Date().toISOString().split('T')[0],
+                date: invoice.document_date || (window.todayDateString ? window.todayDateString() : new Date().toISOString().split('T')[0]),
                 numero: newType === 'facture' ? newNumero : null,
                 numero_devis: newType === 'devis' ? newNumero : null,
                 numero_Order: newType === 'facture' ? newNumeroOrder : null,
@@ -3501,7 +3501,7 @@ window.startBulkDownload = async function (selectedIds, organizationType, includ
 
         // Create ZIP file
         const zip = new JSZip();
-        const timestamp = new Date().toISOString().split('T')[0];
+        const timestamp = (window.todayDateString ? window.todayDateString() : new Date().toISOString().split('T')[0]);
         const folderName = `Factures_Export_${timestamp}`;
 
         // Generate all PDFs and add to ZIP

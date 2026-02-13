@@ -577,7 +577,9 @@ window.loadInvoices = async function () {
                     type: inv.document_type,
                     numero: inv.document_numero,
                     numero_devis: inv.document_numero_devis,
-                    status: inv.validation_status
+                    status: inv.validation_status,
+                    document_date: inv.document_date,
+                    document_date_type: typeof inv.document_date
                 })));
             }
 
@@ -1178,8 +1180,8 @@ window.sortTableMry = function (column) {
                 break;
 
             case 'date':
-                valueA = new Date(a.document_date || 0).getTime();
-                valueB = new Date(b.document_date || 0).getTime();
+                valueA = (window.safeParseDate||function(d){return new Date(d)})(a.document_date || 0).getTime();
+                valueB = (window.safeParseDate||function(d){return new Date(d)})(b.document_date || 0).getTime();
                 break;
 
             case 'total_ht':
@@ -1531,7 +1533,7 @@ window.viewInvoice = async function (id) {
                     let auditHTML = '<div style="display: flex; flex-direction: column; gap: 12px; max-height: 400px; overflow-y: auto; padding-right: 5px;">';
 
                     // 1. ADD CREATION BLOCK (always first)
-                    const creationDate = new Date(invoice.created_at || invoice.document_date).toLocaleDateString('fr-FR', {
+                    const creationDate = (window.safeParseDate||function(d){return new Date(d)})(invoice.created_at || invoice.document_date).toLocaleDateString('fr-FR', {
                         day: '2-digit', month: '2-digit', year: 'numeric',
                         hour: '2-digit', minute: '2-digit'
                     });
@@ -1564,7 +1566,7 @@ window.viewInvoice = async function (id) {
                     logs.forEach(log => {
                         if (log.action === 'CREATE') return; // Skip creation as we handled it separately
 
-                        const logDate = new Date(log.created_at).toLocaleDateString('fr-FR', {
+                        const logDate = (window.safeParseDate||function(d){return new Date(d)})(log.created_at).toLocaleDateString('fr-FR', {
                             day: '2-digit', month: '2-digit', year: 'numeric',
                             hour: '2-digit', minute: '2-digit'
                         });
@@ -2383,7 +2385,7 @@ window.convertInvoiceType = async function (invoiceId, currentType) {
             },
             document: {
                 type: newType,
-                date: invoice.document_date || new Date().toISOString().split('T')[0],
+                date: invoice.document_date || (window.todayDateString ? window.todayDateString() : new Date().toISOString().split('T')[0]),
                 numero: newType === 'facture' ? newNumero : null,
                 numero_devis: newType === 'devis' ? newNumero : null,
                 numero_Order: newType === 'facture' ? (newNumeroOrder || null) : null,
@@ -3928,7 +3930,7 @@ window.startBulkDownload = async function (selectedIds, organizationType, includ
 
         // Create ZIP file
         const zip = new JSZip();
-        const timestamp = new Date().toISOString().split('T')[0];
+        const timestamp = (window.todayDateString ? window.todayDateString() : new Date().toISOString().split('T')[0]);
         const folderName = `Factures_Export_${timestamp}`;
 
         // Generate all PDFs and add to ZIP

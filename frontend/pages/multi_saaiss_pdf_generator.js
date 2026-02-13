@@ -258,6 +258,12 @@ window.generateSAAISSPDFWithCustomization = async function (invoice, customizati
             doc.save(fileName);
             console.log('✅ SAAISS PDF generated successfully:', fileName);
 
+            // Remove loading overlay BEFORE showing alert
+            if (loadingOverlay && loadingOverlay.parentNode) {
+                loadingOverlay.remove();
+                loadingOverlay = null;
+            }
+
             if (context === 'multi') {
                 showSAAISSSuccessModal('PDF généré avec succès', `Le fichier ${fileName} a été téléchargé et sauvegardé avec succès !`);
             } else {
@@ -265,6 +271,13 @@ window.generateSAAISSPDFWithCustomization = async function (invoice, customizati
             }
         } else {
             console.error('❌ Error saving PDF to disk:', saveResult.error);
+
+            // Remove loading overlay BEFORE showing alert
+            if (loadingOverlay && loadingOverlay.parentNode) {
+                loadingOverlay.remove();
+                loadingOverlay = null;
+            }
+
             if (context === 'multi') {
                 showSAAISSWarningModal('Avertissement', 'PDF généré mais erreur lors de la sauvegarde: ' + saveResult.error);
             } else {
@@ -275,9 +288,14 @@ window.generateSAAISSPDFWithCustomization = async function (invoice, customizati
 
     } catch (error) {
         console.error('❌ Error in generateSAAISSPDFWithCustomization:', error);
+        // Remove loading overlay on error
+        if (loadingOverlay && loadingOverlay.parentNode) {
+            loadingOverlay.remove();
+            loadingOverlay = null;
+        }
         throw error;
     } finally {
-        // Always remove loading overlay
+        // Safety net: always remove loading overlay if still present
         if (loadingOverlay && loadingOverlay.parentNode) {
             loadingOverlay.remove();
         }
@@ -400,7 +418,7 @@ window.showSimpleSAAISSModal = async function (invoice, notesText = '') {
                         <label style="display: block; margin-bottom: 0.5rem; color: #e0e0e0; font-weight: 600;">
                             Date personnalisée :
                         </label>
-                        <input type="date" id="dateInput" value="${new Date().toISOString().slice(0, 10)}"
+                        <input type="date" id="dateInput" value="${window.todayDateString ? window.todayDateString() : new Date().toISOString().slice(0, 10)}"
                                style="width: 100%; padding: 0.75rem; background: #2d2d30; border: 1px solid #3e3e42; border-radius: 6px; color: #fff; font-size: 1rem;">
                     </div>
                     <div>

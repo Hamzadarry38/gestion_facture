@@ -733,7 +733,7 @@ window.formatBonNumeroWithPrefixEdit = function (input) {
 window.showAddManualBonForm = function () {
     document.getElementById('manualBonForm').style.display = 'block';
     // Set today's date as default
-    const today = new Date().toISOString().split('T')[0];
+    const today = (window.todayDateString ? window.todayDateString() : new Date().toISOString().split('T')[0]);
     document.getElementById('manualBonDate').value = today;
 }
 

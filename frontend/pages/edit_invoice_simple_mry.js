@@ -246,7 +246,7 @@ window.addProductRowEditSimpleMRY = function (productData = null) {
                    onkeydown="handleArrowNavigationEditSimpleMRY(event, '${rowId}', 1)">
         </td>
         <td>
-            <input type="number" class="product-price" step="0.01" placeholder="0.00" value="${productData ? productData.prix_unitaire_ht : ''}"
+            <input type="number" class="product-price" step="0.01" placeholder="0.00" value="${productData ? parseFloat(productData.prix_unitaire_ht).toFixed(2) : ''}"
                    onchange="calculateRowTotalEditSimpleMRY('${rowId}')" onblur="calculateRowTotalEditSimpleMRY('${rowId}')"
                    onkeydown="handleArrowNavigationEditSimpleMRY(event, '${rowId}', 2)">
         </td>

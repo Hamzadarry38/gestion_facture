@@ -434,7 +434,7 @@ window.startBulkDownloadMulti = async function (selectedIds, organizationType, i
         await loadJSZipMulti();
 
         const zip = new JSZip();
-        const folderName = `Factures_Multi_${new Date().toISOString().split('T')[0]}`;
+        const folderName = `Factures_Multi_${window.todayDateString ? window.todayDateString() : new Date().toISOString().split('T')[0]}`;
 
         let successCount = 0;
 
@@ -640,24 +640,22 @@ function numberToFrenchWordsMultiHelper(number) {
     return result.charAt(0).toUpperCase() + result.slice(1);
 }
 
-// Load Multi signature image for PDF (helper version)
+// Load Multi signature image for PDF (helper version) - direct load without compression
 async function loadMultiSignatureHelper() {
-    return new Promise((resolve) => {
-        const img = new Image();
-        img.onload = () => {
-            const canvas = document.createElement('canvas');
-            canvas.width = img.width;
-            canvas.height = img.height;
-            const ctx = canvas.getContext('2d');
-            ctx.drawImage(img, 0, 0);
-            resolve(canvas.toDataURL('image/png'));
-        };
-        img.onerror = () => {
-            console.warn('Could not load Multi signature image');
-            resolve(null);
-        };
-        img.src = 'Signature/Multi.png';
-    });
+    try {
+        const response = await fetch('Signature/Multi.png');
+        if (!response.ok) throw new Error('Failed to fetch');
+        const blob = await response.blob();
+        return await new Promise((resolve) => {
+            const reader = new FileReader();
+            reader.onloadend = () => resolve(reader.result);
+            reader.onerror = () => resolve(null);
+            reader.readAsDataURL(blob);
+        });
+    } catch (e) {
+        console.warn('Could not load Multi signature image:', e);
+        return null;
+    }
 }
 
 // Generate PDF Blob for an invoice (full MULTI TRAVAUX TETOUAN design)
@@ -691,10 +689,27 @@ async function generatePDFBlobMulti(invoice, includeOrder = true) {
 
     // Function to add header
     const addHeader = (isFirstPage = true) => {
+        // Add company logo - Left side
+        try {
+            const logoImg = document.querySelector('img[src*="multi.png"]') ||
+                document.querySelector('img[alt="Multi Company"]');
+            if (logoImg && logoImg.src && logoImg.complete) {
+                const canvas = document.createElement('canvas');
+                canvas.width = logoImg.naturalWidth || 200;
+                canvas.height = logoImg.naturalHeight || 200;
+                const ctx = canvas.getContext('2d');
+                ctx.drawImage(logoImg, 0, 0);
+                const imgData = canvas.toDataURL('image/png');
+                doc.addImage(imgData, 'PNG', 15, 8, 20, 20);
+            }
+        } catch (error) {
+            console.log('Logo not available:', error.message);
+        }
+
         doc.setFontSize(18);
         doc.setTextColor(96, 125, 139);
         doc.setFont(undefined, 'bold');
-        doc.text('MULTI TRAVAUX TETOUAN', 15, 18);
+        doc.text('MULTI TRAVAUX TETOUAN', 40, 22);
 
         doc.setFontSize(18);
         doc.setFont(undefined, 'bold');
@@ -754,7 +769,7 @@ async function generatePDFBlobMulti(invoice, includeOrder = true) {
     const addFooter = (pageNum, totalPages) => {
         // Add signature image - moved lower and narrowed for better integration
         if (signatureImgMulti && invoice.document_type === 'devis') {
-            doc.addImage(signatureImgMulti, 'PNG', 145, 246, 65, 41);
+            doc.addImage(signatureImgMulti, 'PNG', 145, 255, 50, 32);
         }
 
         doc.setTextColor(0, 0, 0);

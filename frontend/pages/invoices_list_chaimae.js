@@ -307,11 +307,11 @@ function InvoicesListChaimaePage() {
                                     <th class="col-date-chaimae" onclick="sortTableChaimae('date')" style="cursor: pointer; user-select: none; width: 120px;" title="Cliquez pour trier">
                                         Date <span id="sortIconDateChaimae">⇅</span>
                                     </th>
-                                    <th onclick="sortTableChaimae('total_ttc')" style="cursor: pointer; user-select: none; width: 150px;" title="Cliquez pour trier">
-                                        Total TTC <span id="sortIconTotalTTCChaimae">⇅</span>
-                                    </th>
                                     <th class="col-totalHT-chaimae" onclick="sortTableChaimae('total_ht')" style="cursor: pointer; user-select: none; width: 130px;" title="Cliquez pour trier">
                                         Total HT <span id="sortIconTotalHTChaimae">⇅</span>
+                                    </th>
+                                    <th onclick="sortTableChaimae('total_ttc')" style="cursor: pointer; user-select: none; width: 150px;" title="Cliquez pour trier">
+                                        Total TTC <span id="sortIconTotalTTCChaimae">⇅</span>
                                     </th>
                                     <th class="col-createdByCombined-chaimae" style="width: 150px; text-align: center;">Par</th>
                                     <th style="width: 140px; text-align: center;">Accusé R.</th>
@@ -998,8 +998,8 @@ function displayInvoicesChaimae(invoices) {
                 <td style="padding: 1rem 0.75rem; border-right: 1px solid #3e3e42; color: #cccccc;">${invoice.client_nom}</td>
                 <td class="col-ice-chaimae-body" style="padding: 1rem 0.75rem; border-right: 1px solid #3e3e42; ${columnVisibilityChaimae.ice ? '' : 'display: none;'}"><small style="color: #999;">${invoice.client_ice || '-'}</small></td>
                 <td style="padding: 1rem 0.75rem; border-right: 1px solid #3e3e42; color: #cccccc;">${date}</td>
-                <td style="padding: 1rem 0.75rem; border-right: 1px solid #3e3e42;"><strong style="color: #4caf50;">${totalTTC} DH</strong></td>
                 <td style="text-align: left; padding: 1rem 0.75rem; border-right: 1px solid #3e3e42;" class="col-totalHT-chaimae"><strong style="color: #cccccc;">${totalHT} DH</strong></td>
+                <td style="padding: 1rem 0.75rem; border-right: 1px solid #3e3e42;"><strong style="color: #4caf50;">${totalTTC} DH</strong></td>
                 <td style="padding: 0.5rem; border-right: 1px solid #3e3e42; text-align: center; white-space: nowrap; font-size: 0.85rem;" class="col-createdByCombined-chaimae">
                     <div style="display: flex; flex-direction: column; gap: 0.2rem;">
                         <span style="color: #2196f3; font-weight: bold;">👤 Créé par: ${invoice.created_by_user_name || invoice.created_by || '-'}</span>
@@ -1388,8 +1388,8 @@ window.sortTableChaimae = function (column) {
                 break;
 
             case 'date':
-                valueA = new Date(a.document_date || 0).getTime();
-                valueB = new Date(b.document_date || 0).getTime();
+                valueA = (window.safeParseDate||function(d){return new Date(d)})(a.document_date || 0).getTime();
+                valueB = (window.safeParseDate||function(d){return new Date(d)})(b.document_date || 0).getTime();
                 break;
 
             case 'total_ht':
@@ -1841,7 +1841,7 @@ window.viewInvoiceChaimae = async function (id, documentType) {
                 let auditHTML = '<div style="max-height: 400px; overflow-y: auto; display: flex; flex-direction: column; gap: 0.75rem;">';
 
                 // 1. ADD CREATION INFO (from invoice object)
-                const createdDate = new Date(invoice.created_at).toLocaleDateString('fr-FR', {
+                const createdDate = (window.safeParseDate||function(d){return new Date(d)})(invoice.created_at).toLocaleDateString('fr-FR', {
                     day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit'
                 });
                 auditHTML += `
@@ -1875,7 +1875,7 @@ window.viewInvoiceChaimae = async function (id, documentType) {
                 // 3. ADD MODIFICATION LOGS
                 if (auditResult.success && auditResult.data && auditResult.data.length > 0) {
                     auditResult.data.forEach(log => {
-                        const logDate = new Date(log.created_at).toLocaleDateString('fr-FR', {
+                        const logDate = (window.safeParseDate||function(d){return new Date(d)})(log.created_at).toLocaleDateString('fr-FR', {
                             day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit'
                         });
                         auditHTML += `
@@ -3304,7 +3304,7 @@ window.convertInvoiceTypeChaimae = async function (invoiceId, currentType) {
                 },
                 document: {
                     type: newType,
-                    date: newDate || new Date().toISOString().split('T')[0],
+                    date: newDate || (window.todayDateString ? window.todayDateString() : new Date().toISOString().split('T')[0]),
                     numero: newType === 'facture' || newType === 'bon_livraison' ? newNumero : null,
                     numero_devis: newType === 'devis' ? newNumero : null,
                     numero_Order: newType === 'facture' ? newNumeroOrder : null,
@@ -5415,7 +5415,7 @@ window.startBulkDownloadChaimae = async function (selectedIds, organizationType,
 
         // Create ZIP file
         const zip = new JSZip();
-        const timestamp = new Date().toISOString().split('T')[0];
+        const timestamp = (window.todayDateString ? window.todayDateString() : new Date().toISOString().split('T')[0]);
         const folderName = `Factures_CHAIMAE_Export_${timestamp}`;
 
         // Generate all PDFs and add to ZIP
@@ -5785,7 +5785,7 @@ window.showCreateGlobalInvoiceModalChaimae = async function () {
                 
                 <div>
                     <label style="display: block; color: #999; margin-bottom: 0.5rem;">Date <span style="color: #f44336;">*</span></label>
-                    <input type="date" id="globalInvoiceDateModal" value="${new Date().toISOString().split('T')[0]}"
+                    <input type="date" id="globalInvoiceDateModal" value="${window.todayDateString ? window.todayDateString() : new Date().toISOString().split('T')[0]}"
                            style="width: 100%; padding: 0.75rem; background: #3e3e42; border: 1px solid #555; color: #fff; border-radius: 8px;">
                 </div>
             </div>

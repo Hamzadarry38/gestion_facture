@@ -150,24 +150,22 @@ async function loadJsPDF() {
     });
 }
 
-// Load Multi signature image for PDF (helper version)
+// Load Multi signature image for PDF (helper version) - direct load without compression
 async function loadMultiSignatureHelper() {
-    return new Promise((resolve) => {
-        const img = new Image();
-        img.onload = () => {
-            const canvas = document.createElement('canvas');
-            canvas.width = img.width;
-            canvas.height = img.height;
-            const ctx = canvas.getContext('2d');
-            ctx.drawImage(img, 0, 0);
-            resolve(canvas.toDataURL('image/png'));
-        };
-        img.onerror = () => {
-            console.warn('Could not load Multi signature image');
-            resolve(null);
-        };
-        img.src = 'Signature/Multi.png';
-    });
+    try {
+        const response = await fetch('Signature/Multi.png');
+        if (!response.ok) throw new Error('Failed to fetch');
+        const blob = await response.blob();
+        return await new Promise((resolve) => {
+            const reader = new FileReader();
+            reader.onloadend = () => resolve(reader.result);
+            reader.onerror = () => resolve(null);
+            reader.readAsDataURL(blob);
+        });
+    } catch (e) {
+        console.warn('Could not load Multi signature image:', e);
+        return null;
+    }
 }
 
 // Function to generate a flattened footer (text + signature in one image)
@@ -633,7 +631,7 @@ window.downloadInvoicePDFMulti = async function (invoiceId) {
             doc.setFontSize(18);
             doc.setTextColor(96, 125, 139);
             doc.setFont(undefined, 'bold');
-            doc.text('MULTI TRAVAUX TETOUAN', 40, 18);
+            doc.text('MULTI TRAVAUX TETOUAN', 40, 22);
 
             // Document Type - Right aligned, underlined
             doc.setFontSize(18);

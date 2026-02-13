@@ -356,7 +356,7 @@ window.initCreateGlobalInvoiceChaimaePage = function() {
     console.log('🔄 Initializing create global invoice page for Chaimae...');
     
     // Set today's date
-    const today = new Date().toISOString().split('T')[0];
+    const today = (window.todayDateString ? window.todayDateString() : new Date().toISOString().split('T')[0]);
     document.getElementById('documentDateGlobal').value = today;
     
     // Load clients for autocomplete

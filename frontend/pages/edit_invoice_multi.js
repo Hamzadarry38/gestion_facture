@@ -382,7 +382,7 @@ window.addProductRowEditMulti = function (productData = null) {
                    onkeydown="handleArrowNavigationEditMulti(event, '${rowId}', 2)">
         </td>
         <td>
-            <input type="number" class="product-price" step="0.01" placeholder="0.00" value="${productData ? productData.prix_unitaire_ht : ''}"
+            <input type="number" class="product-price" step="0.01" placeholder="0.00" value="${productData ? parseFloat(productData.prix_unitaire_ht).toFixed(2) : ''}"
                    onchange="calculateRowTotalEditMulti('${rowId}')" onblur="calculateRowTotalEditMulti('${rowId}')"
                    onkeydown="handleArrowNavigationEditMulti(event, '${rowId}', 3)">
         </td>
@@ -1113,7 +1113,7 @@ window.showConvertDocumentTypeModal = async function () {
             },
             document: {
                 type: newType,
-                date: newDate || invoice.document_date || new Date().toISOString().split('T')[0],
+                date: newDate || invoice.document_date || (window.todayDateString ? window.todayDateString() : new Date().toISOString().split('T')[0]),
                 numero: newType === 'facture' ? newNumero : null,
                 numero_devis: newType === 'devis' ? newNumero : (currentType === 'devis' ? currentNumero : null),
                 numero_Order: newType === 'facture' ? newNumeroOrder : null,

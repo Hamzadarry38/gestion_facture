@@ -394,8 +394,7 @@ window.autoFormatDocumentNumberOnBlur = function (input) {
 
         if (dateInput && dateInput.value) {
             // استخراج السنة من التاريخ المختار (YYYY-MM-DD)
-            const selectedDate = new Date(dateInput.value);
-            year = selectedDate.getFullYear();
+            year = parseInt(dateInput.value.substring(0, 4)) || year;
             console.log('📅 [AUTO FORMAT MRY] Using year from date field:', year);
         } else {
             console.log('📅 [AUTO FORMAT MRY] Using current year:', year);
@@ -975,7 +974,7 @@ function initializeInvoiceForm() {
         // Set default date
         const dateInput = document.getElementById('documentDate');
         if (dateInput) {
-            dateInput.value = new Date().toISOString().split('T')[0];
+            dateInput.value = (window.todayDateString ? window.todayDateString() : new Date().toISOString().split('T')[0]);
         }
 
         // Load delivery persons
@@ -1014,7 +1013,7 @@ function initializeInvoiceForm() {
         const dateInput = document.getElementById('documentDate');
         if (dateInput) {
             // Set today's date as default
-            const today = new Date().toISOString().split('T')[0];
+            const today = (window.todayDateString ? window.todayDateString() : new Date().toISOString().split('T')[0]);
             dateInput.value = today;
         }
 
@@ -1328,10 +1327,12 @@ async function handleInvoiceSubmit(e) {
         });
 
         console.log('📝 Saving invoice:', formData);
+        console.log('📅 [DATE DEBUG] Date being sent to backend:', formData.document.date, '| Type:', typeof formData.document.date);
 
         // Save to database
         const result = await window.electron.db.createInvoice(formData);
 
+        console.log('📅 [DATE DEBUG] Full result from backend:', JSON.stringify(result.data));
         if (result.success) {
             const invoiceId = result.data.id;
             console.log('✅ Invoice saved with ID:', invoiceId);

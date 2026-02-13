@@ -415,7 +415,7 @@ window.addProductRowEditChaimae = function (productData = null) {
                    onkeydown="handleArrowNavigationEditChaimae(event, '${rowId}', 2)">
         </td>
         <td>
-            <input type="number" class="product-price" step="0.01" placeholder="0.00" value="${productData ? productData.prix_unitaire_ht : ''}"
+            <input type="number" class="product-price" step="0.01" placeholder="0.00" value="${productData ? parseFloat(productData.prix_unitaire_ht).toFixed(2) : ''}"
                    onchange="calculateRowTotalEditChaimae('${rowId}')" onblur="calculateRowTotalEditChaimae('${rowId}')"
                    onkeydown="handleArrowNavigationEditChaimae(event, '${rowId}', 3)">
         </td>
@@ -1263,7 +1263,7 @@ window.showConvertDocumentTypeModalChaimae = async function () {
             },
             document: {
                 type: selectedNewType,
-                date: newDate || invoice.document_date || new Date().toISOString().split('T')[0],
+                date: newDate || invoice.document_date || (window.todayDateString ? window.todayDateString() : new Date().toISOString().split('T')[0]),
                 numero: selectedNewType === 'facture' ? newNumero : null,
                 numero_devis: selectedNewType === 'devis' ? newNumero : (currentType === 'devis' ? currentNumero : null),
                 numero_bl: selectedNewType === 'bon_livraison' ? newNumero : (currentType === 'bon_livraison' ? currentNumero : null),

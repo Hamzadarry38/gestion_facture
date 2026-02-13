@@ -391,6 +391,13 @@ async function generateBenAliPDF(invoiceId, sourceDb) {
 
                 // Also download in browser
                 doc.save(fileName);
+
+                // Remove loading overlay BEFORE showing notification
+                if (loadingOverlay && loadingOverlay.parentNode) {
+                    loadingOverlay.remove();
+                    loadingOverlay = null;
+                }
+
                 window.notify.success('Succès', `PDF ${window.getPdfCompanyName ? window.getPdfCompanyName('BENALI') : 'BEN ALI'} généré et sauvegardé en ligne: ${fileName}`, 3000);
             } else {
                 console.error('❌ Error uploading BEN ALI PDF to server:', uploadResult.error);
@@ -402,16 +409,30 @@ async function generateBenAliPDF(invoiceId, sourceDb) {
 
                 const saveResult = await window.electron.pdf.savePdf(pdfUint8ArrayFallback, saveFolder, invoiceNumber, createdBy);
 
+                doc.save(fileName);
+
+                // Remove loading overlay BEFORE showing notification
+                if (loadingOverlay && loadingOverlay.parentNode) {
+                    loadingOverlay.remove();
+                    loadingOverlay = null;
+                }
+
                 if (saveResult.success) {
                     window.notify.warning('Mode Hors Ligne', 'Le PDF a été sauvegardé localement.', 4000);
                 } else {
                     window.notify.error('Erreur', 'Erreur lors de la sauvegarde du PDF: ' + saveResult.error, 4000);
                 }
-                doc.save(fileName);
             }
 
+        } catch (innerError) {
+            // Remove loading overlay on error
+            if (loadingOverlay && loadingOverlay.parentNode) {
+                loadingOverlay.remove();
+                loadingOverlay = null;
+            }
+            throw innerError;
         } finally {
-            // Always remove loading overlay
+            // Safety net: always remove loading overlay if still present
             if (loadingOverlay && loadingOverlay.parentNode) {
                 loadingOverlay.remove();
             }
@@ -531,7 +552,7 @@ async function showBenAliModal(invoice) {
                             <label style="display: block; margin-bottom: 0.5rem; color: #e0e0e0; font-weight: 600;">
                                 Date personnalisée :
                             </label>
-                            <input type="date" id="benaliDateInput" value="${new Date().toISOString().slice(0, 10)}"
+                            <input type="date" id="benaliDateInput" value="${window.todayDateString ? window.todayDateString() : new Date().toISOString().slice(0, 10)}"
                                    style="width: 100%; padding: 0.75rem; background: #2d2d30; border: 1px solid #3e3e42; border-radius: 6px; color: #fff; font-size: 1rem;">
                         </div>
                         <div>
@@ -1025,7 +1046,6 @@ async function generateCustomCompanyPDF(invoiceId, sourceDb, companyCode) {
                     console.log(`✅ ${companyCode} PDF uploaded to server:`, uploadResult.filePath);
                     uploaded = true;
                     doc.save(fileName);
-                    window.notify.success('Succès', `PDF ${companyName} généré et sauvegardé: ${fileName}`, 3000);
                 }
             } catch (e) {
                 console.warn(`Could not upload ${companyCode} PDF:`, e);
@@ -1039,7 +1059,7 @@ async function generateCustomCompanyPDF(invoiceId, sourceDb, companyCode) {
                 try {
                     const saveResult = await window.electron.pdf.savePdf(pdfUint8ArrayFallback, saveFolder, invoiceNumber, createdBy);
                     if (saveResult.success) {
-                        window.notify.warning('Mode Hors Ligne', 'Le PDF a été sauvegardé localement.', 4000);
+                        console.log(`✅ ${companyCode} PDF saved locally`);
                     }
                 } catch (e) {
                     console.warn('Local save failed:', e);
@@ -1047,7 +1067,28 @@ async function generateCustomCompanyPDF(invoiceId, sourceDb, companyCode) {
                 doc.save(fileName);
             }
 
+            // Remove loading overlay BEFORE showing notification
+            if (loadingOverlay && loadingOverlay.parentNode) {
+                loadingOverlay.remove();
+                loadingOverlay = null;
+            }
+
+            if (uploaded) {
+                window.notify.success('Succès', `PDF ${companyName} généré et sauvegardé: ${fileName}`, 3000);
+            } else {
+                window.notify.warning('Mode Hors Ligne', 'Le PDF a été sauvegardé localement.', 4000);
+            }
+
+        } catch (innerError) {
+            console.error(`❌ Error in ${companyCode} PDF generation:`, innerError);
+            // Remove loading overlay on error
+            if (loadingOverlay && loadingOverlay.parentNode) {
+                loadingOverlay.remove();
+                loadingOverlay = null;
+            }
+            throw innerError;
         } finally {
+            // Safety net: always remove loading overlay if still present
             if (loadingOverlay && loadingOverlay.parentNode) {
                 loadingOverlay.remove();
             }
@@ -1125,7 +1166,7 @@ function showCustomCompanyModal(invoice, companyCode, companyName, companyColor)
                             <label style="display: block; margin-bottom: 0.5rem; color: #e0e0e0; font-weight: 600;">
                                 Date personnalisée :
                             </label>
-                            <input type="date" id="customDateInput" value="${new Date().toISOString().slice(0, 10)}"
+                            <input type="date" id="customDateInput" value="${window.todayDateString ? window.todayDateString() : new Date().toISOString().slice(0, 10)}"
                                    style="width: 100%; padding: 0.75rem; background: #2d2d30; border: 1px solid #3e3e42; border-radius: 6px; color: #fff; font-size: 1rem;">
                         </div>
                         <div>

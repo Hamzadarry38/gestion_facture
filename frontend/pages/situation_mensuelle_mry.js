@@ -1568,7 +1568,7 @@ async function showAddManualInvoiceModalMRY(existingInvoices = []) {
     document.body.appendChild(overlay);
 
     // Set today's date as default
-    const today = new Date().toISOString().split('T')[0];
+    const today = (window.todayDateString ? window.todayDateString() : new Date().toISOString().split('T')[0]);
     document.getElementById('manualInvoiceDateMRY').value = today;
 
     // Auto-format numero to add /year when user leaves the field

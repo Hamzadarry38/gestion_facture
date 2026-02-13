@@ -267,6 +267,12 @@ window.generateSKMPDFWithCustomization = async function (invoice, customizationD
             doc.save(fileName);
             console.log('✅ SKM PDF generated successfully:', fileName);
 
+            // Remove loading overlay BEFORE showing alert
+            if (loadingOverlay && loadingOverlay.parentNode) {
+                loadingOverlay.remove();
+                loadingOverlay = null;
+            }
+
             if (context === 'multi') {
                 await customAlert('PDF généré avec succès', `Le fichier ${fileName} a été téléchargé et sauvegardé avec succès !`, 'success');
             } else {
@@ -274,6 +280,13 @@ window.generateSKMPDFWithCustomization = async function (invoice, customizationD
             }
         } else {
             console.error('❌ Error saving PDF to disk:', saveResult.error);
+
+            // Remove loading overlay BEFORE showing alert
+            if (loadingOverlay && loadingOverlay.parentNode) {
+                loadingOverlay.remove();
+                loadingOverlay = null;
+            }
+
             if (context === 'multi') {
                 await customAlert('Avertissement', 'PDF généré mais erreur lors de la sauvegarde: ' + saveResult.error, 'warning');
             } else {
@@ -284,9 +297,14 @@ window.generateSKMPDFWithCustomization = async function (invoice, customizationD
 
     } catch (error) {
         console.error('❌ Error in generateSKMPDFWithCustomization:', error);
+        // Remove loading overlay on error
+        if (loadingOverlay && loadingOverlay.parentNode) {
+            loadingOverlay.remove();
+            loadingOverlay = null;
+        }
         throw error;
     } finally {
-        // Always remove loading overlay
+        // Safety net: always remove loading overlay if still present
         if (loadingOverlay && loadingOverlay.parentNode) {
             loadingOverlay.remove();
         }
@@ -392,7 +410,7 @@ window.showSimpleSKMModal = async function (invoice, notesText = '') {
                         <label style="display: block; margin-bottom: 0.5rem; color: #e0e0e0; font-weight: 600;">
                             Date personnalisée :
                         </label>
-                        <input type="date" id="dateInput" value="${new Date().toISOString().slice(0, 10)}"
+                        <input type="date" id="dateInput" value="${window.todayDateString ? window.todayDateString() : new Date().toISOString().slice(0, 10)}"
                                style="width: 100%; padding: 0.75rem; background: #2d2d30; border: 1px solid #3e3e42; border-radius: 6px; color: #fff; font-size: 1rem;">
                     </div>
                     <div>
@@ -556,7 +574,7 @@ async function showSKMCustomizationModal(invoice) {
         overlay.className = 'custom-modal-overlay';
 
         const currentYear = new Date().getFullYear();
-        const currentDate = new Date().toISOString().slice(0, 10);
+        const currentDate = (window.todayDateString ? window.todayDateString() : new Date().toISOString().slice(0, 10));
 
         // Create modal content
         const modalContent = document.createElement('div');
