@@ -1277,7 +1277,7 @@ window.showConvertDocumentTypeModalChaimae = async function () {
                 created_by_user_email: user?.email || null,
                 creation_method: 'converted',
                 source_document_id: currentInvoiceIdChaimae, // Added for extra traceability
-                ar_status: 'sans_accuse'
+                ar_status: ''
             },
             products: (invoice.products || []).map(p => ({
                 designation: p.designation || '',

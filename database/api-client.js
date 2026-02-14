@@ -3,9 +3,9 @@ const axios = require('axios');
 // Configuration
 // In Electron, we can use a global window variable or localStorage to set the API URL
 // Fallback logic: local dev -> DDNS production
-const DEFAULT_LOCAL_API = 'https://redouan.ddns.net/facture';
-const PRODUCTION_API = 'https://redouan.ddns.net/facture/api';
-const WEB_PORTAL_URL = 'https://redouan.ddns.net/facture/';
+const DEFAULT_LOCAL_API = 'https://anpe-web-api.ddns.net/facture';
+const PRODUCTION_API = 'https://anpe-web-api.ddns.net/facture/api';
+const WEB_PORTAL_URL = 'https://anpe-web-api.ddns.net/facture/';
 
 // Safe way to check for localStorage in both Node (Main) and Browser (Renderer) environments
 let configuredApiUrl = null;
@@ -33,8 +33,8 @@ try {
 // configuredApiUrl (localStorage) should not hijack local dev
 const API_URL = configuredApiUrl || DEFAULT_LOCAL_API;
 console.log(`[API Client] Using Base URL: ${API_URL}`);
-console.log(`[API Client] 🌐 DDNS URL: https://redouan.ddns.net/facture`);
-console.log(`[API Client] 🏠 Localhost URL: http://localhost:8001`);
+console.log(`[API Client] 🌐 DDNS URL: https://anpe-web-api.ddns.net/facture`);
+console.log(`[API Client] 🏠 Localhost URL: https://anpe-web-api.ddns.net/facture`);
 console.log(`[API Client] ✅ Active URL: ${API_URL}`);
 
 
@@ -271,6 +271,28 @@ const service = {
 
     savePdfPath: async (company, devisNumber, year, filePath, createdBy) => {
         const res = await apiClient.post(`/pdf/${company}`, { devis_number: devisNumber, year, file_path: filePath, created_by: createdBy });
+        return res.data;
+    },
+
+    // Devis Data (full devis/facture tracking with products)
+    getDevisData: async (company, year) => {
+        const url = year ? `/devis-data/${company}?year=${year}` : `/devis-data/${company}`;
+        const res = await apiClient.get(url);
+        return res.data;
+    },
+
+    getDevisDataByNumber: async (company, number, year) => {
+        const res = await apiClient.get(`/devis-data/${company}/${number}/${year}`);
+        return res.data;
+    },
+
+    saveDevisData: async (company, data) => {
+        const res = await apiClient.post(`/devis-data/${company}`, data);
+        return res.data;
+    },
+
+    deleteDevisData: async (company, id) => {
+        const res = await apiClient.delete(`/devis-data/${company}/${id}`);
         return res.data;
     },
 

@@ -10,6 +10,7 @@ const { registerMsh3Handlers } = require('./database/ipc-handlers-msh3');
 const { registerBenAliHandlers } = require('./database/ipc-handlers-benali');
 const { registerSAAISSHandlers } = require('./database/ipc-handlers-saaiss');
 const { registerSKMHandlers } = require('./database/ipc-handlers-skm');
+const { registerDynamicCompanyHandlers } = require('./database/ipc-handlers-dynamic');
 const { initAutoUpdater, checkForUpdates, setLanguage } = require('./updater');
 const { migrateAllToPostgres } = require('./database/migration-utils');
 
@@ -263,67 +264,78 @@ function setupPdfHandlers() {
   // Get all PDF files for a company, filtered by creator
   ipcMain.handle('pdf:getPdfFiles', async (event, company, createdBy) => {
     try {
-      const pdfDir = path.join(app.getPath('userData'), 'pdfs', company);
+      let pdfFiles = [];
 
-      if (!fs.existsSync(pdfDir)) {
-        return { success: true, files: [] };
+      // 1. Load local files if they exist
+      const pdfDir = path.join(app.getPath('userData'), 'pdfs', company);
+      if (fs.existsSync(pdfDir)) {
+        const files = fs.readdirSync(pdfDir);
+        pdfFiles = files.filter(f => f.endsWith('.pdf')).map(f => {
+          const creatorMatch = f.match(/^\[([^\]]+)\]/);
+          const creator = creatorMatch ? creatorMatch[1] : 'Unknown';
+          return {
+            name: f,
+            path: path.join(pdfDir, f),
+            size: fs.statSync(path.join(pdfDir, f)).size,
+            created: fs.statSync(path.join(pdfDir, f)).birthtime,
+            creator: creator,
+            source: 'local'
+          };
+        });
       }
 
-      const files = fs.readdirSync(pdfDir);
-      let pdfFiles = files.filter(f => f.endsWith('.pdf')).map(f => {
-        // Extract creator from filename as fallback
-        const creatorMatch = f.match(/^\[([^\]]+)\]/);
-        const creator = creatorMatch ? creatorMatch[1] : 'Unknown';
-
-        return {
-          name: f,
-          path: path.join(pdfDir, f),
-          size: fs.statSync(path.join(pdfDir, f)).size,
-          created: fs.statSync(path.join(pdfDir, f)).birthtime,
-          creator: creator
-        };
-      });
-
-      // For secondary companies, try to get more accurate metadata from DB
-      const secondaryCompanies = {
-        'skm': 'SMARTS',
-        'chaimae_skm': 'SMARTS',
-        'saaiss': 'MSH3',
-        'chaimae_saaiss': 'MSH3',
+      // 2. Map folder key to DB company code
+      const companyCodeMap = {
+        'skm': 'SKM',
+        'chaimae_skm': 'SKM',
+        'smarts': 'SMARTS',
+        'chaimae_smarts': 'SMARTS',
+        'saaiss': 'SAAISS',
+        'chaimae_saaiss': 'SAAISS',
+        'msh3': 'MSH3',
+        'chaimae_msh3': 'MSH3',
         'benali': 'BENALI',
         'chaimae_benali': 'BENALI'
       };
 
-      if (secondaryCompanies[company]) {
-        try {
-          const apiClient = require('./database/api-client');
-          const dbResult = await apiClient.getAllPdfPaths(secondaryCompanies[company]);
+      // Also try the company key itself (uppercase) for dynamic companies
+      const dbCompanyCode = companyCodeMap[company] || company.toUpperCase();
 
-          if (dbResult.success && dbResult.data) {
-            const dbMap = new Map();
-            dbResult.data.forEach(item => {
-              // Normalize path for comparison - replace \ with /
-              const normalizedDbPath = item.file_path.replace(/\\/g, '/').toLowerCase();
-              dbMap.set(normalizedDbPath, item);
-            });
+      // 3. Load PDF records from PostgreSQL
+      try {
+        const apiClient = require('./database/api-client');
+        const dbResult = await apiClient.getAllPdfPaths(dbCompanyCode);
 
-            pdfFiles = pdfFiles.map(file => {
-              const normalizedFilePath = file.path.replace(/\\/g, '/').toLowerCase();
-              const dbRecord = dbMap.get(normalizedFilePath);
+        if (dbResult.success && dbResult.data && dbResult.data.length > 0) {
+          // Build a set of local file paths for dedup
+          const localPaths = new Set(pdfFiles.map(f => f.path.replace(/\\/g, '/').toLowerCase()));
 
-              if (dbRecord) {
-                return {
-                  ...file,
-                  creator: dbRecord.created_by || file.creator,
-                  dbRecord: true
-                };
-              }
-              return file;
-            });
-          }
-        } catch (dbErr) {
-          console.error('⚠️ Failed to fetch PDF metadata from DB:', dbErr);
+          dbResult.data.forEach(item => {
+            // Enrich existing local files with DB metadata
+            const normalizedDbPath = (item.file_path || '').replace(/\\/g, '/').toLowerCase();
+            const localMatch = pdfFiles.find(f => f.path.replace(/\\/g, '/').toLowerCase() === normalizedDbPath);
+
+            if (localMatch) {
+              localMatch.creator = item.created_by || localMatch.creator;
+              localMatch.dbRecord = true;
+            } else {
+              // This file exists in DB but not locally (server-hosted)
+              const fileName = item.file_path ? item.file_path.split('/').pop() : `${item.devis_number}_${item.year}.pdf`;
+              pdfFiles.push({
+                name: fileName,
+                path: item.file_path || '',
+                size: 0,
+                created: item.created_at || new Date().toISOString(),
+                creator: item.created_by || 'Unknown',
+                source: 'server',
+                dbRecord: true,
+                serverPath: item.file_path
+              });
+            }
+          });
         }
+      } catch (dbErr) {
+        console.error('⚠️ Failed to fetch PDF metadata from DB for', dbCompanyCode, ':', dbErr.message);
       }
 
       // Filter by creator if specified
@@ -834,6 +846,7 @@ app.whenReady().then(async () => {
   await registerBenAliHandlers(); // BEN ALI database
   await registerSAAISSHandlers(); // SAAISS database
   await registerSKMHandlers(); // SKM database
+  await registerDynamicCompanyHandlers(); // Dynamic handlers for any new PDF company
 
   // Setup IPC handlers after window is ready
   createWindow();

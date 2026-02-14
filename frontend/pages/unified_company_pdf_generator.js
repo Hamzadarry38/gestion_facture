@@ -1045,6 +1045,16 @@ async function generateCustomCompanyPDF(invoiceId, sourceDb, companyCode) {
                 if (uploadResult.success) {
                     console.log(`✅ ${companyCode} PDF uploaded to server:`, uploadResult.filePath);
                     uploaded = true;
+                    
+                    // Save PDF path to database for tracking
+                    try {
+                        const currentYear = new Date().getFullYear();
+                        await window.electron.dbDynamic.savePdfPath(companyCode, invoiceNumber, currentYear, uploadResult.filePath, createdBy);
+                        console.log(`✅ ${companyCode} PDF metadata synced to PostgreSQL`);
+                    } catch (dbErr) {
+                        console.error(`⚠️ Failed to sync ${companyCode} PDF metadata to PostgreSQL:`, dbErr);
+                    }
+                    
                     doc.save(fileName);
                 }
             } catch (e) {

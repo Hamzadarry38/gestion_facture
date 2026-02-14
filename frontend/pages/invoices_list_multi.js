@@ -205,10 +205,12 @@ function InvoicesListMultiPage() {
                             <label>🕒 Accusé de Réception:</label>
                             <select id="filterArStatusMulti" onchange="filterInvoicesMulti()">
                                 <option value="all">Tous</option>
+                                <option value="">— (vide)</option>
                                 <option value="sans_accuse">Sans accusé</option>
                                 <option value="en_attente">En attente</option>
                                 <option value="accuse">Accusé</option>
                             </select>
+                            <button onclick="window.bulkResetArStatusMulti()" style="margin-top: 0.3rem; padding: 0.3rem 0.6rem; background: #f44336; color: #fff; border: none; border-radius: 4px; cursor: pointer; font-size: 0.75rem; font-weight: 600; width: 100%;" title="Convertir tous les Sans accusé en vide">🔄 Reset Sans accusé</button>
                         </div>
                         
                         <div class="filter-group" style="display: flex; gap: 0.5rem; margin-top: 1.5rem;">
@@ -509,6 +511,26 @@ window.updateArStatusMulti = async function (id, status) {
     }
 };
 
+// Bulk reset: convert all "sans_accuse" to empty
+window.bulkResetArStatusMulti = async function () {
+    const toReset = allInvoicesMulti.filter(inv => inv.ar_status === 'sans_accuse' && inv.document_type !== 'devis');
+    if (toReset.length === 0) {
+        window.notify.info('Info', 'Aucune facture avec "Sans accusé" trouvée.', 3000);
+        return;
+    }
+    if (!confirm(`Convertir ${toReset.length} facture(s) de "Sans accusé" → vide ?`)) return;
+
+    let success = 0;
+    for (const inv of toReset) {
+        try {
+            const result = await window.electron.dbMulti.updateInvoice(inv.id, { ar_status: '' });
+            if (result.success) { inv.ar_status = ''; success++; }
+        } catch (e) { console.warn('Reset AR error for', inv.id, e); }
+    }
+    window.notify.success('✅', `${success}/${toReset.length} facture(s) mises à jour.`, 3000);
+    loadInvoicesMulti();
+};
+
 window.handleValidateInvoiceMulti = async function (id, status) {
     const action = status === 'validated' ? 'valider' : 'rejeter';
     const confirmMessage = `Êtes-vous sûr de vouloir ${action} ce document ?`;
@@ -675,11 +697,15 @@ function filterInvoicesMulti() {
             matchCreationMethod = invoice.creation_method === 'converted';
         }
 
-        // AR Status Match
+        // AR Status Match (exclude devis - they don't have AR status)
         let matchAR = true;
         if (arStatusFilter !== 'all') {
-            const status = invoice.ar_status || 'sans_accuse';
-            matchAR = status === arStatusFilter;
+            if (invoice.document_type === 'devis') {
+                matchAR = false;
+            } else {
+                const status = invoice.ar_status || '';
+                matchAR = status === arStatusFilter;
+            }
         }
 
         let searchMatch = true;
@@ -862,12 +888,13 @@ function displayInvoicesMulti() {
             <td>${Number(invoice.total_ht || 0).toFixed(2)} DH</td>
             <td><strong>${Number(invoice.total_ttc || 0).toFixed(2)} DH</strong></td>
             <td>
-                ${invoice.document_type === 'devis' ? '<span style="color:#666;">—</span>' : `<select onchange="window.updateArStatusMulti('${invoice.id}', this.value)"
-                        style="padding: 0.4rem; background: ${invoice.ar_status === 'accuse' ? '#4caf50' : (invoice.ar_status === 'en_attente' ? '#ff9800' : '#424242')}; color: white; border: none; border-radius: 4px; font-size: 0.85rem; cursor: pointer; width: 100%; transition: background 0.3s;"
+                ${invoice.document_type === 'devis' ? '<span style="color:#666;">—</span>' : `<select onchange="this.style.background=this.value==='accuse'?'#4caf50':this.value==='en_attente'?'#ff9800':this.value==='sans_accuse'?'#f44336':'#424242'; window.updateArStatusMulti('${invoice.id}', this.value)"
+                        style="padding: 0.4rem; background: ${invoice.ar_status === 'accuse' ? '#4caf50' : (invoice.ar_status === 'en_attente' ? '#ff9800' : (invoice.ar_status === 'sans_accuse' ? '#f44336' : '#424242'))}; color: white; border: none; border-radius: 4px; font-size: 0.85rem; cursor: pointer; width: 100%; transition: background 0.3s;"
                         onclick="event.stopPropagation()">
-                    <option value="sans_accuse" ${(!invoice.ar_status || invoice.ar_status === 'sans_accuse') ? 'selected' : ''} style="background: #424242;">Sans accusé</option>
-                    <option value="en_attente" ${invoice.ar_status === 'en_attente' ? 'selected' : ''} style="background: #ff9800;">En attente</option>
-                    <option value="accuse" ${invoice.ar_status === 'accuse' ? 'selected' : ''} style="background: #4caf50;">Accusé</option>
+                    <option value="" ${!invoice.ar_status ? 'selected' : ''} style="background: #424242; color: #fff;"></option>
+                    <option value="sans_accuse" ${invoice.ar_status === 'sans_accuse' ? 'selected' : ''} style="background: #f44336; color: #fff;">Sans accusé</option>
+                    <option value="en_attente" ${invoice.ar_status === 'en_attente' ? 'selected' : ''} style="background: #424242; color: #ff9800;">En attente</option>
+                    <option value="accuse" ${invoice.ar_status === 'accuse' ? 'selected' : ''} style="background: #424242; color: #4caf50;">Accusé</option>
                 </select>`}
             </td>
             <td style="text-align: center; color: #757575;">

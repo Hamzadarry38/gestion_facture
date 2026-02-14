@@ -194,10 +194,12 @@ function InvoicesListChaimaePage() {
                             <label>🕒 Accusé de Réception:</label>
                             <select id="filterArStatusChaimae" onchange="filterInvoicesChaimae()">
                                 <option value="all">Tous</option>
+                                <option value="">— (vide)</option>
                                 <option value="sans_accuse">Sans accusé</option>
                                 <option value="en_attente">En attente</option>
                                 <option value="accuse">Accusé</option>
                             </select>
+                            <button onclick="window.bulkResetArStatusChaimae()" style="margin-top: 0.3rem; padding: 0.3rem 0.6rem; background: #f44336; color: #fff; border: none; border-radius: 4px; cursor: pointer; font-size: 0.75rem; font-weight: 600; width: 100%;" title="Convertir tous les Sans accusé en vide">🔄 Reset Sans accusé</button>
                         </div>
                         
                         <div class="filter-group">
@@ -1009,11 +1011,12 @@ function displayInvoicesChaimae(invoices) {
                     </div>
                 </td>
                 <td style="padding: 1rem 0.75rem; border-right: 1px solid #3e3e42; text-align: center;">
-                    ${invoice.document_type === 'devis' ? '<span style="color:#666;">—</span>' : `<select onchange="updateArStatusChaimae(${invoice.id}, this.value)" 
-                            style="padding: 0.4rem; background: ${invoice.ar_status === 'accuse' ? '#1b5e20' : invoice.ar_status === 'en_attente' ? '#e65100' : '#424242'}; color: white; border: none; border-radius: 4px; font-size: 0.85rem; cursor: pointer; width: 100%;">
-                        <option value="sans_accuse" ${invoice.ar_status === 'sans_accuse' ? 'selected' : ''}>Sans accusé</option>
-                        <option value="en_attente" ${invoice.ar_status === 'en_attente' ? 'selected' : ''}>En attente</option>
-                        <option value="accuse" ${invoice.ar_status === 'accuse' ? 'selected' : ''}>Accusé</option>
+                    ${invoice.document_type === 'devis' ? '<span style="color:#666;">—</span>' : `<select onchange="this.style.background=this.value==='accuse'?'#4caf50':this.value==='en_attente'?'#ff9800':this.value==='sans_accuse'?'#f44336':'#424242'; updateArStatusChaimae(${invoice.id}, this.value)" 
+                            style="padding: 0.4rem; background: ${invoice.ar_status === 'accuse' ? '#4caf50' : (invoice.ar_status === 'en_attente' ? '#ff9800' : (invoice.ar_status === 'sans_accuse' ? '#f44336' : '#424242'))}; color: white; border: none; border-radius: 4px; font-size: 0.85rem; cursor: pointer; width: 100%;">
+                        <option value="" ${!invoice.ar_status ? 'selected' : ''} style="background: #424242; color: #fff;"></option>
+                        <option value="sans_accuse" ${invoice.ar_status === 'sans_accuse' ? 'selected' : ''} style="background: #f44336; color: #fff;">Sans accusé</option>
+                        <option value="en_attente" ${invoice.ar_status === 'en_attente' ? 'selected' : ''} style="background: #424242; color: #ff9800;">En attente</option>
+                        <option value="accuse" ${invoice.ar_status === 'accuse' ? 'selected' : ''} style="background: #424242; color: #4caf50;">Accusé</option>
                     </select>`}
                 </td>
                 <td style="padding: 1rem 0.75rem; border-right: 1px solid #3e3e42; text-align: center;">
@@ -1221,8 +1224,11 @@ window.filterInvoicesChaimae = function () {
 
 
 
-        // AR Status filter
-        if (filterArStatus !== 'all' && (invoice.ar_status || 'sans_accuse') !== filterArStatus) return false;
+        // AR Status filter (exclude devis - they don't have AR status)
+        if (filterArStatus !== 'all') {
+            if (invoice.document_type === 'devis') return false;
+            if ((invoice.ar_status || '') !== filterArStatus) return false;
+        }
 
         // Year filter (from card selection)
         if (selectedYearChaimae) {
@@ -3314,7 +3320,7 @@ window.convertInvoiceTypeChaimae = async function (invoiceId, currentType) {
                     created_by_user_name: user?.name || null,
                     created_by_user_email: user?.email || null,
                     delivered_by: newDeliveredBy || null,
-                    ar_status: 'sans_accuse'
+                    ar_status: ''
                 },
                 products: invoice.products || [],
                 totals: {
@@ -3572,6 +3578,11 @@ window.downloadInvoicePDFChaimae = async function (invoiceId) {
         }
 
         const invoice = result.data;
+
+        // Normalize: PostgreSQL returns lowercase 'document_numero_order', frontend expects 'document_numero_Order'
+        if (!invoice.document_numero_Order && invoice.document_numero_order) {
+            invoice.document_numero_Order = invoice.document_numero_order;
+        }
 
         // Show consolidated customization modal
         const customParams = await showChaimaePDFCustomizationModal(invoice);
@@ -6997,8 +7008,9 @@ window.updateArStatusChaimae = async function (id, newStatus) {
             const selects = document.querySelectorAll('select');
             for (const s of selects) {
                 if (s.getAttribute('onchange') && s.getAttribute('onchange').includes(`updateArStatusChaimae(${id}`)) {
-                    s.style.background = newStatus === 'accuse' ? '#1b5e20' :
-                        newStatus === 'en_attente' ? '#e65100' :
+                    s.style.background = newStatus === 'accuse' ? '#4caf50' :
+                        newStatus === 'en_attente' ? '#ff9800' :
+                        newStatus === 'sans_accuse' ? '#f44336' :
                             '#424242';
                 }
             }
@@ -7011,3 +7023,23 @@ window.updateArStatusChaimae = async function (id, newStatus) {
         loadInvoicesChaimae();
     }
 }
+
+// Bulk reset: convert all "sans_accuse" to empty
+window.bulkResetArStatusChaimae = async function () {
+    const toReset = allInvoicesChaimae.filter(inv => inv.ar_status === 'sans_accuse' && inv.document_type !== 'devis');
+    if (toReset.length === 0) {
+        window.notify.info('Info', 'Aucune facture avec "Sans accusé" trouvée.', 3000);
+        return;
+    }
+    if (!confirm(`Convertir ${toReset.length} facture(s) de "Sans accusé" → vide ?`)) return;
+
+    let success = 0;
+    for (const inv of toReset) {
+        try {
+            const result = await window.electron.dbChaimae.updateInvoice(inv.id, { document: { ar_status: '' } });
+            if (result.success) { inv.ar_status = ''; success++; }
+        } catch (e) { console.warn('Reset AR error for', inv.id, e); }
+    }
+    window.notify.success('✅', `${success}/${toReset.length} facture(s) mises à jour.`, 3000);
+    loadInvoicesChaimae();
+};

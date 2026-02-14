@@ -45,6 +45,10 @@ function PDFFilesPage() {
                             padding: 0.5rem 1rem; background: #2196F3; color: #fff; border: none;
                             border-radius: 8px; cursor: pointer; font-weight: 600; font-size: 0.9rem;
                         ">🔄 Actualiser</button>
+                        <button onclick="exportDevisDataToDB()" style="
+                            padding: 0.5rem 1rem; background: linear-gradient(135deg, #4CAF50, #388E3C); color: #fff; border: none;
+                            border-radius: 8px; cursor: pointer; font-weight: 600; font-size: 0.9rem;
+                        ">📤 Exporter vers DB</button>
                     </div>
                 </header>
 
@@ -175,15 +179,21 @@ window.loadAllPdfFiles = async function() {
 
     allPdfFilesData = [];
 
-    // Get the current company (creator) for filtering
-    const selectedCompany = JSON.parse(localStorage.getItem('selectedCompany') || '{}');
-    const createdBy = selectedCompany.code || selectedCompany.name || null;
+    // Refresh companies from API to include any newly added companies
+    try {
+        if (typeof _loadCompaniesFromAPI === 'function') {
+            await _loadCompaniesFromAPI();
+            updateFilterDropdownLabels();
+        }
+    } catch (e) {
+        console.warn('⚠️ Could not refresh companies:', e);
+    }
 
-    // Load PDFs from all company folders (dynamic)
+    // Load PDFs from all company folders (dynamic) - no creator filter, show ALL
     const PDF_COMPANY_FOLDERS = getPdfCompanyFolders();
     for (const folder of PDF_COMPANY_FOLDERS) {
         try {
-            const result = await window.electron.pdf.getPdfFiles(folder.key, createdBy);
+            const result = await window.electron.pdf.getPdfFiles(folder.key, null);
             if (result.success && result.files) {
                 result.files.forEach(file => {
                     file._companyFolder = folder.key;
@@ -266,8 +276,11 @@ function renderPdfFilesList(files) {
         const companyName = getCompanyDisplayName(file._companyFolder);
         const companyColor = file._companyColor || '#666';
         const fileDate = new Date(file.created).toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' });
-        const fileSize = (file.size / 1024).toFixed(1);
+        const fileSize = file.size > 0 ? (file.size / 1024).toFixed(1) + ' KB' : '☁️ En ligne';
+        const isServerFile = file.source === 'server';
         const escapedPath = file.path.replace(/\\/g, '\\\\');
+        const fileIcon = isServerFile ? '☁️' : '📄';
+        const serverPath = file.serverPath ? file.serverPath.replace(/'/g, "\\'") : '';
 
         html += `
             <div style="
@@ -285,7 +298,7 @@ function renderPdfFilesList(files) {
                 ">${companyName}</div>
 
                 <!-- File Icon -->
-                <div style="font-size: 1.3rem;">📄</div>
+                <div style="font-size: 1.3rem;">${fileIcon}</div>
 
                 <!-- File Info -->
                 <div style="flex: 1; min-width: 0;">
@@ -294,19 +307,19 @@ function renderPdfFilesList(files) {
                     </div>
                     <div style="color: #888; font-size: 0.8rem; display: flex; gap: 1rem; margin-top: 0.2rem;">
                         <span>📅 ${fileDate}</span>
-                        <span>📦 ${fileSize} KB</span>
+                        <span>📦 ${fileSize}</span>
                         <span style="color: #0078d4;">👤 ${file.creator || 'Système'}</span>
                     </div>
                 </div>
 
                 <!-- Actions -->
                 <div style="display: flex; gap: 0.5rem;">
-                    <button onclick="openPdfFile('${escapedPath}')" style="
+                    <button onclick="${isServerFile ? `openServerPdfFile('${serverPath}')` : `openPdfFile('${escapedPath}')`}" style="
                         padding: 0.4rem 0.8rem; background: rgba(76,175,80,0.15); color: #4CAF50;
                         border: 1px solid rgba(76,175,80,0.3); border-radius: 4px; cursor: pointer;
                         font-size: 0.85rem; font-weight: 500; transition: all 0.2s;
                     " onmouseover="this.style.background='rgba(76,175,80,0.25)'" onmouseout="this.style.background='rgba(76,175,80,0.15)'">
-                        Ouvrir
+                        ${isServerFile ? '🌐 Ouvrir' : 'Ouvrir'}
                     </button>
                     <button onclick="deletePdfFileFromList('${escapedPath}', '${file._companyFolder}')" style="
                         padding: 0.4rem 0.8rem; background: rgba(244,67,54,0.15); color: #f44336;
@@ -322,6 +335,23 @@ function renderPdfFilesList(files) {
 
     listEl.innerHTML = html;
 }
+
+// Open a server-hosted PDF file in the browser
+window.openServerPdfFile = function(serverPath) {
+    try {
+        // Build the full URL from the API base URL
+        const apiUrl = localStorage.getItem('apiUrl') || 'https://anpe-web-api.ddns.net/facture';
+        const fullUrl = apiUrl + serverPath;
+        console.log('🌐 Opening server PDF:', fullUrl);
+        // Open in a new browser window
+        window.open(fullUrl, '_blank');
+    } catch (error) {
+        console.error('Error opening server PDF:', error);
+        if (window.notify) {
+            window.notify.error('Erreur', 'Impossible d\'ouvrir le fichier: ' + error.message, 4000);
+        }
+    }
+};
 
 // Delete PDF from the unified list
 window.deletePdfFileFromList = async function(filePath, companyFolder) {
@@ -350,9 +380,137 @@ window.deletePdfFileFromList = async function(filePath, companyFolder) {
     }
 };
 
+// Export devis data from all company databases
+window.exportDevisDataToDB = async function() {
+    try {
+        const select = document.getElementById('pdfFilesCompanyFilter');
+        const filterValue = select ? select.value : 'all';
+
+        // Get companies to export
+        let companies = [];
+        if (filterValue === 'all') {
+            companies = window.getAllPdfCompanies ? window.getAllPdfCompanies() : [];
+        } else {
+            const allCompanies = window.getAllPdfCompanies ? window.getAllPdfCompanies() : [];
+            const match = allCompanies.find(c => c.code.toLowerCase() === filterValue);
+            if (match) companies = [match];
+        }
+
+        if (companies.length === 0) {
+            if (window.notify) window.notify.error('Erreur', 'Aucune société trouvée pour l\'export.', 3000);
+            return;
+        }
+
+        // Show loading
+        if (window.notify) window.notify.loading('Export', 'Chargement des données...', 0);
+
+        const exportData = {
+            exportDate: new Date().toISOString(),
+            appVersion: window.electron.getAppVersion ? await window.electron.getAppVersion() : 'unknown',
+            companies: []
+        };
+
+        let totalDevis = 0;
+        let totalProducts = 0;
+
+        for (const company of companies) {
+            try {
+                // Fetch devis data via dynamic API
+                const result = await window.electron.dbDynamic.getDevisData(company.code);
+                if (result && result.success && result.data) {
+                    const companyExport = {
+                        nameSociety: company.name,
+                        code: company.code,
+                        colour: company.color,
+                        tableStyle: company.table_style || 'style1',
+                        header: company.header_path || '',
+                        footer: company.footer_path || '',
+                        signature: company.signature_path || '',
+                        devis: result.data.map(d => ({
+                            id: d.id,
+                            devis_number: d.devis_number,
+                            year: d.year,
+                            source_invoice_id: d.source_invoice_id,
+                            source_company: d.source_company,
+                            document_type: d.document_type,
+                            client_nom: d.client_nom,
+                            client_ice: d.client_ice,
+                            date: d.document_date,
+                            pourcentage_ajustement: parseFloat(d.pourcentage_ajustement) || 0,
+                            tva_rate: parseFloat(d.tva_rate) || 20,
+                            total_ht: parseFloat(d.total_ht) || 0,
+                            montant_tva: parseFloat(d.montant_tva) || 0,
+                            total_ttc: parseFloat(d.total_ttc) || 0,
+                            table_style: d.table_style,
+                            created_by: d.created_by,
+                            created_at: d.created_at,
+                            products: (d.products || []).map(p => ({
+                                designation: p.designation,
+                                quantite: parseFloat(p.quantite) || 0,
+                                prix_unitaire_ht: parseFloat(p.prix_unitaire_ht) || 0,
+                                total_ht: parseFloat(p.total_ht) || 0,
+                                original_designation: p.original_designation,
+                                original_prix_unitaire_ht: parseFloat(p.original_prix_unitaire_ht) || 0
+                            }))
+                        }))
+                    };
+                    totalDevis += companyExport.devis.length;
+                    companyExport.devis.forEach(d => { totalProducts += (d.products || []).length; });
+                    exportData.companies.push(companyExport);
+                }
+            } catch (e) {
+                console.warn(`Could not export devis data for ${company.code}:`, e);
+            }
+        }
+
+        // Also include PDF file list metadata
+        exportData.pdfFiles = allPdfFilesData.map(f => ({
+            name: f.name,
+            company: getCompanySettingsKey(f._companyFolder),
+            size: f.size,
+            created: f.created,
+            creator: f.creator
+        }));
+
+        // Convert to JSON and trigger download
+        const jsonStr = JSON.stringify(exportData, null, 2);
+        const blob = new Blob([jsonStr], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        const dateStr = new Date().toISOString().split('T')[0];
+        const companyLabel = filterValue === 'all' ? 'ALL' : filterValue.toUpperCase();
+        a.href = url;
+        a.download = `export_devis_${companyLabel}_${dateStr}.json`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+
+        // Show success
+        if (window.notify) {
+            window.notify.success('✅ Export réussi',
+                `${exportData.companies.length} société(s) — ${totalDevis} devis — ${totalProducts} produits — ${allPdfFilesData.length} fichiers PDF`, 5000);
+        }
+
+    } catch (error) {
+        console.error('Error exporting devis data:', error);
+        if (window.notify) window.notify.error('Erreur', 'Erreur lors de l\'export: ' + error.message, 4000);
+    }
+};
+
 // Initialize PDF Files page
-window.initPdfFilesPage = function() {
-    console.log('✅ PDF Files page initialized');
+window.initPdfFilesPage = async function() {
+    console.log('🔄 PDF Files page initializing - loading companies from API...');
+    // Ensure companies are loaded from API before building folder list
+    // _loadCompaniesFromAPI is defined in pdf_settings.js (loaded before this file)
+    try {
+        if (typeof _loadCompaniesFromAPI === 'function') {
+            await _loadCompaniesFromAPI();
+            console.log('✅ Companies refreshed from API for PDF files page');
+        }
+    } catch (e) {
+        console.warn('⚠️ Could not load companies from API:', e);
+    }
     updateFilterDropdownLabels();
     loadAllPdfFiles();
 };

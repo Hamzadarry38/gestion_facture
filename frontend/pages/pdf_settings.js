@@ -11,7 +11,7 @@ let _companiesLoaded = false;
 // Get all companies from API (cached)
 async function _loadCompaniesFromAPI() {
     try {
-        const result = await window.electronAPI.pdfCompanies.getAll();
+        const result = await window.electron.pdfCompanies.getAll();
         if (result && result.success && Array.isArray(result.data)) {
             _cachedCompanies = result.data.map(c => ({
                 id: c.id,
@@ -318,7 +318,7 @@ window.toggleCompanyEnabled = async function(code) {
     if (company) {
         const newEnabled = !company.enabled;
         try {
-            const result = await window.electronAPI.pdfCompanies.update(code, { enabled: newEnabled });
+            const result = await window.electron.pdfCompanies.update(code, { enabled: newEnabled });
             if (result && result.success) {
                 company.enabled = newEnabled;
                 renderCompanyList();
@@ -375,22 +375,69 @@ window.hideCompanyEditor = async function() {
     renderCompanyList();
 };
 
+// Table style definitions (6 styles)
+const TABLE_STYLES = [
+    { id: 'style1', name: 'Classique', desc: 'Tableau simple avec bordures', icon: '📊', preview: 'border: 2px solid #333; header: gris foncé' },
+    { id: 'style2', name: 'Moderne', desc: 'En-tête coloré, lignes alternées', icon: '🎨', preview: 'header: couleur société, zebra stripes' },
+    { id: 'style3', name: 'Minimal', desc: 'Sans bordures, lignes fines', icon: '✨', preview: 'pas de bordures, séparateurs fins' },
+    { id: 'style4', name: 'Professionnel', desc: 'En-tête noir, bordures épaisses', icon: '💼', preview: 'header: noir, bordures 2px' },
+    { id: 'style5', name: 'Coloré', desc: 'Couleurs vives, coins arrondis', icon: '🌈', preview: 'header: gradient, coins arrondis' },
+    { id: 'style6', name: 'Compact', desc: 'Petit texte, plus de lignes', icon: '📋', preview: 'font: 8pt, padding réduit' }
+];
+
+// Generate auto code from company name
+function generateAutoCode(name) {
+    if (!name) return '';
+    // Take first letters of each word, uppercase, max 8 chars
+    const words = name.trim().split(/\s+/);
+    if (words.length === 1) {
+        return words[0].substring(0, 8).toUpperCase().replace(/[^A-Z0-9]/g, '');
+    }
+    return words.map(w => w[0]).join('').substring(0, 8).toUpperCase().replace(/[^A-Z0-9]/g, '');
+}
+
 // Show add company modal
 window.showAddCompanyModal = function() {
     const overlay = document.createElement('div');
     overlay.id = 'addCompanyOverlay';
-    overlay.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.7);display:flex;align-items:center;justify-content:center;z-index:10000;';
+    overlay.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.7);display:flex;align-items:center;justify-content:center;z-index:10000;overflow-y:auto;';
 
     const usedColors = _getAllCompanies().map(c => c.color);
     const availableColor = COMPANY_COLORS.find(c => !usedColors.includes(c)) || '#2196F3';
 
+    // Auto-generate next ID
+    const existingIds = _getAllCompanies().map(c => c.id || 0);
+    const nextId = existingIds.length > 0 ? Math.max(...existingIds) + 1 : 1;
+
     overlay.innerHTML = `
-        <div style="background: #2d2d30; border-radius: 16px; padding: 2rem; width: 420px; max-width: 90%; border: 1px solid #3e3e42;">
+        <div style="background: #2d2d30; border-radius: 16px; padding: 2rem; width: 520px; max-width: 95%; border: 1px solid #3e3e42; margin: 1rem auto; max-height: 90vh; overflow-y: auto;">
             <h3 style="color: #fff; margin: 0 0 1.5rem 0; font-size: 1.2rem;">➕ Ajouter une nouvelle société</h3>
             
+            <div style="display: flex; gap: 1rem; margin-bottom: 1rem;">
+                <div style="flex: 0 0 80px;">
+                    <label style="color: #ccc; font-size: 0.9rem; display: block; margin-bottom: 0.4rem;">ID :</label>
+                    <div style="
+                        padding: 0.7rem; background: #1a1a1a; border: 1px solid #3e3e42;
+                        border-radius: 8px; color: #4CAF50; font-size: 1rem; font-weight: 700;
+                        text-align: center;
+                    ">#${nextId}</div>
+                    <div style="color: #666; font-size: 0.7rem; text-align: center; margin-top: 0.2rem;">Auto</div>
+                </div>
+                <div style="flex: 1;">
+                    <label style="color: #ccc; font-size: 0.9rem; display: block; margin-bottom: 0.4rem;">Nom de la société :</label>
+                    <input type="text" id="newCompanyName" placeholder="Ex: Ma Société" oninput="
+                        const code = document.getElementById('newCompanyCode');
+                        if (code && !code.dataset.manual) code.value = this.value.trim().split(/\\s+/).map(w=>w[0]||'').join('').substring(0,8).toUpperCase().replace(/[^A-Z0-9]/g,'');
+                    " style="
+                        width: 100%; padding: 0.7rem; background: #1e1e1e; border: 1px solid #3e3e42;
+                        border-radius: 8px; color: #fff; font-size: 1rem; outline: none; box-sizing: border-box;
+                    ">
+                </div>
+            </div>
+
             <div style="margin-bottom: 1rem;">
-                <label style="color: #ccc; font-size: 0.9rem; display: block; margin-bottom: 0.4rem;">Code (identifiant unique) :</label>
-                <input type="text" id="newCompanyCode" placeholder="Ex: MYCOMPANY" style="
+                <label style="color: #ccc; font-size: 0.9rem; display: block; margin-bottom: 0.4rem;">Code (identifiant unique) : <span style="color: #666; font-size: 0.8rem;">— auto-généré, modifiable</span></label>
+                <input type="text" id="newCompanyCode" placeholder="Auto-généré du nom" oninput="this.dataset.manual='1'" style="
                     width: 100%; padding: 0.7rem; background: #1e1e1e; border: 1px solid #3e3e42;
                     border-radius: 8px; color: #fff; font-size: 1rem; font-weight: 700; text-transform: uppercase;
                     outline: none; box-sizing: border-box;
@@ -398,14 +445,6 @@ window.showAddCompanyModal = function() {
             </div>
 
             <div style="margin-bottom: 1rem;">
-                <label style="color: #ccc; font-size: 0.9rem; display: block; margin-bottom: 0.4rem;">Nom de la société :</label>
-                <input type="text" id="newCompanyName" placeholder="Ex: Ma Société" style="
-                    width: 100%; padding: 0.7rem; background: #1e1e1e; border: 1px solid #3e3e42;
-                    border-radius: 8px; color: #fff; font-size: 1rem; outline: none; box-sizing: border-box;
-                ">
-            </div>
-
-            <div style="margin-bottom: 1.5rem;">
                 <label style="color: #ccc; font-size: 0.9rem; display: block; margin-bottom: 0.4rem;">Couleur :</label>
                 <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
                     ${COMPANY_COLORS.map(color => `
@@ -415,6 +454,35 @@ window.showAddCompanyModal = function() {
                         "></button>
                     `).join('')}
                     <input type="hidden" id="selectedNewColor" value="${availableColor}">
+                </div>
+            </div>
+
+            <div style="margin-bottom: 1.5rem;">
+                <label style="color: #ccc; font-size: 0.9rem; display: block; margin-bottom: 0.6rem;">Style du tableau PDF :</label>
+                <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 0.5rem;">
+                    ${TABLE_STYLES.map((style, i) => `
+                        <button class="table-style-btn" data-style="${style.id}" onclick="
+                            document.querySelectorAll('.table-style-btn').forEach(b=>{b.style.border='1px solid #3e3e42';b.style.background='#1e1e1e';});
+                            this.style.border='2px solid #4CAF50';this.style.background='#1a2e1a';
+                            document.getElementById('selectedTableStyle').value='${style.id}';
+                        " style="
+                            padding: 0.6rem 0.4rem; background: ${i === 0 ? '#1a2e1a' : '#1e1e1e'}; 
+                            border: ${i === 0 ? '2px solid #4CAF50' : '1px solid #3e3e42'};
+                            border-radius: 8px; cursor: pointer; text-align: center; transition: all 0.2s;
+                        ">
+                            <div style="font-size: 1.3rem;">${style.icon}</div>
+                            <div style="color: #fff; font-size: 0.8rem; font-weight: 600; margin-top: 0.2rem;">${style.name}</div>
+                            <div style="color: #888; font-size: 0.65rem; margin-top: 0.1rem;">${style.desc}</div>
+                        </button>
+                    `).join('')}
+                    <input type="hidden" id="selectedTableStyle" value="style1">
+                </div>
+            </div>
+
+            <div style="background: #1a2e1a; border: 1px solid #4CAF5044; border-radius: 8px; padding: 0.8rem; margin-bottom: 1rem;">
+                <div style="color: #4CAF50; font-size: 0.85rem; font-weight: 600;">📦 Base de données auto-créée</div>
+                <div style="color: #888; font-size: 0.75rem; margin-top: 0.3rem;">
+                    Les tables <code style="color:#aaa;">devis_numbers</code>, <code style="color:#aaa;">pdf_paths</code>, <code style="color:#aaa;">devis_data</code> et <code style="color:#aaa;">devis_products</code> seront créées automatiquement.
                 </div>
             </div>
 
@@ -438,10 +506,12 @@ window.addNewCompany = async function() {
     const codeInput = document.getElementById('newCompanyCode');
     const nameInput = document.getElementById('newCompanyName');
     const colorInput = document.getElementById('selectedNewColor');
+    const tableStyleInput = document.getElementById('selectedTableStyle');
 
     const code = (codeInput.value || '').trim().toUpperCase().replace(/[^A-Z0-9_]/g, '');
     const name = (nameInput.value || '').trim();
     const color = colorInput.value || '#2196F3';
+    const tableStyle = tableStyleInput ? tableStyleInput.value : 'style1';
 
     if (!code || !name) {
         if (window.notify) window.notify.error('Erreur', 'Veuillez remplir le code et le nom de la société.', 3000);
@@ -449,11 +519,12 @@ window.addNewCompany = async function() {
     }
 
     try {
-        const result = await window.electronAPI.pdfCompanies.create({
+        const result = await window.electron.pdfCompanies.create({
             company_code: code,
             company_name: name,
             color: color,
-            enabled: true
+            enabled: true,
+            table_style: tableStyle
         });
 
         if (result && result.success) {
@@ -466,7 +537,7 @@ window.addNewCompany = async function() {
 
             const newCompany = _cachedCompanies.find(c => c.code === code);
             const newId = newCompany ? newCompany.id : '?';
-            if (window.notify) window.notify.success('✅', `Société "${name}" ajoutée avec ID #${newId}`, 3000);
+            if (window.notify) window.notify.success('✅', `Société "${name}" ajoutée avec ID #${newId} — Tables DB créées automatiquement!`, 4000);
         } else {
             if (window.notify) window.notify.error('Erreur', result?.error || 'Erreur serveur', 3000);
         }
@@ -486,7 +557,7 @@ window.deleteCompany = async function(code) {
     if (!confirm(`Êtes-vous sûr de vouloir supprimer "${displayName}" ?`)) return;
 
     try {
-        const result = await window.electronAPI.pdfCompanies.delete(code);
+        const result = await window.electron.pdfCompanies.delete(code);
         if (result && result.success) {
             await _loadCompaniesFromAPI();
             Object.keys(PDF_COMPANY_INFO).forEach(k => { if (!_cachedCompanies.find(c => c.code === k)) delete PDF_COMPANY_INFO[k]; });
@@ -549,7 +620,7 @@ window.uploadPdfImage = function(type) {
         const updateData = {};
         updateData[`${type}_image`] = dataUrl;
         try {
-            const result = await window.electronAPI.pdfCompanies.update(currentPdfSettingsCompany, updateData);
+            const result = await window.electron.pdfCompanies.update(currentPdfSettingsCompany, updateData);
             if (result && result.success) {
                 // Update local cache
                 const company = _cachedCompanies.find(c => c.code === currentPdfSettingsCompany);
@@ -586,7 +657,7 @@ window.savePdfSettings = async function() {
     }
 
     try {
-        const result = await window.electronAPI.pdfCompanies.update(currentPdfSettingsCompany, {
+        const result = await window.electron.pdfCompanies.update(currentPdfSettingsCompany, {
             company_name: newName
         });
 

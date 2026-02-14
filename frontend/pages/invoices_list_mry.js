@@ -201,10 +201,12 @@ function InvoicesListMRYPage() {
                             <label>🕒 Accusé de Réception:</label>
                             <select id="filterArStatusMRY" onchange="filterInvoices()">
                                 <option value="all">Tous</option>
+                                <option value="">— (vide)</option>
                                 <option value="sans_accuse">Sans accusé</option>
                                 <option value="en_attente">En attente</option>
                                 <option value="accuse">Accusé</option>
                             </select>
+                            <button onclick="window.bulkResetArStatusMRY()" style="margin-top: 0.3rem; padding: 0.3rem 0.6rem; background: #f44336; color: #fff; border: none; border-radius: 4px; cursor: pointer; font-size: 0.75rem; font-weight: 600; width: 100%;" title="Convertir tous les Sans accusé en vide">🔄 Reset Sans accusé</button>
                         </div>
                         
                         <div class="filter-group">
@@ -690,8 +692,8 @@ function displayInvoices(invoices) {
         });
 
         // Ensure AR status is valid
-        const arStatus = invoice.ar_status || 'sans_accuse';
-        const arBg = arStatus === 'accuse' ? '#4caf50' : (arStatus === 'en_attente' ? '#ff9800' : '#424242');
+        const arStatus = invoice.ar_status || '';
+        const arBg = arStatus === 'accuse' ? '#4caf50' : (arStatus === 'en_attente' ? '#ff9800' : (arStatus === 'sans_accuse' ? '#f44336' : '#424242'));
 
         const isUnseen = invoice.validation_status === 'pending';
         const isModified = invoice.is_modified === true;
@@ -728,12 +730,13 @@ function displayInvoices(invoices) {
                 <td>${formatNumber(invoice.total_ht)} DH</td>
                 <td><strong>${formatNumber(invoice.total_ttc)} DH</strong></td>
                 <td>
-                    ${invoice.document_type === 'devis' ? '<span style="color:#666;">—</span>' : `<select onchange="window.updateArStatusMRY('${invoice.id}', this.value)"
+                    ${invoice.document_type === 'devis' ? '<span style="color:#666;">—</span>' : `<select onchange="this.style.background=this.value==='accuse'?'#4caf50':this.value==='en_attente'?'#ff9800':this.value==='sans_accuse'?'#f44336':'#424242'; window.updateArStatusMRY('${invoice.id}', this.value)"
                             style="padding: 0.4rem; background: ${arBg}; color: white; border: none; border-radius: 4px; font-size: 0.85rem; cursor: pointer; width: 100%; transition: background 0.3s;"
                             onclick="event.stopPropagation()">
-                        <option value="sans_accuse" ${arStatus === 'sans_accuse' ? 'selected' : ''} style="background: #424242;">Sans accusé</option>
-                        <option value="en_attente" ${arStatus === 'en_attente' ? 'selected' : ''} style="background: #ff9800;">En attente</option>
-                        <option value="accuse" ${arStatus === 'accuse' ? 'selected' : ''} style="background: #4caf50;">Accusé</option>
+                        <option value="" ${!arStatus ? 'selected' : ''} style="background: #424242; color: #fff;"></option>
+                        <option value="sans_accuse" ${arStatus === 'sans_accuse' ? 'selected' : ''} style="background: #f44336; color: #fff;">Sans accusé</option>
+                        <option value="en_attente" ${arStatus === 'en_attente' ? 'selected' : ''} style="background: #424242; color: #ff9800;">En attente</option>
+                        <option value="accuse" ${arStatus === 'accuse' ? 'selected' : ''} style="background: #424242; color: #4caf50;">Accusé</option>
                     </select>`}
                 </td>
                 <td style="text-align: center; color: #757575;">
@@ -893,14 +896,18 @@ function populateFilters() {
     const allYears = [...new Set([...invoiceYears, ...defaultYears])].sort((a, b) => b - a);
 
     const yearSelect = document.getElementById('filterYear');
-    yearSelect.innerHTML = '<option value="">Toutes</option>' +
-        allYears.map(year => `<option value="${year}">${year}</option>`).join('');
+    if (yearSelect) {
+        yearSelect.innerHTML = '<option value="">Toutes</option>' +
+            allYears.map(year => `<option value="${year}">${year}</option>`).join('');
+    }
 
     // Populate clients
     const clients = [...new Set(allInvoices.map(inv => inv.client_nom))].sort();
     const clientSelect = document.getElementById('filterClient');
-    clientSelect.innerHTML = '<option value="">Tous</option>' +
-        clients.map(client => `<option value="${client}">${client}</option>`).join('');
+    if (clientSelect) {
+        clientSelect.innerHTML = '<option value="">Tous</option>' +
+            clients.map(client => `<option value="${client}">${client}</option>`).join('');
+    }
 }
 
 // Reset filters
@@ -1004,14 +1011,13 @@ window.filterInvoices = async function () {
         });
     }
 
-    // Filter by AR Status
+    // Filter by AR Status (exclude devis - they don't have AR status)
     if (arStatusFilter !== 'all') {
         filtered = filtered.filter(inv => {
-            const status = inv.ar_status || 'sans_accuse';
+            if (inv.document_type === 'devis') return false;
+            const status = inv.ar_status || '';
             return status === arStatusFilter;
         });
-    } else if (filterMethod === 'converted') {
-        filtered = filtered.filter(inv => inv.creation_method === 'converted');
     }
 
     // Advanced search
@@ -4385,6 +4391,26 @@ window.updateArStatusMRY = async function (id, status) {
         console.error('Update AR exception:', error);
         window.notify.error('Erreur', 'Une erreur est survenue');
     }
+};
+
+// Bulk reset: convert all "sans_accuse" to empty
+window.bulkResetArStatusMRY = async function () {
+    const toReset = allInvoices.filter(inv => inv.ar_status === 'sans_accuse' && inv.document_type !== 'devis');
+    if (toReset.length === 0) {
+        window.notify.info('Info', 'Aucune facture avec "Sans accusé" trouvée.', 3000);
+        return;
+    }
+    if (!confirm(`Convertir ${toReset.length} facture(s) de "Sans accusé" → vide ?`)) return;
+
+    let success = 0;
+    for (const inv of toReset) {
+        try {
+            const result = await window.electron.db.updateInvoice(inv.id, { ar_status: '' });
+            if (result.success) { inv.ar_status = ''; success++; }
+        } catch (e) { console.warn('Reset AR error for', inv.id, e); }
+    }
+    window.notify.success('✅', `${success}/${toReset.length} facture(s) mises à jour.`, 3000);
+    loadInvoices();
 };
 
 window.handleBulkDeleteMRY = async function () {

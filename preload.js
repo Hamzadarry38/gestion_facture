@@ -336,6 +336,32 @@ contextBridge.exposeInMainWorld('electron', {
     savePdfSettings: (percentage, productNames) => ipcRenderer.invoke('db:benali:pdfSettings:save', percentage, productNames)
   },
 
+  // Dynamic Company API (works with ANY company code - for new PDF companies)
+  dbDynamic: {
+    // Devis Numbers
+    checkDevisExists: (companyCode, devisNumber, year) => ipcRenderer.invoke('db:dynamic:devis:exists', companyCode, devisNumber, year),
+    addDevisNumber: (companyCode, devisNumber, year) => ipcRenderer.invoke('db:dynamic:devis:add', companyCode, devisNumber, year),
+    getAllDevis: (companyCode) => ipcRenderer.invoke('db:dynamic:devis:getAll', companyCode),
+    getLastDevisNumber: (companyCode, year) => ipcRenderer.invoke('db:dynamic:devis:getLast', companyCode, year),
+    getMaxDevisNumber: (companyCode, year) => ipcRenderer.invoke('db:dynamic:devis:getMax', companyCode, year),
+    deleteDevisNumber: (companyCode, devisNumber, year) => ipcRenderer.invoke('db:dynamic:devis:delete', companyCode, devisNumber, year),
+
+    // PDF Files
+    savePdfPath: (companyCode, devisNumber, year, filePath, createdBy) => ipcRenderer.invoke('db:dynamic:pdf:savePath', companyCode, devisNumber, year, filePath, createdBy),
+    getPdfPath: (companyCode, devisNumber, year) => ipcRenderer.invoke('db:dynamic:pdf:getPath', companyCode, devisNumber, year),
+    uploadPdf: (companyCode, pdfBlob, filename) => ipcRenderer.invoke('db:dynamic:pdf:upload', companyCode, pdfBlob, filename),
+
+    // PDF Settings
+    getPdfSettings: (companyCode) => ipcRenderer.invoke('db:dynamic:pdfSettings:get', companyCode),
+    savePdfSettings: (companyCode, percentage, productNames) => ipcRenderer.invoke('db:dynamic:pdfSettings:save', companyCode, percentage, productNames),
+
+    // Devis Data (full devis/facture data with products)
+    getDevisData: (companyCode, year) => ipcRenderer.invoke('db:dynamic:devisData:getAll', companyCode, year),
+    getDevisDataByNumber: (companyCode, number, year) => ipcRenderer.invoke('db:dynamic:devisData:getByNumber', companyCode, number, year),
+    saveDevisData: (companyCode, data) => ipcRenderer.invoke('db:dynamic:devisData:save', companyCode, data),
+    deleteDevisData: (companyCode, id) => ipcRenderer.invoke('db:dynamic:devisData:delete', companyCode, id)
+  },
+
   // PDF Companies (Online company management)
   pdfCompanies: {
     getAll: () => ipcRenderer.invoke('db:pdfCompanies:getAll'),

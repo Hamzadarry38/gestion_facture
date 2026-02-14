@@ -792,8 +792,6 @@ app.put('/invoices/:id', async (req, res) => {
     // Fallback: If these are at top-level but NOT in doc, we use them.
     // However, if doc exists, inner doc takes precedence below.
 
-    console.log(`📅 [DATE DIAGNOSTIC] PUT /invoices/${id} - document_date from req.body: "${document_date}", from req.body.document.date: "${req.body.document?.date}"`);
-
     // Handle nested format from frontend (document, totals)
     if (req.body.document) {
       const doc = req.body.document;
@@ -813,12 +811,21 @@ app.put('/invoices/:id', async (req, res) => {
       if (doc.ar_status !== undefined) ar_status = doc.ar_status;
 
       // LOGIC CHANGE: If an invoice is updated, default it back to 'pending' so Admin sees it.
-      // Unless validation_status is explicitly passed (e.g. by Admin validting it).
+      // Unless validation_status is explicitly passed (e.g. by Admin validating it).
+      // BUT: If only ar_status is being changed (no other content fields), do NOT mark as pending.
       if (doc.validation_status !== undefined) {
         validation_status = doc.validation_status;
       } else {
-        // Default to pending on any edit to ensure visibility in "Unseen" filter
-        validation_status = 'pending';
+        // Check if this is a content edit (not just ar_status/delivered_by change)
+        const isContentEdit = doc.date !== undefined || doc.numero !== undefined || 
+          doc.numero_Order !== undefined || doc.numero_bl !== undefined || 
+          doc.numero_devis !== undefined || doc.order_devis !== undefined ||
+          doc.bon_de_livraison !== undefined || doc.numero_commande !== undefined ||
+          doc.type !== undefined || products !== undefined || 
+          req.body.totals !== undefined || req.body.client !== undefined;
+        if (isContentEdit) {
+          validation_status = 'pending';
+        }
       }
 
       // User identification
@@ -829,8 +836,9 @@ app.put('/invoices/:id', async (req, res) => {
       if (doc.updated_by_user_name !== undefined) updated_by_user_name = doc.updated_by_user_name;
       if (doc.updated_by_user_email !== undefined) updated_by_user_email = doc.updated_by_user_email;
     } else {
-      // If doc is NOT sent, we still want to default to pending on edit
-      if (validation_status === undefined) validation_status = 'pending';
+      // Only default to pending if actual invoice content is being edited (not just ar_status)
+      const isContentEdit = products !== undefined || req.body.totals !== undefined || req.body.client !== undefined;
+      if (validation_status === undefined && isContentEdit) validation_status = 'pending';
     }
 
     if (req.body.totals) {
@@ -896,6 +904,15 @@ app.put('/invoices/:id', async (req, res) => {
 
     const columnExists = await checkIsModifiedExists();
 
+    // Determine if this is a real content edit (not just ar_status/delivered_by)
+    const doc = req.body.document || {};
+    const hasContentChange = doc.date !== undefined || doc.numero !== undefined || 
+      doc.numero_Order !== undefined || doc.numero_bl !== undefined || 
+      doc.numero_devis !== undefined || doc.order_devis !== undefined ||
+      doc.bon_de_livraison !== undefined || doc.numero_commande !== undefined ||
+      doc.type !== undefined || products !== undefined || 
+      req.body.totals !== undefined || req.body.client !== undefined;
+
     await client.query(`
             UPDATE invoices SET 
                 client_id = COALESCE($1, client_id),
@@ -918,7 +935,7 @@ app.put('/invoices/:id', async (req, res) => {
                 updated_by_user_id = COALESCE($18, updated_by_user_id),
                 updated_by_user_name = COALESCE($19, updated_by_user_name),
                 updated_by_user_email = COALESCE($20, updated_by_user_email),
-                ${columnExists ? 'is_modified = true,' : ''}
+                ${columnExists && hasContentChange ? 'is_modified = true,' : ''}
                 updated_at = NOW()
             WHERE id = $21
         `, [
@@ -945,16 +962,18 @@ app.put('/invoices/:id', async (req, res) => {
       id
     ]);
 
-    // Replace products
-    await client.query('DELETE FROM invoice_products WHERE invoice_id = $1', [id]);
+    // Replace products ONLY if products array is explicitly provided
+    if (products !== undefined) {
+      await client.query('DELETE FROM invoice_products WHERE invoice_id = $1', [id]);
 
-    if (products && products.length > 0) {
-      const insertProductText = `
-                INSERT INTO invoice_products (invoice_id, designation, quantite, prix_unitaire_ht, total_ht)
-                VALUES ($1, $2, $3, $4, $5)
-            `;
-      for (const p of products) {
-        await client.query(insertProductText, [id, p.designation, p.quantite, p.prix_unitaire_ht, p.total_ht]);
+      if (products && products.length > 0) {
+        const insertProductText = `
+                  INSERT INTO invoice_products (invoice_id, designation, quantite, prix_unitaire_ht, total_ht)
+                  VALUES ($1, $2, $3, $4, $5)
+              `;
+        for (const p of products) {
+          await client.query(insertProductText, [id, p.designation, p.quantite, p.prix_unitaire_ht, p.total_ht]);
+        }
       }
     }
 
@@ -1503,12 +1522,102 @@ app.delete('/attachments/:id', async (req, res) => {
 
 // --- SECONDARY COMPANIES (SKM, MSH3, BENALI, SAAISS) ROUTES ---
 
-const ALLOWED_SECONDARY_COMPANIES = ['skm', 'smarts', 'saaiss', 'benali', 'msh3'];
+// Dynamic list - loaded from pdf_companies table + hardcoded defaults
+let ALLOWED_SECONDARY_COMPANIES = ['skm', 'smarts', 'saaiss', 'benali', 'msh3'];
+
+// Load all company codes from pdf_companies into ALLOWED_SECONDARY_COMPANIES
+async function refreshAllowedCompanies() {
+  try {
+    const result = await pool.query('SELECT company_code FROM pdf_companies');
+    const dbCodes = result.rows.map(r => r.company_code.toLowerCase());
+    // Merge with hardcoded defaults (no duplicates)
+    const merged = new Set([...ALLOWED_SECONDARY_COMPANIES, ...dbCodes]);
+    ALLOWED_SECONDARY_COMPANIES = [...merged];
+    console.log('✅ Allowed secondary companies refreshed:', ALLOWED_SECONDARY_COMPANIES);
+  } catch (err) {
+    console.error('⚠️ Could not refresh allowed companies:', err.message);
+  }
+}
+
+// Create per-company tables (devis_numbers, pdf_paths, devis_data)
+async function createCompanyTables(companyCode) {
+  const prefix = companyCode.toLowerCase().replace(/[^a-z0-9_]/g, '');
+  
+  // 1. Devis Numbers Table
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS ${prefix}_devis_numbers (
+      id SERIAL PRIMARY KEY,
+      devis_number VARCHAR(50) NOT NULL,
+      year INTEGER NOT NULL,
+      used_at TIMESTAMP DEFAULT NOW(),
+      UNIQUE(devis_number, year)
+    )
+  `);
+
+  // 2. PDF Paths Table
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS ${prefix}_pdf_paths (
+      id SERIAL PRIMARY KEY,
+      devis_number VARCHAR(50) NOT NULL,
+      year INTEGER NOT NULL,
+      file_path TEXT NOT NULL,
+      created_by VARCHAR(50),
+      created_at TIMESTAMP DEFAULT NOW(),
+      UNIQUE(devis_number, year)
+    )
+  `);
+
+  // 3. Devis Data Table (stores full devis/facture data with products)
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS ${prefix}_devis_data (
+      id SERIAL PRIMARY KEY,
+      devis_number VARCHAR(50) NOT NULL,
+      year INTEGER NOT NULL,
+      source_invoice_id INTEGER,
+      source_company VARCHAR(50),
+      document_type VARCHAR(50) DEFAULT 'devis',
+      client_nom VARCHAR(255),
+      client_ice VARCHAR(100),
+      document_date DATE,
+      pourcentage_ajustement DECIMAL(10,2) DEFAULT 0,
+      tva_rate DECIMAL(5,2) DEFAULT 20,
+      total_ht DECIMAL(15,2) DEFAULT 0,
+      montant_tva DECIMAL(15,2) DEFAULT 0,
+      total_ttc DECIMAL(15,2) DEFAULT 0,
+      notes TEXT,
+      table_style VARCHAR(20) DEFAULT 'style1',
+      created_by VARCHAR(50),
+      created_at TIMESTAMP DEFAULT NOW(),
+      UNIQUE(devis_number, year)
+    )
+  `);
+
+  // 4. Devis Products Table (stores products for each devis)
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS ${prefix}_devis_products (
+      id SERIAL PRIMARY KEY,
+      devis_data_id INTEGER REFERENCES ${prefix}_devis_data(id) ON DELETE CASCADE,
+      designation TEXT NOT NULL,
+      quantite DECIMAL(10,2) DEFAULT 1,
+      prix_unitaire_ht DECIMAL(15,2) DEFAULT 0,
+      total_ht DECIMAL(15,2) DEFAULT 0,
+      original_designation TEXT,
+      original_prix_unitaire_ht DECIMAL(15,2) DEFAULT 0,
+      sort_order INTEGER DEFAULT 0
+    )
+  `);
+
+  // Create indexes
+  await pool.query(`CREATE INDEX IF NOT EXISTS idx_${prefix}_devis_data_year ON ${prefix}_devis_data(year, devis_number)`);
+  await pool.query(`CREATE INDEX IF NOT EXISTS idx_${prefix}_devis_products_parent ON ${prefix}_devis_products(devis_data_id)`);
+
+  console.log(`✅ All tables created for company: ${companyCode} (prefix: ${prefix})`);
+}
 
 function validateCompany(company) {
-  const c = company.toLowerCase();
+  const c = company.toLowerCase().replace(/[^a-z0-9_]/g, '');
   if (ALLOWED_SECONDARY_COMPANIES.includes(c)) return c;
-  throw new Error('Code société invalide');
+  throw new Error('Code société invalide: ' + company);
 }
 
 // --- DEVIS NUMBER TRACKING ---
@@ -1668,6 +1777,156 @@ app.post('/upload/:company', upload.single('pdf'), (req, res) => {
   }
 });
 
+// --- DEVIS DATA TRACKING (Full devis/facture data with products) ---
+
+// GET all devis data for a company (with products)
+app.get('/devis-data/:company', async (req, res) => {
+  try {
+    const companyPrefix = validateCompany(req.params.company);
+    const { year } = req.query;
+    
+    let query = `SELECT * FROM ${companyPrefix}_devis_data`;
+    const params = [];
+    if (year) {
+      query += ' WHERE year = $1';
+      params.push(year);
+    }
+    query += ' ORDER BY id DESC';
+    
+    const result = await pool.query(query, params);
+    
+    // For each devis, fetch its products
+    const devisWithProducts = [];
+    for (const devis of result.rows) {
+      const productsResult = await pool.query(
+        `SELECT * FROM ${companyPrefix}_devis_products WHERE devis_data_id = $1 ORDER BY sort_order ASC`,
+        [devis.id]
+      );
+      devisWithProducts.push({
+        ...devis,
+        products: productsResult.rows
+      });
+    }
+    
+    res.json({ success: true, data: devisWithProducts });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// GET single devis data by devis_number and year
+app.get('/devis-data/:company/:number/:year', async (req, res) => {
+  try {
+    const companyPrefix = validateCompany(req.params.company);
+    const { number, year } = req.params;
+    
+    const result = await pool.query(
+      `SELECT * FROM ${companyPrefix}_devis_data WHERE devis_number = $1 AND year = $2`,
+      [number, year]
+    );
+    
+    if (result.rows.length === 0) {
+      return res.json({ success: true, data: null });
+    }
+    
+    const devis = result.rows[0];
+    const productsResult = await pool.query(
+      `SELECT * FROM ${companyPrefix}_devis_products WHERE devis_data_id = $1 ORDER BY sort_order ASC`,
+      [devis.id]
+    );
+    
+    res.json({ success: true, data: { ...devis, products: productsResult.rows } });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// POST save full devis data with products
+app.post('/devis-data/:company', async (req, res) => {
+  try {
+    const companyPrefix = validateCompany(req.params.company);
+    const {
+      devis_number, year, source_invoice_id, source_company,
+      document_type, client_nom, client_ice, document_date,
+      pourcentage_ajustement, tva_rate, total_ht, montant_tva, total_ttc,
+      notes, table_style, created_by, products
+    } = req.body;
+    
+    // Insert devis data
+    const devisResult = await pool.query(`
+      INSERT INTO ${companyPrefix}_devis_data 
+        (devis_number, year, source_invoice_id, source_company, document_type,
+         client_nom, client_ice, document_date, pourcentage_ajustement, tva_rate,
+         total_ht, montant_tva, total_ttc, notes, table_style, created_by)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)
+      ON CONFLICT (devis_number, year) DO UPDATE SET
+        source_invoice_id = EXCLUDED.source_invoice_id,
+        source_company = EXCLUDED.source_company,
+        document_type = EXCLUDED.document_type,
+        client_nom = EXCLUDED.client_nom,
+        client_ice = EXCLUDED.client_ice,
+        document_date = EXCLUDED.document_date,
+        pourcentage_ajustement = EXCLUDED.pourcentage_ajustement,
+        tva_rate = EXCLUDED.tva_rate,
+        total_ht = EXCLUDED.total_ht,
+        montant_tva = EXCLUDED.montant_tva,
+        total_ttc = EXCLUDED.total_ttc,
+        notes = EXCLUDED.notes,
+        table_style = EXCLUDED.table_style,
+        created_by = EXCLUDED.created_by
+      RETURNING *
+    `, [devis_number, year, source_invoice_id || null, source_company || null,
+        document_type || 'devis', client_nom || '', client_ice || '',
+        document_date || null, pourcentage_ajustement || 0, tva_rate || 20,
+        total_ht || 0, montant_tva || 0, total_ttc || 0,
+        notes || null, table_style || 'style1', created_by || null]);
+    
+    const devisId = devisResult.rows[0].id;
+    
+    // Delete old products and insert new ones
+    await pool.query(`DELETE FROM ${companyPrefix}_devis_products WHERE devis_data_id = $1`, [devisId]);
+    
+    if (products && Array.isArray(products)) {
+      for (let i = 0; i < products.length; i++) {
+        const p = products[i];
+        await pool.query(`
+          INSERT INTO ${companyPrefix}_devis_products 
+            (devis_data_id, designation, quantite, prix_unitaire_ht, total_ht, original_designation, original_prix_unitaire_ht, sort_order)
+          VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+        `, [devisId, p.designation || '', p.quantite || 1, p.prix_unitaire_ht || 0,
+            p.total_ht || 0, p.original_designation || p.designation || '',
+            p.original_prix_unitaire_ht || p.prix_unitaire_ht || 0, i]);
+      }
+    }
+    
+    res.json({ success: true, data: devisResult.rows[0] });
+  } catch (err) {
+    console.error('❌ Error saving devis data:', err);
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// DELETE devis data
+app.delete('/devis-data/:company/:id', async (req, res) => {
+  try {
+    const companyPrefix = validateCompany(req.params.company);
+    const { id } = req.params;
+    
+    const result = await pool.query(
+      `DELETE FROM ${companyPrefix}_devis_data WHERE id = $1 RETURNING *`,
+      [id]
+    );
+    
+    if (result.rows.length > 0) {
+      res.json({ success: true, data: result.rows[0] });
+    } else {
+      res.status(404).json({ success: false, error: 'Devis not found' });
+    }
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
 // --- COMPANY PDF SETTINGS TABLE ---
 // Auto-create the company_pdf_settings table if it doesn't exist
 (async () => {
@@ -1748,11 +2007,29 @@ app.put('/pdf-settings/:company', async (req, res) => {
         signature_path VARCHAR(255) DEFAULT '',
         db_name VARCHAR(100) DEFAULT '',
         is_builtin BOOLEAN DEFAULT false,
+        table_style VARCHAR(20) DEFAULT 'style1',
         created_at TIMESTAMP DEFAULT NOW(),
         updated_at TIMESTAMP DEFAULT NOW()
       )
     `);
+    // Add table_style column if it doesn't exist (for existing databases)
+    try {
+      await pool.query(`ALTER TABLE pdf_companies ADD COLUMN IF NOT EXISTS table_style VARCHAR(20) DEFAULT 'style1'`);
+    } catch (e) { /* column already exists */ }
     console.log('✅ pdf_companies table ready');
+
+    // Refresh allowed companies from DB at startup
+    await refreshAllowedCompanies();
+
+    // Auto-create tables for all existing companies
+    const allCompanies = await pool.query('SELECT company_code FROM pdf_companies');
+    for (const row of allCompanies.rows) {
+      try {
+        await createCompanyTables(row.company_code);
+      } catch (e) {
+        console.warn(`⚠️ Could not ensure tables for ${row.company_code}:`, e.message);
+      }
+    }
   } catch (err) {
     console.error('❌ Error creating pdf_companies table:', err.message);
   }
@@ -1788,16 +2065,28 @@ app.get('/pdf-companies/:code', async (req, res) => {
 // POST create new company
 app.post('/pdf-companies', async (req, res) => {
   try {
-    const { company_code, company_name, color, enabled, header_image, footer_image, signature_image, header_path, footer_path, signature_path, db_name, is_builtin } = req.body;
+    const { company_code, company_name, color, enabled, header_image, footer_image, signature_image, header_path, footer_path, signature_path, db_name, is_builtin, table_style } = req.body;
     const code = (company_code || '').toUpperCase().replace(/[^A-Z0-9_]/g, '');
     if (!code || !company_name) {
       return res.status(400).json({ success: false, error: 'company_code and company_name are required' });
     }
     const result = await pool.query(`
-      INSERT INTO pdf_companies (company_code, company_name, color, enabled, header_image, footer_image, signature_image, header_path, footer_path, signature_path, db_name, is_builtin, created_at, updated_at)
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, NOW(), NOW())
+      INSERT INTO pdf_companies (company_code, company_name, color, enabled, header_image, footer_image, signature_image, header_path, footer_path, signature_path, db_name, is_builtin, table_style, created_at, updated_at)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, NOW(), NOW())
       RETURNING *
-    `, [code, company_name, color || '#2196F3', enabled !== false, header_image || null, footer_image || null, signature_image || null, header_path || '', footer_path || '', signature_path || '', db_name || '', is_builtin || false]);
+    `, [code, company_name, color || '#2196F3', enabled !== false, header_image || null, footer_image || null, signature_image || null, header_path || '', footer_path || '', signature_path || '', db_name || '', is_builtin || false, table_style || 'style1']);
+
+    // Auto-create per-company database tables (devis_numbers, pdf_paths, devis_data, devis_products)
+    try {
+      await createCompanyTables(code);
+      console.log(`✅ Database tables auto-created for new company: ${code}`);
+    } catch (tableErr) {
+      console.error(`⚠️ Warning: Could not create tables for ${code}:`, tableErr.message);
+    }
+
+    // Refresh allowed companies list so new company is immediately usable
+    await refreshAllowedCompanies();
+
     res.json({ success: true, data: result.rows[0] });
   } catch (err) {
     if (err.code === '23505') {
@@ -1812,7 +2101,7 @@ app.post('/pdf-companies', async (req, res) => {
 app.put('/pdf-companies/:code', async (req, res) => {
   try {
     const code = req.params.code.toUpperCase();
-    const { company_name, color, enabled, header_image, footer_image, signature_image, header_path, footer_path, signature_path, db_name } = req.body;
+    const { company_name, color, enabled, header_image, footer_image, signature_image, header_path, footer_path, signature_path, db_name, table_style } = req.body;
 
     // Build dynamic SET clause - only update fields that are provided
     const updates = [];
@@ -1828,6 +2117,7 @@ app.put('/pdf-companies/:code', async (req, res) => {
     if (header_path !== undefined) { updates.push(`header_path = $${idx++}`); values.push(header_path); }
     if (footer_path !== undefined) { updates.push(`footer_path = $${idx++}`); values.push(footer_path); }
     if (signature_path !== undefined) { updates.push(`signature_path = $${idx++}`); values.push(signature_path); }
+    if (table_style !== undefined) { updates.push(`table_style = $${idx++}`); values.push(table_style); }
     if (db_name !== undefined) { updates.push(`db_name = $${idx++}`); values.push(db_name); }
 
     updates.push(`updated_at = NOW()`);

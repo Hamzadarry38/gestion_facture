@@ -75,7 +75,7 @@ function LoginPage() {
                             </button>
                         </form>
                         <div style="margin-top: 2rem; text-align: center; border-top: 1px solid #3e3e42; padding-top: 1rem;">
-                            <a href="https://redouan.ddns.net/facture/" target="_blank" style="color: #2196f3; text-decoration: none; font-size: 0.9rem; display: flex; align-items: center; justify-content: center; gap: 0.5rem;">
+                            <a href="https://anpe-web-api.ddns.net/facture/" target="_blank" style="color: #2196f3; text-decoration: none; font-size: 0.9rem; display: flex; align-items: center; justify-content: center; gap: 0.5rem;">
                                 🌐 Accéder au Portail Web
                             </a>
                         </div>
