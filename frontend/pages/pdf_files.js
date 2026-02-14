@@ -340,7 +340,7 @@ function renderPdfFilesList(files) {
 window.openServerPdfFile = function(serverPath) {
     try {
         // Build the full URL from the API base URL
-        const apiUrl = localStorage.getItem('apiUrl') || 'https://anpe-web-api.ddns.net/facture';
+        const apiUrl = localStorage.getItem('apiUrl') || 'https://redouan.ddns.net/facture';
         const fullUrl = apiUrl + serverPath;
         console.log('🌐 Opening server PDF:', fullUrl);
         // Open in a new browser window
