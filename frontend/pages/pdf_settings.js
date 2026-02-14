@@ -1,37 +1,50 @@
 // PDF Settings Page - Manage Companies with Enable/Disable + Header, Footer, Signature
-
-// Default companies (built-in)
-const DEFAULT_COMPANIES = [
-    { code: 'SKM', name: 'SMART SERVICES', color: '#FF9800', headerPath: 'SKM/Hesder.png', footerPath: 'SKM/Footer.png', signaturePath: 'SKM/signature.png', dbName: 'dbSmartS' },
-    { code: 'SAAISS', name: 'MSH3 SERVICES', color: '#9C27B0', headerPath: 'SAAISS/Hesder.png', footerPath: 'SAAISS/Footer.png', signaturePath: 'SAAISS/signature.png', dbName: 'dbMsh3' },
-    { code: 'BENALI', name: 'BEN ALI', color: '#4CAF50', headerPath: 'BEN ALI/Hesder.png', footerPath: 'BEN ALI/Footer.png', signaturePath: 'BEN ALI/signature.png', dbName: 'dbBenAli' }
-];
+// *** ONLINE VERSION - All data stored in PostgreSQL via API ***
 
 // Available colors for new companies
 const COMPANY_COLORS = ['#FF9800', '#9C27B0', '#4CAF50', '#2196F3', '#f44336', '#E91E63', '#00BCD4', '#FF5722', '#795548', '#607D8B'];
 
-// Get all companies from localStorage (or defaults)
-function _getAllCompanies() {
+// In-memory cache of companies (loaded from API)
+let _cachedCompanies = [];
+let _companiesLoaded = false;
+
+// Get all companies from API (cached)
+async function _loadCompaniesFromAPI() {
     try {
-        const saved = localStorage.getItem('pdfCompanies');
-        if (saved) return JSON.parse(saved);
+        const result = await window.electronAPI.pdfCompanies.getAll();
+        if (result && result.success && Array.isArray(result.data)) {
+            _cachedCompanies = result.data.map(c => ({
+                id: c.id,
+                code: c.company_code,
+                name: c.company_name,
+                color: c.color || '#2196F3',
+                enabled: c.enabled !== false,
+                headerImage: c.header_image || null,
+                footerImage: c.footer_image || null,
+                signatureImage: c.signature_image || null,
+                headerPath: c.header_path || '',
+                footerPath: c.footer_path || '',
+                signaturePath: c.signature_path || '',
+                dbName: c.db_name || '',
+                isBuiltin: c.is_builtin || false
+            }));
+            _companiesLoaded = true;
+            console.log('✅ [PDF Settings] Loaded', _cachedCompanies.length, 'companies from API');
+        }
     } catch (e) {
-        console.error('Error loading companies:', e);
+        console.error('❌ [PDF Settings] Error loading companies from API:', e);
     }
-    // First time: initialize from defaults (all enabled)
-    const companies = DEFAULT_COMPANIES.map(c => ({ ...c, enabled: true }));
-    try { localStorage.setItem('pdfCompanies', JSON.stringify(companies)); } catch(e) {}
-    return companies;
+    return _cachedCompanies;
 }
 
-// Save all companies to localStorage
-function _saveAllCompanies(companies) {
-    localStorage.setItem('pdfCompanies', JSON.stringify(companies));
+// Get all companies (sync from cache, async first load)
+function _getAllCompanies() {
+    return _cachedCompanies;
 }
 
 // Get only enabled companies
 function _getEnabledCompanies() {
-    return _getAllCompanies().filter(c => c.enabled);
+    return _cachedCompanies.filter(c => c.enabled);
 }
 
 // Current selected company for editing
@@ -40,12 +53,12 @@ let currentPdfSettingsCompany = null;
 // Legacy compat: PDF_COMPANY_INFO object (dynamically built)
 function buildCompanyInfoMap() {
     const map = {};
-    _getAllCompanies().forEach(c => {
+    _cachedCompanies.forEach(c => {
         map[c.code] = { name: c.name, color: c.color, headerPath: c.headerPath || '', footerPath: c.footerPath || '', signaturePath: c.signaturePath || '' };
     });
     return map;
 }
-const PDF_COMPANY_INFO = buildCompanyInfoMap();
+let PDF_COMPANY_INFO = buildCompanyInfoMap();
 
 function PDFSettingsPage() {
     return `
@@ -231,10 +244,13 @@ function renderCompanyList() {
     const companies = _getAllCompanies();
     let html = '';
 
-    companies.forEach((company, index) => {
+    if (companies.length === 0) {
+        html = '<div style="color: #888; text-align: center; padding: 2rem; font-size: 1rem;">📭 Aucune société configurée. Cliquez sur "➕ Ajouter une société" pour commencer.</div>';
+    }
+
+    companies.forEach((company) => {
         const isEnabled = company.enabled;
-        const displayName = getPdfSettings(company.code).companyName || company.name;
-        const isBuiltIn = DEFAULT_COMPANIES.some(d => d.code === company.code);
+        const displayName = company.name;
 
         html += `
             <div style="
@@ -243,13 +259,20 @@ function renderCompanyList() {
                 border-radius: 12px; margin-bottom: 0.8rem; transition: all 0.3s;
                 opacity: ${isEnabled ? '1' : '0.5'};
             ">
+                <!-- ID badge -->
+                <div style="
+                    min-width: 36px; height: 36px; border-radius: 50%; background: ${company.color};
+                    display: flex; align-items: center; justify-content: center;
+                    color: #fff; font-weight: 800; font-size: 0.95rem; flex-shrink: 0;
+                ">${company.id}</div>
+
                 <!-- Color indicator -->
                 <div style="width: 8px; height: 50px; border-radius: 4px; background: ${company.color}; flex-shrink: 0;"></div>
 
                 <!-- Company info -->
                 <div style="flex: 1; min-width: 0;">
                     <div style="color: #fff; font-weight: 700; font-size: 1.05rem;">${displayName}</div>
-                    <div style="color: #888; font-size: 0.8rem;">Code: ${company.code}${!isBuiltIn ? ' (personnalisée)' : ''}</div>
+                    <div style="color: #888; font-size: 0.8rem;">Code: ${company.code} &nbsp;|&nbsp; ID: #${company.id}</div>
                 </div>
 
                 <!-- Toggle switch -->
@@ -276,13 +299,11 @@ function renderCompanyList() {
                     flex-shrink: 0;
                 ">⚙️ Modifier</button>
 
-                <!-- Delete button (only for custom companies) -->
-                ${!isBuiltIn ? `
-                    <button onclick="deleteCompany('${company.code}')" style="
-                        padding: 0.5rem 0.8rem; background: #f44336; color: #fff; border: none;
-                        border-radius: 8px; cursor: pointer; font-weight: 600; font-size: 0.85rem; flex-shrink: 0;
-                    ">🗑️</button>
-                ` : ''}
+                <!-- Delete button -->
+                <button onclick="deleteCompany('${company.code}')" style="
+                    padding: 0.5rem 0.8rem; background: #f44336; color: #fff; border: none;
+                    border-radius: 8px; cursor: pointer; font-weight: 600; font-size: 0.85rem; flex-shrink: 0;
+                ">🗑️</button>
             </div>
         `;
     });
@@ -290,24 +311,32 @@ function renderCompanyList() {
     container.innerHTML = html;
 }
 
-// Toggle company enabled/disabled
-window.toggleCompanyEnabled = function(code) {
+// Toggle company enabled/disabled (ONLINE)
+window.toggleCompanyEnabled = async function(code) {
     const companies = _getAllCompanies();
     const company = companies.find(c => c.code === code);
     if (company) {
-        company.enabled = !company.enabled;
-        _saveAllCompanies(companies);
-        renderCompanyList();
-        // Update legacy map
-        Object.assign(PDF_COMPANY_INFO, buildCompanyInfoMap());
-        if (window.notify) {
-            const name = getPdfSettings(code).companyName || company.name;
-            window.notify.success('✅', `${name} ${company.enabled ? 'activée' : 'désactivée'}`, 2000);
+        const newEnabled = !company.enabled;
+        try {
+            const result = await window.electronAPI.pdfCompanies.update(code, { enabled: newEnabled });
+            if (result && result.success) {
+                company.enabled = newEnabled;
+                renderCompanyList();
+                Object.assign(PDF_COMPANY_INFO, buildCompanyInfoMap());
+                if (window.notify) {
+                    window.notify.success('✅', `${company.name} ${newEnabled ? 'activée' : 'désactivée'}`, 2000);
+                }
+            } else {
+                if (window.notify) window.notify.error('Erreur', result?.error || 'Erreur serveur', 3000);
+            }
+        } catch (e) {
+            console.error('Error toggling company:', e);
+            if (window.notify) window.notify.error('Erreur', 'Impossible de modifier le statut', 3000);
         }
     }
 };
 
-// Edit company settings
+// Edit company settings (ONLINE)
 window.editCompanySettings = function(code) {
     currentPdfSettingsCompany = code;
     document.getElementById('pdfCompanyList').style.display = 'none';
@@ -317,32 +346,32 @@ window.editCompanySettings = function(code) {
     const company = companies.find(c => c.code === code);
     if (!company) return;
 
-    const settings = getPdfSettings(code);
-    const displayName = settings.companyName || company.name;
+    const displayName = company.name;
 
-    document.getElementById('editorCompanyTitle').innerHTML = `<span style="color: ${company.color};">🏭 ${displayName}</span> <span style="color: #888; font-size: 0.85rem;">(${code})</span>`;
+    document.getElementById('editorCompanyTitle').innerHTML = `<span style="color: ${company.color};">🏭 ${displayName}</span> <span style="color: #888; font-size: 0.85rem;">(${code}) - ID: #${company.id}</span>`;
 
     // Load name
     const nameInput = document.getElementById('pdfCompanyNameInput');
     if (nameInput) {
-        nameInput.value = settings.companyName || company.name;
+        nameInput.value = company.name;
         nameInput.placeholder = company.name;
     }
 
     // Load info
     document.getElementById('infoCompanyName').textContent = displayName;
 
-    // Load image previews
-    loadImagePreview('header', company.headerPath || '', code);
-    loadImagePreview('footer', company.footerPath || '', code);
-    loadImagePreview('signature', company.signaturePath || '', code);
+    // Load image previews from company data (stored in DB)
+    loadImagePreview('header', company);
+    loadImagePreview('footer', company);
+    loadImagePreview('signature', company);
 };
 
 // Hide company editor, show list
-window.hideCompanyEditor = function() {
+window.hideCompanyEditor = async function() {
     document.getElementById('pdfCompanyList').style.display = 'block';
     document.getElementById('pdfCompanyEditor').style.display = 'none';
     currentPdfSettingsCompany = null;
+    await _loadCompaniesFromAPI();
     renderCompanyList();
 };
 
@@ -404,8 +433,8 @@ window.showAddCompanyModal = function() {
     document.body.appendChild(overlay);
 };
 
-// Add new company
-window.addNewCompany = function() {
+// Add new company (ONLINE)
+window.addNewCompany = async function() {
     const codeInput = document.getElementById('newCompanyCode');
     const nameInput = document.getElementById('newCompanyName');
     const colorInput = document.getElementById('selectedNewColor');
@@ -419,77 +448,70 @@ window.addNewCompany = function() {
         return;
     }
 
-    const companies = _getAllCompanies();
-    if (companies.find(c => c.code === code)) {
-        if (window.notify) window.notify.error('Erreur', `Le code "${code}" existe déjà.`, 3000);
-        return;
+    try {
+        const result = await window.electronAPI.pdfCompanies.create({
+            company_code: code,
+            company_name: name,
+            color: color,
+            enabled: true
+        });
+
+        if (result && result.success) {
+            // Reload from API to get the new ID
+            await _loadCompaniesFromAPI();
+            Object.assign(PDF_COMPANY_INFO, buildCompanyInfoMap());
+
+            document.getElementById('addCompanyOverlay').remove();
+            renderCompanyList();
+
+            const newCompany = _cachedCompanies.find(c => c.code === code);
+            const newId = newCompany ? newCompany.id : '?';
+            if (window.notify) window.notify.success('✅', `Société "${name}" ajoutée avec ID #${newId}`, 3000);
+        } else {
+            if (window.notify) window.notify.error('Erreur', result?.error || 'Erreur serveur', 3000);
+        }
+    } catch (e) {
+        console.error('Error creating company:', e);
+        if (window.notify) window.notify.error('Erreur', 'Impossible de créer la société', 3000);
     }
-
-    companies.push({
-        code: code,
-        name: name,
-        color: color,
-        headerPath: '',
-        footerPath: '',
-        signaturePath: '',
-        dbName: '',
-        enabled: true
-    });
-
-    _saveAllCompanies(companies);
-
-    // Save the name in settings too
-    const settings = getPdfSettings(code);
-    settings.companyName = name;
-    savePdfSettingsToStorage(code, settings);
-
-    // Update legacy map
-    Object.assign(PDF_COMPANY_INFO, buildCompanyInfoMap());
-
-    document.getElementById('addCompanyOverlay').remove();
-    renderCompanyList();
-
-    if (window.notify) window.notify.success('✅', `Société "${name}" ajoutée avec succès !`, 3000);
 };
 
-// Delete a custom company
-window.deleteCompany = function(code) {
+// Delete a company (ONLINE)
+window.deleteCompany = async function(code) {
     const companies = _getAllCompanies();
     const company = companies.find(c => c.code === code);
     if (!company) return;
 
-    const isBuiltIn = DEFAULT_COMPANIES.some(d => d.code === code);
-    if (isBuiltIn) {
-        if (window.notify) window.notify.error('Erreur', 'Impossible de supprimer une société par défaut.', 3000);
-        return;
-    }
-
-    const displayName = getPdfSettings(code).companyName || company.name;
+    const displayName = company.name;
     if (!confirm(`Êtes-vous sûr de vouloir supprimer "${displayName}" ?`)) return;
 
-    const updated = companies.filter(c => c.code !== code);
-    _saveAllCompanies(updated);
-
-    // Remove settings
-    localStorage.removeItem(`pdfSettings_${code}`);
-
-    // Update legacy map
-    Object.keys(PDF_COMPANY_INFO).forEach(k => { if (!updated.find(c => c.code === k)) delete PDF_COMPANY_INFO[k]; });
-    Object.assign(PDF_COMPANY_INFO, buildCompanyInfoMap());
-
-    renderCompanyList();
-    if (window.notify) window.notify.success('✅', `Société "${displayName}" supprimée.`, 3000);
+    try {
+        const result = await window.electronAPI.pdfCompanies.delete(code);
+        if (result && result.success) {
+            await _loadCompaniesFromAPI();
+            Object.keys(PDF_COMPANY_INFO).forEach(k => { if (!_cachedCompanies.find(c => c.code === k)) delete PDF_COMPANY_INFO[k]; });
+            Object.assign(PDF_COMPANY_INFO, buildCompanyInfoMap());
+            renderCompanyList();
+            if (window.notify) window.notify.success('✅', `Société "${displayName}" supprimée.`, 3000);
+        } else {
+            if (window.notify) window.notify.error('Erreur', result?.error || 'Impossible de supprimer', 3000);
+        }
+    } catch (e) {
+        console.error('Error deleting company:', e);
+        if (window.notify) window.notify.error('Erreur', 'Impossible de supprimer la société', 3000);
+    }
 };
 
-// Load image preview
-function loadImagePreview(type, defaultPath, company) {
+// Load image preview (from company data stored in DB)
+function loadImagePreview(type, company) {
     const previewEl = document.getElementById(`pdf${capitalize(type)}Preview`);
     const statusEl = document.getElementById(`info${capitalize(type)}Status`);
     if (!previewEl) return;
 
-    const settings = getPdfSettings(company);
-    const customImage = settings[`${type}Image`];
-    const imgSrc = customImage || defaultPath;
+    // Priority: base64 image stored in DB > file path
+    const imageKey = `${type}Image`;
+    const pathKey = `${type}Path`;
+    const imgSrc = company[imageKey] || company[pathKey] || '';
 
     if (!imgSrc) {
         previewEl.innerHTML = '<div style="color: #888; font-size: 0.85rem;">📷 Aucune image configurée</div>';
@@ -513,82 +535,99 @@ function capitalize(str) {
     return str.charAt(0).toUpperCase() + str.slice(1);
 }
 
-// Upload PDF image
+// Upload PDF image (ONLINE - saves base64 to DB)
 window.uploadPdfImage = function(type) {
     const fileInput = document.getElementById(`pdf${capitalize(type)}Upload`);
     const file = fileInput.files[0];
     if (!file) return;
 
     const reader = new FileReader();
-    reader.onload = function(e) {
+    reader.onload = async function(e) {
         const dataUrl = e.target.result;
-        const settings = getPdfSettings(currentPdfSettingsCompany);
-        settings[`${type}Image`] = dataUrl;
-        savePdfSettingsToStorage(currentPdfSettingsCompany, settings);
 
-        const previewEl = document.getElementById(`pdf${capitalize(type)}Preview`);
-        if (previewEl) previewEl.innerHTML = `<img src="${dataUrl}" style="max-width: 100%; max-height: 120px; border-radius: 4px;">`;
+        // Save image to DB via API
+        const updateData = {};
+        updateData[`${type}_image`] = dataUrl;
+        try {
+            const result = await window.electronAPI.pdfCompanies.update(currentPdfSettingsCompany, updateData);
+            if (result && result.success) {
+                // Update local cache
+                const company = _cachedCompanies.find(c => c.code === currentPdfSettingsCompany);
+                if (company) company[`${type}Image`] = dataUrl;
 
-        const statusEl = document.getElementById(`info${capitalize(type)}Status`);
-        if (statusEl) statusEl.innerHTML = '<span style="color: #4CAF50;">✅ Personnalisé</span>';
+                const previewEl = document.getElementById(`pdf${capitalize(type)}Preview`);
+                if (previewEl) previewEl.innerHTML = `<img src="${dataUrl}" style="max-width: 100%; max-height: 120px; border-radius: 4px;">`;
 
-        if (window.notify) window.notify.success('Succès', `Image ${type} mise à jour`, 2000);
+                const statusEl = document.getElementById(`info${capitalize(type)}Status`);
+                if (statusEl) statusEl.innerHTML = '<span style="color: #4CAF50;">✅ Sauvegardé en ligne</span>';
+
+                if (window.notify) window.notify.success('✅', `Image ${type} sauvegardée en ligne`, 2000);
+            } else {
+                if (window.notify) window.notify.error('Erreur', result?.error || 'Erreur serveur', 3000);
+            }
+        } catch (err) {
+            console.error('Error uploading image:', err);
+            if (window.notify) window.notify.error('Erreur', 'Impossible de sauvegarder l\'image', 3000);
+        }
     };
     reader.readAsDataURL(file);
 };
 
-// Save PDF settings for current company
-window.savePdfSettings = function() {
+// Save PDF settings for current company (ONLINE)
+window.savePdfSettings = async function() {
     if (!currentPdfSettingsCompany) return;
 
-    const settings = getPdfSettings(currentPdfSettingsCompany);
     const nameInput = document.getElementById('pdfCompanyNameInput');
-    if (nameInput && nameInput.value.trim()) {
-        settings.companyName = nameInput.value.trim();
+    const newName = nameInput ? nameInput.value.trim() : '';
+
+    if (!newName) {
+        if (window.notify) window.notify.error('Erreur', 'Le nom de la société ne peut pas être vide.', 3000);
+        return;
     }
 
-    savePdfSettingsToStorage(currentPdfSettingsCompany, settings);
-
-    // Also update the company name in the companies list
-    const companies = _getAllCompanies();
-    const company = companies.find(c => c.code === currentPdfSettingsCompany);
-    if (company && settings.companyName) {
-        company.name = settings.companyName;
-        _saveAllCompanies(companies);
-        Object.assign(PDF_COMPANY_INFO, buildCompanyInfoMap());
-    }
-
-    const infoEl = document.getElementById('infoCompanyName');
-    if (infoEl) infoEl.textContent = settings.companyName || currentPdfSettingsCompany;
-
-    const titleEl = document.getElementById('editorCompanyTitle');
-    if (titleEl && company) {
-        titleEl.innerHTML = `<span style="color: ${company.color};">🏭 ${settings.companyName || company.name}</span> <span style="color: #888; font-size: 0.85rem;">(${company.code})</span>`;
-    }
-
-    if (window.notify) window.notify.success('✅ Sauvegardé', `Paramètres pour "${settings.companyName || currentPdfSettingsCompany}" sauvegardés`, 3000);
-};
-
-// Get PDF settings from localStorage
-function getPdfSettings(company) {
     try {
-        const key = `pdfSettings_${company}`;
-        const saved = localStorage.getItem(key);
-        if (saved) return JSON.parse(saved);
-    } catch (e) {
-        console.error('Error loading PDF settings:', e);
-    }
-    return {};
-}
+        const result = await window.electronAPI.pdfCompanies.update(currentPdfSettingsCompany, {
+            company_name: newName
+        });
 
-// Save PDF settings to localStorage
-function savePdfSettingsToStorage(company, settings) {
-    try {
-        const key = `pdfSettings_${company}`;
-        localStorage.setItem(key, JSON.stringify(settings));
+        if (result && result.success) {
+            // Update local cache
+            const company = _cachedCompanies.find(c => c.code === currentPdfSettingsCompany);
+            if (company) {
+                company.name = newName;
+                Object.assign(PDF_COMPANY_INFO, buildCompanyInfoMap());
+            }
+
+            const infoEl = document.getElementById('infoCompanyName');
+            if (infoEl) infoEl.textContent = newName;
+
+            const titleEl = document.getElementById('editorCompanyTitle');
+            if (titleEl && company) {
+                titleEl.innerHTML = `<span style="color: ${company.color};">🏭 ${newName}</span> <span style="color: #888; font-size: 0.85rem;">(${company.code}) - ID: #${company.id}</span>`;
+            }
+
+            if (window.notify) window.notify.success('✅ Sauvegardé', `Paramètres pour "${newName}" sauvegardés en ligne`, 3000);
+        } else {
+            if (window.notify) window.notify.error('Erreur', result?.error || 'Erreur serveur', 3000);
+        }
     } catch (e) {
         console.error('Error saving PDF settings:', e);
+        if (window.notify) window.notify.error('Erreur', 'Impossible de sauvegarder', 3000);
     }
+};
+
+// Get PDF settings from cache (for backward compatibility)
+function getPdfSettings(company) {
+    const c = _cachedCompanies.find(co => co.code === company);
+    if (c) {
+        return {
+            companyName: c.name,
+            headerImage: c.headerImage || null,
+            footerImage: c.footerImage || null,
+            signatureImage: c.signatureImage || null
+        };
+    }
+    return {};
 }
 
 // Global function to get PDF settings for a company
@@ -598,8 +637,6 @@ window.getPdfCompanySettings = function(company) {
 
 // Global function to get custom company name or fallback
 window.getPdfCompanyName = function(company) {
-    const settings = getPdfSettings(company);
-    if (settings.companyName) return settings.companyName;
     const companies = _getAllCompanies();
     const c = companies.find(co => co.code === company);
     if (c) return c.name;
@@ -615,20 +652,14 @@ window.getPdfCompanyFileName = function(company) {
 
 // Global function to get custom image or fallback
 window.getPdfCompanyImage = function(company, type) {
-    const settings = getPdfSettings(company);
-    const customImage = settings[`${type}Image`];
-    if (customImage) return customImage;
-
     const companies = _getAllCompanies();
     const c = companies.find(co => co.code === company);
     if (!c) return null;
 
-    switch(type) {
-        case 'header': return c.headerPath || null;
-        case 'footer': return c.footerPath || null;
-        case 'signature': return c.signaturePath || null;
-        default: return null;
-    }
+    // Priority: base64 image from DB > file path
+    const imageKey = `${type}Image`;
+    const pathKey = `${type}Path`;
+    return c[imageKey] || c[pathKey] || null;
 };
 
 // Global function to check if a company is enabled
@@ -648,8 +679,11 @@ window.getAllPdfCompanies = function() {
     return _getAllCompanies();
 };
 
-// Initialize PDF Settings page
-window.initPdfSettingsPage = function() {
-    console.log('✅ PDF Settings page initialized');
+// Initialize PDF Settings page (ONLINE - load from API first)
+window.initPdfSettingsPage = async function() {
+    console.log('🔄 [PDF Settings] Loading companies from API...');
+    await _loadCompaniesFromAPI();
+    Object.assign(PDF_COMPANY_INFO, buildCompanyInfoMap());
     renderCompanyList();
+    console.log('✅ PDF Settings page initialized (ONLINE)');
 };

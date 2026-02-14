@@ -335,6 +335,52 @@ async function registerDatabaseHandlers() {
             return { success: false, error: error.message };
         }
     });
+
+    // --- PDF Companies (Online company management) ---
+    ipcMain.handle('db:pdfCompanies:getAll', async () => {
+        try {
+            return await apiClient.getPdfCompanies();
+        } catch (error) {
+            console.error('Error getting PDF companies:', error);
+            return { success: false, error: error.message };
+        }
+    });
+
+    ipcMain.handle('db:pdfCompanies:get', async (event, code) => {
+        try {
+            return await apiClient.getPdfCompany(code);
+        } catch (error) {
+            console.error('Error getting PDF company:', error);
+            return { success: false, error: error.message };
+        }
+    });
+
+    ipcMain.handle('db:pdfCompanies:create', async (event, companyData) => {
+        try {
+            return await apiClient.createPdfCompany(companyData);
+        } catch (error) {
+            console.error('Error creating PDF company:', error);
+            return { success: false, error: error.response?.data?.error || error.message };
+        }
+    });
+
+    ipcMain.handle('db:pdfCompanies:update', async (event, code, companyData) => {
+        try {
+            return await apiClient.updatePdfCompany(code, companyData);
+        } catch (error) {
+            console.error('Error updating PDF company:', error);
+            return { success: false, error: error.message };
+        }
+    });
+
+    ipcMain.handle('db:pdfCompanies:delete', async (event, code) => {
+        try {
+            return await apiClient.deletePdfCompany(code);
+        } catch (error) {
+            console.error('Error deleting PDF company:', error);
+            return { success: false, error: error.response?.data?.error || error.message };
+        }
+    });
 }
 
 module.exports = { registerDatabaseHandlers };

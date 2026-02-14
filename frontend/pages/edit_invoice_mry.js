@@ -216,7 +216,10 @@ async function loadInvoiceDataMRY(invoiceId) {
         // Fill document info
         const docTypeDisplay = invoice.document_type === 'facture' ? 'Facture' : 'Devis';
         document.getElementById('editDocumentTypeMRY').value = docTypeDisplay;
-        document.getElementById('editDocumentDateMRY').value = window.safeDateString ? window.safeDateString(invoice.document_date) : (invoice.document_date ? invoice.document_date.split('T')[0] : '');
+        console.log(`📅 [EDIT DATE DIAGNOSTIC] invoice.document_date raw from API: "${invoice.document_date}" (type: ${typeof invoice.document_date})`);
+        const safeDateResult = window.safeDateString ? window.safeDateString(invoice.document_date) : (invoice.document_date ? invoice.document_date.split('T')[0] : '');
+        console.log(`📅 [EDIT DATE DIAGNOSTIC] safeDateString result: "${safeDateResult}"`);
+        document.getElementById('editDocumentDateMRY').value = safeDateResult;
 
         // Update convert button text
         const convertBtnText = invoice.document_type === 'facture' ? 'Convertir en Devis' : 'Convertir en Facture';
@@ -662,6 +665,9 @@ async function handleEditInvoiceSubmitMRY(e) {
 
         const currentUser = JSON.parse(localStorage.getItem('user'));
 
+        const dateValueFromInput = document.getElementById('editDocumentDateMRY').value;
+        console.log(`📅 [SAVE DATE DIAGNOSTIC] Date value from input field: "${dateValueFromInput}"`);
+
         const formData = {
             client: {
                 nom: document.getElementById('editClientNomMRY').value,
@@ -669,7 +675,7 @@ async function handleEditInvoiceSubmitMRY(e) {
             },
             document: {
                 type: currentDocumentTypeMRY,
-                date: document.getElementById('editDocumentDateMRY').value,
+                date: dateValueFromInput,
                 // ✅ Add user tracking
                 updated_by_user_id: currentUser?.id || null,
                 updated_by_user_name: currentUser?.name || null,

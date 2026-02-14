@@ -387,6 +387,32 @@ const service = {
         return res.data;
     },
 
+    // PDF Companies (Online company management)
+    getPdfCompanies: async () => {
+        const res = await apiClient.get('/pdf-companies');
+        return res.data;
+    },
+
+    getPdfCompany: async (code) => {
+        const res = await apiClient.get(`/pdf-companies/${code}`);
+        return res.data;
+    },
+
+    createPdfCompany: async (companyData) => {
+        const res = await apiClient.post('/pdf-companies', companyData);
+        return res.data;
+    },
+
+    updatePdfCompany: async (code, companyData) => {
+        const res = await apiClient.put(`/pdf-companies/${code}`, companyData);
+        return res.data;
+    },
+
+    deletePdfCompany: async (code) => {
+        const res = await apiClient.delete(`/pdf-companies/${code}`);
+        return res.data;
+    },
+
     // Company PDF Settings
     getPdfSettings: async (company) => {
         const res = await apiClient.get(`/pdf-settings/${company}`);

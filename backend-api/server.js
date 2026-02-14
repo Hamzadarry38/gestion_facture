@@ -496,6 +496,18 @@ app.get('/invoices/:company', async (req, res) => {
       });
     }
 
+    // 🔍 DATE DIAGNOSTIC: Log first 3 invoice dates as they come from PostgreSQL
+    if (invoices.length > 0) {
+      const sample = invoices.slice(0, 3).map(inv => ({
+        id: inv.id,
+        document_date: inv.document_date,
+        document_date_type: typeof inv.document_date,
+        created_at: inv.created_at,
+        created_at_type: typeof inv.created_at
+      }));
+      console.log('📅 [DATE DIAGNOSTIC] Raw dates from PostgreSQL:', JSON.stringify(sample, null, 2));
+    }
+
     res.json({ success: true, data: invoices });
   } catch (err) {
     res.status(500).json({ success: false, error: err.message });
@@ -517,6 +529,7 @@ app.get('/invoices/id/:id', async (req, res) => {
     }
 
     const invoice = invoiceRes.rows[0];
+    console.log(`📅 [DATE DIAGNOSTIC] GET /invoices/id/${id} - document_date from DB: "${invoice.document_date}" (type: ${typeof invoice.document_date}), created_at: "${invoice.created_at}"`);
     const productsRes = await pool.query('SELECT * FROM invoice_products WHERE invoice_id = $1', [id]);
     invoice.products = productsRes.rows;
 
@@ -778,6 +791,8 @@ app.put('/invoices/:id', async (req, res) => {
 
     // Fallback: If these are at top-level but NOT in doc, we use them.
     // However, if doc exists, inner doc takes precedence below.
+
+    console.log(`📅 [DATE DIAGNOSTIC] PUT /invoices/${id} - document_date from req.body: "${document_date}", from req.body.document.date: "${req.body.document?.date}"`);
 
     // Handle nested format from frontend (document, totals)
     if (req.body.document) {
@@ -1713,6 +1728,142 @@ app.put('/pdf-settings/:company', async (req, res) => {
   }
 });
 
+
+// --- PDF COMPANIES TABLE (Online company management) ---
+// Auto-create the pdf_companies table if it doesn't exist
+(async () => {
+  try {
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS pdf_companies (
+        id SERIAL PRIMARY KEY,
+        company_code VARCHAR(50) NOT NULL UNIQUE,
+        company_name VARCHAR(255) NOT NULL,
+        color VARCHAR(20) DEFAULT '#2196F3',
+        enabled BOOLEAN DEFAULT true,
+        header_image TEXT,
+        footer_image TEXT,
+        signature_image TEXT,
+        header_path VARCHAR(255) DEFAULT '',
+        footer_path VARCHAR(255) DEFAULT '',
+        signature_path VARCHAR(255) DEFAULT '',
+        db_name VARCHAR(100) DEFAULT '',
+        is_builtin BOOLEAN DEFAULT false,
+        created_at TIMESTAMP DEFAULT NOW(),
+        updated_at TIMESTAMP DEFAULT NOW()
+      )
+    `);
+    console.log('✅ pdf_companies table ready');
+  } catch (err) {
+    console.error('❌ Error creating pdf_companies table:', err.message);
+  }
+})();
+
+// GET all companies
+app.get('/pdf-companies', async (req, res) => {
+  try {
+    const result = await pool.query('SELECT * FROM pdf_companies ORDER BY id ASC');
+    res.json({ success: true, data: result.rows });
+  } catch (err) {
+    console.error('❌ Error getting PDF companies:', err);
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// GET single company by code
+app.get('/pdf-companies/:code', async (req, res) => {
+  try {
+    const code = req.params.code.toUpperCase();
+    const result = await pool.query('SELECT * FROM pdf_companies WHERE company_code = $1', [code]);
+    if (result.rows.length > 0) {
+      res.json({ success: true, data: result.rows[0] });
+    } else {
+      res.json({ success: true, data: null });
+    }
+  } catch (err) {
+    console.error('❌ Error getting PDF company:', err);
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// POST create new company
+app.post('/pdf-companies', async (req, res) => {
+  try {
+    const { company_code, company_name, color, enabled, header_image, footer_image, signature_image, header_path, footer_path, signature_path, db_name, is_builtin } = req.body;
+    const code = (company_code || '').toUpperCase().replace(/[^A-Z0-9_]/g, '');
+    if (!code || !company_name) {
+      return res.status(400).json({ success: false, error: 'company_code and company_name are required' });
+    }
+    const result = await pool.query(`
+      INSERT INTO pdf_companies (company_code, company_name, color, enabled, header_image, footer_image, signature_image, header_path, footer_path, signature_path, db_name, is_builtin, created_at, updated_at)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, NOW(), NOW())
+      RETURNING *
+    `, [code, company_name, color || '#2196F3', enabled !== false, header_image || null, footer_image || null, signature_image || null, header_path || '', footer_path || '', signature_path || '', db_name || '', is_builtin || false]);
+    res.json({ success: true, data: result.rows[0] });
+  } catch (err) {
+    if (err.code === '23505') {
+      return res.status(409).json({ success: false, error: `Le code "${req.body.company_code}" existe déjà.` });
+    }
+    console.error('❌ Error creating PDF company:', err);
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// PUT update company by code
+app.put('/pdf-companies/:code', async (req, res) => {
+  try {
+    const code = req.params.code.toUpperCase();
+    const { company_name, color, enabled, header_image, footer_image, signature_image, header_path, footer_path, signature_path, db_name } = req.body;
+
+    // Build dynamic SET clause - only update fields that are provided
+    const updates = [];
+    const values = [];
+    let idx = 1;
+
+    if (company_name !== undefined) { updates.push(`company_name = $${idx++}`); values.push(company_name); }
+    if (color !== undefined) { updates.push(`color = $${idx++}`); values.push(color); }
+    if (enabled !== undefined) { updates.push(`enabled = $${idx++}`); values.push(enabled); }
+    if (header_image !== undefined) { updates.push(`header_image = $${idx++}`); values.push(header_image); }
+    if (footer_image !== undefined) { updates.push(`footer_image = $${idx++}`); values.push(footer_image); }
+    if (signature_image !== undefined) { updates.push(`signature_image = $${idx++}`); values.push(signature_image); }
+    if (header_path !== undefined) { updates.push(`header_path = $${idx++}`); values.push(header_path); }
+    if (footer_path !== undefined) { updates.push(`footer_path = $${idx++}`); values.push(footer_path); }
+    if (signature_path !== undefined) { updates.push(`signature_path = $${idx++}`); values.push(signature_path); }
+    if (db_name !== undefined) { updates.push(`db_name = $${idx++}`); values.push(db_name); }
+
+    updates.push(`updated_at = NOW()`);
+    values.push(code);
+
+    const result = await pool.query(
+      `UPDATE pdf_companies SET ${updates.join(', ')} WHERE company_code = $${idx} RETURNING *`,
+      values
+    );
+
+    if (result.rows.length > 0) {
+      res.json({ success: true, data: result.rows[0] });
+    } else {
+      res.status(404).json({ success: false, error: 'Company not found' });
+    }
+  } catch (err) {
+    console.error('❌ Error updating PDF company:', err);
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// DELETE company by code
+app.delete('/pdf-companies/:code', async (req, res) => {
+  try {
+    const code = req.params.code.toUpperCase();
+    const result = await pool.query('DELETE FROM pdf_companies WHERE company_code = $1 AND is_builtin = false RETURNING *', [code]);
+    if (result.rows.length > 0) {
+      res.json({ success: true, data: result.rows[0] });
+    } else {
+      res.status(404).json({ success: false, error: 'Company not found or is a built-in company' });
+    }
+  } catch (err) {
+    console.error('❌ Error deleting PDF company:', err);
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
 
 // --- SECONDARY COMPANIES DEVIS & PATHS TABLES (Auto-create) ---
 (async () => {

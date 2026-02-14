@@ -336,6 +336,15 @@ contextBridge.exposeInMainWorld('electron', {
     savePdfSettings: (percentage, productNames) => ipcRenderer.invoke('db:benali:pdfSettings:save', percentage, productNames)
   },
 
+  // PDF Companies (Online company management)
+  pdfCompanies: {
+    getAll: () => ipcRenderer.invoke('db:pdfCompanies:getAll'),
+    get: (code) => ipcRenderer.invoke('db:pdfCompanies:get', code),
+    create: (companyData) => ipcRenderer.invoke('db:pdfCompanies:create', companyData),
+    update: (code, companyData) => ipcRenderer.invoke('db:pdfCompanies:update', code, companyData),
+    delete: (code) => ipcRenderer.invoke('db:pdfCompanies:delete', code)
+  },
+
   // PDF Files API
   pdf: {
     savePdf: (pdfData, company, devisNumber, createdBy) => ipcRenderer.invoke('pdf:savePdf', pdfData, company, devisNumber, createdBy),
