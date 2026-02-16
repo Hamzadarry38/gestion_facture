@@ -1257,6 +1257,13 @@ window.showConvertDocumentTypeModalChaimae = async function () {
 
         const user = JSON.parse(localStorage.getItem('user'));
 
+        console.log('🔄 [CONVERT DEBUG] currentType:', currentType);
+        console.log('🔄 [CONVERT DEBUG] selectedNewType:', selectedNewType);
+        console.log('🔄 [CONVERT DEBUG] currentNumero (OLD):', currentNumero);
+        console.log('🔄 [CONVERT DEBUG] newNumero (NEW - user input):', newNumero);
+        console.log('🔄 [CONVERT DEBUG] numeroOrder:', numeroOrder);
+        console.log('🔄 [CONVERT DEBUG] bonLivraison:', bonLivraison);
+
         const newInvoiceData = {
             client: {
                 nom: invoice.client_nom || '',
@@ -1266,8 +1273,8 @@ window.showConvertDocumentTypeModalChaimae = async function () {
                 type: selectedNewType,
                 date: newDate || invoice.document_date || (window.todayDateString ? window.todayDateString() : new Date().toISOString().split('T')[0]),
                 numero: selectedNewType === 'facture' ? newNumero : null,
-                numero_devis: selectedNewType === 'devis' ? newNumero : (currentType === 'devis' ? currentNumero : null),
-                numero_bl: selectedNewType === 'bon_livraison' ? newNumero : (currentType === 'bon_livraison' ? currentNumero : null),
+                numero_devis: selectedNewType === 'devis' ? newNumero : null,
+                numero_bl: selectedNewType === 'bon_livraison' ? newNumero : null,
                 numero_Order: selectedNewType === 'facture' ? (numeroOrder || null) : null,
                 numero_commande: selectedNewType === 'bon_livraison' ? (numeroOrder || null) : null,
                 bon_de_livraison: selectedNewType === 'facture' ? (bonLivraison || null) : null,

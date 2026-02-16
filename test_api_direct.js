@@ -15,7 +15,7 @@ async function testAttachmentAPI() {
 
         console.log('📤 Sending:', JSON.stringify(testData, null, 2));
 
-        const response = await axios.post('https://anpe-web-api.ddns.net/facture/attachments', testData, {
+        const response = await axios.post('https://redouan.ddns.net/facture/attachments', testData, {
             headers: { 'Content-Type': 'application/json' }
         });
 
