@@ -164,16 +164,28 @@ function InvoicesListChaimaePage() {
                             </select>
                         </div>
                         
-                        <!-- Creation Method Filter -->
+                        <!-- Devis Conversion Filter -->
                         <div class="filter-group">
-                            <label>🔧 Méthode de création:</label>
-                            <select id="filterCreationMethodChaimae" onchange="filterInvoicesChaimae()">
+                            <label>🔄 Etat Devis:</label>
+                            <select id="filterDevisConversionMulti" onchange="filterInvoicesChaimae()">
                                 <option value="all">Tous</option>
-                                <option value="normal">Créé normalement</option>
-                                <option value="converted">Converti</option>
+                                <option value="converted">Convertis</option>
+                                <option value="not_converted">Non Convertis</option>
                             </select>
                         </div>
 
+                        <!-- AR Status Filter -->
+                        <div class="filter-group">
+                            <label>🕒 Accusé de Réception:</label>
+                            <select id="filterArStatusChaimae" onchange="filterInvoicesChaimae()">
+                                <option value="all">Tous</option>
+                                <option value="">— (vide)</option>
+                                <option value="sans_accuse">Sans accusé</option>
+                                <option value="en_attente">En attente</option>
+                                <option value="accuse">Accusé</option>
+                                <option value="done">Done</option>
+                            </select>
+                        </div>
 
                         <!-- Status Filter (Seen/Unseen) - Admins Only -->
                         <div class="filter-group" id="statusFilterGroupChaimae" style="display: none;">
@@ -187,19 +199,6 @@ function InvoicesListChaimaePage() {
                                 </select>
                                 <span id="unseenBadgeChaimae" style="display: none; position: absolute; top: -8px; right: -8px; background: #f44336; color: white; border-radius: 50%; padding: 2px 6px; font-size: 10px; font-weight: bold; box-shadow: 0 2px 4px rgba(0,0,0,0.2);">0</span>
                             </div>
-                        </div>
-
-                        <!-- AR Status Filter -->
-                        <div class="filter-group">
-                            <label>🕒 Accusé de Réception:</label>
-                            <select id="filterArStatusChaimae" onchange="filterInvoicesChaimae()">
-                                <option value="all">Tous</option>
-                                <option value="">— (vide)</option>
-                                <option value="sans_accuse">Sans accusé</option>
-                                <option value="en_attente">En attente</option>
-                                <option value="accuse">Accusé</option>
-                            </select>
-                            <button onclick="window.bulkResetArStatusChaimae()" style="margin-top: 0.3rem; padding: 0.3rem 0.6rem; background: #f44336; color: #fff; border: none; border-radius: 4px; cursor: pointer; font-size: 0.75rem; font-weight: 600; width: 100%;" title="Convertir tous les Sans accusé en vide">🔄 Reset Sans accusé</button>
                         </div>
                         
                         <div class="filter-group">
@@ -697,13 +696,20 @@ window.toggleValidationQueueChaimae = function () {
 };
 
 window.handleValidateInvoiceChaimae = async function (id, status) {
+    const currentUserChaimae = JSON.parse(localStorage.getItem('user') || '{}');
+    const isAdminViewerChaimae = currentUserChaimae.email === 'redouanerrebbahi99@gmail.com';
+    if (!isAdminViewerChaimae) {
+        window.notify?.error('Erreur', 'Action réservée à l\'admin', 3000);
+        return;
+    }
     const action = status === 'validated' ? 'valider' : 'rejeter';
     const confirmMessage = `Êtes-vous sûr de vouloir ${action} ce document ?`;
 
     const confirmed = await customConfirm('Confirmation', confirmMessage, status === 'validated' ? 'info' : 'warning');
     if (confirmed) {
         try {
-            const result = await window.electron.dbChaimae.validateInvoice(id, status);
+            const currentUserVal = JSON.parse(localStorage.getItem('user') || '{}');
+            const result = await window.electron.dbChaimae.validateInvoice(id, status, currentUserVal.email || '');
             if (result.success) {
                 window.notify.success('Succès', `Le document a été ${status === 'validated' ? 'validé' : 'rejeté'}.`);
                 loadInvoicesChaimae(); // Reload everything
@@ -964,7 +970,7 @@ function displayInvoicesChaimae(invoices) {
             additionalInfo += `<div style="font-size: 0.85rem; color: #9c27b0; margin-top: 0.25rem;">📦 ${invoice.bon_count} Bons de livraison</div>`;
         }
 
-        // Determine row class based on creation method
+        // Show red/yellow indicators for ALL users (Admin needs to see them too)
         const isUnseen = invoice.validation_status === 'pending';
         const isModified = invoice.is_modified === true;
 
@@ -1005,18 +1011,19 @@ function displayInvoicesChaimae(invoices) {
                 <td style="padding: 0.5rem; border-right: 1px solid #3e3e42; text-align: center; white-space: nowrap; font-size: 0.85rem;" class="col-createdByCombined-chaimae">
                     <div style="display: flex; flex-direction: column; gap: 0.2rem;">
                         <span style="color: #2196f3; font-weight: bold;">👤 Créé par: ${invoice.created_by_user_name || invoice.created_by || '-'}</span>
-                         ${invoice.validation_status === 'pending' && invoice.updated_by_user_name && invoice.updated_by_user_name !== invoice.created_by_user_name ?
+                         ${isModified && invoice.updated_by_user_name && invoice.updated_by_user_name !== invoice.created_by_user_name ?
                 `<span style="color: #ff9800; font-weight: bold;">📝 Modifié par: ${invoice.updated_by_user_name}</span>` : ''}
                         ${invoice.delivered_by ? `<span style="color: #ff9800;">📦 Livré par: ${invoice.delivered_by}</span>` : ''}
                     </div>
                 </td>
                 <td style="padding: 1rem 0.75rem; border-right: 1px solid #3e3e42; text-align: center;">
-                    ${invoice.document_type === 'devis' ? '<span style="color:#666;">—</span>' : `<select onchange="this.style.background=this.value==='accuse'?'#4caf50':this.value==='en_attente'?'#ff9800':this.value==='sans_accuse'?'#f44336':'#424242'; updateArStatusChaimae(${invoice.id}, this.value)" 
-                            style="padding: 0.4rem; background: ${invoice.ar_status === 'accuse' ? '#4caf50' : (invoice.ar_status === 'en_attente' ? '#ff9800' : (invoice.ar_status === 'sans_accuse' ? '#f44336' : '#424242'))}; color: white; border: none; border-radius: 4px; font-size: 0.85rem; cursor: pointer; width: 100%;">
+                    ${invoice.document_type === 'devis' ? '<span style="color:#666;">—</span>' : `<select onchange="this.style.background=this.value==='accuse'?'#4caf50':this.value==='en_attente'?'#ff9800':this.value==='sans_accuse'?'#f44336':this.value==='done'?'#2196f3':'#424242'; updateArStatusChaimae(${invoice.id}, this.value)" 
+                            style="padding: 0.4rem; background: ${invoice.ar_status === 'accuse' ? '#4caf50' : (invoice.ar_status === 'en_attente' ? '#ff9800' : (invoice.ar_status === 'sans_accuse' ? '#f44336' : (invoice.ar_status === 'done' ? '#2196f3' : '#424242')))}; color: white; border: none; border-radius: 4px; font-size: 0.85rem; cursor: pointer; width: 100%;">
                         <option value="" ${!invoice.ar_status ? 'selected' : ''} style="background: #424242; color: #fff;"></option>
                         <option value="sans_accuse" ${invoice.ar_status === 'sans_accuse' ? 'selected' : ''} style="background: #f44336; color: #fff;">Sans accusé</option>
                         <option value="en_attente" ${invoice.ar_status === 'en_attente' ? 'selected' : ''} style="background: #424242; color: #ff9800;">En attente</option>
                         <option value="accuse" ${invoice.ar_status === 'accuse' ? 'selected' : ''} style="background: #424242; color: #4caf50;">Accusé</option>
+                        <option value="done" ${invoice.ar_status === 'done' ? 'selected' : ''} style="background: #424242; color: #2196f3;">Done</option>
                     </select>`}
                 </td>
                 <td style="padding: 1rem 0.75rem; border-right: 1px solid #3e3e42; text-align: center;">
@@ -1191,7 +1198,9 @@ window.filterInvoicesChaimae = function () {
     const filterAttachments = document.getElementById('filterAttachmentsChaimae')?.value || 'all';
     const filterCreationMethod = document.getElementById('filterCreationMethodChaimae')?.value || 'all';
 
-    const filterArStatus = document.getElementById('filterArStatusChaimae')?.value || 'all';
+    const filterArStatusEl = document.getElementById('filterArStatusChaimae');
+    const filterArStatus = filterArStatusEl ? filterArStatusEl.value : 'all';
+    console.log('🔍 [CHAIMAE] AR Filter value:', JSON.stringify(filterArStatus), 'Type:', typeof filterArStatus);
     const monthFilter = document.getElementById('filterMonthChaimae')?.value || '';
     const clientFilter = document.getElementById('filterClientChaimae')?.value || '';
     const searchType = document.getElementById('searchTypeChaimae')?.value || 'all';
@@ -1227,7 +1236,11 @@ window.filterInvoicesChaimae = function () {
         // AR Status filter (exclude devis - they don't have AR status)
         if (filterArStatus !== 'all') {
             if (invoice.document_type === 'devis') return false;
-            if ((invoice.ar_status || '') !== filterArStatus) return false;
+            const arVal = invoice.ar_status || '';
+            if (arVal !== filterArStatus) {
+                console.log(`  ❌ [CHAIMAE] Invoice ${invoice.id} (${invoice.document_type}): ar_status=${JSON.stringify(invoice.ar_status)} normalized=${JSON.stringify(arVal)} vs filter=${JSON.stringify(filterArStatus)}`);
+                return false;
+            }
         }
 
         // Year filter (from card selection)
@@ -1542,8 +1555,14 @@ window.handleSQLiteMigration = async function () {
 
 // Mark invoice as seen (validated)
 window.markAsSeenChaimae = async function (id) {
+    const currentUserChaimae = JSON.parse(localStorage.getItem('user') || '{}');
+    const isAdminViewerChaimae = currentUserChaimae.email === 'redouanerrebbahi99@gmail.com';
+    if (!isAdminViewerChaimae) {
+        window.notify.error('Erreur', 'Action réservée à l\'admin', 3000);
+        return;
+    }
     try {
-        const result = await window.electron.dbChaimae.validateInvoice(id, 'validated');
+        const result = await window.electron.dbChaimae.validateInvoice(id, 'validated', currentUserChaimae.email || '');
         if (result.success) {
             window.notify.success('Succès', 'Facture marquée comme lue', 3000);
 
@@ -1574,7 +1593,8 @@ window.viewInvoiceChaimae = async function (id, documentType) {
             return;
         }
 
-        const result = await window.electron.dbChaimae.getInvoiceById(id);
+        const currentUserForView = JSON.parse(localStorage.getItem('user') || '{}');
+        const result = await window.electron.dbChaimae.getInvoiceById(id, currentUserForView.email || '');
 
         if (!result.success || !result.data) {
             window.notify.error('Erreur', 'Document introuvable', 3000);
@@ -1588,21 +1608,30 @@ window.viewInvoiceChaimae = async function (id, documentType) {
                 'Bon de livraison';
         const docNumber = invoice.document_numero || invoice.document_numero_devis || invoice.document_numero_bl || '-';
 
-        // Auto-validate if pending (mark as seen automatically)
-        if (invoice.validation_status === 'pending') {
-            console.log('📝 [AUTO-VALIDATE] Invoice is pending, marking as seen automatically...');
+        // Auto-validate if pending or modified - ONLY for Admin users
+        const currentUserChaimae = JSON.parse(localStorage.getItem('user') || '{}');
+        const isAdminViewerChaimae = currentUserChaimae.email === 'redouanerrebbahi99@gmail.com';
+        
+        if (isAdminViewerChaimae && (invoice.validation_status === 'pending' || invoice.is_modified)) {
+            console.log('📝 [AUTO-VALIDATE] Admin viewing - clearing highlights...');
             try {
-                await window.electron.dbChaimae.validateInvoice(id, 'validated');
-                console.log('✅ [AUTO-VALIDATE] Invoice marked as seen');
-                // Update the invoice object to reflect the change
+                await window.electron.dbChaimae.validateInvoice(id, 'validated', currentUserChaimae.email || '');
+                console.log('✅ [AUTO-VALIDATE] Invoice validated & is_modified reset');
                 invoice.validation_status = 'validated';
-                // Update badges if function exists
+                invoice.is_modified = false;
+                const localInv = allInvoicesChaimae.find(inv => inv.id === id);
+                if (localInv) { localInv.validation_status = 'validated'; localInv.is_modified = false; }
+                const filteredInv = filteredInvoicesChaimae.find(inv => inv.id === id);
+                if (filteredInv) { filteredInv.validation_status = 'validated'; filteredInv.is_modified = false; }
+                displayInvoicesChaimae(filteredInvoicesChaimae);
                 if (typeof updatePendingCounts === 'function') {
                     setTimeout(() => updatePendingCounts(), 500);
                 }
             } catch (error) {
                 console.error('❌ [AUTO-VALIDATE] Error:', error);
             }
+        } else if (!isAdminViewerChaimae) {
+            console.log('ℹ️ [AUTO-VALIDATE] Regular user viewing - keeping validation_status and is_modified unchanged');
         }
 
         const overlay = document.createElement('div');
@@ -1804,9 +1833,27 @@ window.viewInvoiceChaimae = async function (id, documentType) {
         overlay.appendChild(modal);
         document.body.appendChild(overlay);
 
-        document.getElementById('closeViewModal').onclick = () => overlay.remove();
+        // Helper: update local data and re-render after viewing invoice
+        const _refreshAfterViewChaimae = () => {
+            const localInv = allInvoicesChaimae.find(inv => inv.id === id);
+            if (localInv) {
+                localInv.validation_status = 'validated';
+                localInv.is_modified = false;
+            }
+            const filteredInv = filteredInvoicesChaimae.find(inv => inv.id === id);
+            if (filteredInv) {
+                filteredInv.validation_status = 'validated';
+                filteredInv.is_modified = false;
+            }
+            displayInvoicesChaimae(filteredInvoicesChaimae);
+            if (typeof updatePendingCounts === 'function') {
+                setTimeout(() => updatePendingCounts(), 300);
+            }
+        };
+
+        document.getElementById('closeViewModal').onclick = () => { overlay.remove(); _refreshAfterViewChaimae(); };
         overlay.onclick = (e) => {
-            if (e.target === overlay) overlay.remove();
+            if (e.target === overlay) { overlay.remove(); _refreshAfterViewChaimae(); }
         };
 
         // Load notes asynchronously
@@ -1917,8 +1964,22 @@ window.viewInvoiceChaimae = async function (id, documentType) {
 }
 
 // Edit invoice
-window.editInvoiceChaimae = function (id) {
+window.editInvoiceChaimae = async function (id) {
     console.log('✏️ [EDIT] Opening edit page for invoice ID:', id);
+    // Clear highlights immediately (validate + reset is_modified)
+    try {
+        const currentUserChaimae = JSON.parse(localStorage.getItem('user') || '{}');
+        const isAdminViewerChaimae = currentUserChaimae.email === 'redouanerrebbahi99@gmail.com';
+        if (isAdminViewerChaimae) {
+            await window.electron.dbChaimae.validateInvoice(id, 'validated', currentUserChaimae.email || '');
+            const localInv = allInvoicesChaimae.find(inv => inv.id === id);
+            if (localInv) { localInv.validation_status = 'validated'; localInv.is_modified = false; }
+            const filteredInv = filteredInvoicesChaimae.find(inv => inv.id === id);
+            if (filteredInv) { filteredInv.validation_status = 'validated'; filteredInv.is_modified = false; }
+            displayInvoicesChaimae(filteredInvoicesChaimae);
+            if (typeof updatePendingCounts === 'function') setTimeout(() => updatePendingCounts(), 300);
+        }
+    } catch (e) { console.error('❌ [EDIT CHAIMAE] Error clearing highlights:', e); }
     localStorage.setItem('editInvoiceIdChaimae', id);
     router.navigate('/edit-invoice-chaimae');
 }
@@ -5576,10 +5637,27 @@ window.addNewAttachmentChaimae = function (invoiceId) {
             }
         }
 
-        // Refresh specifically the attachments section
+        // Fetch updated invoice data from database to get correct attachment_count
+        const updatedResult = await window.electron.dbChaimae.getInvoiceById(invoiceId);
+        if (updatedResult.success && updatedResult.data) {
+            const correctCount = updatedResult.data.attachment_count || 0;
+            
+            // Update local state with correct count from database
+            const inv = allInvoicesChaimae.find(i => i.id == invoiceId);
+            if (inv) {
+                inv.attachment_count = correctCount;
+            }
+            const filteredInv = filteredInvoicesChaimae.find(i => i.id == invoiceId);
+            if (filteredInv) {
+                filteredInv.attachment_count = correctCount;
+            }
+        }
+
+        // Refresh specifically the attachments section in modal
         refreshAttachmentsChaimae(invoiceId);
-        // Refresh main table
-        loadInvoicesChaimae();
+        
+        // Re-render the display with updated data (no full reload needed)
+        displayInvoicesChaimae(filteredInvoicesChaimae);
     };
 
     input.click();
@@ -7002,18 +7080,19 @@ window.updateArStatusChaimae = async function (id, newStatus) {
 
         if (result.success) {
             window.notify.success('Succès', 'Statut AR mis à jour', 2000);
+            
+            // Update local state immediately in both arrays
             const invoice = allInvoicesChaimae.find(inv => inv.id === id);
-            if (invoice) invoice.ar_status = newStatus;
-
-            const selects = document.querySelectorAll('select');
-            for (const s of selects) {
-                if (s.getAttribute('onchange') && s.getAttribute('onchange').includes(`updateArStatusChaimae(${id}`)) {
-                    s.style.background = newStatus === 'accuse' ? '#4caf50' :
-                        newStatus === 'en_attente' ? '#ff9800' :
-                        newStatus === 'sans_accuse' ? '#f44336' :
-                            '#424242';
-                }
+            if (invoice) {
+                invoice.ar_status = newStatus;
             }
+            const filteredInv = filteredInvoicesChaimae.find(inv => inv.id === id);
+            if (filteredInv) {
+                filteredInv.ar_status = newStatus;
+            }
+            
+            // Re-render the display with updated data (no full reload needed)
+            displayInvoicesChaimae(filteredInvoicesChaimae);
         } else {
             window.notify.error('Erreur', 'Impossible de mettre à jour le statut', 3000);
             loadInvoicesChaimae();

@@ -3,9 +3,9 @@ const axios = require('axios');
 // Configuration
 // In Electron, we can use a global window variable or localStorage to set the API URL
 // Fallback logic: local dev -> DDNS production
-const DEFAULT_LOCAL_API = 'https://redouan.ddns.net/facture';
-const PRODUCTION_API = 'https://redouan.ddns.net/facture/api';
-const WEB_PORTAL_URL = 'https://redouan.ddns.net/facture/';
+const DEFAULT_LOCAL_API = 'https://anpe-web-api.ddns.net/facture';
+const PRODUCTION_API = 'https://anpe-web-api.ddns.net/facture/api';
+const WEB_PORTAL_URL = 'https://anpe-web-api.ddns.net/facture/';
 
 // Safe way to check for localStorage in both Node (Main) and Browser (Renderer) environments
 let configuredApiUrl = null;
@@ -33,8 +33,8 @@ try {
 // configuredApiUrl (localStorage) should not hijack local dev
 const API_URL = configuredApiUrl || DEFAULT_LOCAL_API;
 console.log(`[API Client] Using Base URL: ${API_URL}`);
-console.log(`[API Client] 🌐 DDNS URL: https://redouan.ddns.net/facture`);
-console.log(`[API Client] 🏠 Localhost URL: https://redouan.ddns.net/facture`);
+console.log(`[API Client] 🌐 DDNS URL: https://anpe-web-api.ddns.net/facture`);
+console.log(`[API Client] 🏠 Localhost URL: https://anpe-web-api.ddns.net/facture`);
 console.log(`[API Client] ✅ Active URL: ${API_URL}`);
 
 
@@ -179,8 +179,12 @@ const service = {
         return res.data;
     },
 
-    getInvoiceById: async (id) => {
-        const res = await apiClient.get(`/invoices/id/${id}`);
+    getInvoiceById: async (id, userEmail) => {
+        // userEmail is passed from frontend through IPC chain
+        // Backend needs this to determine if viewer is Admin (to reset is_modified flag)
+        const res = await apiClient.get(`/invoices/id/${id}`, {
+            params: { user_email: userEmail || '' }
+        });
         return res.data;
     },
 
@@ -368,8 +372,8 @@ const service = {
         return res.data;
     },
 
-    validateInvoice: async (id, status) => {
-        const res = await apiClient.put(`/invoices/${id}/validation`, { status });
+    validateInvoice: async (id, status, userEmail) => {
+        const res = await apiClient.put(`/invoices/${id}/validation`, { status, user_email: userEmail || '' });
         return res.data;
     },
 

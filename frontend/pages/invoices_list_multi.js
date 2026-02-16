@@ -96,34 +96,12 @@ function InvoicesListMultiPage() {
 
                     <!-- Filters -->
                     <div class="filters-section" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem; margin-bottom: 1.5rem;">
-                        <!-- Status Filter (Seen/Unseen) -->
-                        <!-- Status Filter (Seen/Unseen) - Admins Only -->
-                        <div class="filter-group" id="statusFilterGroupMulti" style="display: none;">
-                            <label>👁️ Statut:</label>
-                            <div style="position: relative;">
-                                <select id="filterStatusMulti" onchange="filterInvoicesMulti()">
-                                    <option value="all">Tous</option>
-                                    <option value="unseen">Non lus (Nouveau)</option>
-                                    <option value="modified">Modifiés (Par un autre)</option>
-                                    <option value="seen">Lus / Traités</option>
-                                </select>
-                                <span id="unseenBadgeMulti" style="display: none; position: absolute; top: -8px; right: -8px; background: #f44336; color: white; border-radius: 50%; padding: 2px 6px; font-size: 10px; font-weight: bold; box-shadow: 0 2px 4px rgba(0,0,0,0.2);">0</span>
-                            </div>
-                        </div>
-
                         <div class="filter-group">
-                            <label>type de document:</label>
+                            <label>Type de document:</label>
                             <select id="filterTypeMulti" onchange="filterInvoicesMulti()">
                                 <option value="">Tous</option>
                                 <option value="facture">Factures</option>
                                 <option value="devis">Devis</option>
-                            </select>
-                        </div>
-                        
-                        <div class="filter-group">
-                            <label>📅 Année:</label>
-                            <select id="filterYearMulti" onchange="filterInvoicesMulti()">
-                                <option value="">Toutes</option>
                             </select>
                         </div>
                         
@@ -170,7 +148,7 @@ function InvoicesListMultiPage() {
                                 <input type="text" id="searchInputMulti" placeholder="Tapez votre recherche..." onkeyup="filterInvoicesMulti()" style="width: 100%; padding: 0.75rem; background: #1e1e1e; border: 1px solid #3e3e42; border-radius: 4px; color: #ffffff; font-size: 0.95rem;">
                             </div>
                         </div>
-                        
+
                         <!-- P.J Filter -->
                         <div class="filter-group">
                             <label>📎 Pièces Jointes:</label>
@@ -181,12 +159,13 @@ function InvoicesListMultiPage() {
                             </select>
                         </div>
 
+                        <!-- Creation Method Filter -->
                         <div class="filter-group">
-                            <label>🛠️ Méthode de création:</label>
+                            <label>🔧 Méthode de création:</label>
                             <select id="filterCreationMethodMulti" onchange="filterInvoicesMulti()">
                                 <option value="all">Tous</option>
-                                <option value="normal">Normal</option>
-                                <option value="converted">Conversion</option>
+                                <option value="normal">Créé normalement</option>
+                                <option value="converted">Converti</option>
                             </select>
                         </div>
 
@@ -199,7 +178,7 @@ function InvoicesListMultiPage() {
                                 <option value="not_converted">Non Convertis</option>
                             </select>
                         </div>
-                        
+
                         <!-- AR Status Filter -->
                         <div class="filter-group">
                             <label>🕒 Accusé de Réception:</label>
@@ -209,20 +188,31 @@ function InvoicesListMultiPage() {
                                 <option value="sans_accuse">Sans accusé</option>
                                 <option value="en_attente">En attente</option>
                                 <option value="accuse">Accusé</option>
+                                <option value="done">Done</option>
                             </select>
-                            <button onclick="window.bulkResetArStatusMulti()" style="margin-top: 0.3rem; padding: 0.3rem 0.6rem; background: #f44336; color: #fff; border: none; border-radius: 4px; cursor: pointer; font-size: 0.75rem; font-weight: 600; width: 100%;" title="Convertir tous les Sans accusé en vide">🔄 Reset Sans accusé</button>
+                        </div>
+
+                        <!-- Status Filter (Seen/Unseen) - Admins Only -->
+                        <div class="filter-group" id="statusFilterGroupMulti" style="display: none;">
+                            <label>👁️ Statut:</label>
+                            <div style="position: relative;">
+                                <select id="filterStatusMulti" onchange="filterInvoicesMulti()">
+                                    <option value="all">Tous</option>
+                                    <option value="unseen">Non lus (Nouveau)</option>
+                                    <option value="modified">Modifiés (Par un autre)</option>
+                                    <option value="seen">Lus / Traités</option>
+                                </select>
+                                <span id="unseenBadgeMulti" style="display: none; position: absolute; top: -8px; right: -8px; background: #f44336; color: white; border-radius: 50%; padding: 2px 6px; font-size: 10px; font-weight: bold; box-shadow: 0 2px 4px rgba(0,0,0,0.2);">0</span>
+                            </div>
                         </div>
                         
-                        <div class="filter-group" style="display: flex; gap: 0.5rem; margin-top: 1.5rem;">
-                            <button class="btn-refresh" onclick="loadInvoicesMulti()" style="margin: 0;">
+                        <div class="filter-group">
+                            <button class="btn-refresh" onclick="loadInvoicesMulti()" style="margin-top: 1.5rem;">
                                 <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor" style="margin-right: 0.5rem;">
                                     <path fill-rule="evenodd" d="M8 3a5 5 0 1 0 4.546 2.914.5.5 0 0 1 .908-.417A6 6 0 1 1 8 2v1z"/>
                                     <path d="M8 4.466V.534a.25.25 0 0 1 .41-.192l2.36 1.966c.12.1.12.284 0 .384L8.41 4.658A.25.25 0 0 1 8 4.466z"/>
                                 </svg>
                                 <span>Actualiser</span>
-                            </button>
-                            <button class="btn-refresh" onclick="resetFiltersMulti()" style="background: #3e3e42; margin: 0;">
-                                <span>Réinitialiser</span>
                             </button>
                         </div>
                     </div>
@@ -478,15 +468,6 @@ window.toggleValidationQueueMulti = function () {
 // Update AR Status Multi
 window.updateArStatusMulti = async function (id, status) {
     try {
-        // Using generic update but mapping to Multi DB context if needed, 
-        // however preload.js 'dbMulti' logic usually points to specific chaimae/multi handlers?
-        // Wait, preload.js lines for 'dbMulti' (Multi Company) are needed. 
-        // Let's assume window.electron.dbMulti.updateInvoice maps to generic update or we use 'db:multi:invoices:update'
-        // Checking existing code usage: window.electron.dbMulti.createInvoice...
-
-        // Actually, looking at Multi logic, it shares many handlers or has specific ones.
-        // Let's use window.electron.dbMulti.updateInvoice.
-
         const result = await window.electron.dbMulti.updateInvoice(id, {
             ar_status: status
         });
@@ -494,13 +475,18 @@ window.updateArStatusMulti = async function (id, status) {
         if (result.success) {
             window.notify.success('Succès', 'Statut Accusé R. mis à jour');
 
-            // Update local state
+            // Update local state immediately in both arrays
             const inv = allInvoicesMulti.find(i => i.id == id);
             if (inv) {
                 inv.ar_status = status;
-                // Refresh list to update UI colors
-                loadInvoicesMulti();
             }
+            const filteredInv = filteredInvoicesMulti.find(i => i.id == id);
+            if (filteredInv) {
+                filteredInv.ar_status = status;
+            }
+            
+            // Re-render the display with updated data (no full reload needed)
+            displayInvoicesMulti();
         } else {
             console.error('Update AR error:', result.error);
             window.notify.error('Erreur', 'Échec de la mise à jour: ' + result.error);
@@ -532,6 +518,12 @@ window.bulkResetArStatusMulti = async function () {
 };
 
 window.handleValidateInvoiceMulti = async function (id, status) {
+    const currentUserMulti = JSON.parse(localStorage.getItem('user') || '{}');
+    const isAdminViewerMulti = currentUserMulti.email === 'redouanerrebbahi99@gmail.com';
+    if (!isAdminViewerMulti) {
+        window.notify?.error('Erreur', 'Action réservée à l\'admin', 3000);
+        return;
+    }
     const action = status === 'validated' ? 'valider' : 'rejeter';
     const confirmMessage = `Êtes-vous sûr de vouloir ${action} ce document ?`;
 
@@ -539,7 +531,8 @@ window.handleValidateInvoiceMulti = async function (id, status) {
 
     if (confirmed) {
         try {
-            const result = await window.electron.dbMulti.validateInvoice(id, status);
+            const currentUserVal = JSON.parse(localStorage.getItem('user') || '{}');
+            const result = await window.electron.dbMulti.validateInvoice(id, status, currentUserVal.email || '');
             if (result.success) {
                 window.notify.success('Succès', `Le document a été ${status === 'validated' ? 'validé' : 'rejeté'}.`);
                 loadInvoicesMulti(); // Reload everything
@@ -659,7 +652,9 @@ function filterInvoicesMulti() {
     const clientFilter = document.getElementById('filterClientMulti')?.value || '';
     const filterAttachments = document.getElementById('filterAttachmentsMulti')?.value || 'all';
     const filterCreationMethod = document.getElementById('filterCreationMethodMulti')?.value || 'all';
-    const arStatusFilter = document.getElementById('filterArStatusMulti')?.value || 'all'; // Added AR Status Filter
+    const arStatusFilterEl = document.getElementById('filterArStatusMulti');
+    const arStatusFilter = arStatusFilterEl ? arStatusFilterEl.value : 'all';
+    console.log('🔍 [MULTI] AR Filter value:', JSON.stringify(arStatusFilter), 'Type:', typeof arStatusFilter);
     const searchType = document.getElementById('searchTypeMulti')?.value || 'all';
     const searchInput = document.getElementById('searchInputMulti')?.value.toLowerCase() || '';
 
@@ -845,6 +840,7 @@ function displayInvoicesMulti() {
             created_by_user_id: invoice.created_by_user_id
         });
 
+        // Show red/yellow indicators for ALL users (Admin needs to see them too)
         const isUnseen = invoice.validation_status === 'pending';
         const isModified = invoice.is_modified === true;
 
@@ -881,24 +877,38 @@ function displayInvoicesMulti() {
             <td>
                 <div style="display: flex; flex-direction: column; gap: 0.2rem;">
                     <small style="color: #2196f3; font-weight: 600;">👤 Créé par: ${invoice.created_by_user_name || '-'}</small>
-                    ${invoice.is_modified === true ?
+                    ${isModified ?
                 `<small style="color: #ff9800; font-weight: 600;">📝 Modifié par: ${invoice.updated_by_user_name}</small>` : ''}
                 </div>
             </td>
             <td>${Number(invoice.total_ht || 0).toFixed(2)} DH</td>
             <td><strong>${Number(invoice.total_ttc || 0).toFixed(2)} DH</strong></td>
             <td>
-                ${invoice.document_type === 'devis' ? '<span style="color:#666;">—</span>' : `<select onchange="this.style.background=this.value==='accuse'?'#4caf50':this.value==='en_attente'?'#ff9800':this.value==='sans_accuse'?'#f44336':'#424242'; window.updateArStatusMulti('${invoice.id}', this.value)"
-                        style="padding: 0.4rem; background: ${invoice.ar_status === 'accuse' ? '#4caf50' : (invoice.ar_status === 'en_attente' ? '#ff9800' : (invoice.ar_status === 'sans_accuse' ? '#f44336' : '#424242'))}; color: white; border: none; border-radius: 4px; font-size: 0.85rem; cursor: pointer; width: 100%; transition: background 0.3s;"
+                ${invoice.document_type === 'devis' ? '<span style="color:#666;">—</span>' : `<select onchange="this.style.background=this.value==='accuse'?'#4caf50':this.value==='en_attente'?'#ff9800':this.value==='sans_accuse'?'#f44336':this.value==='done'?'#2196f3':'#424242'; window.updateArStatusMulti('${invoice.id}', this.value)"
+                        style="padding: 0.4rem; background: ${invoice.ar_status === 'accuse' ? '#4caf50' : (invoice.ar_status === 'en_attente' ? '#ff9800' : (invoice.ar_status === 'sans_accuse' ? '#f44336' : (invoice.ar_status === 'done' ? '#2196f3' : '#424242')))}; color: white; border: none; border-radius: 4px; font-size: 0.85rem; cursor: pointer; width: 100%; transition: background 0.3s;"
                         onclick="event.stopPropagation()">
                     <option value="" ${!invoice.ar_status ? 'selected' : ''} style="background: #424242; color: #fff;"></option>
                     <option value="sans_accuse" ${invoice.ar_status === 'sans_accuse' ? 'selected' : ''} style="background: #f44336; color: #fff;">Sans accusé</option>
                     <option value="en_attente" ${invoice.ar_status === 'en_attente' ? 'selected' : ''} style="background: #424242; color: #ff9800;">En attente</option>
                     <option value="accuse" ${invoice.ar_status === 'accuse' ? 'selected' : ''} style="background: #424242; color: #4caf50;">Accusé</option>
+                    <option value="done" ${invoice.ar_status === 'done' ? 'selected' : ''} style="background: #424242; color: #2196f3;">Done</option>
                 </select>`}
             </td>
-            <td style="text-align: center; color: #757575;">
-                <span style="${invoice.attachment_count > 0 ? 'color: #2196f3; font-weight: bold;' : ''}">${invoice.attachment_count || 0}</span>
+            <td style="text-align: center;">
+                <div id="attachmentIndicator-${invoice.id}" onclick="viewInvoiceMulti(${invoice.id})" style="cursor: pointer;">
+                    ${(invoice.attachment_count || 0) > 0 ?
+            `<div style="position: relative; display: inline-block;">
+                        <svg width="20" height="20" viewBox="0 0 16 16" fill="#2196f3">
+                            <path d="M4.5 3a2.5 2.5 0 0 1 5 0v9a1.5 1.5 0 0 1-3 0V5a.5.5 0 0 1 1 0v7a.5.5 0 0 0 1 0V3a1.5 1.5 0 1 0-3 0v9a2.5 2.5 0 0 0 5 0V5a.5.5 0 0 1 1 0v7a3.5 3.5 0 1 1-7 0V3z"/>
+                        </svg>
+                        <span style="position: absolute; top: -8px; right: -8px; background: #f44336; color: white; border-radius: 50%; width: 16px; height: 16px; font-size: 10px; display: flex; align-items: center; justify-content: center; font-weight: bold; border: 1px solid #1e1e1e;">
+                            ${invoice.attachment_count}
+                        </span>
+                    </div>` :
+            `<svg width="20" height="20" viewBox="0 0 16 16" fill="#666" style="opacity: 0.5;">
+                        <path d="M4.5 3a2.5 2.5 0 0 1 5 0v9a1.5 1.5 0 0 1-3 0V5a.5.5 0 0 1 1 0v7a.5.5 0 0 0 1 0V3a1.5 1.5 0 1 0-3 0v9a2.5 2.5 0 0 0 5 0V5a.5.5 0 0 1 1 0v7a3.5 3.5 0 1 1-7 0V3z"/>
+                    </svg>`}
+                </div>
             </td>
             <td>
                 <div class="action-buttons">
@@ -952,8 +962,14 @@ function displayInvoicesMulti() {
 
 // Mark invoice as seen (validated)
 window.markAsSeenMulti = async function (id) {
+    const currentUserMulti = JSON.parse(localStorage.getItem('user') || '{}');
+    const isAdminViewerMulti = currentUserMulti.email === 'redouanerrebbahi99@gmail.com';
+    if (!isAdminViewerMulti) {
+        window.notify.error('Erreur', 'Action réservée à l\'admin', 3000);
+        return;
+    }
     try {
-        const result = await window.electron.dbMulti.validateInvoice(id, 'validated');
+        const result = await window.electron.dbMulti.validateInvoice(id, 'validated', currentUserMulti.email || '');
         if (result.success) {
             window.notify.success('Succès', 'Facture marquée comme lue', 3000);
 
@@ -978,7 +994,8 @@ window.markAsSeenMulti = async function (id) {
 // View invoice details
 window.viewInvoiceMulti = async function (id) {
     try {
-        const result = await window.electron.dbMulti.getInvoiceById(id);
+        const currentUserForView = JSON.parse(localStorage.getItem('user') || '{}');
+        const result = await window.electron.dbMulti.getInvoiceById(id, currentUserForView.email || '');
 
         if (!result.success || !result.data) {
             window.notify.error('Erreur', 'Facture introuvable', 3000);
@@ -990,21 +1007,30 @@ window.viewInvoiceMulti = async function (id) {
         const docNumber = invoice.document_type === 'facture' ? invoice.document_numero : invoice.document_numero_devis || invoice.document_numero;
         const typeLabel = invoice.document_type === 'facture' ? 'Facture' : 'Devis';
 
-        // Auto-validate if pending (mark as seen automatically)
-        if (invoice.validation_status === 'pending') {
-            console.log('📝 [AUTO-VALIDATE] Invoice is pending, marking as seen automatically...');
+        // Auto-validate if pending or modified - ONLY for Admin users
+        const currentUserMulti = JSON.parse(localStorage.getItem('user') || '{}');
+        const isAdminViewerMulti = currentUserMulti.email === 'redouanerrebbahi99@gmail.com';
+        
+        if (isAdminViewerMulti && (invoice.validation_status === 'pending' || invoice.is_modified)) {
+            console.log('📝 [AUTO-VALIDATE] Admin viewing - clearing highlights...');
             try {
-                await window.electron.dbMulti.validateInvoice(id, 'validated');
-                console.log('✅ [AUTO-VALIDATE] Invoice marked as seen');
-                // Update the invoice object to reflect the change
+                await window.electron.dbMulti.validateInvoice(id, 'validated', currentUserMulti.email || '');
+                console.log('✅ [AUTO-VALIDATE] Invoice validated & is_modified reset');
                 invoice.validation_status = 'validated';
-                // Update badges if function exists
+                invoice.is_modified = false;
+                const localInv = allInvoicesMulti.find(inv => inv.id === id);
+                if (localInv) { localInv.validation_status = 'validated'; localInv.is_modified = false; }
+                const filteredInv = filteredInvoicesMulti.find(inv => inv.id === id);
+                if (filteredInv) { filteredInv.validation_status = 'validated'; filteredInv.is_modified = false; }
+                displayInvoicesMulti();
                 if (typeof updatePendingCounts === 'function') {
                     setTimeout(() => updatePendingCounts(), 500);
                 }
             } catch (error) {
                 console.error('❌ [AUTO-VALIDATE] Error:', error);
             }
+        } else if (!isAdminViewerMulti) {
+            console.log('ℹ️ [AUTO-VALIDATE] Regular user viewing - keeping validation_status and is_modified unchanged');
         }
 
         const overlay = document.createElement('div');
@@ -1213,9 +1239,27 @@ window.viewInvoiceMulti = async function (id) {
         overlay.appendChild(modal);
         document.body.appendChild(overlay);
 
-        document.getElementById('closeViewModal').onclick = () => overlay.remove();
+        // Helper: update local data and re-render after viewing invoice
+        const _refreshAfterViewMulti = () => {
+            const localInv = allInvoicesMulti.find(inv => inv.id === id);
+            if (localInv) {
+                localInv.validation_status = 'validated';
+                localInv.is_modified = false;
+            }
+            const filteredInv = filteredInvoicesMulti.find(inv => inv.id === id);
+            if (filteredInv) {
+                filteredInv.validation_status = 'validated';
+                filteredInv.is_modified = false;
+            }
+            displayInvoicesMulti();
+            if (typeof updatePendingCounts === 'function') {
+                setTimeout(() => updatePendingCounts(), 300);
+            }
+        };
+
+        document.getElementById('closeViewModal').onclick = () => { overlay.remove(); _refreshAfterViewMulti(); };
         overlay.onclick = (e) => {
-            if (e.target === overlay) overlay.remove();
+            if (e.target === overlay) { overlay.remove(); _refreshAfterViewMulti(); }
         };
 
         // Load notes asynchronously
@@ -1346,7 +1390,21 @@ window.deleteInvoiceMulti = async function (id) {
 }
 
 // Edit invoice
-window.editInvoiceMulti = function (id) {
+window.editInvoiceMulti = async function (id) {
+    // Clear highlights immediately (validate + reset is_modified)
+    try {
+        const currentUserMulti = JSON.parse(localStorage.getItem('user') || '{}');
+        const isAdminViewerMulti = currentUserMulti.email === 'redouanerrebbahi99@gmail.com';
+        if (isAdminViewerMulti) {
+            await window.electron.dbMulti.validateInvoice(id, 'validated', currentUserMulti.email || '');
+            const localInv = allInvoicesMulti.find(inv => inv.id === id);
+            if (localInv) { localInv.validation_status = 'validated'; localInv.is_modified = false; }
+            const filteredInv = filteredInvoicesMulti.find(inv => inv.id === id);
+            if (filteredInv) { filteredInv.validation_status = 'validated'; filteredInv.is_modified = false; }
+            displayInvoicesMulti();
+            if (typeof updatePendingCounts === 'function') setTimeout(() => updatePendingCounts(), 300);
+        }
+    } catch (e) { console.error('❌ [EDIT MULTI] Error clearing highlights:', e); }
     localStorage.setItem('editInvoiceIdMulti', id);
     router.navigate('/edit-invoice-multi');
 }
@@ -1463,10 +1521,27 @@ window.addNewAttachmentMulti = async function (invoiceId) {
             window.notify.remove(loadingNotif);
             window.notify.success('Succès', `${files.length} fichier(s) ajouté(s)`, 3000);
 
-            // Refresh specifically the attachments section
+            // Fetch updated invoice data from database to get correct attachment_count
+            const updatedResult = await window.electron.dbMulti.getInvoiceById(invoiceId);
+            if (updatedResult.success && updatedResult.data) {
+                const correctCount = updatedResult.data.attachment_count || 0;
+                
+                // Update local state with correct count from database
+                const inv = allInvoicesMulti.find(i => i.id == invoiceId);
+                if (inv) {
+                    inv.attachment_count = correctCount;
+                }
+                const filteredInv = filteredInvoicesMulti.find(i => i.id == invoiceId);
+                if (filteredInv) {
+                    filteredInv.attachment_count = correctCount;
+                }
+            }
+
+            // Refresh specifically the attachments section in modal
             refreshAttachmentsMulti(invoiceId);
-            // Refresh main table in background
-            loadInvoicesMulti();
+            
+            // Re-render the display with updated data (no full reload needed)
+            displayInvoicesMulti();
 
         } catch (error) {
             window.notify.remove(loadingNotif);

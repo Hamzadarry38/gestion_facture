@@ -53,17 +53,70 @@ async function loadCompanyImage(path) {
 }
 
 // Show company selection modal (dynamic - only enabled companies)
-window.showCompanySelectionModal = function (invoiceId, sourceCompany) {
-    return new Promise((resolve) => {
-        const overlay = document.createElement('div');
-        overlay.className = 'custom-modal-overlay';
-
-        // Get enabled companies dynamically
-        const enabledCompanies = window.getEnabledCompanies ? window.getEnabledCompanies() : [
+window.showCompanySelectionModal = async function (invoiceId, sourceCompany) {
+    console.log('🟢 [Company Modal] Opening modal for invoice:', invoiceId, 'from source:', sourceCompany);
+    
+    // Ensure companies are loaded from API before showing modal
+    let enabledCompanies = window.getEnabledCompanies ? window.getEnabledCompanies() : [];
+    
+    if (!enabledCompanies || enabledCompanies.length === 0) {
+        console.log('🟡 [Company Modal] No companies cached, loading from API...');
+        try {
+            const result = await window.electron.pdfCompanies.getAll();
+            if (result && result.success && Array.isArray(result.data)) {
+                // Update _cachedCompanies if it exists
+                if (typeof _cachedCompanies !== 'undefined') {
+                    _cachedCompanies.length = 0;
+                    result.data.forEach(c => _cachedCompanies.push({
+                        id: c.id,
+                        code: c.company_code,
+                        name: c.company_name,
+                        color: c.color || '#2196F3',
+                        enabled: c.enabled !== false,
+                        headerImage: c.header_image || null,
+                        footerImage: c.footer_image || null,
+                        signatureImage: c.signature_image || null,
+                        headerPath: c.header_path || '',
+                        footerPath: c.footer_path || '',
+                        signaturePath: c.signature_path || '',
+                        dbName: c.db_name || '',
+                        isBuiltin: c.is_builtin || false,
+                        table_style: c.table_style || 'style1'
+                    }));
+                    enabledCompanies = window.getEnabledCompanies();
+                } else {
+                    // Build enabledCompanies directly from API data
+                    enabledCompanies = result.data
+                        .filter(c => c.enabled !== false)
+                        .map(c => ({
+                            code: c.company_code,
+                            name: c.company_name,
+                            color: c.color || '#2196F3'
+                        }));
+                }
+                console.log('✅ [Company Modal] Loaded', enabledCompanies.length, 'companies from API');
+            }
+        } catch (e) {
+            console.error('❌ [Company Modal] Failed to load companies from API:', e);
+        }
+    }
+    
+    // Final fallback if still empty
+    if (!enabledCompanies || enabledCompanies.length === 0) {
+        console.log('🟡 [Company Modal] Using hardcoded fallback companies');
+        enabledCompanies = [
             { code: 'SKM', name: 'SMART SERVICES', color: '#FF9800' },
             { code: 'SAAISS', name: 'MSH3 SERVICES', color: '#9C27B0' },
             { code: 'BENALI', name: 'BEN ALI', color: '#4CAF50' }
         ];
+    }
+    
+    console.log('🟢 [Company Modal] Available companies:', enabledCompanies.length);
+    console.log('🟢 [Company Modal] Companies list:', enabledCompanies.map(c => `${c.code} (${c.name})`).join(', '));
+
+    return new Promise((resolve) => {
+        const overlay = document.createElement('div');
+        overlay.className = 'custom-modal-overlay';
 
         // Build company buttons dynamically
         const cols = enabledCompanies.length <= 3 ? enabledCompanies.length : 3;
@@ -109,7 +162,9 @@ window.showCompanySelectionModal = function (invoiceId, sourceCompany) {
         overlay.querySelectorAll('.company-select-btn').forEach(btn => {
             btn.addEventListener('click', () => {
                 const companyCode = btn.dataset.company;
+                console.log('🟢 [Company Modal] User clicked company button:', companyCode);
                 overlay.remove();
+                console.log('🟢 [Company Modal] Modal closed, returning selection');
                 resolve({ company: companyCode, invoiceId, sourceCompany });
             });
         });
@@ -130,19 +185,26 @@ window.showCompanySelectionModal = function (invoiceId, sourceCompany) {
 
 // Main function to download PDF as another company
 window.downloadAsOtherCompany = async function (invoiceId, sourceDb) {
+    console.log('🔵 [Download Other Company] Button clicked!');
+    console.log('🔵 [Download Other Company] Invoice ID:', invoiceId);
+    console.log('🔵 [Download Other Company] Source DB:', sourceDb);
+    
     try {
         // Show company selection modal
         const selectedCompanyData = JSON.parse(localStorage.getItem('selectedCompany') || '{}');
         const sourceCompany = selectedCompanyData.name || 'Unknown';
+        console.log('🔵 [Download Other Company] Current selected company:', sourceCompany);
 
+        console.log('🔵 [Download Other Company] Opening company selection modal...');
         const selection = await window.showCompanySelectionModal(invoiceId, sourceCompany);
 
         if (!selection) {
-            console.log('❌ User cancelled company selection');
+            console.log('❌ [Download Other Company] User cancelled company selection');
             return;
         }
 
-        console.log(`📥 Generating ${selection.company} PDF for invoice:`, invoiceId, 'from source:', sourceDb);
+        console.log('✅ [Download Other Company] User selected company:', selection.company);
+        console.log(`📥 [Download Other Company] Generating ${selection.company} PDF for invoice:`, invoiceId, 'from source:', sourceDb);
 
         // Route to the exact same functions that were used before
         // Each function has its own loading overlay that shows AFTER the user clicks 'Générer' in the modal
@@ -559,7 +621,7 @@ async function showBenAliModal(invoice) {
                             <label style="display: block; margin-bottom: 0.5rem; color: #e0e0e0; font-weight: 600;">
                                 N° Devis personnalisé :
                             </label>
-                            <input type="text" id="benaliDevisInput" value="${nextDevisNumber}" placeholder="D2025-001"
+                            <input type="text" id="benaliDevisInput" value="${nextDevisNumber}" placeholder="D2025-001" autocomplete="off"
                                    style="width: 100%; padding: 0.75rem; background: #2d2d30; border: 1px solid #3e3e42; border-radius: 6px; color: #fff; font-size: 1rem;">
                             <small style="color: #4CAF50; display: block; margin-top: 0.5rem; font-weight: 500;">
                                 📋 Plus grand N°: <strong>${lastDevisNumber}</strong>
@@ -1022,14 +1084,35 @@ async function generateCustomCompanyPDF(invoiceId, sourceDb, companyCode) {
                 }));
             }
 
-            // Generate PDF content with dynamic company color
-            await generateGenericPDFContent(doc, customizedInvoice, companyCode, companyColor);
+            // Generate PDF content with dynamic company color and table style
+            const tableStyle = companyData ? (companyData.tableStyle || 'style1') : 'style1';
+            console.log(`📊 [${companyCode}] Using table style: ${tableStyle}`);
+            await generateGenericPDFContent(doc, customizedInvoice, companyCode, companyColor, tableStyle);
+
+            // Save devis number to database for auto-increment tracking
+            const invoiceNumber = customizationData.customDevisNumber || customizedInvoice.document_numero_devis || customizedInvoice.document_numero || 'N-A';
+            try {
+                const currentYear = new Date().getFullYear();
+                await window.electron.dbDynamic.addDevisNumber(companyCode, invoiceNumber, currentYear);
+                console.log(`✅ [${companyCode}] Devis number '${invoiceNumber}' saved to database`);
+            } catch (dbErr) {
+                console.warn(`⚠️ [${companyCode}] Could not save devis number to DB:`, dbErr);
+            }
 
             // Save the PDF
             const docType = customizedInvoice.document_type === 'devis' ? 'Devis' : 'Facture';
-            const invoiceNumber = customizedInvoice.document_numero_devis || customizedInvoice.document_numero || 'N-A';
             const companyFileName = window.getPdfCompanyFileName ? window.getPdfCompanyFileName(companyCode) : companyCode;
-            const fileName = `${companyFileName}_${docType}_${customizedInvoice.client_nom}_${invoiceNumber}.pdf`;
+            // Sanitize filename: replace / with - to avoid path separator issues
+            const safeInvoiceNumber = invoiceNumber.replace(/\//g, '-');
+            const safeClientName = (customizedInvoice.client_nom || 'Client').replace(/[\/\\:*?"<>|]/g, '_');
+            const fileName = `${companyFileName}_${docType}_${safeClientName}_${safeInvoiceNumber}.pdf`;
+            
+            console.log(`📄 [${companyCode}] Generating PDF filename:`);
+            console.log(`   - Company file name: ${companyFileName}`);
+            console.log(`   - Doc type: ${docType}`);
+            console.log(`   - Client: ${safeClientName}`);
+            console.log(`   - Invoice number: ${invoiceNumber} → sanitized: ${safeInvoiceNumber}`);
+            console.log(`   - Final filename: ${fileName}`);
 
             // Try to upload to server
             const pdfArrayBuffer = doc.output('arraybuffer');
@@ -1040,10 +1123,13 @@ async function generateCustomCompanyPDF(invoiceId, sourceDb, companyCode) {
 
             let uploaded = false;
             try {
-                console.log(`☁️ Uploading ${companyCode} PDF to server...`);
-                const uploadResult = await window.electron.dbSmartS.uploadPdf(pdfUint8Array, fileName);
+                // Use dbDynamic.uploadPdf with companyCode (NOT dbSmartS which hardcodes SKM)
+                console.log(`☁️ [${companyCode}] Uploading PDF to server with filename: ${fileName} (company: ${companyCode})`);
+                const uploadResult = await window.electron.dbDynamic.uploadPdf(companyCode, pdfUint8Array, fileName);
                 if (uploadResult.success) {
-                    console.log(`✅ ${companyCode} PDF uploaded to server:`, uploadResult.filePath);
+                    console.log(`✅ [${companyCode}] PDF uploaded successfully!`);
+                    console.log(`   - Server path: ${uploadResult.filePath}`);
+                    console.log(`   - Company folder: ${companyCode}`);
                     uploaded = true;
                     
                     // Save PDF path to database for tracking
@@ -1067,7 +1153,7 @@ async function generateCustomCompanyPDF(invoiceId, sourceDb, companyCode) {
                 const pdfUint8ArrayFallback = new Uint8Array(doc.output('arraybuffer'));
 
                 try {
-                    const saveResult = await window.electron.pdf.savePdf(pdfUint8ArrayFallback, saveFolder, invoiceNumber, createdBy);
+                    const saveResult = await window.electron.pdf.savePdf(pdfUint8ArrayFallback, saveFolder, safeInvoiceNumber, createdBy);
                     if (saveResult.success) {
                         console.log(`✅ ${companyCode} PDF saved locally`);
                     }
@@ -1111,32 +1197,52 @@ async function generateCustomCompanyPDF(invoiceId, sourceDb, companyCode) {
 }
 
 // Show customization modal for any custom company
-function showCustomCompanyModal(invoice, companyCode, companyName, companyColor) {
+async function showCustomCompanyModal(invoice, companyCode, companyName, companyColor) {
+    const selectedCompany = JSON.parse(localStorage.getItem('selectedCompany') || '{}');
+    const creatorName = selectedCompany.name || 'Inconnue';
+
+    // Load saved settings from localStorage (percentage is per-company, product names are per-invoice)
+    let savedPercentage = '';
+    let savedProductNames = {};
+    try {
+        const saved = localStorage.getItem(`customPdfSettings_${companyCode}`);
+        if (saved) {
+            const parsed = JSON.parse(saved);
+            savedPercentage = parsed.percentage || '';
+        }
+    } catch (e) {}
+    try {
+        const savedProducts = localStorage.getItem(`customPdfProducts_${companyCode}_${invoice.id}`);
+        if (savedProducts) {
+            savedProductNames = JSON.parse(savedProducts);
+        }
+    } catch (e) {}
+
+    const currentYear = new Date().getFullYear();
+
+    // Get last/max devis number from database for auto-increment
+    let lastDevisNumber = 'Aucun';
+    let nextDevisNumber = '1/' + currentYear;
+    try {
+        const result = await window.electron.dbDynamic.getMaxDevisNumber(companyCode, currentYear);
+        console.log(`📋 [${companyCode}] DB Max Devis Result:`, result);
+        if (result && result.success && result.data && result.data.devis_number) {
+            lastDevisNumber = result.data.devis_number;
+            // Extract the numeric part before '/' and increment
+            const match = lastDevisNumber.match(/^(\d+)/);
+            if (match) {
+                const nextNum = parseInt(match[1]) + 1;
+                nextDevisNumber = nextNum + '/' + currentYear;
+            }
+        }
+    } catch (e) {
+        console.warn(`⚠️ Could not get max devis number for ${companyCode}:`, e);
+    }
+    console.log(`📋 [${companyCode}] Last devis: ${lastDevisNumber}, Next suggested: ${nextDevisNumber}`);
+
     return new Promise((resolve) => {
         const overlay = document.createElement('div');
         overlay.className = 'custom-modal-overlay';
-
-        const selectedCompany = JSON.parse(localStorage.getItem('selectedCompany') || '{}');
-        const creatorName = selectedCompany.name || 'Inconnue';
-
-        // Load saved settings from localStorage (percentage is per-company, product names are per-invoice)
-        let savedPercentage = '';
-        let savedProductNames = {};
-        try {
-            const saved = localStorage.getItem(`customPdfSettings_${companyCode}`);
-            if (saved) {
-                const parsed = JSON.parse(saved);
-                savedPercentage = parsed.percentage || '';
-            }
-        } catch (e) {}
-        try {
-            const savedProducts = localStorage.getItem(`customPdfProducts_${companyCode}_${invoice.id}`);
-            if (savedProducts) {
-                savedProductNames = JSON.parse(savedProducts);
-            }
-        } catch (e) {}
-
-        const currentYear = new Date().getFullYear();
 
         // Generate product inputs
         const productsHtml = invoice.products.map((product, index) => {
@@ -1183,8 +1289,11 @@ function showCustomCompanyModal(invoice, companyCode, companyName, companyColor)
                             <label style="display: block; margin-bottom: 0.5rem; color: #e0e0e0; font-weight: 600;">
                                 N° Devis personnalisé :
                             </label>
-                            <input type="text" id="customDevisInput" value="1/${currentYear}" placeholder="1/${currentYear}"
+                            <input type="text" id="customDevisInput" value="${nextDevisNumber}" placeholder="${nextDevisNumber}" autocomplete="off"
                                    style="width: 100%; padding: 0.75rem; background: #2d2d30; border: 1px solid #3e3e42; border-radius: 6px; color: #fff; font-size: 1rem;">
+                            <small style="color: #4CAF50; display: block; margin-top: 0.5rem; font-weight: 500;">
+                                📋 Plus grand N°: <strong>${lastDevisNumber}</strong>
+                            </small>
                         </div>
                     </div>
 
@@ -1220,7 +1329,7 @@ function showCustomCompanyModal(invoice, companyCode, companyName, companyColor)
             resolve(null);
         });
 
-        document.getElementById('customGenerateBtn').addEventListener('click', () => {
+        document.getElementById('customGenerateBtn').addEventListener('click', async () => {
             const percentage = parseFloat(document.getElementById('customPercentageInput').value) || 0;
             const customDate = document.getElementById('customDateInput').value;
             const customDevisNumber = devisInput.value.trim();
@@ -1230,6 +1339,20 @@ function showCustomCompanyModal(invoice, companyCode, companyName, companyColor)
                 devisInput.focus();
                 return;
             }
+
+            // Check if devis number already exists in database
+            try {
+                const existsResult = await window.electron.dbDynamic.checkDevisExists(companyCode, customDevisNumber, currentYear);
+                if (existsResult && existsResult.success && existsResult.data) {
+                    window.notify.error('Numéro déjà utilisé', `Le N° "${customDevisNumber}" existe déjà pour ${companyName}. Veuillez choisir un autre numéro.`);
+                    devisInput.focus();
+                    devisInput.style.borderColor = '#ff4444';
+                    return;
+                }
+            } catch (e) {
+                console.warn('Could not check devis existence:', e);
+            }
+            devisInput.style.borderColor = '#3e3e42';
 
             // Collect product names
             const productNameInputs = document.querySelectorAll('.product-name-input');
@@ -1266,7 +1389,9 @@ function showCustomCompanyModal(invoice, companyCode, companyName, companyColor)
 }
 
 // Generate PDF content for any company (generic version)
-async function generateGenericPDFContent(doc, invoice, companyCode, companyColor) {
+async function generateGenericPDFContent(doc, invoice, companyCode, companyColor, tableStyle) {
+    tableStyle = tableStyle || 'style1';
+
     // Load company assets
     const headerSrc = window.getPdfCompanyImage ? window.getPdfCompanyImage(companyCode, 'header') : null;
     const footerSrc = window.getPdfCompanyImage ? window.getPdfCompanyImage(companyCode, 'footer') : null;
@@ -1282,8 +1407,26 @@ async function generateGenericPDFContent(doc, invoice, companyCode, companyColor
         const b = parseInt(hex.slice(5, 7), 16);
         return [r, g, b];
     };
-    const [cr, cg, cb] = hexToRgb(companyColor);
-    const [dr, dg, db] = [Math.max(0, cr - 30), Math.max(0, cg - 30), Math.max(0, cb - 30)]; // darker variant
+    const [ccr, ccg, ccb] = hexToRgb(companyColor); // raw company color
+
+    // Fixed color palettes per style (so PDF matches SVG preview exactly)
+    // Only style2 uses company color; others have their own fixed palette
+    let cr, cg, cb, dr, dg, db, lr, lg, lb;
+    if (tableStyle === 'style2') {
+        // Moderne: uses company color
+        [cr, cg, cb] = [ccr, ccg, ccb];
+    } else if (tableStyle === 'style5') {
+        // Coloré: fixed blue palette
+        [cr, cg, cb] = [33, 150, 243]; // #2196F3
+    } else if (tableStyle === 'style6') {
+        // Compact: fixed dark grey
+        [cr, cg, cb] = [100, 100, 100]; // #666666
+    } else {
+        // style1, style3, style4, style7: grey/black (company color not used for these)
+        [cr, cg, cb] = [80, 80, 80];
+    }
+    [dr, dg, db] = [Math.max(0, cr - 30), Math.max(0, cg - 30), Math.max(0, cb - 30)]; // darker variant
+    [lr, lg, lb] = [Math.min(255, cr + 180), Math.min(255, cg + 180), Math.min(255, cb + 180)]; // lighter variant for zebra
 
     const pageWidth = doc.internal.pageSize.width;
     const pageHeight = doc.internal.pageSize.height;
@@ -1291,11 +1434,17 @@ async function generateGenericPDFContent(doc, invoice, companyCode, companyColor
     let currentY = 20;
     let pageCount = 1;
 
+    // Font sizes based on style
+    const fontSize = tableStyle === 'style6' ? 7 : 8;
+    const headerFontSize = tableStyle === 'style6' ? 8 : 9;
+    const rowPadding = tableStyle === 'style6' ? 3 : 4;
+    const headerHeight = tableStyle === 'style6' ? 7 : 8;
+
     const addHeader = () => {
         if (headerImg) {
-            const headerHeight = 40;
-            doc.addImage(headerImg, 'PNG', 0, 0, pageWidth, headerHeight);
-            currentY = headerHeight + 10;
+            const hdrHeight = 40;
+            doc.addImage(headerImg, 'PNG', 0, 0, pageWidth, hdrHeight);
+            currentY = hdrHeight + 10;
         } else {
             currentY = 20;
         }
@@ -1303,9 +1452,9 @@ async function generateGenericPDFContent(doc, invoice, companyCode, companyColor
 
     const addFooter = (pageNum, totalPages) => {
         if (footerImg) {
-            const footerHeight = 35;
-            const footerY = pageHeight - footerHeight - 5;
-            doc.addImage(footerImg, 'PNG', 0, footerY, pageWidth, footerHeight);
+            const ftrHeight = 35;
+            const footerY = pageHeight - ftrHeight - 5;
+            doc.addImage(footerImg, 'PNG', 0, footerY, pageWidth, ftrHeight);
 
             if (signatureImg) {
                 const signatureWidth = 60;
@@ -1346,19 +1495,58 @@ async function generateGenericPDFContent(doc, invoice, companyCode, companyColor
     const tableStartX = 15;
     const tableWidth = 180;
 
+    // ========== TABLE HEADER - varies by style ==========
     const addTableHeader = () => {
         const headerStartY = currentY;
 
-        doc.setFillColor(cr, cg, cb);
-        doc.rect(tableStartX, currentY, tableWidth, 8, 'F');
-        doc.setTextColor(255, 255, 255);
-        doc.setFontSize(9);
+        if (tableStyle === 'style1') {
+            // Classique: grey header with borders
+            doc.setFillColor(80, 80, 80);
+            doc.rect(tableStartX, currentY, tableWidth, headerHeight, 'F');
+            doc.setTextColor(255, 255, 255);
+        } else if (tableStyle === 'style2') {
+            // Moderne: company color header
+            doc.setFillColor(cr, cg, cb);
+            doc.rect(tableStartX, currentY, tableWidth, headerHeight, 'F');
+            doc.setTextColor(255, 255, 255);
+        } else if (tableStyle === 'style3') {
+            // Minimal: no background, just bottom line
+            doc.setTextColor(0, 0, 0);
+            doc.setDrawColor(180, 180, 180);
+            doc.setLineWidth(0.5);
+            doc.line(tableStartX, currentY + headerHeight, tableStartX + tableWidth, currentY + headerHeight);
+        } else if (tableStyle === 'style4') {
+            // Professionnel: black header, thick borders
+            doc.setFillColor(0, 0, 0);
+            doc.rect(tableStartX, currentY, tableWidth, headerHeight, 'F');
+            doc.setTextColor(255, 255, 255);
+        } else if (tableStyle === 'style5') {
+            // Coloré: gradient-like (company color to darker)
+            doc.setFillColor(cr, cg, cb);
+            doc.rect(tableStartX, currentY, tableWidth / 2, headerHeight, 'F');
+            doc.setFillColor(dr, dg, db);
+            doc.rect(tableStartX + tableWidth / 2, currentY, tableWidth / 2, headerHeight, 'F');
+            doc.setTextColor(255, 255, 255);
+        } else if (tableStyle === 'style6') {
+            // Compact: small grey header
+            doc.setFillColor(100, 100, 100);
+            doc.rect(tableStartX, currentY, tableWidth, headerHeight, 'F');
+            doc.setTextColor(255, 255, 255);
+        } else if (tableStyle === 'style7') {
+            // Sans couleur: white header with black text, bottom border only
+            doc.setTextColor(0, 0, 0);
+            doc.setDrawColor(0, 0, 0);
+            doc.setLineWidth(0.8);
+            doc.line(tableStartX, currentY + headerHeight, tableStartX + tableWidth, currentY + headerHeight);
+        }
+
+        doc.setFontSize(headerFontSize);
         doc.setFont(undefined, 'bold');
-        doc.text('Désignation', 18, currentY + 5.5);
-        doc.text('Quantité', 120, currentY + 5.5);
-        doc.text('P.U HT', 145, currentY + 5.5);
-        doc.text('Total HT', 178, currentY + 5.5);
-        currentY += 10;
+        doc.text('Désignation', 18, currentY + headerHeight - 2.5);
+        doc.text('Quantité', 120, currentY + headerHeight - 2.5);
+        doc.text('P.U HT', 145, currentY + headerHeight - 2.5);
+        doc.text('Total HT', 178, currentY + headerHeight - 2.5);
+        currentY += headerHeight + 2;
 
         return headerStartY;
     };
@@ -1397,39 +1585,108 @@ async function generateGenericPDFContent(doc, invoice, companyCode, companyColor
                 currentSegmentStart = addTableHeader();
                 doc.setTextColor(0, 0, 0);
                 doc.setFont(undefined, 'normal');
-                doc.setFontSize(8);
+                doc.setFontSize(fontSize);
                 availableHeight = pageHeight - 80 - currentY;
             }
 
             const remainingLines = descriptionLines.length - lineIndex;
-            const maxLinesThisPage = Math.max(1, Math.floor((availableHeight - 4) / 4));
+            const maxLinesThisPage = Math.max(1, Math.floor((availableHeight - rowPadding) / rowPadding));
             const linesForThisRow = Math.min(remainingLines, maxLinesThisPage);
-            const rowHeight = Math.max(8, linesForThisRow * 4 + 4);
+            const rowHeight = Math.max(headerHeight, linesForThisRow * rowPadding + rowPadding);
             const rowY = currentY;
 
-            if (isFirstChunkOfProduct && index % 2 === 0) {
-                doc.setFillColor(245, 245, 245);
-                doc.rect(tableStartX, rowY - 2, tableWidth, rowHeight, 'F');
+            // ========== ROW BACKGROUND - varies by style ==========
+            if (isFirstChunkOfProduct) {
+                if (tableStyle === 'style1') {
+                    // Classique: light grey alternating
+                    if (index % 2 === 0) {
+                        doc.setFillColor(245, 245, 245);
+                        doc.rect(tableStartX, rowY - 2, tableWidth, rowHeight, 'F');
+                    }
+                } else if (tableStyle === 'style2') {
+                    // Moderne: company-tinted zebra stripes
+                    if (index % 2 === 0) {
+                        doc.setFillColor(lr, lg, lb);
+                        doc.rect(tableStartX, rowY - 2, tableWidth, rowHeight, 'F');
+                    }
+                } else if (tableStyle === 'style3') {
+                    // Minimal: no row background
+                } else if (tableStyle === 'style4') {
+                    // Professionnel: subtle alternating
+                    if (index % 2 === 0) {
+                        doc.setFillColor(240, 240, 240);
+                        doc.rect(tableStartX, rowY - 2, tableWidth, rowHeight, 'F');
+                    }
+                } else if (tableStyle === 'style5') {
+                    // Coloré: colored alternating
+                    if (index % 2 === 0) {
+                        doc.setFillColor(lr, lg, lb);
+                        doc.rect(tableStartX, rowY - 2, tableWidth, rowHeight, 'F');
+                    } else {
+                        doc.setFillColor(250, 250, 250);
+                        doc.rect(tableStartX, rowY - 2, tableWidth, rowHeight, 'F');
+                    }
+                } else if (tableStyle === 'style6') {
+                    // Compact: very light alternating
+                    if (index % 2 === 0) {
+                        doc.setFillColor(248, 248, 248);
+                        doc.rect(tableStartX, rowY - 2, tableWidth, rowHeight, 'F');
+                    }
+                } else if (tableStyle === 'style7') {
+                    // Sans couleur: no row background
+                }
             }
 
-            doc.setFontSize(8);
+            // Draw description chunk
+            doc.setFontSize(fontSize);
             doc.setTextColor(0, 0, 0);
             doc.setFont(undefined, 'normal');
             const descriptionChunk = descriptionLines.slice(lineIndex, lineIndex + linesForThisRow);
             descriptionChunk.forEach((line, i) => {
-                doc.text(line, 18, rowY + 3 + i * 4);
+                doc.text(line, 18, rowY + 3 + i * rowPadding);
             });
 
+            // Draw quantity, price, and total ONLY on the first chunk of each product
             if (isFirstChunkOfProduct) {
-                doc.setFontSize(9);
+                doc.setFontSize(headerFontSize);
                 doc.text(quantityText, 120, rowY + 4);
                 doc.text(unitPriceText, 155, rowY + 4, { align: 'right' });
                 doc.text(totalHtText, 193, rowY + 4, { align: 'right' });
             }
 
-            doc.setDrawColor(220, 220, 220);
-            doc.setLineWidth(0.2);
-            doc.line(tableStartX, rowY + rowHeight - 2, tableStartX + tableWidth, rowY + rowHeight - 2);
+            // ========== ROW BORDER - varies by style ==========
+            // Skip the bottom border when it would overlap with the outer table border:
+            // 1) Last chunk of the last product (bottom of entire table)
+            // 2) Last row before a page break (bottom of page segment)
+            const isLastProduct = index === invoice.products.length - 1;
+            const isLastChunk = lineIndex + linesForThisRow >= descriptionLines.length;
+            const nextY = rowY + rowHeight;
+            const remainingAfterRow = pageHeight - 80 - nextY;
+            const isLastRowOnPage = remainingAfterRow < 12;
+            const skipBorder = (isLastProduct && isLastChunk) || isLastRowOnPage;
+            if (!skipBorder) {
+                if (tableStyle === 'style3') {
+                    // Minimal: thin light separator
+                    doc.setDrawColor(210, 210, 210);
+                    doc.setLineWidth(0.1);
+                    doc.line(tableStartX, rowY + rowHeight - 2, tableStartX + tableWidth, rowY + rowHeight - 2);
+                } else if (tableStyle === 'style4') {
+                    // Professionnel: darker row borders
+                    doc.setDrawColor(150, 150, 150);
+                    doc.setLineWidth(0.3);
+                    doc.line(tableStartX, rowY + rowHeight - 2, tableStartX + tableWidth, rowY + rowHeight - 2);
+                } else if (tableStyle === 'style7') {
+                    // Sans couleur: thin black separator
+                    doc.setDrawColor(150, 150, 150);
+                    doc.setLineWidth(0.2);
+                    doc.line(tableStartX, rowY + rowHeight - 2, tableStartX + tableWidth, rowY + rowHeight - 2);
+                } else {
+                    // Default row border
+                    doc.setDrawColor(220, 220, 220);
+                    doc.setLineWidth(0.2);
+                    doc.line(tableStartX, rowY + rowHeight - 2, tableStartX + tableWidth, rowY + rowHeight - 2);
+                }
+            }
 
             currentY = rowY + rowHeight;
             lineIndex += linesForThisRow;
@@ -1439,11 +1696,32 @@ async function generateGenericPDFContent(doc, invoice, companyCode, companyColor
 
     tableSegments.push({ startY: currentSegmentStart, endY: currentY, page: pageCount });
 
+    // ========== OUTER TABLE BORDERS - varies by style ==========
     tableSegments.forEach(segment => {
         doc.setPage(segment.page);
-        doc.setDrawColor(200, 200, 200);
-        doc.setLineWidth(0.3);
-        doc.rect(tableStartX, segment.startY, tableWidth, segment.endY - segment.startY);
+        if (tableStyle === 'style3') {
+            // Minimal: no outer border
+        } else if (tableStyle === 'style7') {
+            // Sans couleur: simple black border
+            doc.setDrawColor(0, 0, 0);
+            doc.setLineWidth(0.5);
+            doc.rect(tableStartX, segment.startY, tableWidth, segment.endY - segment.startY);
+        } else if (tableStyle === 'style4') {
+            // Professionnel: thick black border
+            doc.setDrawColor(0, 0, 0);
+            doc.setLineWidth(0.8);
+            doc.rect(tableStartX, segment.startY, tableWidth, segment.endY - segment.startY);
+        } else if (tableStyle === 'style5') {
+            // Coloré: company color border
+            doc.setDrawColor(cr, cg, cb);
+            doc.setLineWidth(0.5);
+            doc.rect(tableStartX, segment.startY, tableWidth, segment.endY - segment.startY);
+        } else {
+            // Default outer border
+            doc.setDrawColor(200, 200, 200);
+            doc.setLineWidth(0.3);
+            doc.rect(tableStartX, segment.startY, tableWidth, segment.endY - segment.startY);
+        }
     });
 
     doc.setPage(pageCount);
@@ -1455,30 +1733,128 @@ async function generateGenericPDFContent(doc, invoice, companyCode, companyColor
         currentY += 15;
     }
 
+    // ========== TOTALS SECTION - varies by style ==========
     currentY += 10;
     const totalsX = 130;
 
-    doc.setFillColor(cr, cg, cb);
-    doc.rect(totalsX, currentY, 65, 7, 'F');
-    doc.setTextColor(255, 255, 255);
-    doc.setFontSize(10);
-    doc.setFont(undefined, 'bold');
-    doc.text('Total HT', totalsX + 3, currentY + 5);
-    doc.text(parseFloat(invoice.total_ht).toFixed(2) + ' DH', totalsX + 62, currentY + 5, { align: 'right' });
-    currentY += 8;
+    if (tableStyle === 'style3') {
+        // Minimal: no background, just text with lines
+        doc.setDrawColor(180, 180, 180);
+        doc.setLineWidth(0.3);
+        doc.line(totalsX, currentY, totalsX + 65, currentY);
 
-    doc.setFillColor(220, 220, 220);
-    doc.rect(totalsX, currentY, 65, 7, 'F');
-    doc.setTextColor(0, 0, 0);
-    doc.text('TVA ' + invoice.tva_rate + '%', totalsX + 3, currentY + 5);
-    doc.text(parseFloat(invoice.montant_tva).toFixed(2) + ' DH', totalsX + 62, currentY + 5, { align: 'right' });
-    currentY += 8;
+        doc.setTextColor(0, 0, 0);
+        doc.setFontSize(10);
+        doc.setFont(undefined, 'bold');
+        doc.text('Total HT', totalsX + 3, currentY + 5);
+        doc.text(parseFloat(invoice.total_ht).toFixed(2) + ' DH', totalsX + 62, currentY + 5, { align: 'right' });
+        currentY += 8;
 
-    doc.setFillColor(dr, dg, db);
-    doc.rect(totalsX, currentY, 65, 7, 'F');
-    doc.setTextColor(255, 255, 255);
-    doc.text('Total TTC', totalsX + 3, currentY + 5);
-    doc.text(parseFloat(invoice.total_ttc).toFixed(2) + ' DH', totalsX + 62, currentY + 5, { align: 'right' });
+        doc.setFont(undefined, 'normal');
+        doc.text('TVA ' + invoice.tva_rate + '%', totalsX + 3, currentY + 5);
+        doc.text(parseFloat(invoice.montant_tva).toFixed(2) + ' DH', totalsX + 62, currentY + 5, { align: 'right' });
+        currentY += 8;
+
+        doc.setDrawColor(0, 0, 0);
+        doc.setLineWidth(0.5);
+        doc.line(totalsX, currentY, totalsX + 65, currentY);
+        doc.setFont(undefined, 'bold');
+        doc.text('Total TTC', totalsX + 3, currentY + 5);
+        doc.text(parseFloat(invoice.total_ttc).toFixed(2) + ' DH', totalsX + 62, currentY + 5, { align: 'right' });
+    } else if (tableStyle === 'style4') {
+        // Professionnel: black header totals
+        doc.setFillColor(0, 0, 0);
+        doc.rect(totalsX, currentY, 65, 7, 'F');
+        doc.setTextColor(255, 255, 255);
+        doc.setFontSize(10);
+        doc.setFont(undefined, 'bold');
+        doc.text('Total HT', totalsX + 3, currentY + 5);
+        doc.text(parseFloat(invoice.total_ht).toFixed(2) + ' DH', totalsX + 62, currentY + 5, { align: 'right' });
+        currentY += 8;
+
+        doc.setFillColor(220, 220, 220);
+        doc.rect(totalsX, currentY, 65, 7, 'F');
+        doc.setTextColor(0, 0, 0);
+        doc.text('TVA ' + invoice.tva_rate + '%', totalsX + 3, currentY + 5);
+        doc.text(parseFloat(invoice.montant_tva).toFixed(2) + ' DH', totalsX + 62, currentY + 5, { align: 'right' });
+        currentY += 8;
+
+        doc.setFillColor(40, 40, 40);
+        doc.rect(totalsX, currentY, 65, 7, 'F');
+        doc.setTextColor(255, 255, 255);
+        doc.text('Total TTC', totalsX + 3, currentY + 5);
+        doc.text(parseFloat(invoice.total_ttc).toFixed(2) + ' DH', totalsX + 62, currentY + 5, { align: 'right' });
+    } else if (tableStyle === 'style7') {
+        // Sans couleur: no background, just black text with lines
+        doc.setDrawColor(0, 0, 0);
+        doc.setLineWidth(0.5);
+        doc.line(totalsX, currentY, totalsX + 65, currentY);
+
+        doc.setTextColor(0, 0, 0);
+        doc.setFontSize(10);
+        doc.setFont(undefined, 'bold');
+        doc.text('Total HT', totalsX + 3, currentY + 5);
+        doc.text(parseFloat(invoice.total_ht).toFixed(2) + ' DH', totalsX + 62, currentY + 5, { align: 'right' });
+        currentY += 8;
+
+        doc.setFont(undefined, 'normal');
+        doc.text('TVA ' + invoice.tva_rate + '%', totalsX + 3, currentY + 5);
+        doc.text(parseFloat(invoice.montant_tva).toFixed(2) + ' DH', totalsX + 62, currentY + 5, { align: 'right' });
+        currentY += 8;
+
+        doc.setDrawColor(0, 0, 0);
+        doc.setLineWidth(1);
+        doc.line(totalsX, currentY, totalsX + 65, currentY);
+        doc.setFont(undefined, 'bold');
+        doc.text('Total TTC', totalsX + 3, currentY + 5);
+        doc.text(parseFloat(invoice.total_ttc).toFixed(2) + ' DH', totalsX + 62, currentY + 5, { align: 'right' });
+    } else if (tableStyle === 'style1') {
+        // Classique: grey totals (no company color)
+        doc.setFillColor(80, 80, 80);
+        doc.rect(totalsX, currentY, 65, 7, 'F');
+        doc.setTextColor(255, 255, 255);
+        doc.setFontSize(10);
+        doc.setFont(undefined, 'bold');
+        doc.text('Total HT', totalsX + 3, currentY + 5);
+        doc.text(parseFloat(invoice.total_ht).toFixed(2) + ' DH', totalsX + 62, currentY + 5, { align: 'right' });
+        currentY += 8;
+
+        doc.setFillColor(220, 220, 220);
+        doc.rect(totalsX, currentY, 65, 7, 'F');
+        doc.setTextColor(0, 0, 0);
+        doc.text('TVA ' + invoice.tva_rate + '%', totalsX + 3, currentY + 5);
+        doc.text(parseFloat(invoice.montant_tva).toFixed(2) + ' DH', totalsX + 62, currentY + 5, { align: 'right' });
+        currentY += 8;
+
+        doc.setFillColor(60, 60, 60);
+        doc.rect(totalsX, currentY, 65, 7, 'F');
+        doc.setTextColor(255, 255, 255);
+        doc.text('Total TTC', totalsX + 3, currentY + 5);
+        doc.text(parseFloat(invoice.total_ttc).toFixed(2) + ' DH', totalsX + 62, currentY + 5, { align: 'right' });
+    } else {
+        // Default (style2, style5, style6): company color totals
+        doc.setFillColor(cr, cg, cb);
+        doc.rect(totalsX, currentY, 65, 7, 'F');
+        doc.setTextColor(255, 255, 255);
+        doc.setFontSize(10);
+        doc.setFont(undefined, 'bold');
+        doc.text('Total HT', totalsX + 3, currentY + 5);
+        doc.text(parseFloat(invoice.total_ht).toFixed(2) + ' DH', totalsX + 62, currentY + 5, { align: 'right' });
+        currentY += 8;
+
+        doc.setFillColor(220, 220, 220);
+        doc.rect(totalsX, currentY, 65, 7, 'F');
+        doc.setTextColor(0, 0, 0);
+        doc.text('TVA ' + invoice.tva_rate + '%', totalsX + 3, currentY + 5);
+        doc.text(parseFloat(invoice.montant_tva).toFixed(2) + ' DH', totalsX + 62, currentY + 5, { align: 'right' });
+        currentY += 8;
+
+        doc.setFillColor(dr, dg, db);
+        doc.rect(totalsX, currentY, 65, 7, 'F');
+        doc.setTextColor(255, 255, 255);
+        doc.text('Total TTC', totalsX + 3, currentY + 5);
+        doc.text(parseFloat(invoice.total_ttc).toFixed(2) + ' DH', totalsX + 62, currentY + 5, { align: 'right' });
+    }
 
     const totalPages = pageCount;
     for (let i = 1; i <= totalPages; i++) {

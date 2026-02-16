@@ -22,7 +22,7 @@ contextBridge.exposeInMainWorld('electron', {
 
     // Invoices
     createInvoice: (data) => ipcRenderer.invoke('db:invoices:create', data),
-    getInvoiceById: (id) => ipcRenderer.invoke('db:invoices:getById', id),
+    getInvoiceById: (id, userEmail) => ipcRenderer.invoke('db:invoices:getById', id, userEmail),
     getAllInvoices: (companyCode) => ipcRenderer.invoke('db:invoices:getAll', companyCode),
     updateInvoice: (id, data) => ipcRenderer.invoke('db:invoices:update', id, data),
     deleteInvoice: (id) => ipcRenderer.invoke('db:invoices:delete', id),
@@ -67,7 +67,7 @@ contextBridge.exposeInMainWorld('electron', {
 
     // Validation & Users
     getPendingInvoices: () => ipcRenderer.invoke('api:invoices:getPending', 'MRY'),
-    validateInvoice: (id, status) => ipcRenderer.invoke('api:invoices:validate', id, status),
+    validateInvoice: (id, status, userEmail) => ipcRenderer.invoke('api:invoices:validate', id, status, userEmail),
     getUsers: () => ipcRenderer.invoke('users:getAll'),
     getUsers: () => ipcRenderer.invoke('users:getAll'),
     updateUserPermissions: (id, canAutoValidate) => ipcRenderer.invoke('users:updatePermissions', id, canAutoValidate),
@@ -99,7 +99,7 @@ contextBridge.exposeInMainWorld('electron', {
 
     // Invoices
     createInvoice: (data) => ipcRenderer.invoke('db:chaimae:invoices:create', data),
-    getInvoiceById: (id) => ipcRenderer.invoke('db:chaimae:invoices:getById', id),
+    getInvoiceById: (id, userEmail) => ipcRenderer.invoke('db:chaimae:invoices:getById', id, userEmail),
     getAllInvoices: () => ipcRenderer.invoke('db:chaimae:invoices:getAll'),
     updateInvoice: (id, data) => ipcRenderer.invoke('db:chaimae:invoices:update', id, data),
     deleteInvoice: (id) => ipcRenderer.invoke('db:chaimae:invoices:delete', id),
@@ -121,7 +121,7 @@ contextBridge.exposeInMainWorld('electron', {
 
     // Validation
     getPendingInvoices: () => ipcRenderer.invoke('api:invoices:getPending', 'CHAIMAE'),
-    validateInvoice: (id, status) => ipcRenderer.invoke('api:invoices:validate', id, status),
+    validateInvoice: (id, status, userEmail) => ipcRenderer.invoke('api:invoices:validate', id, status, userEmail),
     updateGlobalInvoice: (id, data) => ipcRenderer.invoke('db:chaimae:globalInvoices:update', id, data),
     deleteGlobalInvoice: (id) => ipcRenderer.invoke('db:chaimae:globalInvoices:delete', id),
     getBonsByClient: (clientId) => ipcRenderer.invoke('db:chaimae:globalInvoices:getBonsByClient', clientId),
@@ -185,7 +185,7 @@ contextBridge.exposeInMainWorld('electron', {
 
     // Invoices
     createInvoice: (data) => ipcRenderer.invoke('dbMulti:createInvoice', data),
-    getInvoiceById: (id) => ipcRenderer.invoke('dbMulti:getInvoice', id),
+    getInvoiceById: (id, userEmail) => ipcRenderer.invoke('dbMulti:getInvoice', id, userEmail),
     getAllInvoices: (companyCode) => ipcRenderer.invoke('dbMulti:getAllInvoices', companyCode),
     updateInvoice: (id, data) => ipcRenderer.invoke('dbMulti:updateInvoice', id, data),
     deleteInvoice: (id) => ipcRenderer.invoke('dbMulti:deleteInvoice', id),
@@ -227,7 +227,7 @@ contextBridge.exposeInMainWorld('electron', {
 
     // Validation & Users
     getPendingInvoices: () => ipcRenderer.invoke('api:invoices:getPending', 'MULTI'),
-    validateInvoice: (id, status) => ipcRenderer.invoke('api:invoices:validate', id, status),
+    validateInvoice: (id, status, userEmail) => ipcRenderer.invoke('api:invoices:validate', id, status, userEmail),
     getUsers: () => ipcRenderer.invoke('users:getAll'),
     updateUserPermissions: (id, canAutoValidate) => ipcRenderer.invoke('users:updatePermissions', id, canAutoValidate)
   },

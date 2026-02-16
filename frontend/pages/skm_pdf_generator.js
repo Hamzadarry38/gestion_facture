@@ -333,7 +333,7 @@ async function showSimpleSKMModal(invoice) {
                         <label style="display: block; margin-bottom: 0.5rem; color: #e0e0e0; font-weight: 600;">
                             N° Devis personnalisé :
                         </label>
-                        <input type="text" id="devisInput" value="${nextDevisNumber}" placeholder="D2025-001"
+                        <input type="text" id="devisInput" value="${nextDevisNumber}" placeholder="D2025-001" autocomplete="off"
                                style="width: 100%; padding: 0.75rem; background: #2d2d30; border: 1px solid #3e3e42; border-radius: 6px; color: #fff; font-size: 1rem;">
                         <small style="color: #4CAF50; display: block; margin-top: 0.5rem; font-weight: 500;">
                             📋 Plus grand N°: <strong>${lastDevisNumber}</strong>
@@ -506,7 +506,7 @@ async function showSKMCustomizationModal(invoice) {
                 </label>
                 <label style="display: flex; flex-direction: column; gap: 0.5rem;">
                     <span style="color: #e0e0e0;">N° Devis personnalisé:</span>
-                    <input type="text" id="skmCustomDevisNumber" value="${invoice.document_numero_devis || ''}" placeholder="D2025-001"
+                    <input type="text" id="skmCustomDevisNumber" value="${invoice.document_numero_devis || ''}" placeholder="D2025-001" autocomplete="off"
                            style="padding: 0.5rem; background: #2d2d30; border: 1px solid #3e3e42; border-radius: 4px; color: #fff;">
                 </label>
             </div>

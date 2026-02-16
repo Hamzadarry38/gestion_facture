@@ -45,6 +45,10 @@
     color: #cccccc;
     font-size: 0.9rem;
     font-weight: 500;
+    height: 1.2rem;
+    line-height: 1.2rem;
+    display: flex;
+    align-items: center;
 }
 
 .filter-group select,
@@ -234,13 +238,14 @@
     background: #1e1e1e;
 }
 
-.row-converted {
+/* Removed yellow background for converted invoices */
+/*.row-converted {
     background-color: rgba(255, 152, 0, 0.1) !important;
 }
 
 .row-converted:hover {
     background-color: rgba(255, 152, 0, 0.2) !important;
-}
+}*/
 
 .invoices-table td {
     padding: 0.875rem 1rem;

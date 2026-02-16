@@ -124,13 +124,9 @@ function CompanySelectPage() {
                             <span class="icon">←</span>
                             <span>Logout</span>
                         </button>
-                        <button class="footer-btn" onclick="router.navigate('/pdf-settings')" style="background: #1a73e8; color: #fff; border: none; border-radius: 6px; padding: 0.5rem 1rem; cursor: pointer; font-weight: 600; display: flex; align-items: center; gap: 0.5rem;">
-                            <span class="icon">⚙️</span>
-                            <span>PDF Settings</span>
-                        </button>
-                        <button class="footer-btn" onclick="router.navigate('/pdf-files')" style="background: #9C27B0; color: #fff; border: none; border-radius: 6px; padding: 0.5rem 1rem; cursor: pointer; font-weight: 600; display: flex; align-items: center; gap: 0.5rem;">
-                            <span class="icon">📁</span>
-                            <span>Fichiers PDF</span>
+                        <button class="footer-btn" onclick="router.navigate('/pdf-settings')" style="background: linear-gradient(135deg, #667eea, #764ba2); color: #fff; border: none; border-radius: 6px; padding: 0.5rem 1.2rem; cursor: pointer; font-weight: 600; display: flex; align-items: center; gap: 0.5rem;">
+                            <span class="icon">�</span>
+                            <span>PDF</span>
                         </button>
                     </div>
                     <div class="footer-info">

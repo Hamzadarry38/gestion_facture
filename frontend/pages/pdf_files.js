@@ -1,97 +1,331 @@
-// Unified PDF Files Page - View all PDFs from all companies with filter
+// Unified PDF Page - PDF Settings + PDF Files in one page with tabs
 
 function PDFFilesPage() {
     return `
-        <div class="dashboard-container">
-            <aside class="sidebar">
-                <div class="sidebar-header">
-                    <div class="logo">⚡</div>
-                    <h2>Gestion Factures</h2>
+        <div class="desktop-app" style="display: flex; flex-direction: column; height: 100vh; background: #1e1e1e;">
+            <!-- Top Header Bar -->
+            <div style="
+                background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+                border-bottom: 1px solid #2a2a4a;
+                padding: 0.8rem 2rem;
+                display: flex; justify-content: space-between; align-items: center;
+                flex-shrink: 0;
+            ">
+                <div style="display: flex; align-items: center; gap: 1rem;">
+                    <div style="
+                        width: 36px; height: 36px; border-radius: 10px;
+                        background: linear-gradient(135deg, #667eea, #764ba2);
+                        display: flex; align-items: center; justify-content: center;
+                        font-size: 1.1rem; box-shadow: 0 2px 8px rgba(102,126,234,0.3);
+                    ">📄</div>
+                    <div>
+                        <h1 style="color: #fff; margin: 0; font-size: 1.15rem; font-weight: 700; letter-spacing: 0.3px;">Gestion PDF</h1>
+                        <p style="color: #8888aa; margin: 0; font-size: 0.7rem;">Paramètres & Fichiers</p>
+                    </div>
                 </div>
-                <nav class="sidebar-nav">
-                    <a href="#" data-route="/company-select" class="nav-item">
-                        <span class="icon">🏠</span>
-                        <span>Accueil</span>
-                    </a>
-                    <a href="#" data-route="/pdf-settings" class="nav-item">
-                        <span class="icon">⚙️</span>
-                        <span>PDF Settings</span>
-                    </a>
-                    <a href="#" data-route="/pdf-files" class="nav-item active">
-                        <span class="icon">📁</span>
-                        <span>Fichiers PDF</span>
-                    </a>
-                </nav>
-                <div class="sidebar-footer">
-                    <button onclick="router.navigate('/company-select')" class="btn btn-logout">
-                        <span class="icon">↩️</span>
-                        <span>Retour</span>
+                <div style="display: flex; align-items: center; gap: 0.6rem;">
+                    <button onclick="router.navigate('/company-select')" style="
+                        padding: 0.45rem 1rem; background: rgba(255,255,255,0.06); color: #ccc;
+                        border: 1px solid rgba(255,255,255,0.1); border-radius: 8px; cursor: pointer;
+                        font-size: 0.85rem; font-weight: 500; transition: all 0.2s;
+                        display: flex; align-items: center; gap: 0.4rem;
+                    " onmouseover="this.style.background='rgba(255,255,255,0.12)'; this.style.color='#fff'"
+                       onmouseout="this.style.background='rgba(255,255,255,0.06)'; this.style.color='#ccc'">
+                        <span>🏠</span> Accueil
                     </button>
                 </div>
-            </aside>
+            </div>
 
-            <main class="main-content">
-                <header class="top-bar" style="display: flex; justify-content: space-between; align-items: center;">
-                    <h2>📁 Fichiers PDF - Toutes les Sociétés</h2>
-                    <div style="display: flex; align-items: center; gap: 1rem;">
-                        <label style="color: #aaa; font-size: 0.9rem;">Filtrer par société:</label>
-                        <select id="pdfFilesCompanyFilter" onchange="filterPdfFilesByCompany()" style="
-                            padding: 0.5rem 1rem; background: #2d2d30; border: 1px solid #3e3e42;
-                            border-radius: 8px; color: #fff; font-size: 0.95rem; cursor: pointer; min-width: 200px;
-                        ">
-                            <option value="all">📋 Toutes les sociétés</option>
-                        </select>
-                        <button onclick="loadAllPdfFiles()" style="
-                            padding: 0.5rem 1rem; background: #2196F3; color: #fff; border: none;
-                            border-radius: 8px; cursor: pointer; font-weight: 600; font-size: 0.9rem;
-                        ">🔄 Actualiser</button>
-                        <button onclick="exportDevisDataToDB()" style="
-                            padding: 0.5rem 1rem; background: linear-gradient(135deg, #4CAF50, #388E3C); color: #fff; border: none;
-                            border-radius: 8px; cursor: pointer; font-weight: 600; font-size: 0.9rem;
-                        ">📤 Exporter vers DB</button>
-                    </div>
-                </header>
+            <!-- Tabs Navigation -->
+            <div style="
+                background: #252530; border-bottom: 1px solid #3e3e42;
+                padding: 0 2rem; display: flex; gap: 0; flex-shrink: 0;
+            ">
+                <button id="tabBtnSettings" onclick="switchPdfTab('settings')" style="
+                    padding: 0.85rem 1.8rem; background: transparent; color: #fff;
+                    border: none; border-bottom: 3px solid #667eea; cursor: pointer;
+                    font-size: 0.95rem; font-weight: 600; transition: all 0.2s;
+                    display: flex; align-items: center; gap: 0.5rem;
+                ">
+                    <span style="font-size: 1.1rem;">⚙️</span> Paramètres PDF
+                </button>
+                <button id="tabBtnFiles" onclick="switchPdfTab('files')" style="
+                    padding: 0.85rem 1.8rem; background: transparent; color: #888;
+                    border: none; border-bottom: 3px solid transparent; cursor: pointer;
+                    font-size: 0.95rem; font-weight: 600; transition: all 0.2s;
+                    display: flex; align-items: center; gap: 0.5rem;
+                ">
+                    <span style="font-size: 1.1rem;">📁</span> Fichiers PDF
+                    <span id="tabFilesBadge" style="
+                        background: #667eea; color: #fff; font-size: 0.7rem; font-weight: 700;
+                        padding: 0.1rem 0.5rem; border-radius: 10px; min-width: 18px; text-align: center;
+                    ">0</span>
+                </button>
+            </div>
 
-                <div class="content-area" style="padding: 1.5rem;">
-                    <!-- Stats Bar -->
-                    <div id="pdfFilesStats" style="
-                        display: flex; gap: 1rem; margin-bottom: 1.5rem;
+            <!-- Tab Content Area -->
+            <div style="flex: 1; overflow-y: auto; padding: 0;">
+
+                <!-- ==================== TAB: SETTINGS ==================== -->
+                <div id="tabSettings" style="display: block;">
+                    <!-- Settings Header -->
+                    <div style="
+                        background: #252530; border-bottom: 1px solid #3e3e42;
+                        padding: 1rem 2rem; display: flex; justify-content: space-between; align-items: center;
                     ">
-                        <div style="flex: 1; background: #2d2d30; border-radius: 10px; padding: 1rem 1.5rem; border: 1px solid #3e3e42; display: flex; align-items: center; gap: 1rem;">
-                            <span style="font-size: 1.5rem;">📄</span>
-                            <div>
-                                <div style="color: #aaa; font-size: 0.8rem;">Total fichiers</div>
-                                <div id="statsTotalFiles" style="color: #fff; font-size: 1.3rem; font-weight: 700;">0</div>
-                            </div>
-                        </div>
-                        <div style="flex: 1; background: #2d2d30; border-radius: 10px; padding: 1rem 1.5rem; border: 1px solid #3e3e42; display: flex; align-items: center; gap: 1rem;">
-                            <span style="font-size: 1.5rem;">🏭</span>
-                            <div>
-                                <div style="color: #aaa; font-size: 0.8rem;">Société filtrée</div>
-                                <div id="statsFilteredCompany" style="color: #fff; font-size: 1.3rem; font-weight: 700;">Toutes</div>
-                            </div>
-                        </div>
-                        <div style="flex: 1; background: #2d2d30; border-radius: 10px; padding: 1rem 1.5rem; border: 1px solid #3e3e42; display: flex; align-items: center; gap: 1rem;">
-                            <span style="font-size: 1.5rem;">📦</span>
-                            <div>
-                                <div style="color: #aaa; font-size: 0.8rem;">Taille totale</div>
-                                <div id="statsTotalSize" style="color: #fff; font-size: 1.3rem; font-weight: 700;">0 KB</div>
-                            </div>
-                        </div>
+                        <h2 style="color: #fff; margin: 0; font-size: 1.1rem; font-weight: 500;">
+                            ⚙️ Sociétés PDF — Gérer les paramètres
+                        </h2>
+                        <button onclick="showAddCompanyModal()" style="
+                            padding: 0.55rem 1.2rem; background: linear-gradient(135deg, #4CAF50, #388E3C); color: #fff;
+                            border: none; border-radius: 8px; cursor: pointer; font-weight: 700; font-size: 0.9rem;
+                            transition: all 0.3s; box-shadow: 0 2px 8px rgba(76,175,80,0.25);
+                        " onmouseover="this.style.transform='translateY(-1px)'; this.style.boxShadow='0 4px 12px rgba(76,175,80,0.4)'"
+                           onmouseout="this.style.transform='translateY(0)'; this.style.boxShadow='0 2px 8px rgba(76,175,80,0.25)'">
+                            ➕ Ajouter une société
+                        </button>
                     </div>
 
-                    <!-- PDF Files List -->
-                    <div id="pdfFilesList" style="
-                        background: #2d2d30; border-radius: 12px; border: 1px solid #3e3e42;
-                        overflow: hidden;
-                    ">
-                        <div style="padding: 3rem; text-align: center; color: #666;">
-                            <span style="font-size: 2rem;">⏳</span>
-                            <p>Chargement des fichiers PDF...</p>
+                    <!-- Settings Content -->
+                    <div style="padding: 1.5rem 2rem;">
+                        <div id="pdfCompanyList" style="margin-bottom: 2rem;"></div>
+
+                        <div id="pdfCompanyEditor" style="display: none;">
+                            <div style="display: flex; align-items: center; gap: 1rem; margin-bottom: 1.5rem;">
+                                <button onclick="hideCompanyEditor()" style="
+                                    padding: 0.5rem 1rem; background: #3e3e42; color: #fff; border: none;
+                                    border-radius: 8px; cursor: pointer; font-weight: 600;
+                                ">← Retour à la liste</button>
+                                <h3 id="editorCompanyTitle" style="color: #fff; margin: 0; font-size: 1.2rem;"></h3>
+                            </div>
+
+                            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem;">
+                                <!-- Left Column: Images -->
+                                <div>
+                                    <div class="card" style="background: #2d2d30; border-radius: 12px; padding: 1.5rem; margin-bottom: 1.5rem; border: 1px solid #3e3e42;">
+                                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+                                            <h3 style="color: #fff; margin: 0; font-size: 1.1rem;">📋 Header (En-tête)</h3>
+                                            <label style="
+                                                background: linear-gradient(135deg, #2196F3, #1976D2); color: #fff;
+                                                padding: 0.5rem 1rem; border-radius: 8px; cursor: pointer; font-size: 0.85rem; font-weight: 600;
+                                            ">
+                                                📁 Changer
+                                                <input type="file" id="pdfHeaderUpload" accept="image/png,image/jpeg" style="display:none;" onchange="uploadPdfImage('header')">
+                                            </label>
+                                        </div>
+                                        <div id="pdfHeaderPreview" style="
+                                            background: #1e1e1e; border-radius: 8px; padding: 0.5rem; min-height: 80px;
+                                            display: flex; align-items: center; justify-content: center; border: 1px dashed #3e3e42;
+                                        "><span style="color: #666;">Chargement...</span></div>
+                                    </div>
+
+                                    <div class="card" style="background: #2d2d30; border-radius: 12px; padding: 1.5rem; margin-bottom: 1.5rem; border: 1px solid #3e3e42;">
+                                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+                                            <h3 style="color: #fff; margin: 0; font-size: 1.1rem;">🦶 Footer (Pied de page)</h3>
+                                            <label style="
+                                                background: linear-gradient(135deg, #2196F3, #1976D2); color: #fff;
+                                                padding: 0.5rem 1rem; border-radius: 8px; cursor: pointer; font-size: 0.85rem; font-weight: 600;
+                                            ">
+                                                📁 Changer
+                                                <input type="file" id="pdfFooterUpload" accept="image/png,image/jpeg" style="display:none;" onchange="uploadPdfImage('footer')">
+                                            </label>
+                                        </div>
+                                        <div id="pdfFooterPreview" style="
+                                            background: #1e1e1e; border-radius: 8px; padding: 0.5rem; min-height: 80px;
+                                            display: flex; align-items: center; justify-content: center; border: 1px dashed #3e3e42;
+                                        "><span style="color: #666;">Chargement...</span></div>
+                                    </div>
+
+                                    <div class="card" style="background: #2d2d30; border-radius: 12px; padding: 1.5rem; border: 1px solid #3e3e42;">
+                                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+                                            <h3 style="color: #fff; margin: 0; font-size: 1.1rem;">✍️ Signature</h3>
+                                            <label style="
+                                                background: linear-gradient(135deg, #2196F3, #1976D2); color: #fff;
+                                                padding: 0.5rem 1rem; border-radius: 8px; cursor: pointer; font-size: 0.85rem; font-weight: 600;
+                                            ">
+                                                📁 Changer
+                                                <input type="file" id="pdfSignatureUpload" accept="image/png,image/jpeg" style="display:none;" onchange="uploadPdfImage('signature')">
+                                            </label>
+                                        </div>
+                                        <div id="pdfSignaturePreview" style="
+                                            background: #1e1e1e; border-radius: 8px; padding: 0.5rem; min-height: 80px;
+                                            display: flex; align-items: center; justify-content: center; border: 1px dashed #3e3e42;
+                                        "><span style="color: #666;">Chargement...</span></div>
+                                    </div>
+                                </div>
+
+                                <!-- Right Column: Company Name + Save -->
+                                <div>
+                                    <div class="card" style="background: #2d2d30; border-radius: 12px; padding: 1.5rem; margin-bottom: 1.5rem; border: 1px solid #3e3e42;">
+                                        <h3 style="color: #fff; margin: 0 0 1rem 0; font-size: 1.1rem;">🏢 Nom de la Société</h3>
+                                        <p style="color: #999; font-size: 0.8rem; margin: 0 0 0.8rem 0;">Ce nom sera utilisé dans le PDF et le nom du fichier.</p>
+                                        <input type="text" id="pdfCompanyNameInput" placeholder="Ex: SMART SERVICES" style="
+                                            width: 100%; padding: 0.8rem 1rem; background: #1e1e1e; border: 1px solid #3e3e42;
+                                            border-radius: 8px; color: #fff; font-size: 1rem; font-weight: 600;
+                                            outline: none; transition: border-color 0.3s; box-sizing: border-box;
+                                        " onfocus="this.style.borderColor='#667eea'" onblur="this.style.borderColor='#3e3e42'">
+                                    </div>
+
+                                    <div class="card" style="background: #2d2d30; border-radius: 12px; padding: 1.5rem; margin-bottom: 1.5rem; border: 1px solid #3e3e42;">
+                                        <h3 style="color: #fff; margin: 0 0 0.8rem 0; font-size: 1.1rem;">📊 Style du tableau PDF</h3>
+                                        <p style="color: #999; font-size: 0.8rem; margin: 0 0 0.8rem 0;">Ce style sera utilisé pour le tableau des produits dans le PDF.</p>
+                                        <div id="editTableStyleGrid" style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.6rem;"></div>
+                                        <input type="hidden" id="editSelectedTableStyle" value="style1">
+                                    </div>
+
+                                    <button id="savePdfSettingsBtn" onclick="savePdfSettings()" style="
+                                        width: 100%; padding: 1rem;
+                                        background: linear-gradient(135deg, #4CAF50, #388E3C); color: #fff;
+                                        border: none; border-radius: 10px; cursor: pointer; font-size: 1.1rem; font-weight: 700;
+                                        transition: all 0.3s;
+                                    " onmouseover="this.style.transform='translateY(-2px)'; this.style.boxShadow='0 6px 20px rgba(76,175,80,0.4)'"
+                                       onmouseout="this.style.transform='translateY(0)'; this.style.boxShadow='none'">
+                                        ✅ Sauvegarder
+                                    </button>
+
+                                    <div class="card" style="background: #2d2d30; border-radius: 12px; padding: 1.5rem; margin-top: 1.5rem; border: 1px solid #3e3e42;">
+                                        <h3 style="color: #fff; margin: 0 0 1rem 0; font-size: 1.1rem;">📌 Informations</h3>
+                                        <div id="pdfSettingsInfo" style="color: #b0b0b0; font-size: 0.9rem; line-height: 1.8;">
+                                            <div>🏢 <strong>Société:</strong> <span id="infoCompanyName">-</span></div>
+                                            <div>📋 <strong>Header:</strong> <span id="infoHeaderStatus">-</span></div>
+                                            <div>🦶 <strong>Footer:</strong> <span id="infoFooterStatus">-</span></div>
+                                            <div>✍️ <strong>Signature:</strong> <span id="infoSignatureStatus">-</span></div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
                         </div>
                     </div>
                 </div>
-            </main>
+
+                <!-- ==================== TAB: FILES ==================== -->
+                <div id="tabFiles" style="display: none;">
+                    <!-- Files Header -->
+                    <div style="
+                        background: #252530; border-bottom: 1px solid #3e3e42;
+                        padding: 1rem 2rem; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.8rem;
+                    ">
+                        <h2 style="color: #fff; margin: 0; font-size: 1.1rem; font-weight: 500;">
+                            📁 Fichiers PDF — Toutes les Sociétés
+                        </h2>
+                        <div style="display: flex; align-items: center; gap: 0.8rem; flex-wrap: wrap;">
+                            <select id="pdfFilesCompanyFilter" onchange="filterPdfFilesByCompany()" style="
+                                padding: 0.45rem 0.8rem; background: #1e1e1e; border: 1px solid #3e3e42;
+                                border-radius: 8px; color: #fff; font-size: 0.85rem; cursor: pointer; min-width: 180px;
+                            ">
+                                <option value="all">📋 Toutes les sociétés</option>
+                            </select>
+                            <select id="pdfFilesCreatorFilter" onchange="filterPdfFilesByCompany()" style="
+                                padding: 0.45rem 0.8rem; background: #1e1e1e; border: 1px solid #3e3e42;
+                                border-radius: 8px; color: #fff; font-size: 0.85rem; cursor: pointer; min-width: 160px;
+                            ">
+                                <option value="all">👤 Tous les créateurs</option>
+                                <option value="MRY">🏭 MRY</option>
+                                <option value="MULTI">🏭 MULTI</option>
+                                <option value="CHAIMAE">🏭 CHAIMAE</option>
+                            </select>
+                            <button onclick="loadAllPdfFiles()" style="
+                                padding: 0.45rem 0.9rem; background: rgba(102,126,234,0.15); color: #667eea;
+                                border: 1px solid rgba(102,126,234,0.3); border-radius: 8px; cursor: pointer;
+                                font-weight: 600; font-size: 0.85rem; transition: all 0.2s;
+                            " onmouseover="this.style.background='rgba(102,126,234,0.25)'"
+                               onmouseout="this.style.background='rgba(102,126,234,0.15)'">
+                                🔄 Actualiser
+                            </button>
+                            <button onclick="exportDevisDataToDB()" style="
+                                padding: 0.45rem 0.9rem; background: rgba(76,175,80,0.15); color: #4CAF50;
+                                border: 1px solid rgba(76,175,80,0.3); border-radius: 8px; cursor: pointer;
+                                font-weight: 600; font-size: 0.85rem; transition: all 0.2s;
+                            " onmouseover="this.style.background='rgba(76,175,80,0.25)'"
+                               onmouseout="this.style.background='rgba(76,175,80,0.15)'">
+                                📤 Exporter vers DB
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Files Content -->
+                    <div style="padding: 1.5rem 2rem;">
+                        <!-- Stats Bar -->
+                        <div id="pdfFilesStats" style="display: flex; gap: 1rem; margin-bottom: 1.5rem;">
+                            <div style="
+                                flex: 1; background: linear-gradient(135deg, #1a1a2e, #16213e);
+                                border-radius: 12px; padding: 1rem 1.5rem;
+                                border: 1px solid #2a2a4a; display: flex; align-items: center; gap: 1rem;
+                            ">
+                                <div style="
+                                    width: 40px; height: 40px; border-radius: 10px;
+                                    background: rgba(102,126,234,0.15); display: flex; align-items: center; justify-content: center;
+                                    font-size: 1.2rem;
+                                ">📄</div>
+                                <div>
+                                    <div style="color: #8888aa; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.5px;">Total fichiers</div>
+                                    <div id="statsTotalFiles" style="color: #fff; font-size: 1.4rem; font-weight: 700;">0</div>
+                                </div>
+                            </div>
+                            <div style="
+                                flex: 1; background: linear-gradient(135deg, #1a1a2e, #16213e);
+                                border-radius: 12px; padding: 1rem 1.5rem;
+                                border: 1px solid #2a2a4a; display: flex; align-items: center; gap: 1rem;
+                            ">
+                                <div style="
+                                    width: 40px; height: 40px; border-radius: 10px;
+                                    background: rgba(76,175,80,0.15); display: flex; align-items: center; justify-content: center;
+                                    font-size: 1.2rem;
+                                ">🏭</div>
+                                <div>
+                                    <div style="color: #8888aa; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.5px;">Société filtrée</div>
+                                    <div id="statsFilteredCompany" style="color: #fff; font-size: 1.4rem; font-weight: 700;">Toutes</div>
+                                </div>
+                            </div>
+                            <div style="
+                                flex: 1; background: linear-gradient(135deg, #1a1a2e, #16213e);
+                                border-radius: 12px; padding: 1rem 1.5rem;
+                                border: 1px solid #2a2a4a; display: flex; align-items: center; gap: 1rem;
+                            ">
+                                <div style="
+                                    width: 40px; height: 40px; border-radius: 10px;
+                                    background: rgba(255,152,0,0.15); display: flex; align-items: center; justify-content: center;
+                                    font-size: 1.2rem;
+                                ">📦</div>
+                                <div>
+                                    <div style="color: #8888aa; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.5px;">Taille totale</div>
+                                    <div id="statsTotalSize" style="color: #fff; font-size: 1.4rem; font-weight: 700;">0 KB</div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- PDF Files List -->
+                        <div id="pdfFilesList" style="
+                            background: #252530; border-radius: 12px; border: 1px solid #2a2a4a;
+                            overflow: hidden;
+                        ">
+                            <div style="padding: 3rem; text-align: center; color: #666;">
+                                <span style="font-size: 2rem;">⏳</span>
+                                <p>Chargement des fichiers PDF...</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Footer -->
+            <div style="
+                background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+                border-top: 1px solid #2a2a4a; padding: 0.6rem 2rem;
+                display: flex; justify-content: space-between; align-items: center; flex-shrink: 0;
+            ">
+                <div style="display: flex; align-items: center; gap: 1rem;">
+                    <div style="display: flex; align-items: center; gap: 0.4rem; color: #8888aa; font-size: 0.8rem;">
+                        <div style="width: 7px; height: 7px; border-radius: 50%; background: #4ec9b0; box-shadow: 0 0 6px #4ec9b0;"></div>
+                        <span>Connecté</span>
+                    </div>
+                    <span style="color: #3e3e52;">|</span>
+                    <span style="color: #6666aa; font-size: 0.75rem;">Gestion des Factures</span>
+                </div>
+                <div style="color: #6666aa; font-size: 0.75rem;">
+                    v1.1.86
+                </div>
+            </div>
         </div>
     `;
 }
@@ -181,8 +415,28 @@ window.loadAllPdfFiles = async function() {
 
     // Refresh companies from API to include any newly added companies
     try {
-        if (typeof _loadCompaniesFromAPI === 'function') {
-            await _loadCompaniesFromAPI();
+        const result = await window.electron.pdfCompanies.getAll();
+        if (result && result.success && Array.isArray(result.data)) {
+            // Update _cachedCompanies if it exists
+            if (typeof _cachedCompanies !== 'undefined') {
+                _cachedCompanies.length = 0;
+                result.data.forEach(c => _cachedCompanies.push({
+                    id: c.id,
+                    code: c.company_code,
+                    name: c.company_name,
+                    color: c.color || '#2196F3',
+                    enabled: c.enabled !== false,
+                    headerImage: c.header_image || null,
+                    footerImage: c.footer_image || null,
+                    signatureImage: c.signature_image || null,
+                    headerPath: c.header_path || '',
+                    footerPath: c.footer_path || '',
+                    signaturePath: c.signature_path || '',
+                    dbName: c.db_name || '',
+                    isBuiltin: c.is_builtin || false,
+                    table_style: c.table_style || 'style1'
+                }));
+            }
             updateFilterDropdownLabels();
         }
     } catch (e) {
@@ -210,22 +464,34 @@ window.loadAllPdfFiles = async function() {
     // Sort by date (newest first)
     allPdfFilesData.sort((a, b) => new Date(b.created) - new Date(a.created));
 
+    // Update files tab badge
+    const badge = document.getElementById('tabFilesBadge');
+    if (badge) badge.textContent = allPdfFilesData.length;
+
     // Apply current filter
     filterPdfFilesByCompany();
 };
 
-// Filter PDF files by company
+// Filter PDF files by company and creator
 window.filterPdfFilesByCompany = function() {
     const select = document.getElementById('pdfFilesCompanyFilter');
+    const creatorSelect = document.getElementById('pdfFilesCreatorFilter');
     const filterValue = select ? select.value : 'all';
+    const creatorValue = creatorSelect ? creatorSelect.value : 'all';
 
     let filtered = allPdfFilesData;
     if (filterValue !== 'all') {
         // Filter by settings key (SKM, SAAISS, BENALI)
         const settingsKey = filterValue.toUpperCase();
-        filtered = allPdfFilesData.filter(f => {
+        filtered = filtered.filter(f => {
             const fKey = getCompanySettingsKey(f._companyFolder);
             return fKey === settingsKey;
+        });
+    }
+    if (creatorValue !== 'all') {
+        filtered = filtered.filter(f => {
+            const creator = (f.creator || '').toUpperCase();
+            return creator === creatorValue.toUpperCase();
         });
     }
 
@@ -340,7 +606,7 @@ function renderPdfFilesList(files) {
 window.openServerPdfFile = function(serverPath) {
     try {
         // Build the full URL from the API base URL
-        const apiUrl = localStorage.getItem('apiUrl') || 'https://redouan.ddns.net/facture';
+        const apiUrl = localStorage.getItem('apiUrl') || 'https://anpe-web-api.ddns.net/facture';
         const fullUrl = apiUrl + serverPath;
         console.log('🌐 Opening server PDF:', fullUrl);
         // Open in a new browser window
@@ -498,19 +764,76 @@ window.exportDevisDataToDB = async function() {
     }
 };
 
-// Initialize PDF Files page
+// Track whether files tab has been loaded
+let _filesTabLoaded = false;
+
+// Switch between Settings and Files tabs
+window.switchPdfTab = function(tab) {
+    const tabSettings = document.getElementById('tabSettings');
+    const tabFiles = document.getElementById('tabFiles');
+    const btnSettings = document.getElementById('tabBtnSettings');
+    const btnFiles = document.getElementById('tabBtnFiles');
+
+    if (tab === 'settings') {
+        if (tabSettings) tabSettings.style.display = 'block';
+        if (tabFiles) tabFiles.style.display = 'none';
+        if (btnSettings) { btnSettings.style.color = '#fff'; btnSettings.style.borderBottom = '3px solid #667eea'; }
+        if (btnFiles) { btnFiles.style.color = '#888'; btnFiles.style.borderBottom = '3px solid transparent'; }
+    } else if (tab === 'files') {
+        if (tabSettings) tabSettings.style.display = 'none';
+        if (tabFiles) tabFiles.style.display = 'block';
+        if (btnSettings) { btnSettings.style.color = '#888'; btnSettings.style.borderBottom = '3px solid transparent'; }
+        if (btnFiles) { btnFiles.style.color = '#fff'; btnFiles.style.borderBottom = '3px solid #667eea'; }
+
+        // Lazy-load files on first switch
+        if (!_filesTabLoaded) {
+            _filesTabLoaded = true;
+            updateFilterDropdownLabels();
+            loadAllPdfFiles();
+        }
+    }
+};
+
+// Initialize unified PDF page (Settings + Files)
 window.initPdfFilesPage = async function() {
-    console.log('🔄 PDF Files page initializing - loading companies from API...');
-    // Ensure companies are loaded from API before building folder list
-    // _loadCompaniesFromAPI is defined in pdf_settings.js (loaded before this file)
+    console.log('🔄 Unified PDF page initializing...');
+    _filesTabLoaded = false;
+
+    // Load companies from API (needed for both tabs)
     try {
-        if (typeof _loadCompaniesFromAPI === 'function') {
-            await _loadCompaniesFromAPI();
-            console.log('✅ Companies refreshed from API for PDF files page');
+        const result = await window.electron.pdfCompanies.getAll();
+        if (result && result.success && Array.isArray(result.data)) {
+            if (typeof _cachedCompanies !== 'undefined') {
+                _cachedCompanies.length = 0;
+                result.data.forEach(c => _cachedCompanies.push({
+                    id: c.id,
+                    code: c.company_code,
+                    name: c.company_name,
+                    color: c.color || '#2196F3',
+                    enabled: c.enabled !== false,
+                    headerImage: c.header_image || null,
+                    footerImage: c.footer_image || null,
+                    signatureImage: c.signature_image || null,
+                    headerPath: c.header_path || '',
+                    footerPath: c.footer_path || '',
+                    signaturePath: c.signature_path || '',
+                    dbName: c.db_name || '',
+                    isBuiltin: c.is_builtin || false,
+                    table_style: c.table_style || 'style1'
+                }));
+            }
+            console.log('✅ Loaded', result.data.length, 'companies from API');
         }
     } catch (e) {
-        console.warn('⚠️ Could not load companies from API:', e);
+        console.error('⚠️ Could not load companies from API:', e);
     }
-    updateFilterDropdownLabels();
-    loadAllPdfFiles();
+
+    // Initialize Settings tab (company list)
+    if (typeof window.initPdfSettingsPage === 'function') {
+        await window.initPdfSettingsPage();
+    }
+
+    // Default to Settings tab
+    switchPdfTab('settings');
+    console.log('✅ Unified PDF page initialized');
 };

@@ -8,6 +8,37 @@ const COMPANY_COLORS = ['#FF9800', '#9C27B0', '#4CAF50', '#2196F3', '#f44336', '
 let _cachedCompanies = [];
 let _companiesLoaded = false;
 
+// Auto-load companies from API at startup so they're available on all pages
+(async function _preloadCompanies() {
+    try {
+        if (window.electron && window.electron.pdfCompanies) {
+            const result = await window.electron.pdfCompanies.getAll();
+            if (result && result.success && Array.isArray(result.data) && !_companiesLoaded) {
+                _cachedCompanies = result.data.map(c => ({
+                    id: c.id,
+                    code: c.company_code,
+                    name: c.company_name,
+                    color: c.color || '#2196F3',
+                    enabled: c.enabled !== false,
+                    headerImage: c.header_image || null,
+                    footerImage: c.footer_image || null,
+                    signatureImage: c.signature_image || null,
+                    headerPath: c.header_path || '',
+                    footerPath: c.footer_path || '',
+                    signaturePath: c.signature_path || '',
+                    dbName: c.db_name || '',
+                    isBuiltin: c.is_builtin || false,
+                    tableStyle: c.table_style || 'style1'
+                }));
+                _companiesLoaded = true;
+                console.log('✅ [PDF Settings] Auto-preloaded', _cachedCompanies.length, 'companies from API at startup');
+            }
+        }
+    } catch (e) {
+        console.warn('⚠️ [PDF Settings] Could not preload companies at startup:', e);
+    }
+})();
+
 // Get all companies from API (cached)
 async function _loadCompaniesFromAPI() {
     try {
@@ -26,7 +57,8 @@ async function _loadCompaniesFromAPI() {
                 footerPath: c.footer_path || '',
                 signaturePath: c.signature_path || '',
                 dbName: c.db_name || '',
-                isBuiltin: c.is_builtin || false
+                isBuiltin: c.is_builtin || false,
+                tableStyle: c.table_style || 'style1'
             }));
             _companiesLoaded = true;
             console.log('✅ [PDF Settings] Loaded', _cachedCompanies.length, 'companies from API');
@@ -188,6 +220,14 @@ function PDFSettingsPage() {
                                         border-radius: 8px; color: #fff; font-size: 1rem; font-weight: 600;
                                         outline: none; transition: border-color 0.3s; box-sizing: border-box;
                                     " onfocus="this.style.borderColor='#2196F3'" onblur="this.style.borderColor='#3e3e42'">
+                                </div>
+
+                                <!-- Table Style Selector -->
+                                <div class="card" style="background: #2d2d30; border-radius: 12px; padding: 1.5rem; margin-bottom: 1.5rem; border: 1px solid #3e3e42;">
+                                    <h3 style="color: #fff; margin: 0 0 0.8rem 0; font-size: 1.1rem;">📊 Style du tableau PDF</h3>
+                                    <p style="color: #999; font-size: 0.8rem; margin: 0 0 0.8rem 0;">Ce style sera utilisé pour le tableau des produits dans le PDF.</p>
+                                    <div id="editTableStyleGrid" style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.6rem;"></div>
+                                    <input type="hidden" id="editSelectedTableStyle" value="style1">
                                 </div>
 
                                 <button id="savePdfSettingsBtn" onclick="savePdfSettings()" style="
@@ -360,6 +400,40 @@ window.editCompanySettings = function(code) {
     // Load info
     document.getElementById('infoCompanyName').textContent = displayName;
 
+    // Load table style selector
+    const currentStyle = company.tableStyle || 'style1';
+    console.log(`📊 [Edit] Loading table style for ${code}: "${currentStyle}" (raw: "${company.tableStyle}")`);
+    const styleGrid = document.getElementById('editTableStyleGrid');
+    const styleInput = document.getElementById('editSelectedTableStyle');
+    if (styleGrid && styleInput) {
+        styleInput.value = currentStyle;
+        styleGrid.innerHTML = TABLE_STYLES.map(style => {
+            const isSelected = style.id === currentStyle;
+            return `<button class="edit-table-style-btn" data-style="${style.id}" style="
+                padding: 0.5rem; background: ${isSelected ? '#1a2e1a' : '#1e1e1e'}; 
+                border: ${isSelected ? '2px solid #4CAF50' : '1px solid #3e3e42'};
+                border-radius: 8px; cursor: pointer; text-align: center; transition: all 0.2s;
+            ">
+                <div style="display:flex;justify-content:center;margin-bottom:0.3rem;">${getTableStylePreviewSVG(style.id, company.color)}</div>
+                <div style="color: #fff; font-size: 0.8rem; font-weight: 600;">${style.name}</div>
+                <div style="color: #888; font-size: 0.65rem; margin-top: 0.1rem;">${style.desc}</div>
+            </button>`;
+        }).join('');
+
+        // Add click handlers for style buttons
+        styleGrid.querySelectorAll('.edit-table-style-btn').forEach(btn => {
+            btn.addEventListener('click', function() {
+                styleGrid.querySelectorAll('.edit-table-style-btn').forEach(b => {
+                    b.style.border = '1px solid #3e3e42';
+                    b.style.background = '#1e1e1e';
+                });
+                this.style.border = '2px solid #4CAF50';
+                this.style.background = '#1a2e1a';
+                styleInput.value = this.dataset.style;
+            });
+        });
+    }
+
     // Load image previews from company data (stored in DB)
     loadImagePreview('header', company);
     loadImagePreview('footer', company);
@@ -375,15 +449,189 @@ window.hideCompanyEditor = async function() {
     renderCompanyList();
 };
 
-// Table style definitions (6 styles)
+// Table style definitions (7 styles)
 const TABLE_STYLES = [
-    { id: 'style1', name: 'Classique', desc: 'Tableau simple avec bordures', icon: '📊', preview: 'border: 2px solid #333; header: gris foncé' },
-    { id: 'style2', name: 'Moderne', desc: 'En-tête coloré, lignes alternées', icon: '🎨', preview: 'header: couleur société, zebra stripes' },
-    { id: 'style3', name: 'Minimal', desc: 'Sans bordures, lignes fines', icon: '✨', preview: 'pas de bordures, séparateurs fins' },
-    { id: 'style4', name: 'Professionnel', desc: 'En-tête noir, bordures épaisses', icon: '💼', preview: 'header: noir, bordures 2px' },
-    { id: 'style5', name: 'Coloré', desc: 'Couleurs vives, coins arrondis', icon: '🌈', preview: 'header: gradient, coins arrondis' },
-    { id: 'style6', name: 'Compact', desc: 'Petit texte, plus de lignes', icon: '📋', preview: 'font: 8pt, padding réduit' }
+    { id: 'style1', name: 'Classique', desc: 'Gris, bordures simples' },
+    { id: 'style2', name: 'Moderne', desc: 'Couleur de votre société' },
+    { id: 'style3', name: 'Minimal', desc: 'Sans bordures, lignes fines' },
+    { id: 'style4', name: 'Professionnel', desc: 'Noir, bordures épaisses' },
+    { id: 'style5', name: 'Coloré', desc: 'Bleu dégradé, couleurs vives' },
+    { id: 'style6', name: 'Compact', desc: 'Petit texte, dense' },
+    { id: 'style7', name: 'Sans couleur', desc: 'Noir et blanc uniquement' }
 ];
+
+// Helper: lighten a hex color for zebra rows
+function lightenColor(hex, amount) {
+    hex = hex.replace('#', '');
+    const r = Math.min(255, parseInt(hex.substring(0, 2), 16) + amount);
+    const g = Math.min(255, parseInt(hex.substring(2, 4), 16) + amount);
+    const b = Math.min(255, parseInt(hex.substring(4, 6), 16) + amount);
+    return `rgb(${r},${g},${b})`;
+}
+// Helper: darken a hex color for gradient
+function darkenColor(hex, amount) {
+    hex = hex.replace('#', '');
+    const r = Math.max(0, parseInt(hex.substring(0, 2), 16) - amount);
+    const g = Math.max(0, parseInt(hex.substring(2, 4), 16) - amount);
+    const b = Math.max(0, parseInt(hex.substring(4, 6), 16) - amount);
+    return `rgb(${r},${g},${b})`;
+}
+
+// Generate inline SVG mini-table preview for each style
+function getTableStylePreviewSVG(styleId, companyColor) {
+    // Each style has its own FIXED color palette (matching PDF output exactly)
+    // Only style2 (Moderne) uses the company color
+    let cc;
+    if (styleId === 'style2') {
+        cc = companyColor || '#2196F3';
+    } else if (styleId === 'style5') {
+        cc = '#2196F3'; // fixed blue
+    } else {
+        cc = '#505050'; // not used for other styles
+    }
+    const ccLight = lightenColor(cc, 180);
+    const ccDark = darkenColor(cc, 50);
+    const w = 120, h = 60;
+    const hdrH = 12, rowH = 10;
+
+    if (styleId === 'style1') {
+        return `<svg width="${w}" height="${h}" xmlns="http://www.w3.org/2000/svg">
+            <rect x="0" y="0" width="${w}" height="${h}" rx="3" fill="#fff" stroke="#ccc" stroke-width="1"/>
+            <rect x="1" y="1" width="${w-2}" height="${hdrH}" fill="#505050"/>
+            <text x="6" y="9" fill="#fff" font-size="6" font-weight="bold">Désignation</text>
+            <text x="80" y="9" fill="#fff" font-size="5">Qté</text>
+            <text x="100" y="9" fill="#fff" font-size="5">Total</text>
+            <rect x="1" y="${hdrH+1}" width="${w-2}" height="${rowH}" fill="#f5f5f5"/>
+            <text x="6" y="${hdrH+8}" fill="#333" font-size="5">Produit A</text>
+            <text x="82" y="${hdrH+8}" fill="#333" font-size="5">10</text>
+            <text x="100" y="${hdrH+8}" fill="#333" font-size="5">500</text>
+            <line x1="1" y1="${hdrH+rowH+1}" x2="${w-1}" y2="${hdrH+rowH+1}" stroke="#ddd" stroke-width="0.5"/>
+            <rect x="1" y="${hdrH+rowH+1}" width="${w-2}" height="${rowH}" fill="#fff"/>
+            <text x="6" y="${hdrH+rowH+8}" fill="#333" font-size="5">Produit B</text>
+            <text x="82" y="${hdrH+rowH+8}" fill="#333" font-size="5">5</text>
+            <text x="100" y="${hdrH+rowH+8}" fill="#333" font-size="5">250</text>
+            <line x1="1" y1="${hdrH+2*rowH+1}" x2="${w-1}" y2="${hdrH+2*rowH+1}" stroke="#ddd" stroke-width="0.5"/>
+            <rect x="60" y="${h-14}" width="58" height="12" rx="2" fill="#505050"/>
+            <text x="64" y="${h-6}" fill="#fff" font-size="5" font-weight="bold">Total: 750 DH</text>
+        </svg>`;
+    } else if (styleId === 'style2') {
+        return `<svg width="${w}" height="${h}" xmlns="http://www.w3.org/2000/svg">
+            <rect x="0" y="0" width="${w}" height="${h}" rx="3" fill="#fff" stroke="#ccc" stroke-width="1"/>
+            <rect x="1" y="1" width="${w-2}" height="${hdrH}" fill="${cc}"/>
+            <text x="6" y="9" fill="#fff" font-size="6" font-weight="bold">Désignation</text>
+            <text x="80" y="9" fill="#fff" font-size="5">Qté</text>
+            <text x="100" y="9" fill="#fff" font-size="5">Total</text>
+            <rect x="1" y="${hdrH+1}" width="${w-2}" height="${rowH}" fill="${ccLight}"/>
+            <text x="6" y="${hdrH+8}" fill="#333" font-size="5">Produit A</text>
+            <text x="82" y="${hdrH+8}" fill="#333" font-size="5">10</text>
+            <text x="100" y="${hdrH+8}" fill="#333" font-size="5">500</text>
+            <rect x="1" y="${hdrH+rowH+1}" width="${w-2}" height="${rowH}" fill="#fff"/>
+            <text x="6" y="${hdrH+rowH+8}" fill="#333" font-size="5">Produit B</text>
+            <text x="82" y="${hdrH+rowH+8}" fill="#333" font-size="5">5</text>
+            <text x="100" y="${hdrH+rowH+8}" fill="#333" font-size="5">250</text>
+            <rect x="60" y="${h-14}" width="58" height="12" rx="2" fill="${cc}"/>
+            <text x="64" y="${h-6}" fill="#fff" font-size="5" font-weight="bold">Total: 750 DH</text>
+        </svg>`;
+    } else if (styleId === 'style3') {
+        return `<svg width="${w}" height="${h}" xmlns="http://www.w3.org/2000/svg">
+            <rect x="0" y="0" width="${w}" height="${h}" rx="3" fill="#fff" stroke="#eee" stroke-width="1"/>
+            <text x="6" y="9" fill="#333" font-size="6" font-weight="bold">Désignation</text>
+            <text x="80" y="9" fill="#333" font-size="5">Qté</text>
+            <text x="100" y="9" fill="#333" font-size="5">Total</text>
+            <line x1="4" y1="${hdrH}" x2="${w-4}" y2="${hdrH}" stroke="#bbb" stroke-width="0.5"/>
+            <text x="6" y="${hdrH+8}" fill="#555" font-size="5">Produit A</text>
+            <text x="82" y="${hdrH+8}" fill="#555" font-size="5">10</text>
+            <text x="100" y="${hdrH+8}" fill="#555" font-size="5">500</text>
+            <line x1="4" y1="${hdrH+rowH+1}" x2="${w-4}" y2="${hdrH+rowH+1}" stroke="#ddd" stroke-width="0.3"/>
+            <text x="6" y="${hdrH+rowH+8}" fill="#555" font-size="5">Produit B</text>
+            <text x="82" y="${hdrH+rowH+8}" fill="#555" font-size="5">5</text>
+            <text x="100" y="${hdrH+rowH+8}" fill="#555" font-size="5">250</text>
+            <line x1="60" y1="${h-14}" x2="${w-4}" y2="${h-14}" stroke="#333" stroke-width="0.5"/>
+            <text x="64" y="${h-6}" fill="#333" font-size="5" font-weight="bold">Total: 750 DH</text>
+        </svg>`;
+    } else if (styleId === 'style4') {
+        return `<svg width="${w}" height="${h}" xmlns="http://www.w3.org/2000/svg">
+            <rect x="0" y="0" width="${w}" height="${h}" rx="3" fill="#fff" stroke="#000" stroke-width="1.5"/>
+            <rect x="1" y="1" width="${w-2}" height="${hdrH}" fill="#000"/>
+            <text x="6" y="9" fill="#fff" font-size="6" font-weight="bold">Désignation</text>
+            <text x="80" y="9" fill="#fff" font-size="5">Qté</text>
+            <text x="100" y="9" fill="#fff" font-size="5">Total</text>
+            <rect x="1" y="${hdrH+1}" width="${w-2}" height="${rowH}" fill="#f0f0f0"/>
+            <text x="6" y="${hdrH+8}" fill="#000" font-size="5">Produit A</text>
+            <text x="82" y="${hdrH+8}" fill="#000" font-size="5">10</text>
+            <text x="100" y="${hdrH+8}" fill="#000" font-size="5">500</text>
+            <line x1="1" y1="${hdrH+rowH+1}" x2="${w-1}" y2="${hdrH+rowH+1}" stroke="#999" stroke-width="0.5"/>
+            <rect x="1" y="${hdrH+rowH+1}" width="${w-2}" height="${rowH}" fill="#fff"/>
+            <text x="6" y="${hdrH+rowH+8}" fill="#000" font-size="5">Produit B</text>
+            <text x="82" y="${hdrH+rowH+8}" fill="#000" font-size="5">5</text>
+            <text x="100" y="${hdrH+rowH+8}" fill="#000" font-size="5">250</text>
+            <rect x="60" y="${h-14}" width="58" height="12" rx="1" fill="#000"/>
+            <text x="64" y="${h-6}" fill="#fff" font-size="5" font-weight="bold">Total: 750 DH</text>
+        </svg>`;
+    } else if (styleId === 'style5') {
+        return `<svg width="${w}" height="${h}" xmlns="http://www.w3.org/2000/svg">
+            <defs><linearGradient id="g5_${cc.replace('#','')}" x1="0%" y1="0%" x2="100%" y2="0%"><stop offset="0%" style="stop-color:${cc}"/><stop offset="100%" style="stop-color:${ccDark}"/></linearGradient></defs>
+            <rect x="0" y="0" width="${w}" height="${h}" rx="3" fill="#fff" stroke="${cc}" stroke-width="1"/>
+            <rect x="1" y="1" width="${w-2}" height="${hdrH}" fill="url(#g5_${cc.replace('#','')})"/>
+            <text x="6" y="9" fill="#fff" font-size="6" font-weight="bold">Désignation</text>
+            <text x="80" y="9" fill="#fff" font-size="5">Qté</text>
+            <text x="100" y="9" fill="#fff" font-size="5">Total</text>
+            <rect x="1" y="${hdrH+1}" width="${w-2}" height="${rowH}" fill="${ccLight}"/>
+            <text x="6" y="${hdrH+8}" fill="#333" font-size="5">Produit A</text>
+            <text x="82" y="${hdrH+8}" fill="#333" font-size="5">10</text>
+            <text x="100" y="${hdrH+8}" fill="#333" font-size="5">500</text>
+            <rect x="1" y="${hdrH+rowH+1}" width="${w-2}" height="${rowH}" fill="#fafafa"/>
+            <text x="6" y="${hdrH+rowH+8}" fill="#333" font-size="5">Produit B</text>
+            <text x="82" y="${hdrH+rowH+8}" fill="#333" font-size="5">5</text>
+            <text x="100" y="${hdrH+rowH+8}" fill="#333" font-size="5">250</text>
+            <rect x="60" y="${h-14}" width="58" height="12" rx="2" fill="url(#g5_${cc.replace('#','')})"/>
+            <text x="64" y="${h-6}" fill="#fff" font-size="5" font-weight="bold">Total: 750 DH</text>
+        </svg>`;
+    } else if (styleId === 'style6') {
+        return `<svg width="${w}" height="${h}" xmlns="http://www.w3.org/2000/svg">
+            <rect x="0" y="0" width="${w}" height="${h}" rx="3" fill="#fff" stroke="#ccc" stroke-width="1"/>
+            <rect x="1" y="1" width="${w-2}" height="10" fill="#666"/>
+            <text x="6" y="8" fill="#fff" font-size="5" font-weight="bold">Désignation</text>
+            <text x="80" y="8" fill="#fff" font-size="4">Qté</text>
+            <text x="100" y="8" fill="#fff" font-size="4">Total</text>
+            <rect x="1" y="12" width="${w-2}" height="8" fill="#f8f8f8"/>
+            <text x="6" y="18" fill="#333" font-size="4">Produit A</text>
+            <text x="82" y="18" fill="#333" font-size="4">10</text>
+            <text x="100" y="18" fill="#333" font-size="4">500</text>
+            <line x1="1" y1="20" x2="${w-1}" y2="20" stroke="#ddd" stroke-width="0.3"/>
+            <rect x="1" y="20" width="${w-2}" height="8" fill="#fff"/>
+            <text x="6" y="26" fill="#333" font-size="4">Produit B</text>
+            <text x="82" y="26" fill="#333" font-size="4">5</text>
+            <text x="100" y="26" fill="#333" font-size="4">250</text>
+            <line x1="1" y1="28" x2="${w-1}" y2="28" stroke="#ddd" stroke-width="0.3"/>
+            <rect x="1" y="28" width="${w-2}" height="8" fill="#f8f8f8"/>
+            <text x="6" y="34" fill="#333" font-size="4">Produit C</text>
+            <text x="82" y="34" fill="#333" font-size="4">3</text>
+            <text x="100" y="34" fill="#333" font-size="4">150</text>
+            <rect x="60" y="${h-14}" width="58" height="12" rx="2" fill="#666"/>
+            <text x="64" y="${h-6}" fill="#fff" font-size="5" font-weight="bold">Total: 900 DH</text>
+        </svg>`;
+    } else if (styleId === 'style7') {
+        return `<svg width="${w}" height="${h}" xmlns="http://www.w3.org/2000/svg">
+            <rect x="0" y="0" width="${w}" height="${h}" rx="3" fill="#fff" stroke="#999" stroke-width="1"/>
+            <rect x="1" y="1" width="${w-2}" height="${hdrH}" fill="#fff" stroke-width="0"/>
+            <text x="6" y="9" fill="#000" font-size="6" font-weight="bold">Désignation</text>
+            <text x="80" y="9" fill="#000" font-size="5" font-weight="bold">Qté</text>
+            <text x="100" y="9" fill="#000" font-size="5" font-weight="bold">Total</text>
+            <line x1="1" y1="${hdrH}" x2="${w-1}" y2="${hdrH}" stroke="#000" stroke-width="1"/>
+            <text x="6" y="${hdrH+8}" fill="#000" font-size="5">Produit A</text>
+            <text x="82" y="${hdrH+8}" fill="#000" font-size="5">10</text>
+            <text x="100" y="${hdrH+8}" fill="#000" font-size="5">500</text>
+            <line x1="1" y1="${hdrH+rowH+1}" x2="${w-1}" y2="${hdrH+rowH+1}" stroke="#999" stroke-width="0.3"/>
+            <text x="6" y="${hdrH+rowH+8}" fill="#000" font-size="5">Produit B</text>
+            <text x="82" y="${hdrH+rowH+8}" fill="#000" font-size="5">5</text>
+            <text x="100" y="${hdrH+rowH+8}" fill="#000" font-size="5">250</text>
+            <line x1="60" y1="${h-15}" x2="${w-4}" y2="${h-15}" stroke="#000" stroke-width="1"/>
+            <text x="64" y="${h-6}" fill="#000" font-size="5" font-weight="bold">Total: 750 DH</text>
+        </svg>`;
+    }
+    return '';
+}
 
 // Generate auto code from company name
 function generateAutoCode(name) {
@@ -448,7 +696,12 @@ window.showAddCompanyModal = function() {
                 <label style="color: #ccc; font-size: 0.9rem; display: block; margin-bottom: 0.4rem;">Couleur :</label>
                 <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
                     ${COMPANY_COLORS.map(color => `
-                        <button class="color-pick-btn" data-color="${color}" onclick="document.querySelectorAll('.color-pick-btn').forEach(b=>b.style.outline='none');this.style.outline='3px solid #fff';document.getElementById('selectedNewColor').value='${color}';" style="
+                        <button class="color-pick-btn" data-color="${color}" onclick="
+                            document.querySelectorAll('.color-pick-btn').forEach(b=>b.style.outline='none');
+                            this.style.outline='3px solid #fff';
+                            document.getElementById('selectedNewColor').value='${color}';
+                            if(window._refreshAddStylePreviews) window._refreshAddStylePreviews('${color}');
+                        " style="
                             width: 36px; height: 36px; border-radius: 50%; background: ${color}; border: 2px solid #555;
                             cursor: pointer; ${color === availableColor ? 'outline: 3px solid #fff;' : ''}
                         "></button>
@@ -459,24 +712,9 @@ window.showAddCompanyModal = function() {
 
             <div style="margin-bottom: 1.5rem;">
                 <label style="color: #ccc; font-size: 0.9rem; display: block; margin-bottom: 0.6rem;">Style du tableau PDF :</label>
-                <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 0.5rem;">
-                    ${TABLE_STYLES.map((style, i) => `
-                        <button class="table-style-btn" data-style="${style.id}" onclick="
-                            document.querySelectorAll('.table-style-btn').forEach(b=>{b.style.border='1px solid #3e3e42';b.style.background='#1e1e1e';});
-                            this.style.border='2px solid #4CAF50';this.style.background='#1a2e1a';
-                            document.getElementById('selectedTableStyle').value='${style.id}';
-                        " style="
-                            padding: 0.6rem 0.4rem; background: ${i === 0 ? '#1a2e1a' : '#1e1e1e'}; 
-                            border: ${i === 0 ? '2px solid #4CAF50' : '1px solid #3e3e42'};
-                            border-radius: 8px; cursor: pointer; text-align: center; transition: all 0.2s;
-                        ">
-                            <div style="font-size: 1.3rem;">${style.icon}</div>
-                            <div style="color: #fff; font-size: 0.8rem; font-weight: 600; margin-top: 0.2rem;">${style.name}</div>
-                            <div style="color: #888; font-size: 0.65rem; margin-top: 0.1rem;">${style.desc}</div>
-                        </button>
-                    `).join('')}
-                    <input type="hidden" id="selectedTableStyle" value="style1">
+                <div id="addTableStyleGrid" style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.6rem;">
                 </div>
+                <input type="hidden" id="selectedTableStyle" value="style1">
             </div>
 
             <div style="background: #1a2e1a; border: 1px solid #4CAF5044; border-radius: 8px; padding: 0.8rem; margin-bottom: 1rem;">
@@ -499,6 +737,39 @@ window.showAddCompanyModal = function() {
         </div>
     `;
     document.body.appendChild(overlay);
+
+    // Populate style grid with SVG previews using the initial color
+    function renderAddStyleGrid(color) {
+        const grid = document.getElementById('addTableStyleGrid');
+        const currentSelected = document.getElementById('selectedTableStyle')?.value || 'style1';
+        if (!grid) return;
+        grid.innerHTML = TABLE_STYLES.map((style, i) => {
+            const isSelected = style.id === currentSelected;
+            return `<button class="table-style-btn" data-style="${style.id}" style="
+                padding: 0.5rem; background: ${isSelected ? '#1a2e1a' : '#1e1e1e'}; 
+                border: ${isSelected ? '2px solid #4CAF50' : '1px solid #3e3e42'};
+                border-radius: 8px; cursor: pointer; text-align: center; transition: all 0.2s;
+            ">
+                <div style="display:flex;justify-content:center;margin-bottom:0.3rem;">${getTableStylePreviewSVG(style.id, color)}</div>
+                <div style="color: #fff; font-size: 0.8rem; font-weight: 600;">${style.name}</div>
+                <div style="color: #888; font-size: 0.65rem; margin-top: 0.1rem;">${style.desc}</div>
+            </button>`;
+        }).join('');
+        // Add click handlers
+        grid.querySelectorAll('.table-style-btn').forEach(btn => {
+            btn.addEventListener('click', function() {
+                grid.querySelectorAll('.table-style-btn').forEach(b => {
+                    b.style.border = '1px solid #3e3e42';
+                    b.style.background = '#1e1e1e';
+                });
+                this.style.border = '2px solid #4CAF50';
+                this.style.background = '#1a2e1a';
+                document.getElementById('selectedTableStyle').value = this.dataset.style;
+            });
+        });
+    }
+    renderAddStyleGrid(availableColor);
+    window._refreshAddStylePreviews = renderAddStyleGrid;
 };
 
 // Add new company (ONLINE)
@@ -656,18 +927,28 @@ window.savePdfSettings = async function() {
         return;
     }
 
-    try {
-        const result = await window.electron.pdfCompanies.update(currentPdfSettingsCompany, {
-            company_name: newName
-        });
+    // Get selected table style
+    const tableStyleInput = document.getElementById('editSelectedTableStyle');
+    const tableStyle = tableStyleInput ? tableStyleInput.value : 'style1';
+    console.log(`💾 [Save] Company: ${currentPdfSettingsCompany}, Name: ${newName}, Table Style: ${tableStyle}`);
+    console.log(`💾 [Save] Hidden input element:`, tableStyleInput);
 
+    try {
+        const updateData = {
+            company_name: newName,
+            table_style: tableStyle
+        };
+        console.log(`💾 [Save] Sending update data:`, JSON.stringify(updateData));
+        const result = await window.electron.pdfCompanies.update(currentPdfSettingsCompany, updateData);
+
+        console.log(`💾 [Save] Result:`, JSON.stringify(result));
         if (result && result.success) {
-            // Update local cache
+            // Reload from API to ensure cache is in sync with DB
+            await _loadCompaniesFromAPI();
+            Object.assign(PDF_COMPANY_INFO, buildCompanyInfoMap());
+
             const company = _cachedCompanies.find(c => c.code === currentPdfSettingsCompany);
-            if (company) {
-                company.name = newName;
-                Object.assign(PDF_COMPANY_INFO, buildCompanyInfoMap());
-            }
+            console.log(`💾 [Save] After reload - company tableStyle: "${company?.tableStyle}"`);
 
             const infoEl = document.getElementById('infoCompanyName');
             if (infoEl) infoEl.textContent = newName;
@@ -677,7 +958,7 @@ window.savePdfSettings = async function() {
                 titleEl.innerHTML = `<span style="color: ${company.color};">🏭 ${newName}</span> <span style="color: #888; font-size: 0.85rem;">(${company.code}) - ID: #${company.id}</span>`;
             }
 
-            if (window.notify) window.notify.success('✅ Sauvegardé', `Paramètres pour "${newName}" sauvegardés en ligne`, 3000);
+            if (window.notify) window.notify.success('✅ Sauvegardé', `Paramètres pour "${newName}" sauvegardés (style: ${tableStyle})`, 3000);
         } else {
             if (window.notify) window.notify.error('Erreur', result?.error || 'Erreur serveur', 3000);
         }

@@ -709,9 +709,10 @@ async function handleEditInvoiceSubmitMulti(e) {
                 // ✅ Add user tracking
                 updated_by_user_id: currentUser?.id || null,
                 updated_by_user_name: currentUser?.name || null,
-                updated_by_user_email: currentUser?.email || null,
-                // ✅ Always reset to pending on edit so it appears in "Modified" filter
-                validation_status: 'pending'
+                updated_by_user_email: currentUser?.email || null
+                // ✅ Don't set validation_status to 'pending' for Admin edits
+                // Regular users will have it set to 'pending' by backend logic
+                // Admin edits will keep current validation_status (handled by backend)
             },
             products: [],
             totals: {

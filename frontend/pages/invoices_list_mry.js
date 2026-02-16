@@ -103,13 +103,6 @@ function InvoicesListMRYPage() {
                         </div>
                         
                         <div class="filter-group">
-                            <label>📅 Année:</label>
-                            <select id="filterYear" onchange="filterInvoices()">
-                                <option value="">Toutes</option>
-                            </select>
-                        </div>
-                        
-                        <div class="filter-group">
                             <label>📆 Mois:</label>
                             <select id="filterMonth" onchange="filterInvoices()">
                                 <option value="">Tous</option>
@@ -163,12 +156,13 @@ function InvoicesListMRYPage() {
                             </select>
                         </div>
 
+                        <!-- Creation Method Filter -->
                         <div class="filter-group">
-                            <label>🛠️ Méthode:</label>
+                            <label>🔧 Méthode de création:</label>
                             <select id="filterMethod" onchange="filterInvoices()">
                                 <option value="all">Tous</option>
-                                <option value="normal">Normal</option>
-                                <option value="converted">Conversion</option>
+                                <option value="normal">Créé normalement</option>
+                                <option value="converted">Converti</option>
                             </select>
                         </div>
 
@@ -179,6 +173,19 @@ function InvoicesListMRYPage() {
                                 <option value="all">Tous</option>
                                 <option value="converted">Convertis</option>
                                 <option value="not_converted">Non Convertis</option>
+                            </select>
+                        </div>
+                        
+                        <!-- AR Status Filter -->
+                        <div class="filter-group">
+                            <label>🕒 Accusé de Réception:</label>
+                            <select id="filterArStatusMRY" onchange="filterInvoices()">
+                                <option value="all">Tous</option>
+                                <option value="">— (vide)</option>
+                                <option value="sans_accuse">Sans accusé</option>
+                                <option value="en_attente">En attente</option>
+                                <option value="accuse">Accusé</option>
+                                <option value="done">Done</option>
                             </select>
                         </div>
                         
@@ -194,19 +201,6 @@ function InvoicesListMRYPage() {
                                 </select>
                                 <span id="unseenBadgeMRY" style="display: none; position: absolute; top: -8px; right: -8px; background: #f44336; color: white; border-radius: 50%; padding: 2px 6px; font-size: 10px; font-weight: bold; box-shadow: 0 2px 4px rgba(0,0,0,0.2);">0</span>
                             </div>
-                        </div>
-                        
-                        <!-- AR Status Filter -->
-                        <div class="filter-group">
-                            <label>🕒 Accusé de Réception:</label>
-                            <select id="filterArStatusMRY" onchange="filterInvoices()">
-                                <option value="all">Tous</option>
-                                <option value="">— (vide)</option>
-                                <option value="sans_accuse">Sans accusé</option>
-                                <option value="en_attente">En attente</option>
-                                <option value="accuse">Accusé</option>
-                            </select>
-                            <button onclick="window.bulkResetArStatusMRY()" style="margin-top: 0.3rem; padding: 0.3rem 0.6rem; background: #f44336; color: #fff; border: none; border-radius: 4px; cursor: pointer; font-size: 0.75rem; font-weight: 600; width: 100%;" title="Convertir tous les Sans accusé en vide">🔄 Reset Sans accusé</button>
                         </div>
                         
                         <div class="filter-group">
@@ -472,6 +466,12 @@ window.toggleValidationQueueMRY = function () {
 };
 
 window.handleValidateInvoiceMRY = async function (id, status) {
+    const currentUser = JSON.parse(localStorage.getItem('user') || '{}');
+    const isAdminViewer = currentUser.email === 'redouanerrebbahi99@gmail.com';
+    if (!isAdminViewer) {
+        window.notify?.error('Erreur', 'Action réservée à l\'admin', 3000);
+        return;
+    }
     const action = status === 'validated' ? 'valider' : 'rejeter';
     const confirmMessage = `Êtes-vous sûr de vouloir ${action} ce document ?`;
 
@@ -479,7 +479,8 @@ window.handleValidateInvoiceMRY = async function (id, status) {
 
     if (confirmed) {
         try {
-            const result = await window.electron.db.validateInvoice(id, status);
+            const currentUserVal = JSON.parse(localStorage.getItem('user') || '{}');
+            const result = await window.electron.db.validateInvoice(id, status, currentUserVal.email || '');
             if (result.success) {
                 // Update UI
                 loadPendingInvoicesMRY(); // Refresh pending
@@ -693,10 +694,21 @@ function displayInvoices(invoices) {
 
         // Ensure AR status is valid
         const arStatus = invoice.ar_status || '';
-        const arBg = arStatus === 'accuse' ? '#4caf50' : (arStatus === 'en_attente' ? '#ff9800' : (arStatus === 'sans_accuse' ? '#f44336' : '#424242'));
+        const arBg = arStatus === 'accuse' ? '#4caf50' : (arStatus === 'en_attente' ? '#ff9800' : (arStatus === 'sans_accuse' ? '#f44336' : (arStatus === 'done' ? '#2196f3' : '#424242')));
 
+        // Show red/yellow indicators for ALL users (Admin needs to see them too)
         const isUnseen = invoice.validation_status === 'pending';
         const isModified = invoice.is_modified === true;
+
+        // Debug logging for background color issue
+        if (invoice.is_modified || invoice.validation_status === 'pending') {
+            console.log(`🎨 [COLOR DEBUG] Invoice ${invoice.id}:`, {
+                is_modified: invoice.is_modified,
+                validation_status: invoice.validation_status,
+                isModified: isModified,
+                isUnseen: isUnseen
+            });
+        }
 
         let rowClass = invoice.creation_method === 'converted' ? 'row-converted' : '';
         let rowStyle = '';
@@ -704,9 +716,11 @@ function displayInvoices(invoices) {
         if (isModified) {
             // Modified takes precedence
             rowStyle = 'background-color: rgba(255, 152, 0, 0.1); font-weight: bold;';
+            console.log(`🟡 [YELLOW] Invoice ${invoice.id} showing YELLOW because isModified = true`);
         } else if (isUnseen) {
             rowClass = isUnseen && !rowClass ? 'row-unseen' : rowClass;
             rowStyle = 'background-color: rgba(244, 67, 54, 0.1); font-weight: bold;';
+            console.log(`🔴 [RED] Invoice ${invoice.id} showing RED because isUnseen = true`);
         }
 
         return `
@@ -723,24 +737,38 @@ function displayInvoices(invoices) {
                 <td>
                     <div style="display: flex; flex-direction: column; gap: 0.2rem;">
                         <small style="color: #2196f3; font-weight: 600;">👤 Créé par: ${invoice.created_by_user_name || '-'}</small>
-                        ${invoice.is_modified === true ?
+                        ${isModified ?
                 `<small style="color: #ff9800; font-weight: 600;">📝 Modifié par: ${invoice.updated_by_user_name}</small>` : ''}
                     </div>
                 </td>
                 <td>${formatNumber(invoice.total_ht)} DH</td>
                 <td><strong>${formatNumber(invoice.total_ttc)} DH</strong></td>
                 <td>
-                    ${invoice.document_type === 'devis' ? '<span style="color:#666;">—</span>' : `<select onchange="this.style.background=this.value==='accuse'?'#4caf50':this.value==='en_attente'?'#ff9800':this.value==='sans_accuse'?'#f44336':'#424242'; window.updateArStatusMRY('${invoice.id}', this.value)"
+                    ${invoice.document_type === 'devis' ? '<span style="color:#666;">—</span>' : `<select onchange="this.style.background=this.value==='accuse'?'#4caf50':this.value==='en_attente'?'#ff9800':this.value==='sans_accuse'?'#f44336':this.value==='done'?'#2196f3':'#424242'; window.updateArStatusMRY('${invoice.id}', this.value)"
                             style="padding: 0.4rem; background: ${arBg}; color: white; border: none; border-radius: 4px; font-size: 0.85rem; cursor: pointer; width: 100%; transition: background 0.3s;"
                             onclick="event.stopPropagation()">
                         <option value="" ${!arStatus ? 'selected' : ''} style="background: #424242; color: #fff;"></option>
                         <option value="sans_accuse" ${arStatus === 'sans_accuse' ? 'selected' : ''} style="background: #f44336; color: #fff;">Sans accusé</option>
                         <option value="en_attente" ${arStatus === 'en_attente' ? 'selected' : ''} style="background: #424242; color: #ff9800;">En attente</option>
                         <option value="accuse" ${arStatus === 'accuse' ? 'selected' : ''} style="background: #424242; color: #4caf50;">Accusé</option>
+                        <option value="done" ${arStatus === 'done' ? 'selected' : ''} style="background: #424242; color: #2196f3;">Done</option>
                     </select>`}
                 </td>
-                <td style="text-align: center; color: #757575;">
-                    <span style="${invoice.attachment_count > 0 ? 'color: #2196f3; font-weight: bold;' : ''}">${invoice.attachment_count || 0}</span>
+                <td style="text-align: center;">
+                    <div id="attachmentIndicator-${invoice.id}" onclick="viewInvoice(${invoice.id})" style="cursor: pointer;">
+                        ${(invoice.attachment_count || 0) > 0 ?
+                `<div style="position: relative; display: inline-block;">
+                            <svg width="20" height="20" viewBox="0 0 16 16" fill="#2196f3">
+                                <path d="M4.5 3a2.5 2.5 0 0 1 5 0v9a1.5 1.5 0 0 1-3 0V5a.5.5 0 0 1 1 0v7a.5.5 0 0 0 1 0V3a1.5 1.5 0 1 0-3 0v9a2.5 2.5 0 0 0 5 0V5a.5.5 0 0 1 1 0v7a3.5 3.5 0 1 1-7 0V3z"/>
+                            </svg>
+                            <span style="position: absolute; top: -8px; right: -8px; background: #f44336; color: white; border-radius: 50%; width: 16px; height: 16px; font-size: 10px; display: flex; align-items: center; justify-content: center; font-weight: bold; border: 1px solid #1e1e1e;">
+                                ${invoice.attachment_count}
+                            </span>
+                        </div>` :
+                `<svg width="20" height="20" viewBox="0 0 16 16" fill="#666" style="opacity: 0.5;">
+                            <path d="M4.5 3a2.5 2.5 0 0 1 5 0v9a1.5 1.5 0 0 1-3 0V5a.5.5 0 0 1 1 0v7a.5.5 0 0 0 1 0V3a1.5 1.5 0 1 0-3 0v9a2.5 2.5 0 0 0 5 0V5a.5.5 0 0 1 1 0v7a3.5 3.5 0 1 1-7 0V3z"/>
+                        </svg>`}
+                    </div>
                 </td>
                 <td>
                     <div class="action-buttons">
@@ -928,16 +956,16 @@ window.resetFilters = function () {
 // Filter invoices
 window.filterInvoices = async function () {
     currentPage = 1; // Reset to first page when filtering
-    const filterType = document.getElementById('filterType').value;
-    const filterYear = document.getElementById('filterYear').value;
-    const filterMonth = document.getElementById('filterMonth').value;
-    const filterClient = document.getElementById('filterClient').value;
-    const filterAttachments = document.getElementById('filterAttachments').value;
+    const filterType = document.getElementById('filterType')?.value || 'all';
+    const filterYear = document.getElementById('filterYear')?.value || 'all';
+    const filterMonth = document.getElementById('filterMonth')?.value || 'all';
+    const filterClient = document.getElementById('filterClient')?.value || '';
+    const filterAttachments = document.getElementById('filterAttachments')?.value || 'all';
     const filterMethod = document.getElementById('filterMethod')?.value || 'all';
     const filterDevisConversion = document.getElementById('filterDevisConversionMRY')?.value || 'all';
-    const arStatusFilter = document.getElementById('filterArStatusMRY').value;
+    const arStatusFilter = document.getElementById('filterArStatusMRY')?.value || 'all';
     const filterStatus = document.getElementById('filterStatusMRY')?.value || 'all';
-    const searchInput = document.getElementById('searchInput').value.toLowerCase();
+    const searchInput = document.getElementById('searchInput')?.value.toLowerCase() || '';
 
     // Show loading if search is active
     const loadingSpinner = document.getElementById('loadingSpinner');
@@ -961,12 +989,12 @@ window.filterInvoices = async function () {
     }
 
     // Filter by type
-    if (filterType) {
+    if (filterType && filterType !== 'all') {
         filtered = filtered.filter(inv => inv.document_type === filterType);
     }
 
     // Filter by year
-    if (filterYear) {
+    if (filterYear && filterYear !== 'all') {
         filtered = filtered.filter(inv => {
             const year = (window.safeParseDate||function(d){return new Date(d)})(inv.document_date).getFullYear().toString();
             return year === filterYear;
@@ -974,7 +1002,7 @@ window.filterInvoices = async function () {
     }
 
     // Filter by month
-    if (filterMonth) {
+    if (filterMonth && filterMonth !== 'all') {
         filtered = filtered.filter(inv => {
             const month = (window.safeParseDate||function(d){return new Date(d)})(inv.document_date).getMonth() + 1;
             const monthStr = month.toString().padStart(2, '0');
@@ -983,7 +1011,7 @@ window.filterInvoices = async function () {
     }
 
     // Filter by client
-    if (filterClient) {
+    if (filterClient && filterClient !== '' && filterClient !== 'all') {
         filtered = filtered.filter(inv => inv.client_nom === filterClient);
     }
 
@@ -1013,11 +1041,18 @@ window.filterInvoices = async function () {
 
     // Filter by AR Status (exclude devis - they don't have AR status)
     if (arStatusFilter !== 'all') {
+        console.log('🔍 [MRY] AR Filter active. Filter value:', JSON.stringify(arStatusFilter), 'Type:', typeof arStatusFilter);
+        const beforeCount = filtered.length;
         filtered = filtered.filter(inv => {
             if (inv.document_type === 'devis') return false;
             const status = inv.ar_status || '';
-            return status === arStatusFilter;
+            const match = status === arStatusFilter;
+            if (!match) {
+                console.log(`  ❌ Invoice ${inv.id} (${inv.document_type}): ar_status=${JSON.stringify(inv.ar_status)} normalized=${JSON.stringify(status)} vs filter=${JSON.stringify(arStatusFilter)}`);
+            }
+            return match;
         });
+        console.log(`🔍 [MRY] AR Filter result: ${beforeCount} → ${filtered.length} invoices`);
     }
 
     // Advanced search
@@ -1221,8 +1256,14 @@ window.sortTableMry = function (column) {
 
 // Mark invoice as seen (validated)
 window.markAsSeenMRY = async function (id) {
+    const currentUser = JSON.parse(localStorage.getItem('user') || '{}');
+    const isAdminViewer = currentUser.email === 'redouanerrebbahi99@gmail.com';
+    if (!isAdminViewer) {
+        window.notify.error('Erreur', 'Action réservée à l\'admin', 3000);
+        return;
+    }
     try {
-        const result = await window.electron.api.validateInvoice(id, 'validated');
+        const result = await window.electron.db.validateInvoice(id, 'validated', currentUser.email || '');
         if (result.success) {
             window.notify.success('Succès', 'Facture marquée comme lue', 3000);
 
@@ -1248,7 +1289,8 @@ window.markAsSeenMRY = async function (id) {
 window.viewInvoice = async function (id) {
     try {
         console.log('👁️ [VIEW] Opening invoice details for ID:', id);
-        const result = await window.electron.db.getInvoiceById(id);
+        const currentUserForView = JSON.parse(localStorage.getItem('user') || '{}');
+        const result = await window.electron.db.getInvoiceById(id, currentUserForView.email || '');
 
         if (!result.success || !result.data) {
             window.notify.error('Erreur', 'Facture introuvable', 3000);
@@ -1256,25 +1298,39 @@ window.viewInvoice = async function (id) {
         }
 
         const invoice = result.data;
+        console.log('📎 [ATTACHMENTS DEBUG] Invoice data:', invoice);
+        console.log('📎 [ATTACHMENTS DEBUG] Attachments array:', invoice.attachments);
+        console.log('📎 [ATTACHMENTS DEBUG] Attachment count:', invoice.attachment_count);
+        
         const date = (window.safeParseDate||function(d){return new Date(d)})(invoice.document_date).toLocaleDateString('fr-FR');
         const docNumber = invoice.document_numero || invoice.document_numero_devis || '-';
         const typeLabel = invoice.document_type === 'facture' ? 'Facture' : 'Devis';
 
-        // Auto-validate if pending (mark as seen automatically)
-        if (invoice.validation_status === 'pending') {
-            console.log('📝 [AUTO-VALIDATE] Invoice is pending, marking as seen automatically...');
+        // Auto-validate if pending or modified - ONLY for Admin users
+        const currentUser = JSON.parse(localStorage.getItem('user') || '{}');
+        const isAdminViewer = currentUser.email === 'redouanerrebbahi99@gmail.com';
+        
+        if (isAdminViewer && (invoice.validation_status === 'pending' || invoice.is_modified)) {
+            console.log('📝 [AUTO-VALIDATE] Admin viewing - clearing highlights...');
             try {
-                await window.electron.db.validateInvoice(id, 'validated');
-                console.log('✅ [AUTO-VALIDATE] Invoice marked as seen');
-                // Update the invoice object to reflect the change
+                await window.electron.db.validateInvoice(id, 'validated', currentUser.email || '');
+                console.log('✅ [AUTO-VALIDATE] Invoice validated & is_modified reset');
                 invoice.validation_status = 'validated';
-                // Update badges if function exists
+                invoice.is_modified = false;
+                // Update local cache immediately
+                const localInv = allInvoices.find(inv => inv.id === id);
+                if (localInv) { localInv.validation_status = 'validated'; localInv.is_modified = false; }
+                const filteredInv = filteredInvoices.find(inv => inv.id === id);
+                if (filteredInv) { filteredInv.validation_status = 'validated'; filteredInv.is_modified = false; }
+                displayInvoices(filteredInvoices);
                 if (typeof updatePendingCounts === 'function') {
                     setTimeout(() => updatePendingCounts(), 500);
                 }
             } catch (error) {
                 console.error('❌ [AUTO-VALIDATE] Error:', error);
             }
+        } else if (!isAdminViewer) {
+            console.log('ℹ️ [AUTO-VALIDATE] Regular user viewing - keeping validation_status and is_modified unchanged');
         }
 
         console.log('👁️ [VIEW] Creating overlay and modal...');
@@ -1483,12 +1539,31 @@ window.viewInvoice = async function (id) {
         const closeBtn = document.getElementById('closeViewModal');
         console.log('👁️ [VIEW] Close button found:', closeBtn ? 'Yes' : 'No');
 
+        // Helper: update local data and re-render after viewing invoice
+        const _refreshAfterView = () => {
+            const localInv = allInvoices.find(inv => inv.id === id);
+            if (localInv) {
+                localInv.validation_status = 'validated';
+                localInv.is_modified = false;
+            }
+            const filteredInv = filteredInvoices.find(inv => inv.id === id);
+            if (filteredInv) {
+                filteredInv.validation_status = 'validated';
+                filteredInv.is_modified = false;
+            }
+            displayInvoices(filteredInvoices);
+            if (typeof updatePendingCounts === 'function') {
+                setTimeout(() => updatePendingCounts(), 300);
+            }
+        };
+
         if (closeBtn) {
             closeBtn.onclick = () => {
                 console.log('🔴🔴🔴 [CLOSE] Close button clicked from JavaScript event listener!');
                 console.log('🔴 [CLOSE] Overlay exists:', overlay ? 'Yes' : 'No');
                 console.log('🔴 [CLOSE] Overlay parent:', overlay.parentElement ? 'Yes' : 'No');
                 overlay.remove();
+                _refreshAfterView();
                 console.log('🔴 [CLOSE] Overlay removed');
             };
         } else {
@@ -1498,6 +1573,7 @@ window.viewInvoice = async function (id) {
             if (e.target === overlay) {
                 console.log('🔴 [CLOSE] Overlay clicked');
                 overlay.remove();
+                _refreshAfterView();
             }
         };
 
@@ -1614,8 +1690,22 @@ window.viewInvoice = async function (id) {
 }
 
 // Edit invoice - Navigate to separate page
-window.editInvoice = function (id) {
+window.editInvoice = async function (id) {
     console.log('✏️ [EDIT] Opening edit page for invoice ID:', id);
+    // Clear highlights immediately (validate + reset is_modified)
+    try {
+        const currentUser = JSON.parse(localStorage.getItem('user') || '{}');
+        const isAdminViewer = currentUser.email === 'redouanerrebbahi99@gmail.com';
+        if (isAdminViewer) {
+            await window.electron.db.validateInvoice(id, 'validated', currentUser.email || '');
+            const localInv = allInvoices.find(inv => inv.id === id);
+            if (localInv) { localInv.validation_status = 'validated'; localInv.is_modified = false; }
+            const filteredInv = filteredInvoices.find(inv => inv.id === id);
+            if (filteredInv) { filteredInv.validation_status = 'validated'; filteredInv.is_modified = false; }
+            displayInvoices(filteredInvoices);
+            if (typeof updatePendingCounts === 'function') setTimeout(() => updatePendingCounts(), 300);
+        }
+    } catch (e) { console.error('❌ [EDIT] Error clearing highlights:', e); }
     localStorage.setItem('editInvoiceIdMRY', id);
     router.navigate('/edit-invoice-mry');
 }
@@ -2599,10 +2689,27 @@ window.addNewAttachment = async function (invoiceId) {
 
             window.notify.success('Succès', 'Fichier(s) ajouté(s) avec succès', 3000);
 
-            // Refresh specifically the attachments section
+            // Fetch updated invoice data from database to get correct attachment_count
+            const updatedResult = await window.electron.db.getInvoiceById(invoiceId);
+            if (updatedResult.success && updatedResult.data) {
+                const correctCount = updatedResult.data.attachment_count || 0;
+                
+                // Update local state with correct count from database
+                const inv = allInvoices.find(i => i.id == invoiceId);
+                if (inv) {
+                    inv.attachment_count = correctCount;
+                }
+                const filteredInv = filteredInvoices.find(i => i.id == invoiceId);
+                if (filteredInv) {
+                    filteredInv.attachment_count = correctCount;
+                }
+            }
+
+            // Refresh specifically the attachments section in modal
             refreshAttachmentsMRY(invoiceId);
-            // Refresh main table
-            loadInvoices();
+            
+            // Re-render the display with updated data (no full reload needed)
+            displayInvoices(filteredInvoices);
 
         } catch (error) {
             console.error('Error uploading attachments:', error);
@@ -4373,16 +4480,18 @@ window.updateArStatusMRY = async function (id, status) {
             // Update UI feedback immediately
             window.notify.success('Succès', 'Statut Accusé R. mis à jour');
 
-            // Update local state without full reload to keep scroll position
+            // Update local state immediately in both arrays
             const inv = allInvoices.find(i => i.id == id);
             if (inv) {
                 inv.ar_status = status;
-                // Force background color update if needed (optional since select has logic)
-                // But full reload is safer for consistency? 
-                // Let's just reload to be safe or re-render row?
-                // For now, let's just reload to update the background color of the select in the row
-                loadInvoices();
             }
+            const filteredInv = filteredInvoices.find(i => i.id == id);
+            if (filteredInv) {
+                filteredInv.ar_status = status;
+            }
+            
+            // Re-render the display with updated data (no full reload needed)
+            displayInvoices(filteredInvoices);
         } else {
             console.error('Update AR error:', result.error);
             window.notify.error('Erreur', 'Échec de la mise à jour: ' + result.error);

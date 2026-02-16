@@ -539,13 +539,28 @@ app.get('/invoices/id/:id', async (req, res) => {
     invoice.attachments = attachmentsRes.rows;
     invoice.attachment_count = attachmentsRes.rows.length;
 
-    // ✅ Reset is_modified flag when viewed (Safe check)
-    if (invoice.is_modified === true) {
+    // ✅ Reset is_modified flag ONLY when viewed by a user WITHOUT auto-validate
+    // (i.e. Admin or users with can_auto_validate should NOT reset - they see the colors)
+    // Actually: the reset should happen when Admin views, so the color disappears after Admin sees it
+    const viewerEmail = req.query.user_email || '';
+    
+    // Check if viewer is Admin (the one who reviews invoices)
+    // Admin = redouanerrebbahi99@gmail.com - the person who needs to see and clear the flags
+    const isAdminViewer = viewerEmail === 'redouanerrebbahi99@gmail.com';
+    
+    console.log(`🔍 [IS_MODIFIED DEBUG] Invoice ${id}: viewer=${viewerEmail}, isAdmin=${isAdminViewer}`);
+    
+    // Handle both boolean true and string 'true' or numeric 1
+    const isModified = invoice.is_modified === true || invoice.is_modified === 'true' || invoice.is_modified === 1;
+    
+    // Only reset if Admin is viewing (Admin clears the flags by viewing)
+    if (isModified && isAdminViewer) {
+      console.log(`🔄 [IS_MODIFIED] Admin viewing - resetting is_modified for invoice ${id}`);
       try {
         await pool.query('UPDATE invoices SET is_modified = false WHERE id = $1', [id]);
         invoice.is_modified = false;
       } catch (e) {
-        console.warn('is_modified column may be missing, skipping reset.');
+        console.error('❌ [IS_MODIFIED] Error resetting:', e.message);
       }
     }
 
@@ -594,7 +609,7 @@ app.post('/invoices', async (req, res) => {
       req.body.created_by_user_name = doc.created_by_user_name || req.body.created_by_user_name;
       req.body.created_by_user_email = doc.created_by_user_email || req.body.created_by_user_email;
 
-      const ar_status_val = doc.ar_status || req.body.ar_status || 'sans_accuse';
+      const ar_status_val = doc.ar_status || req.body.ar_status || '';
       req.body.ar_status_resolved = ar_status_val;
     }
 
@@ -723,6 +738,15 @@ app.post('/invoices', async (req, res) => {
       RETURNING id
     `;
 
+    // is_modified should always be FALSE on CREATE (new invoices are not "modified")
+    // is_modified will be set to TRUE only on UPDATE by regular users
+    // This way:
+    // - New invoices (validation_status=pending, is_modified=false) appear as "Nouveau"
+    // - Edited invoices (validation_status=pending, is_modified=true) appear as "Modifié"
+    const initialIsModified = false;
+
+    console.log(`📝 [CREATE] Invoice creator: ${resolvedUserEmail}, is_modified: ${initialIsModified}`);
+
     const invoiceValues = [
       company_code, client_id, document_type, document_date,
       document_numero, document_numero_order, document_numero_bl,
@@ -730,13 +754,13 @@ app.post('/invoices', async (req, res) => {
       document_numero_commande, year, sequential_id || 0,
       total_ht || 0, tva_rate || 20, montant_tva || 0, total_ttc || 0,
       creation_method || 'normal', created_by || null, delivered_by || null,
-      req.body.ar_status_resolved || 'sans_accuse',
+      req.body.ar_status_resolved || '',
       validation_status,
       resolvedUserId,
       resolvedUserName,
       resolvedUserEmail
     ];
-    if (columnExists) invoiceValues.push(false); // is_modified default
+    if (columnExists) invoiceValues.push(initialIsModified); // is_modified based on creator
     if (convertedColumnExists) invoiceValues.push(false); // is_converted default
 
     console.log(`📝 [API DEBUG] Creating invoice for ${company_code}:`, {
@@ -811,8 +835,7 @@ app.put('/invoices/:id', async (req, res) => {
       if (doc.ar_status !== undefined) ar_status = doc.ar_status;
 
       // LOGIC CHANGE: If an invoice is updated, default it back to 'pending' so Admin sees it.
-      // Unless validation_status is explicitly passed (e.g. by Admin validating it).
-      // BUT: If only ar_status is being changed (no other content fields), do NOT mark as pending.
+      // Unless the user has can_auto_validate permission in User Management.
       if (doc.validation_status !== undefined) {
         validation_status = doc.validation_status;
       } else {
@@ -823,8 +846,32 @@ app.put('/invoices/:id', async (req, res) => {
           doc.bon_de_livraison !== undefined || doc.numero_commande !== undefined ||
           doc.type !== undefined || products !== undefined || 
           req.body.totals !== undefined || req.body.client !== undefined;
+        
+        // Check if editor has auto-validation permission from User Management
+        let hasAutoValidate = false;
+        const editorEmail = doc.updated_by_user_email;
+        if (editorEmail) {
+          try {
+            const userCheck = await pool.query('SELECT can_auto_validate FROM users WHERE email = $1', [editorEmail]);
+            if (userCheck.rows.length > 0 && userCheck.rows[0].can_auto_validate === true) {
+              hasAutoValidate = true;
+            }
+          } catch (e) {
+            console.error('❌ [UPDATE] Error checking user auto-validate permission:', e.message);
+          }
+        }
+        
+        console.log(`📝 [VALIDATION_STATUS LOGIC] isContentEdit=${isContentEdit}, editorEmail=${editorEmail}, hasAutoValidate=${hasAutoValidate}`);
+        
         if (isContentEdit) {
-          validation_status = 'pending';
+          if (!hasAutoValidate) {
+            validation_status = 'pending';
+            console.log(`📝 [VALIDATION_STATUS] User without auto-validate editing - setting to 'pending'`);
+          } else {
+            console.log(`📝 [VALIDATION_STATUS] User with auto-validate editing - keeping current status`);
+          }
+        } else {
+          console.log(`📝 [VALIDATION_STATUS] Not a content edit - keeping current status`);
         }
       }
 
@@ -913,6 +960,24 @@ app.put('/invoices/:id', async (req, res) => {
       doc.type !== undefined || products !== undefined || 
       req.body.totals !== undefined || req.body.client !== undefined;
 
+    // Check if the user editing has auto-validate permission - if so, don't set is_modified
+    let editorHasAutoValidate = false;
+    if (updated_by_user_email) {
+      try {
+        const userAutoCheck = await pool.query('SELECT can_auto_validate FROM users WHERE email = $1', [updated_by_user_email]);
+        if (userAutoCheck.rows.length > 0 && userAutoCheck.rows[0].can_auto_validate === true) {
+          editorHasAutoValidate = true;
+        }
+      } catch (e) {
+        console.error('❌ [UPDATE] Error checking user auto-validate for is_modified:', e.message);
+      }
+    }
+    const shouldSetModified = columnExists && hasContentChange && !editorHasAutoValidate;
+
+    console.log(`📝 [UPDATE] Invoice ${id}: hasContentChange=${hasContentChange}, editorEmail=${updated_by_user_email}, hasAutoValidate=${editorHasAutoValidate}, shouldSetModified=${shouldSetModified}`);
+    console.log(`📝 [VALIDATION_STATUS] Invoice ${id}: validation_status=${validation_status}, type=${typeof validation_status}`);
+    console.log(`📝 [FINAL VALUES] Invoice ${id}: is_modified will be ${shouldSetModified ? 'TRUE' : 'UNCHANGED'}, validation_status=${validation_status || 'UNCHANGED'}`);
+
     await client.query(`
             UPDATE invoices SET 
                 client_id = COALESCE($1, client_id),
@@ -935,7 +1000,7 @@ app.put('/invoices/:id', async (req, res) => {
                 updated_by_user_id = COALESCE($18, updated_by_user_id),
                 updated_by_user_name = COALESCE($19, updated_by_user_name),
                 updated_by_user_email = COALESCE($20, updated_by_user_email),
-                ${columnExists && hasContentChange ? 'is_modified = true,' : ''}
+                ${shouldSetModified ? 'is_modified = true,' : ''}
                 updated_at = NOW()
             WHERE id = $21
         `, [
@@ -1042,21 +1107,35 @@ app.post('/attachments', async (req, res) => {
     const { invoice_id, filename, file_type, file_size, file_data, file_path } = req.body;
 
     console.log(`📝 [API] Attempting to add attachment: ${filename} for invoice: ${invoice_id}`);
+    console.log(`📊 [API] File details - Type: ${file_type}, Size: ${file_size}, Has file_data: ${!!file_data}, Has file_path: ${!!file_path}`);
+
+    // Validate required fields
+    if (!invoice_id) {
+      throw new Error('invoice_id is required');
+    }
+    if (!filename) {
+      throw new Error('filename is required');
+    }
 
     await client.query('BEGIN');
 
     // Convert base64 to buffer if provided
     let dataBuffer = null;
     if (file_data) {
-      dataBuffer = Buffer.from(file_data, 'base64');
-      console.log(`📊 [API] Converted file_data to buffer (${dataBuffer.length} bytes)`);
+      try {
+        dataBuffer = Buffer.from(file_data, 'base64');
+        console.log(`📊 [API] Converted file_data to buffer (${dataBuffer.length} bytes)`);
+      } catch (bufferErr) {
+        console.error('❌ [API] Buffer conversion error:', bufferErr);
+        throw new Error('Failed to convert file data: ' + bufferErr.message);
+      }
     }
 
     const result = await client.query(
-      `INSERT INTO invoice_attachments (invoice_id, filename, file_type, file_size, file_path, file_data, created_at)
-       VALUES ($1, $2, $3, $4, $5, $6, NOW())
+      `INSERT INTO invoice_attachments (invoice_id, filename, file_type, file_size, file_path, file_data)
+       VALUES ($1, $2, $3, $4, $5, $6)
        RETURNING id`,
-      [invoice_id, filename, file_type, file_size, file_path, dataBuffer]
+      [invoice_id, filename, file_type || 'application/octet-stream', file_size || 0, file_path || null, dataBuffer]
     );
 
     const attachmentId = result.rows[0].id;
@@ -1073,8 +1152,9 @@ app.post('/attachments', async (req, res) => {
     res.json({ success: true, data: { id: attachmentId } });
   } catch (err) {
     if (client) await client.query('ROLLBACK');
-    console.error('❌ [API] Transaction ERROR:', err);
-    res.status(500).json({ success: false, error: err.message });
+    console.error('❌ [API] Attachment upload ERROR:', err);
+    console.error('❌ [API] Error stack:', err.stack);
+    res.status(500).json({ success: false, error: err.message || 'Failed to upload attachment' });
   } finally {
     client.release();
   }
@@ -1133,11 +1213,20 @@ app.post('/delivery-persons', async (req, res) => {
 // Get all pending invoices
 // Route moved up to avoid conflict with /invoices/:company
 
-// Validate or Reject an invoice
+// Validate or Reject an invoice - ADMIN ONLY
 app.put('/invoices/:id/validation', async (req, res) => {
   try {
     const { id } = req.params;
-    const { status } = req.body; // 'validated' or 'rejected'
+    const { status, user_email } = req.body; // 'validated' or 'rejected'
+
+    // Safety net: Only Admin can validate/reject invoices
+    const isAdmin = user_email === 'redouanerrebbahi99@gmail.com';
+    console.log(`🔐 [VALIDATION] Invoice ${id}: status=${status}, user_email=${user_email}, isAdmin=${isAdmin}`);
+    
+    if (!isAdmin) {
+      console.log(`❌ [VALIDATION] Rejected - non-Admin user tried to validate invoice ${id}`);
+      return res.status(403).json({ success: false, message: 'Action réservée à l\'admin' });
+    }
 
     if (!['validated', 'rejected'].includes(status)) {
       return res.status(400).json({ success: false, message: 'Invalid status' });
@@ -1157,8 +1246,9 @@ app.put('/invoices/:id/validation', async (req, res) => {
       return;
     }
 
+    const columnExists = await checkIsModifiedExists();
     const result = await pool.query(
-      'UPDATE invoices SET validation_status = $1, updated_at = NOW() WHERE id = $2 RETURNING id',
+      `UPDATE invoices SET validation_status = $1${columnExists ? ', is_modified = false' : ''}, updated_at = NOW() WHERE id = $2 RETURNING id`,
       [status, id]
     );
 
@@ -1260,51 +1350,7 @@ app.get('/attachments/id/:id', async (req, res) => {
   }
 });
 
-// Add attachment
-app.post('/attachments', async (req, res) => {
-  console.log('🔵 [API] POST /attachments called');
-  const client = await pool.connect();
-  try {
-    const { invoice_id, filename, file_type, file_size, file_path, file_data } = req.body;
-
-    console.log(`📝 [API] Attempting to add attachment: ${filename} for invoice: ${invoice_id}`);
-
-    await client.query('BEGIN');
-
-    // Convert base64 to buffer if provided
-    let dataBuffer = null;
-    if (file_data) {
-      dataBuffer = Buffer.from(file_data, 'base64');
-      console.log(`📊 [API] Converted file_data to buffer (${dataBuffer.length} bytes)`);
-    }
-
-    const result = await client.query(
-      `INSERT INTO invoice_attachments (invoice_id, filename, file_type, file_size, file_path, file_data, created_at)
-       VALUES ($1, $2, $3, $4, $5, $6, NOW())
-       RETURNING id`,
-      [invoice_id, filename, file_type, file_size, file_path, dataBuffer]
-    );
-
-    const attachmentId = result.rows[0].id;
-    console.log(`✅ [API] Inserted attachment record ID: ${attachmentId}`);
-
-    // Update attachment_count in invoices
-    await client.query(
-      'UPDATE invoices SET attachment_count = (SELECT COUNT(*) FROM invoice_attachments WHERE invoice_id = $1) WHERE id = $1',
-      [invoice_id]
-    );
-
-    await client.query('COMMIT');
-    console.log(`✨ [API] Transaction committed successfully for invoice ${invoice_id}`);
-    res.json({ success: true, data: { id: attachmentId } });
-  } catch (err) {
-    if (client) await client.query('ROLLBACK');
-    console.error('❌ [API] Transaction ERROR:', err);
-    res.status(500).json({ success: false, error: err.message });
-  } finally {
-    client.release();
-  }
-});
+// Duplicate endpoint removed - using the first /attachments POST endpoint above
 
 // --- GLOBAL INVOICE ROUTES ---
 

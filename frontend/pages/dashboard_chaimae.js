@@ -159,10 +159,8 @@ window.deleteAllDataChaimae = async function () {
 };
 
 window.openPdfManagerChaimae = function (type) {
-    let folder = 'chaimae';
-    if (type === 'skm') folder = 'chaimae_skm';
-    if (type === 'saaiss') folder = 'chaimae_saaiss';
-    if (type === 'benali') folder = 'chaimae_benali';
+    let folder = type ? 'chaimae_' + type : 'chaimae';
+    console.log('📁 [CHAIMAE] Opening PDF Manager for folder:', folder, '(type:', type, ')');
 
     if (typeof window.showPdfManager === 'function') {
         window.showPdfManager(folder);

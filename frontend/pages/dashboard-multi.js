@@ -123,15 +123,10 @@ document.addEventListener('click', function (e) {
             // No saved preference, go to year selector first
             router.navigate('/year-selector-multi');
         }
-    } else if (action === 'view-pdf-skm') {
-        console.log('📁 Opening PDF Manager for SKM');
-        window.showPdfManager('skm');
-    } else if (action === 'view-pdf-saaiss') {
-        console.log('📁 Opening PDF Manager for MSH3 SERVICES');
-        window.showPdfManager('saaiss');
-    } else if (action === 'view-pdf-benali') {
-        console.log('📁 Opening PDF Manager for BEN ALI');
-        window.showPdfManager('benali');
+    } else if (action.startsWith('view-pdf-')) {
+        const companyCode = action.replace('view-pdf-', '');
+        console.log('📁 Opening PDF Manager for company:', companyCode);
+        window.showPdfManager(companyCode);
     } else if (action === 'back-to-select') {
         localStorage.removeItem('selectedCompany');
         router.navigate('/company-select');

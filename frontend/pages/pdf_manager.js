@@ -1,17 +1,25 @@
 // PDF Manager - Display and manage saved PDF files
 window.showPdfManager = async function (company) {
+    console.log(`📂 [PDF Manager] Opening for company: "${company}"`);
     try {
         // Store the current PDF company for refresh purposes
         window.currentPdfCompany = company;
 
         // Get the current company (creator)
         const selectedCompany = JSON.parse(localStorage.getItem('selectedCompany') || '{}');
-        const createdBy = selectedCompany.code || selectedCompany.name || null;
+        // For built-in company folders, filter by creator; for dynamic companies, show ALL
+        const builtinFolders = ['skm', 'chaimae_skm', 'smarts', 'chaimae_smarts', 'saaiss', 'chaimae_saaiss', 'msh3', 'chaimae_msh3', 'benali', 'chaimae_benali'];
+        const isDynamic = !builtinFolders.includes(company.toLowerCase());
+        const createdBy = isDynamic ? null : (selectedCompany.code || selectedCompany.name || null);
+        console.log(`📂 [PDF Manager] Creator filter: "${createdBy}" (isDynamic: ${isDynamic})`);
 
-        // Get all PDF files for this company, filtered by creator
+        // Get all PDF files for this company
+        console.log(`📂 [PDF Manager] Calling getPdfFiles("${company}", ${createdBy ? `"${createdBy}"` : 'null'})...`);
         const result = await window.electron.pdf.getPdfFiles(company, createdBy);
+        console.log(`📂 [PDF Manager] getPdfFiles result:`, result);
 
         if (!result.success) {
+            console.error(`❌ [PDF Manager] getPdfFiles failed:`, result.error);
             showPdfErrorModal('Erreur', 'Échec du chargement des fichiers PDF: ' + result.error);
             return;
         }
@@ -44,9 +52,12 @@ window.showPdfManager = async function (company) {
 
         // Map company codes to full names (use custom names from PDF settings if available)
         let companyDisplayName = company.toUpperCase();
-        if (company === 'skm' || company === 'chaimae_skm') companyDisplayName = window.getPdfCompanyName ? window.getPdfCompanyName('SKM') : 'SMART SERVICES';
-        if (company === 'saaiss' || company === 'chaimae_saaiss') companyDisplayName = window.getPdfCompanyName ? window.getPdfCompanyName('SAAISS') : 'MSH3 SERVICES';
-        if (company === 'benali' || company === 'chaimae_benali') companyDisplayName = window.getPdfCompanyName ? window.getPdfCompanyName('BENALI') : 'BEN ALI';
+        // Extract the company code (remove chaimae_ prefix if present)
+        const companyCodeForName = company.replace(/^chaimae_/, '').toUpperCase();
+        if (window.getPdfCompanyName) {
+            const customName = window.getPdfCompanyName(companyCodeForName);
+            if (customName) companyDisplayName = customName;
+        }
 
         modal.innerHTML = `
             <div class="custom-modal-header">
@@ -124,14 +135,14 @@ window.showPdfManager = async function (company) {
                                         </div>
                                         <div style="color: #888; font-size: 0.85rem; display: flex; align-items: center; gap: 1rem;">
                                             <span>📅 ${new Date(file.created).toLocaleDateString('fr-FR')}</span>
-                                            <span>📦 ${(file.size / 1024).toFixed(1)} KB</span>
+                                            <span>📦 ${file.size > 0 ? (file.size / 1024).toFixed(1) + ' KB' : '☁️ En ligne'}</span>
                                             <span style="color: #0078d4;">👤 ${file.creator || 'Système'}</span>
                                         </div>
                                     </div>
                                 </div>
 
                                 <div style="display: flex; gap: 0.8rem;">
-                                    <button onclick="openPdfFile('${file.path.replace(/\\/g, '\\\\')}')" 
+                                    <button onclick="${file.source === 'server' ? `openServerPdfFile('${(file.serverPath || file.path).replace(/'/g, "\\'")}')` : `openPdfFile('${file.path.replace(/\\/g, '\\\\')}')`}" 
                                             style="
                                                 padding: 0.5rem 1rem;
                                                 background: rgba(76, 175, 80, 0.15);
@@ -374,6 +385,21 @@ window.showPdfManager = async function (company) {
     } catch (error) {
         console.error('❌ Error opening PDF manager:', error);
         showPdfErrorModal('Erreur', 'Une erreur s\'est produite: ' + error.message);
+    }
+};
+
+// Open server-hosted PDF file in browser
+window.openServerPdfFile = window.openServerPdfFile || function(serverPath) {
+    try {
+        const apiUrl = localStorage.getItem('apiUrl') || 'https://anpe-web-api.ddns.net/facture';
+        const fullUrl = apiUrl + serverPath;
+        console.log('🌐 [PDF Manager] Opening server PDF:', fullUrl);
+        window.open(fullUrl, '_blank');
+    } catch (error) {
+        console.error('Error opening server PDF:', error);
+        if (window.notify) {
+            window.notify.error('Erreur', 'Impossible d\'ouvrir le fichier: ' + error.message, 4000);
+        }
     }
 };
 

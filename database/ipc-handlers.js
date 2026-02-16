@@ -54,9 +54,9 @@ async function registerDatabaseHandlers() {
         }
     });
 
-    ipcMain.handle('db:invoices:getById', async (event, id) => {
+    ipcMain.handle('db:invoices:getById', async (event, id, userEmail) => {
         try {
-            return await apiClient.getInvoiceById(id);
+            return await apiClient.getInvoiceById(id, userEmail);
         } catch (error) {
             console.error('❌ Error getting MRY invoice (API):', error);
             return { success: false, error: error.message };

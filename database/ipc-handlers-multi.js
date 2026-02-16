@@ -24,9 +24,9 @@ async function registerMultiHandlers() {
     });
 
     // Get invoice by ID
-    ipcMain.handle('dbMulti:getInvoice', async (event, id) => {
+    ipcMain.handle('dbMulti:getInvoice', async (event, id, userEmail) => {
         try {
-            return await apiClient.getInvoiceById(id);
+            return await apiClient.getInvoiceById(id, userEmail);
         } catch (error) {
             console.error('[MULTI] Error getting invoice (API):', error);
             return { success: false, error: error.message };
@@ -293,9 +293,9 @@ async function registerMultiHandlers() {
         }
     });
 
-    ipcMain.handle('api:invoices:validate', async (event, id, status) => {
+    ipcMain.handle('api:invoices:validate', async (event, id, status, userEmail) => {
         try {
-            return await apiClient.validateInvoice(id, status);
+            return await apiClient.validateInvoice(id, status, userEmail);
         } catch (error) {
             console.error('[API] Error validating invoice:', error);
             return { success: false, error: error.message };
