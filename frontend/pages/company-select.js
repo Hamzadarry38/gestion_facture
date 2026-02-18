@@ -539,6 +539,11 @@ async function loadAdminUsersList() {
 
     try {
         const result = await window.electron.users.getAll();
+        console.log('👥 [USER MGMT] Full API result:', JSON.stringify(result, null, 2));
+        console.log('👥 [USER MGMT] Users array:', result.users);
+        if (result.users && result.users.length > 0) {
+            console.log('👥 [USER MGMT] First user sample:', result.users[0]);
+        }
         if (result.success && result.users) {
             if (result.users.length === 0) {
                 listContainer.innerHTML = '<div style="padding: 2rem; text-align: center; color: #999;">Aucun utilisateur trouvé</div>';
@@ -552,6 +557,7 @@ async function loadAdminUsersList() {
                             <th style="padding: 1rem; text-align: left;">Nom</th>
                             <th style="padding: 1rem; text-align: left;">Email</th>
                             <th style="padding: 1rem; text-align: center;">Validation Automatique</th>
+                            <th style="padding: 1rem; text-align: center;">Actions</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -576,6 +582,17 @@ async function loadAdminUsersList() {
                                             .slider:before { position: absolute; content: ""; height: 18px; width: 18px; left: 3px; bottom: 3px; background-color: white; transition: .4s; border-radius: 50%; }
                                         </style>
                                     </label>
+                                </td>
+                                <td style="padding: 1rem; text-align: center;">
+                                    ${user.email === 'redouanerrebbahi99@gmail.com' ? 
+                                        '<span style="color: #666; font-size: 0.8rem;">Admin</span>' : 
+                                        `<button onclick="deleteUser(${user.id}, '${user.name.replace(/'/g, "\\'")}')" 
+                                            style="padding: 0.4rem 0.8rem; background: transparent; color: #f44336; border: 1px solid #f44336; border-radius: 6px; cursor: pointer; font-size: 0.8rem; font-weight: 600; transition: all 0.2s;"
+                                            onmouseover="this.style.background='#f44336'; this.style.color='#fff';"
+                                            onmouseout="this.style.background='transparent'; this.style.color='#f44336';">
+                                            🗑️ Supprimer
+                                        </button>`
+                                    }
                                 </td>
                             </tr>
                         `).join('')}
@@ -606,6 +623,30 @@ async function updateUserPermission(userId, permission, value) {
         }
     } catch (error) {
         console.error('Error updating permission:', error);
+        window.showPasswordNotification('error', 'Erreur serveur');
+    }
+}
+
+// Delete user
+async function deleteUser(userId, userName) {
+    const confirmed = await customConfirm(
+        'Supprimer utilisateur',
+        `Êtes-vous sûr de vouloir supprimer l'utilisateur "${userName}" ?\n\nCette action est irréversible.`,
+        'warning'
+    );
+
+    if (!confirmed) return;
+
+    try {
+        const result = await window.electron.users.deleteUser(userId);
+        if (result.success) {
+            window.showPasswordNotification('success', `Utilisateur "${userName}" supprimé`);
+            loadAdminUsersList();
+        } else {
+            window.showPasswordNotification('error', result.error || 'Erreur lors de la suppression');
+        }
+    } catch (error) {
+        console.error('Error deleting user:', error);
         window.showPasswordNotification('error', 'Erreur serveur');
     }
 }
@@ -661,3 +702,4 @@ document.addEventListener('click', async (e) => {
 // Export for global access
 window.loadAdminUsersList = loadAdminUsersList;
 window.updateUserPermission = updateUserPermission;
+window.deleteUser = deleteUser;

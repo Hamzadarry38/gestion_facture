@@ -4472,8 +4472,12 @@ window.importDatabaseMRY = async function () {
 // Update AR Status
 window.updateArStatusMRY = async function (id, status) {
     try {
+        const currentUser = JSON.parse(localStorage.getItem('user') || '{}');
         const result = await window.electron.db.updateInvoice(id, {
-            ar_status: status
+            ar_status: status,
+            updated_by_user_id: currentUser.id || null,
+            updated_by_user_name: currentUser.name || null,
+            updated_by_user_email: currentUser.email || null
         });
 
         if (result.success) {
@@ -4484,10 +4488,14 @@ window.updateArStatusMRY = async function (id, status) {
             const inv = allInvoices.find(i => i.id == id);
             if (inv) {
                 inv.ar_status = status;
+                inv.is_modified = true;
+                inv.updated_by_user_name = currentUser.name || inv.updated_by_user_name;
             }
             const filteredInv = filteredInvoices.find(i => i.id == id);
             if (filteredInv) {
                 filteredInv.ar_status = status;
+                filteredInv.is_modified = true;
+                filteredInv.updated_by_user_name = currentUser.name || filteredInv.updated_by_user_name;
             }
             
             // Re-render the display with updated data (no full reload needed)

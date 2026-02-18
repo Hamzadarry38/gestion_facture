@@ -87,7 +87,8 @@ contextBridge.exposeInMainWorld('electron', {
     getAll: () => ipcRenderer.invoke('users:getAll'),
     count: () => ipcRenderer.invoke('users:count'),
     updatePassword: (email, oldPassword, newPassword) => ipcRenderer.invoke('users:updatePassword', { email, oldPassword, newPassword }),
-    updatePermission: (id, permission, value) => ipcRenderer.invoke('users:updatePermissions', id, value)
+    updatePermission: (id, permission, value) => ipcRenderer.invoke('users:updatePermissions', id, value),
+    deleteUser: (id) => ipcRenderer.invoke('users:delete', id)
   },
 
   // Database API for CHAIMAE
@@ -171,7 +172,7 @@ contextBridge.exposeInMainWorld('electron', {
 
     // Validation & Users
     getPendingInvoices: () => ipcRenderer.invoke('db:chaimae:invoices:getPending'),
-    validateInvoice: (id, status) => ipcRenderer.invoke('db:chaimae:invoices:validate', id, status),
+    validateInvoice: (id, status, userEmail) => ipcRenderer.invoke('db:chaimae:invoices:validate', id, status, userEmail),
     getUsers: () => ipcRenderer.invoke('users:getAll'),
     updateUserPermissions: (id, canAutoValidate) => ipcRenderer.invoke('users:updatePermissions', id, canAutoValidate)
   },

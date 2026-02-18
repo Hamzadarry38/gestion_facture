@@ -942,9 +942,16 @@ async function generateBenAliPDFContent(doc, invoice) {
 
     // Ensure we are on the last page for totals
     doc.setPage(pageCount);
+    console.log('🔍 [BEN ALI PDF] Before totals check:');
+    console.log('   currentY:', currentY);
+    console.log('   pageHeight:', pageHeight);
+    console.log('   pageHeight - 45:', pageHeight - 45);
+    console.log('   currentY + 35:', currentY + 35);
+    console.log('   Will fit on same page?', currentY + 35 <= pageHeight - 45);
 
-    // Check if totals fit on this page (need ~35px for totals)
-    if (currentY + 35 > pageHeight - 80) {
+    // Check if totals fit on this page (need ~35px for totals, footer starts at ~pageHeight-45)
+    if (currentY + 35 > pageHeight - 45) {
+        console.log('   ❌ Totals do NOT fit - adding new page');
         tableSegments.push({
             startY: currentSegmentStart,
             endY: currentY,
@@ -953,11 +960,15 @@ async function generateBenAliPDFContent(doc, invoice) {
         doc.addPage();
         pageCount++;
         addHeader();
-        currentY += 15;
+        // On new page: place totals near footer
+        currentY = pageHeight - 45 - 35;
+        console.log('   New page created. currentY set to:', currentY);
+    } else {
+        console.log('   ✅ Totals fit on same page');
+        // Same page: place totals right after table
+        currentY = currentY + 8;
+        console.log('   currentY set to:', currentY);
     }
-
-    // Totals
-    currentY += 10;
     const totalsX = 130;
 
     doc.setFillColor(76, 175, 80);
@@ -1725,16 +1736,29 @@ async function generateGenericPDFContent(doc, invoice, companyCode, companyColor
     });
 
     doc.setPage(pageCount);
+    console.log('🔍 [Generic PDF] Before totals check:');
+    console.log('   currentY:', currentY);
+    console.log('   pageHeight:', pageHeight);
+    console.log('   pageHeight - 45:', pageHeight - 45);
+    console.log('   currentY + 35:', currentY + 35);
+    console.log('   Will fit on same page?', currentY + 35 <= pageHeight - 45);
 
-    if (currentY + 35 > pageHeight - 80) {
+    if (currentY + 35 > pageHeight - 45) {
+        console.log('   ❌ Totals do NOT fit - adding new page');
         doc.addPage();
         pageCount++;
         addHeader();
-        currentY += 15;
+        // On new page: place totals near footer
+        currentY = pageHeight - 45 - 35;
+        console.log('   New page created. currentY set to:', currentY);
+    } else {
+        console.log('   ✅ Totals fit on same page');
+        // Same page: place totals right after table
+        currentY = currentY + 8;
+        console.log('   currentY set to:', currentY);
     }
 
     // ========== TOTALS SECTION - varies by style ==========
-    currentY += 10;
     const totalsX = 130;
 
     if (tableStyle === 'style3') {

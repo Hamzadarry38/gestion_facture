@@ -98,14 +98,25 @@ function InvoicesListChaimaePage() {
 
                     <!-- Filters -->
                     <div class="filters-section" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem; margin-bottom: 1.5rem;">
-                        <div class="filter-group">
+                        <div class="filter-group" style="position: relative;">
                             <label>Type de document:</label>
-                            <select id="filterTypeChaimae" onchange="filterInvoicesChaimae()">
-                                <option value="">Tous</option>
-                                <option value="facture">Factures</option>
-                                <option value="devis">Devis</option>
-                                <option value="bon_livraison">Bon de livraison</option>
-                            </select>
+                            <div class="custom-multiselect" id="typeMultiselectChaimae">
+                                <div class="multiselect-display" onclick="toggleTypeDropdownChaimae()" style="padding: 0.5rem; background: #1e1e1e; border: 1px solid #3e3e42; border-radius: 4px; cursor: pointer; color: #ffffff; display: flex; justify-content: space-between; align-items: center;">
+                                    <span id="typeSelectedTextChaimae">Tous</span>
+                                    <span style="font-size: 0.8rem;">▼</span>
+                                </div>
+                                <div class="multiselect-dropdown" id="typeDropdownChaimae" style="display: none; position: absolute; top: 100%; left: 0; right: 0; background: #1e1e1e; border: 1px solid #3e3e42; border-radius: 4px; margin-top: 0.25rem; z-index: 1000; max-height: 200px; overflow-y: auto;">
+                                    <label style="display: block; padding: 0.5rem; cursor: pointer; color: #ccc; transition: background 0.2s;" onmouseover="this.style.background='#2d2d30'" onmouseout="this.style.background='transparent'">
+                                        <input type="checkbox" class="filterTypeChaimaeCheckbox" value="facture" onchange="updateTypeSelectionChaimae()" style="margin-right: 0.5rem; accent-color: #4caf50;"> Factures
+                                    </label>
+                                    <label style="display: block; padding: 0.5rem; cursor: pointer; color: #ccc; transition: background 0.2s;" onmouseover="this.style.background='#2d2d30'" onmouseout="this.style.background='transparent'">
+                                        <input type="checkbox" class="filterTypeChaimaeCheckbox" value="devis" onchange="updateTypeSelectionChaimae()" style="margin-right: 0.5rem; accent-color: #4caf50;"> Devis
+                                    </label>
+                                    <label style="display: block; padding: 0.5rem; cursor: pointer; color: #ccc; transition: background 0.2s;" onmouseover="this.style.background='#2d2d30'" onmouseout="this.style.background='transparent'">
+                                        <input type="checkbox" class="filterTypeChaimaeCheckbox" value="bon_livraison" onchange="updateTypeSelectionChaimae()" style="margin-right: 0.5rem; accent-color: #4caf50;"> Bon de livraison
+                                    </label>
+                                </div>
+                            </div>
                         </div>
                         
                         <div class="filter-group">
@@ -507,6 +518,20 @@ window.loadInvoicesChaimae = async function () {
             // Store ALL invoices (including pending "Unseen")
             allInvoicesChaimae = enrichedInvoices;
 
+            console.log('✅ [CHAIMAE] Invoices loaded successfully');
+            console.log('📊 [CHAIMAE] Total invoices:', allInvoicesChaimae.length);
+            console.log('🔍 [CHAIMAE] First invoice object:', allInvoicesChaimae[0]);
+            console.log('🔍 [CHAIMAE] Checking client_nom field:');
+            allInvoicesChaimae.slice(0, 5).forEach((inv, idx) => {
+                console.log(`   Invoice ${idx}: client_nom = "${inv.client_nom}" (type: ${typeof inv.client_nom})`);
+            });
+            
+            // Check all unique client_nom values
+            const allClientNoms = allInvoicesChaimae.map(inv => inv.client_nom);
+            console.log('📋 [CHAIMAE] All client_nom values:', allClientNoms);
+            const uniqueClients = [...new Set(allClientNoms.filter(Boolean))];
+            console.log('🎯 [CHAIMAE] Unique non-empty client_nom values:', uniqueClients.length, uniqueClients);
+
             // Calculate Unseen (Pending) count
             const unseenCount = allInvoicesChaimae.filter(inv => inv.validation_status === 'pending').length;
             const badge = document.getElementById('unseenBadgeChaimae');
@@ -518,8 +543,10 @@ window.loadInvoicesChaimae = async function () {
             // Display global invoices separately
             displayGlobalInvoicesChaimae(globalInvoices);
 
+            console.log('🔵 [CHAIMAE] About to call populateFiltersChaimae()...');
             // Populate filters
             await populateFiltersChaimae();
+            console.log('🟢 [CHAIMAE] populateFiltersChaimae() completed');
 
             // Apply filters
             filterInvoicesChaimae();
@@ -579,11 +606,17 @@ async function populateFiltersChaimae() {
     }
 
     // Get unique clients
-    const clients = [...new Set(allInvoicesChaimae.map(inv => inv.client_nom))].sort();
+    console.log('🔍 [CHAIMAE] populateFiltersChaimae - allInvoicesChaimae count:', allInvoicesChaimae.length);
+    console.log('🔍 [CHAIMAE] Sample invoice:', allInvoicesChaimae[0]);
+    const clients = [...new Set(allInvoicesChaimae.map(inv => inv.client_nom).filter(Boolean))].sort();
+    console.log('🔍 [CHAIMAE] Unique clients found:', clients.length, clients);
     const clientSelect = document.getElementById('filterClientChaimae');
     if (clientSelect) {
         clientSelect.innerHTML = '<option value="">Tous</option>' +
             clients.map(client => `<option value="${client}">${client}</option>`).join('');
+        console.log('✅ [CHAIMAE] Client filter populated with', clients.length, 'clients');
+    } else {
+        console.error('❌ [CHAIMAE] filterClientChaimae element not found!');
     }
 }
 
@@ -1170,6 +1203,44 @@ window.changeItemsPerPageChaimae = function () {
     displayInvoicesChaimae(filteredInvoicesChaimae);
 }
 
+// Toggle Type dropdown
+window.toggleTypeDropdownChaimae = function() {
+    const dropdown = document.getElementById('typeDropdownChaimae');
+    if (dropdown) {
+        dropdown.style.display = dropdown.style.display === 'none' ? 'block' : 'none';
+    }
+}
+
+// Update Type selection text
+window.updateTypeSelectionChaimae = function() {
+    const checkboxes = document.querySelectorAll('.filterTypeChaimaeCheckbox:checked');
+    const selectedText = document.getElementById('typeSelectedTextChaimae');
+    
+    if (checkboxes.length === 0) {
+        selectedText.textContent = 'Tous';
+    } else if (checkboxes.length === 1) {
+        const labels = {
+            'facture': 'Factures',
+            'devis': 'Devis',
+            'bon_livraison': 'Bon de livraison'
+        };
+        selectedText.textContent = labels[checkboxes[0].value] || checkboxes[0].value;
+    } else {
+        selectedText.textContent = `${checkboxes.length} sélectionnés`;
+    }
+    
+    filterInvoicesChaimae();
+}
+
+// Close dropdown when clicking outside
+document.addEventListener('click', function(event) {
+    const multiselect = document.getElementById('typeMultiselectChaimae');
+    const dropdown = document.getElementById('typeDropdownChaimae');
+    if (multiselect && dropdown && !multiselect.contains(event.target)) {
+        dropdown.style.display = 'none';
+    }
+});
+
 // Go to specific page
 window.goToPageChaimae = function (page) {
     currentPageChaimae = page;
@@ -1193,7 +1264,8 @@ window.changePaginationPageChaimae = function (direction) {
 
 // Filter invoices
 window.filterInvoicesChaimae = function () {
-    const typeFilter = document.getElementById('filterTypeChaimae')?.value || '';
+    // Multi-select type filter from checkboxes
+    const selectedTypes = Array.from(document.querySelectorAll('.filterTypeChaimaeCheckbox:checked')).map(cb => cb.value);
     const filterStatus = document.getElementById('filterStatusChaimae')?.value || 'all';
     const filterAttachments = document.getElementById('filterAttachmentsChaimae')?.value || 'all';
     const filterCreationMethod = document.getElementById('filterCreationMethodChaimae')?.value || 'all';
@@ -1220,8 +1292,8 @@ window.filterInvoicesChaimae = function () {
             if (!isModified) return false;
         }
 
-        // Type filter
-        if (typeFilter && invoice.document_type !== typeFilter) return false;
+        // Type filter (multi-select)
+        if (selectedTypes.length > 0 && !selectedTypes.includes(invoice.document_type)) return false;
 
         // Attachments filter
         if (filterAttachments === 'with' && (invoice.attachment_count || 0) === 0) return false;
@@ -1262,7 +1334,7 @@ window.filterInvoicesChaimae = function () {
         if (searchText) {
             const numero = (invoice.document_numero || invoice.document_numero_devis || '').toLowerCase();
             const numeroBL = (invoice.document_numero_bl || '').toLowerCase();
-            const order = (invoice.document_numero_Order || '').toLowerCase();
+            const order = (invoice.document_numero_Order || invoice.document_numero_order || '').toLowerCase();
             const bonLivraison = (invoice.document_bon_de_livraison || '').toLowerCase();
             const bonCommande = (invoice.document_numero_commande || '').toLowerCase();
             const client = invoice.client_nom.toLowerCase();
@@ -1348,7 +1420,9 @@ window.filterInvoicesChaimae = function () {
 
 // Reset filters
 window.resetFiltersChaimae = function () {
-    document.getElementById('filterTypeChaimae').value = '';
+    document.querySelectorAll('.filterTypeChaimaeCheckbox').forEach(cb => cb.checked = false);
+    const selectedText = document.getElementById('typeSelectedTextChaimae');
+    if (selectedText) selectedText.textContent = 'Tous';
     document.getElementById('filterYearChaimae').value = '';
     document.getElementById('filterMonthChaimae').value = '';
     document.getElementById('filterClientChaimae').value = '';
@@ -7071,10 +7145,14 @@ async function generateSAAISSPDFForChaimae(invoice) {
 window.updateArStatusChaimae = async function (id, newStatus) {
     try {
         console.log(`🕒 Updating AR Status for invoice ${id} to: ${newStatus}`);
+        const currentUser = JSON.parse(localStorage.getItem('user') || '{}');
 
         const result = await window.electron.dbChaimae.updateInvoice(id, {
             document: {
-                ar_status: newStatus
+                ar_status: newStatus,
+                updated_by_user_id: currentUser.id || null,
+                updated_by_user_name: currentUser.name || null,
+                updated_by_user_email: currentUser.email || null
             }
         });
 
@@ -7085,10 +7163,14 @@ window.updateArStatusChaimae = async function (id, newStatus) {
             const invoice = allInvoicesChaimae.find(inv => inv.id === id);
             if (invoice) {
                 invoice.ar_status = newStatus;
+                invoice.is_modified = true;
+                invoice.updated_by_user_name = currentUser.name || invoice.updated_by_user_name;
             }
             const filteredInv = filteredInvoicesChaimae.find(inv => inv.id === id);
             if (filteredInv) {
                 filteredInv.ar_status = newStatus;
+                filteredInv.is_modified = true;
+                filteredInv.updated_by_user_name = currentUser.name || filteredInv.updated_by_user_name;
             }
             
             // Re-render the display with updated data (no full reload needed)

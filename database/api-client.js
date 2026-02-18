@@ -382,6 +382,11 @@ const service = {
         return res.data;
     },
 
+    deleteUser: async (id) => {
+        const res = await apiClient.delete(`/users/${id}`);
+        return res.data;
+    },
+
     getMissingNumbers: async (companyCode, year, docType) => {
         const res = await apiClient.get(`/invoices/missing-numbers/${companyCode}/${year}/${docType}`);
         return res.data;

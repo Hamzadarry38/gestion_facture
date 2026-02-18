@@ -61,11 +61,14 @@ async function registerUsersHandlers() {
     ipcMain.handle('users:getAll', async () => {
         try {
             const result = await apiClient.getUsers();
+            console.log('📋 [IPC getAll] API returned:', JSON.stringify(result).substring(0, 300));
             if (result.success) {
+                // API returns { success, data: [...] } — map to both 'data' and 'users' keys
+                const users = result.data || result.users || [];
                 return {
                     success: true,
-                    data: result.users, // For new features (data)
-                    users: result.users  // For legacy (login.js)
+                    data: users,
+                    users: users
                 };
             } else {
                 return { success: false, error: result.error };
@@ -110,7 +113,9 @@ async function registerUsersHandlers() {
     // Update user permissions
     ipcMain.handle('users:updatePermissions', async (event, id, canAutoValidate) => {
         try {
+            console.log(`🔄 [IPC updatePermissions] id=${id}, canAutoValidate=${canAutoValidate} (type: ${typeof canAutoValidate})`);
             const result = await apiClient.updateUserPermissions(id, canAutoValidate);
+            console.log(`🔄 [IPC updatePermissions] API result:`, JSON.stringify(result));
             if (result.success) {
                 return { success: true, message: result.message };
             } else {
@@ -118,6 +123,21 @@ async function registerUsersHandlers() {
             }
         } catch (error) {
             console.error('Error updating user permissions (API):', error);
+            return { success: false, error: error.message };
+        }
+    });
+
+    // Delete user
+    ipcMain.handle('users:delete', async (event, id) => {
+        try {
+            const result = await apiClient.deleteUser(id);
+            if (result.success) {
+                return { success: true, message: result.message };
+            } else {
+                return { success: false, error: result.error || result.message };
+            }
+        } catch (error) {
+            console.error('Error deleting user (API):', error);
             return { success: false, error: error.message };
         }
     });

@@ -496,9 +496,9 @@ async function registerChaimaeHandlers() {
         }
     });
 
-    ipcMain.handle('db:chaimae:invoices:validate', async (event, id, status) => {
+    ipcMain.handle('db:chaimae:invoices:validate', async (event, id, status, userEmail) => {
         try {
-            return await apiClient.validateInvoice(id, status);
+            return await apiClient.validateInvoice(id, status, userEmail);
         } catch (error) {
             console.error('❌ Error validating CHAIMAE invoice (API):', error);
             return { success: false, error: error.message };

@@ -145,6 +145,28 @@ app.get('/test', async (req, res) => {
   }
 });
 
+// Temporary endpoint to add can_auto_validate column
+app.get('/admin/migrate-users', async (req, res) => {
+  try {
+    await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS can_auto_validate BOOLEAN DEFAULT FALSE`);
+    
+    // Verify column was added
+    const result = await pool.query(`
+      SELECT column_name 
+      FROM information_schema.columns 
+      WHERE table_name = 'users' AND column_name = 'can_auto_validate'
+    `);
+    
+    if (result.rows.length > 0) {
+      res.json({ success: true, message: 'Column can_auto_validate added successfully!' });
+    } else {
+      res.json({ success: false, message: 'Column was not added' });
+    }
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
 // --- USER ROUTES ---
 app.post('/auth/login', async (req, res) => {
   try {
@@ -316,15 +338,7 @@ app.post('/auth/register', async (req, res) => {
   }
 });
 
-app.get('/users', async (req, res) => {
-  try {
-    const result = await pool.query('SELECT id, name, email, created_at FROM users ORDER BY id DESC');
-    res.json({ success: true, users: result.rows });
-  } catch (err) {
-    res.status(500).json({ success: false, error: err.message });
-  }
-});
-
+// Get users count
 app.get('/users/count', async (req, res) => {
   try {
     const result = await pool.query('SELECT COUNT(*) as count FROM users');
@@ -839,12 +853,12 @@ app.put('/invoices/:id', async (req, res) => {
       if (doc.validation_status !== undefined) {
         validation_status = doc.validation_status;
       } else {
-        // Check if this is a content edit (not just ar_status/delivered_by change)
+        // Check if this is a content edit (including ar_status change)
         const isContentEdit = doc.date !== undefined || doc.numero !== undefined || 
           doc.numero_Order !== undefined || doc.numero_bl !== undefined || 
           doc.numero_devis !== undefined || doc.order_devis !== undefined ||
           doc.bon_de_livraison !== undefined || doc.numero_commande !== undefined ||
-          doc.type !== undefined || products !== undefined || 
+          doc.type !== undefined || doc.ar_status !== undefined || products !== undefined || 
           req.body.totals !== undefined || req.body.client !== undefined;
         
         // Check if editor has auto-validation permission from User Management
@@ -883,8 +897,8 @@ app.put('/invoices/:id', async (req, res) => {
       if (doc.updated_by_user_name !== undefined) updated_by_user_name = doc.updated_by_user_name;
       if (doc.updated_by_user_email !== undefined) updated_by_user_email = doc.updated_by_user_email;
     } else {
-      // Only default to pending if actual invoice content is being edited (not just ar_status)
-      const isContentEdit = products !== undefined || req.body.totals !== undefined || req.body.client !== undefined;
+      // Default to pending if invoice content is being edited (including ar_status)
+      const isContentEdit = products !== undefined || req.body.totals !== undefined || req.body.client !== undefined || ar_status !== undefined;
       if (validation_status === undefined && isContentEdit) validation_status = 'pending';
     }
 
@@ -957,8 +971,9 @@ app.put('/invoices/:id', async (req, res) => {
       doc.numero_Order !== undefined || doc.numero_bl !== undefined || 
       doc.numero_devis !== undefined || doc.order_devis !== undefined ||
       doc.bon_de_livraison !== undefined || doc.numero_commande !== undefined ||
-      doc.type !== undefined || products !== undefined || 
-      req.body.totals !== undefined || req.body.client !== undefined;
+      doc.type !== undefined || doc.ar_status !== undefined || products !== undefined || 
+      req.body.totals !== undefined || req.body.client !== undefined ||
+      ar_status !== undefined;
 
     // Check if the user editing has auto-validate permission - if so, don't set is_modified
     let editorHasAutoValidate = false;
@@ -1070,7 +1085,7 @@ app.delete('/invoices/:id', async (req, res) => {
 app.get('/attachments/id/:id', async (req, res) => {
   try {
     const { id } = req.params;
-    const result = await pool.query('SELECT *, created_at as uploaded_at FROM invoice_attachments WHERE id = $1', [id]);
+    const result = await pool.query('SELECT id, invoice_id, filename, file_type, file_size, file_path, file_data FROM invoice_attachments WHERE id = $1', [id]);
     if (result.rows.length === 0) {
       return res.status(404).json({ success: false, message: 'Attachment not found' });
     }
@@ -1087,7 +1102,7 @@ app.get('/attachments/id/:id', async (req, res) => {
 app.get('/attachments/invoice/:invoiceId', async (req, res) => {
   try {
     const { invoiceId } = req.params;
-    const result = await pool.query('SELECT id, filename, file_type, file_size, created_at as uploaded_at, file_data FROM invoice_attachments WHERE invoice_id = $1 ORDER BY id DESC', [invoiceId]);
+    const result = await pool.query('SELECT id, filename, file_type, file_size, file_data FROM invoice_attachments WHERE invoice_id = $1 ORDER BY id DESC', [invoiceId]);
     const attachments = result.rows.map(att => {
       if (att.file_data) {
         att.file_data = Buffer.from(att.file_data).toString('base64');
@@ -1265,8 +1280,14 @@ app.put('/invoices/:id/validation', async (req, res) => {
 // Get all users for permissions management
 app.get('/users', async (req, res) => {
   try {
-    const result = await pool.query('SELECT id, name, email, can_auto_validate FROM users ORDER BY name ASC');
-    res.json({ success: true, data: result.rows });
+    // Ensure can_auto_validate column exists
+    try {
+      await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS can_auto_validate BOOLEAN DEFAULT FALSE`);
+    } catch (e) { /* column already exists */ }
+
+    const result = await pool.query('SELECT id, name, email, created_at, can_auto_validate FROM users ORDER BY name ASC');
+    console.log(`📋 [USERS] Loaded ${result.rows.length} users:`, result.rows.map(u => `${u.name}(${u.email}): auto_validate=${u.can_auto_validate}`));
+    res.json({ success: true, users: result.rows, data: result.rows });
   } catch (err) {
     res.status(500).json({ success: false, error: err.message });
   }
@@ -1278,10 +1299,22 @@ app.put('/users/:id/permissions', async (req, res) => {
     const { id } = req.params;
     const { can_auto_validate } = req.body;
 
+    console.log(`🔄 [PERMISSIONS] Updating user ${id}: can_auto_validate = ${can_auto_validate} (type: ${typeof can_auto_validate})`);
+    console.log(`🔄 [PERMISSIONS] Full request body:`, JSON.stringify(req.body));
+
+    // Ensure the column exists (auto-migration)
+    try {
+      await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS can_auto_validate BOOLEAN DEFAULT FALSE`);
+    } catch (alterErr) {
+      console.log('ℹ️ [PERMISSIONS] Column already exists or alter failed:', alterErr.message);
+    }
+
     const result = await pool.query(
-      'UPDATE users SET can_auto_validate = $1 WHERE id = $2 RETURNING id',
-      [can_auto_validate, id]
+      'UPDATE users SET can_auto_validate = $1 WHERE id = $2 RETURNING id, can_auto_validate',
+      [can_auto_validate === true || can_auto_validate === 'true', id]
     );
+
+    console.log(`🔄 [PERMISSIONS] UPDATE result:`, result.rows);
 
     if (result.rows.length > 0) {
       res.json({ success: true, message: 'Permissions updated successfully' });
@@ -1289,6 +1322,30 @@ app.put('/users/:id/permissions', async (req, res) => {
       res.status(404).json({ success: false, message: 'User not found' });
     }
   } catch (err) {
+    console.error('❌ [PERMISSIONS] Error:', err.message);
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// Delete user - protect Admin from deletion
+app.delete('/users/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    // Check if user is Admin - prevent deletion
+    const userCheck = await pool.query('SELECT email FROM users WHERE id = $1', [id]);
+    if (userCheck.rows.length === 0) {
+      return res.status(404).json({ success: false, message: 'Utilisateur introuvable' });
+    }
+    if (userCheck.rows[0].email === 'redouanerrebbahi99@gmail.com') {
+      return res.status(403).json({ success: false, message: 'Impossible de supprimer le compte Admin' });
+    }
+
+    await pool.query('DELETE FROM users WHERE id = $1', [id]);
+    console.log(`🗑️ [USERS] Deleted user ID ${id} (${userCheck.rows[0].email})`);
+    res.json({ success: true, message: 'Utilisateur supprimé avec succès' });
+  } catch (err) {
+    console.error('❌ [USERS] Delete error:', err.message);
     res.status(500).json({ success: false, error: err.message });
   }
 });
@@ -1320,37 +1377,7 @@ app.post('/audit-log', async (req, res) => {
   }
 });
 
-// --- ATTACHMENT ROUTES ---
-// Get attachments for an invoice
-app.get('/attachments/invoice/:invoiceId', async (req, res) => {
-  try {
-    const { invoiceId } = req.params;
-    const result = await pool.query(
-      'SELECT *, created_at as uploaded_at FROM invoice_attachments WHERE invoice_id = $1 ORDER BY id DESC',
-      [invoiceId]
-    );
-    res.json({ success: true, data: result.rows });
-  } catch (err) {
-    res.status(500).json({ success: false, error: err.message });
-  }
-});
-
-// Get single attachment by ID
-app.get('/attachments/id/:id', async (req, res) => {
-  try {
-    const { id } = req.params;
-    const result = await pool.query('SELECT *, created_at as uploaded_at FROM invoice_attachments WHERE id = $1', [id]);
-    if (result.rows.length > 0) {
-      res.json({ success: true, data: result.rows[0] });
-    } else {
-      res.status(404).json({ success: false, message: 'Attachment not found' });
-    }
-  } catch (err) {
-    res.status(500).json({ success: false, error: err.message });
-  }
-});
-
-// Duplicate endpoint removed - using the first /attachments POST endpoint above
+// Duplicate attachment endpoints removed - using the first set above
 
 // --- GLOBAL INVOICE ROUTES ---
 
@@ -1555,16 +1582,7 @@ app.delete('/global-invoices/:id', async (req, res) => {
   }
 });
 
-// Delete attachment
-app.delete('/attachments/:id', async (req, res) => {
-  try {
-    const { id } = req.params;
-    await pool.query('DELETE FROM invoice_attachments WHERE id = $1', [id]);
-    res.json({ success: true });
-  } catch (err) {
-    res.status(500).json({ success: false, error: err.message });
-  }
-});
+// Duplicate DELETE /attachments removed - using the first one above
 
 // --- SECONDARY COMPANIES (SKM, MSH3, BENALI, SAAISS) ROUTES ---
 

@@ -106,6 +106,13 @@ function InvoicesListMultiPage() {
                         </div>
                         
                         <div class="filter-group">
+                            <label>📅 Année:</label>
+                            <select id="filterYearMulti" onchange="filterInvoicesMulti()">
+                                <option value="">Toutes</option>
+                            </select>
+                        </div>
+                        
+                        <div class="filter-group">
                             <label>📆 Mois:</label>
                             <select id="filterMonthMulti" onchange="filterInvoicesMulti()">
                                 <option value="">Tous</option>
@@ -468,8 +475,12 @@ window.toggleValidationQueueMulti = function () {
 // Update AR Status Multi
 window.updateArStatusMulti = async function (id, status) {
     try {
+        const currentUser = JSON.parse(localStorage.getItem('user') || '{}');
         const result = await window.electron.dbMulti.updateInvoice(id, {
-            ar_status: status
+            ar_status: status,
+            updated_by_user_id: currentUser.id || null,
+            updated_by_user_name: currentUser.name || null,
+            updated_by_user_email: currentUser.email || null
         });
 
         if (result.success) {
@@ -479,10 +490,14 @@ window.updateArStatusMulti = async function (id, status) {
             const inv = allInvoicesMulti.find(i => i.id == id);
             if (inv) {
                 inv.ar_status = status;
+                inv.is_modified = true;
+                inv.updated_by_user_name = currentUser.name || inv.updated_by_user_name;
             }
             const filteredInv = filteredInvoicesMulti.find(i => i.id == id);
             if (filteredInv) {
                 filteredInv.ar_status = status;
+                filteredInv.is_modified = true;
+                filteredInv.updated_by_user_name = currentUser.name || filteredInv.updated_by_user_name;
             }
             
             // Re-render the display with updated data (no full reload needed)
@@ -600,6 +615,20 @@ async function loadInvoicesMulti() {
             // Store ALL invoices (including pending "Unseen")
             allInvoicesMulti = enrichedInvoices;
 
+            console.log('✅ [MULTI] Invoices loaded successfully');
+            console.log('📊 [MULTI] Total invoices:', allInvoicesMulti.length);
+            console.log('🔍 [MULTI] First invoice object:', allInvoicesMulti[0]);
+            console.log('🔍 [MULTI] Checking client_nom field:');
+            allInvoicesMulti.slice(0, 5).forEach((inv, idx) => {
+                console.log(`   Invoice ${idx}: client_nom = "${inv.client_nom}" (type: ${typeof inv.client_nom})`);
+            });
+            
+            // Check all unique client_nom values
+            const allClientNoms = allInvoicesMulti.map(inv => inv.client_nom);
+            console.log('📋 [MULTI] All client_nom values:', allClientNoms);
+            const uniqueClients = [...new Set(allClientNoms.filter(Boolean))];
+            console.log('🎯 [MULTI] Unique non-empty client_nom values:', uniqueClients.length, uniqueClients);
+
             // Calculate Unseen (Pending) count
             const unseenCount = allInvoicesMulti.filter(inv => inv.validation_status === 'pending').length;
             const badge = document.getElementById('unseenBadgeMulti');
@@ -610,7 +639,9 @@ async function loadInvoicesMulti() {
 
             filteredInvoicesMulti = [...allInvoicesMulti];
 
+            console.log('🔵 [MULTI] About to call populateFiltersMulti()...');
             populateFiltersMulti();
+            console.log('🟢 [MULTI] populateFiltersMulti() completed');
             displayInvoicesMulti();
 
             if (allInvoicesMulti.length === 0 && emptyState) {
@@ -632,15 +663,34 @@ function populateFiltersMulti() {
     const yearFilter = document.getElementById('filterYearMulti');
     const clientFilter = document.getElementById('filterClientMulti');
 
-    if (!yearFilter || !clientFilter) return;
+    console.log('🔵 [MULTI] populateFiltersMulti() called');
+    console.log('   yearFilter element exists?', !!yearFilter);
+    console.log('   clientFilter element exists?', !!clientFilter);
+    
+    if (!yearFilter || !clientFilter) {
+        console.error('❌ [MULTI] Filter elements not found! yearFilter:', !!yearFilter, 'clientFilter:', !!clientFilter);
+        return;
+    }
 
     // Get unique years
     const years = [...new Set(allInvoicesMulti.map(inv => (window.safeParseDate||function(d){return new Date(d)})(inv.document_date).getFullYear()))].sort((a, b) => b - a);
     yearFilter.innerHTML = '<option value="">Toutes</option>' + years.map(year => `<option value="${year}">${year}</option>`).join('');
 
     // Get unique clients
-    const clients = [...new Set(allInvoicesMulti.map(inv => inv.client_nom))].sort();
-    clientFilter.innerHTML = '<option value="">Tous</option>' + clients.map(client => `<option value="${client}">${client}</option>`).join('');
+    console.log('🔍 [MULTI] populateFiltersMulti - allInvoicesMulti count:', allInvoicesMulti.length);
+    console.log('🔍 [MULTI] Sample invoice:', allInvoicesMulti[0]);
+    const clients = [...new Set(allInvoicesMulti.map(inv => inv.client_nom).filter(Boolean))].sort();
+    console.log('🔍 [MULTI] Unique clients found:', clients.length, clients);
+    
+    const newHTML = '<option value="">Tous</option>' + clients.map(client => `<option value="${client}">${client}</option>`).join('');
+    console.log('📝 [MULTI] New HTML to set:', newHTML);
+    
+    clientFilter.innerHTML = newHTML;
+    
+    console.log('✅ [MULTI] Client filter populated with', clients.length, 'clients');
+    console.log('📋 [MULTI] Dropdown HTML after population:', clientFilter.innerHTML);
+    console.log('📋 [MULTI] Dropdown options count:', clientFilter.options.length);
+    console.log('📋 [MULTI] Dropdown visible?', clientFilter.offsetParent !== null);
 }
 
 // Filter invoices
