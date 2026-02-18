@@ -10,8 +10,9 @@ autoUpdater.logger = log;
 autoUpdater.autoDownload = false;
 autoUpdater.autoInstallOnAppQuit = true;
 
-// Force dev update for testing (allows updates in development mode)
-if (process.env.NODE_ENV !== 'production') {
+// Force dev update config only in development (not packaged)
+const { app } = require('electron');
+if (!app.isPackaged) {
     autoUpdater.forceDevUpdateConfig = true;
     log.info('Development mode: forcing update config');
 }
@@ -101,11 +102,8 @@ autoUpdater.on('error', (err) => {
     log.error('✗ Error in auto-updater:', err);
     console.error('✗ Update Error:', err.message);
     console.error('Full error:', err);
-    dialog.showMessageBox({
-        type: 'error',
-        title: getTranslation('error'),
-        message: getTranslation('updateError') + '\n' + err.message
-    });
+    // Don't show dialog for update errors - it blocks app startup
+    // Only log silently
 });
 
 autoUpdater.on('download-progress', (progressObj) => {
