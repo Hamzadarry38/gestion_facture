@@ -78,7 +78,14 @@ function InvoicesListMRYPage() {
                                 <span>Nouvelle</span>
                             </button>
 
-                            
+                            <button class="action-btn" onclick="migrateAttachmentsToServerMRY()" style="background:linear-gradient(135deg,#ff9800,#f57c00);" title="Migrer les pièces jointes locales vers le serveur">
+                                <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor">
+                                    <path d="M.5 9.9a.5.5 0 0 1 .5.5v2.5a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-2.5a.5.5 0 0 1 1 0v2.5a2 2 0 0 1-2 2H2a2 2 0 0 1-2-2v-2.5a.5.5 0 0 1 .5-.5z"/>
+                                    <path d="M7.646 1.146a.5.5 0 0 1 .708 0l3 3a.5.5 0 0 1-.708.708L8.5 2.707V11.5a.5.5 0 0 1-1 0V2.707L5.354 4.854a.5.5 0 1 1-.708-.708l3-3z"/>
+                                </svg>
+                                <span>Migrer</span>
+                            </button>
+
                             <button class="action-btn action-btn-secondary" onclick="router.navigate('/dashboard-mry')">
                                 <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor">
                                     <path fill-rule="evenodd" d="M15 8a.5.5 0 0 0-.5-.5H2.707l3.147-3.146a.5.5 0 1 0-.708-.708l-4 4a.5.5 0 0 0 0 .708l4 4a.5.5 0 0 0 .708-.708L2.707 8.5H14.5A.5.5 0 0 0 15 8z"/>
@@ -2557,8 +2564,14 @@ window.openAttachment = async function (attachmentId) {
 
         if (result.success && result.data) {
             const attachment = result.data;
-            if (attachment.file_path) {
-                // Open from disk
+            if (attachment.file_url) {
+                // ✅ Online URL
+                await window.electron.attachments.openUrl(attachment.file_url);
+            } else if (attachment.file_path && attachment.file_path.startsWith('http')) {
+                // ✅ file_path contains online URL
+                await window.electron.attachments.openUrl(attachment.file_path);
+            } else if (attachment.file_path) {
+                // Legacy: local file
                 await window.electron.attachments.open(attachment.file_path);
             } else if (attachment.file_data) {
                 // Fallback for non-migrated BLOBs (stored as base64 in this module)
@@ -2602,12 +2615,13 @@ window.deleteAttachment = async function (attachmentId, invoiceId) {
     try {
         // Get attachment to find path
         const attResult = await window.electron.db.getAttachment(attachmentId);
-        const pathToDelete = (attResult.success && attResult.data) ? attResult.data.file_path : null;
+        const att = (attResult.success && attResult.data) ? attResult.data : null;
+        const pathToDelete = att && att.file_path && !att.file_path.startsWith('http') ? att.file_path : null;
 
         const result = await window.electron.db.deleteAttachment(attachmentId);
 
         if (result.success) {
-            // Delete from disk if path exists
+            // Delete local file only if it's a local path (not an online URL)
             if (pathToDelete) {
                 await window.electron.attachments.delete(pathToDelete);
             }
@@ -2656,34 +2670,33 @@ window.addNewAttachment = async function (invoiceId) {
                     continue;
                 }
 
-                // 1. Read file and save to disk
+                // 1. Read file and upload to server
                 const arrayBuffer = await file.arrayBuffer();
                 const uint8Array = new Uint8Array(arrayBuffer);
 
-                const saveResult = await window.electron.attachments.save({
+                const uploadResult = await window.electron.attachments.uploadToServer({
                     company: 'MRY',
                     filename: file.name,
-                    data: uint8Array
+                    data: uint8Array,
+                    mimeType: file.type
                 });
 
-                if (!saveResult.success) throw new Error(saveResult.error);
+                if (!uploadResult.success) throw new Error(uploadResult.error);
 
-                // 2. Add to DB with path
+                // 2. Add to DB with online URL
                 const result = await window.electron.db.addAttachment(
                     invoiceId,
                     file.name,
                     file.type,
-                    null, // No BLOB for new files
-                    saveResult.filePath,
+                    null, // No BLOB
+                    uploadResult.file_url, // Online URL
                     file.size
                 );
 
                 if (result.success) {
-                    console.log('✅ Attachment saved to disk and DB:', file.name);
+                    console.log('✅ Attachment uploaded to server and saved to DB:', file.name);
                 } else {
-                    // Cleanup file if DB fails
-                    await window.electron.attachments.delete(saveResult.filePath);
-                    console.error('❌ Failed to upload:', file.name, result.error);
+                    console.error('❌ Failed to save to DB:', file.name, result.error);
                 }
             }
 
@@ -4777,4 +4790,29 @@ window.initInvoicesListMRYPage = function () {
     setTimeout(() => {
         loadInvoices();
     }, 100);
+};
+
+// Migrate local attachments to server (MRY)
+window.migrateAttachmentsToServerMRY = async function () {
+    const confirmed = await customConfirm(
+        'Migration des pièces jointes',
+        'Cela va transférer toutes les pièces jointes locales vers le serveur en ligne. Continuer ?',
+        'info'
+    );
+    if (!confirmed) return;
+
+    const loadingNotif = window.notify.loading('Migration en cours...', 'Transfert vers le serveur');
+    try {
+        const result = await window.electron.attachments.migrateToServer({ company: 'MRY' });
+        window.notify.remove(loadingNotif);
+        if (result.success) {
+            window.notify.success('Migration terminée', `${result.migrated} fichier(s) transféré(s) vers le serveur.`, 5000);
+            loadInvoices();
+        } else {
+            window.notify.error('Erreur', result.error || 'Échec de la migration', 4000);
+        }
+    } catch (e) {
+        window.notify.remove(loadingNotif);
+        window.notify.error('Erreur', e.message, 4000);
+    }
 };

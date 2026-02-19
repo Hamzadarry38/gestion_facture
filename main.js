@@ -397,6 +397,79 @@ function setupPdfHandlers() {
     }
   });
 
+  // Upload attachment file to server (multipart), returns { success, file_url }
+  ipcMain.handle('attachment:uploadToServer', async (event, { company, filename, data, mimeType }) => {
+    try {
+      const apiClient = require('./database/api-client');
+      const buffer = Buffer.from(data);
+      const result = await apiClient.uploadAttachmentFile(company, buffer, filename, mimeType);
+      return result;
+    } catch (error) {
+      console.error('❌ Error uploading attachment to server:', error);
+      return { success: false, error: error.message };
+    }
+  });
+
+  // Migrate local attachments (file_path on disk OR file_data BLOB) to server
+  ipcMain.handle('attachment:migrateToServer', async (event, { company }) => {
+    try {
+      const apiClient = require('./database/api-client');
+      const axios = require('axios');
+      const API_URL = apiClient.getBaseUrl();
+
+      // Fetch all attachments needing migration (no file_url yet) from server DB
+      const dbRes = await axios.get(`${API_URL}/attachments/needs-migration/${company.toUpperCase()}`, {
+        httpsAgent: new (require('https')).Agent({ rejectUnauthorized: false })
+      });
+      if (!dbRes.data.success) return { success: false, error: 'Could not fetch attachments list' };
+
+      const attachments = dbRes.data.data;
+      let migrated = 0;
+      const errors = [];
+
+      for (const att of attachments) {
+        try {
+          let fileBuffer = null;
+          const mimeType = att.file_type || 'application/octet-stream';
+
+          if (att.file_path && fs.existsSync(att.file_path)) {
+            // Local file on disk
+            fileBuffer = fs.readFileSync(att.file_path);
+          } else if (att.file_data) {
+            // BLOB stored as base64 from server
+            fileBuffer = Buffer.from(att.file_data, 'base64');
+          }
+
+          if (!fileBuffer) {
+            errors.push({ id: att.id, error: 'No file data or path found' });
+            continue;
+          }
+
+          // Upload file to server (pass att.id so server updates file_url in DB)
+          const uploadResult = await apiClient.uploadAttachmentFile(
+            company.toUpperCase(),
+            fileBuffer,
+            att.filename,
+            mimeType,
+            att.id
+          );
+
+          if (uploadResult.success) {
+            migrated++;
+          } else {
+            errors.push({ id: att.id, error: uploadResult.error || 'Upload failed' });
+          }
+        } catch (e) {
+          errors.push({ id: att.id, error: e.message });
+        }
+      }
+      return { success: true, migrated, errors };
+    } catch (error) {
+      console.error('❌ Error migrating attachments to server:', error);
+      return { success: false, error: error.message };
+    }
+  });
+
   ipcMain.handle('attachment:open', async (event, filePath) => {
     try {
       if (fs.existsSync(filePath)) {
@@ -404,6 +477,16 @@ function setupPdfHandlers() {
         return { success: true };
       }
       return { success: false, error: 'File not found' };
+    } catch (error) {
+      return { success: false, error: error.message };
+    }
+  });
+
+  // Open attachment URL in default browser
+  ipcMain.handle('attachment:openUrl', async (event, url) => {
+    try {
+      await shell.openExternal(url);
+      return { success: true };
     } catch (error) {
       return { success: false, error: error.message };
     }

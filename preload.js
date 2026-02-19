@@ -386,8 +386,11 @@ contextBridge.exposeInMainWorld('electron', {
   attachments: {
     save: (params) => ipcRenderer.invoke('attachment:save', params),
     open: (filePath) => ipcRenderer.invoke('attachment:open', filePath),
+    openUrl: (url) => ipcRenderer.invoke('attachment:openUrl', url),
     delete: (filePath) => ipcRenderer.invoke('attachment:delete', filePath),
-    migrate: (company) => ipcRenderer.invoke('attachment:migrate', company)
+    migrate: (company) => ipcRenderer.invoke('attachment:migrate', company),
+    uploadToServer: (params) => ipcRenderer.invoke('attachment:uploadToServer', params),
+    migrateToServer: (params) => ipcRenderer.invoke('attachment:migrateToServer', params)
   },
 
   // Asset loading

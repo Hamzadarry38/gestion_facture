@@ -80,9 +80,14 @@ function InvoicesListChaimaePage() {
                                 <span>Nouvelle</span>
                             </button>
 
+                            <button class="action-btn" onclick="migrateAttachmentsToServerChaimae()" style="background:linear-gradient(135deg,#ff9800,#f57c00);" title="Migrer les pièces jointes locales vers le serveur">
+                                <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor">
+                                    <path d="M.5 9.9a.5.5 0 0 1 .5.5v2.5a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-2.5a.5.5 0 0 1 1 0v2.5a2 2 0 0 1-2 2H2a2 2 0 0 1-2-2v-2.5a.5.5 0 0 1 .5-.5z"/>
+                                    <path d="M7.646 1.146a.5.5 0 0 1 .708 0l3 3a.5.5 0 0 1-.708.708L8.5 2.707V11.5a.5.5 0 0 1-1 0V2.707L5.354 4.854a.5.5 0 1 1-.708-.708l3-3z"/>
+                                </svg>
+                                <span>Migrer</span>
+                            </button>
 
-
-                            
                             <button class="action-btn action-btn-secondary" onclick="router.navigate('/dashboard-chaimae')">
                                 <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor">
                                     <path fill-rule="evenodd" d="M15 8a.5.5 0 0 0-.5-.5H2.707l3.147-3.146a.5.5 0 1 0-.708-.708l-4 4a.5.5 0 0 0 0 .708l4 4a.5.5 0 0 0 .708-.708L2.707 8.5H14.5A.5.5 0 0 0 15 8z"/>
@@ -5677,36 +5682,35 @@ window.addNewAttachmentChaimae = function (invoiceId) {
                 continue;
             }
 
-            // 1. Read file and save to disk
+            // 1. Read file and upload to server
             const arrayBuffer = await file.arrayBuffer();
             const uint8Array = new Uint8Array(arrayBuffer);
 
-            const saveResult = await window.electron.attachments.save({
+            const uploadResult = await window.electron.attachments.uploadToServer({
                 company: 'CHAIMAE',
                 filename: file.name,
-                data: uint8Array
+                data: uint8Array,
+                mimeType: file.type
             });
 
-            if (!saveResult.success) {
-                window.notify.error('Erreur', `Échec sauvegarde disque: ${file.name}`, 3000);
+            if (!uploadResult.success) {
+                window.notify.error('Erreur', `Échec upload serveur: ${file.name}`, 3000);
                 continue;
             }
 
-            // 2. Add to database with path
+            // 2. Add to database with online URL
             const result = await window.electron.dbChaimae.addAttachment(
                 invoiceId,
                 file.name,
                 file.type,
-                null, // No BLOB for new files
-                saveResult.filePath,
+                null, // No BLOB
+                uploadResult.file_url, // Online URL as file_path
                 file.size
             );
 
             if (result.success) {
                 window.notify.success('Succès', `${file.name} ajouté`, 2000);
             } else {
-                // Cleanup file if DB insert fails
-                await window.electron.attachments.delete(saveResult.filePath);
                 window.notify.error('Erreur', `Échec DB: ${file.name}`, 3000);
             }
         }
@@ -5745,11 +5749,17 @@ window.openAttachmentChaimae = async function (attachmentId) {
         if (result.success && result.data) {
             const attachment = result.data;
 
-            if (attachment.file_path) {
-                // Open from disk
+            if (attachment.file_url) {
+                // ✅ Online URL - open in browser
+                await window.electron.attachments.openUrl(attachment.file_url);
+            } else if (attachment.file_path && attachment.file_path.startsWith('http')) {
+                // ✅ file_path contains online URL (new format)
+                await window.electron.attachments.openUrl(attachment.file_path);
+            } else if (attachment.file_path) {
+                // Legacy: local file path
                 await window.electron.attachments.open(attachment.file_path);
             } else if (attachment.file_data) {
-                // Fallback for non-migrated BLOBs (often returned as base64 in Chaimae's DB layer)
+                // Legacy: BLOB fallback
                 let bytes;
                 if (typeof attachment.file_data === 'string') {
                     const binaryString = atob(attachment.file_data);
@@ -5760,7 +5770,6 @@ window.openAttachmentChaimae = async function (attachmentId) {
                 } else {
                     bytes = attachment.file_data;
                 }
-
                 const blob = new Blob([bytes], { type: attachment.file_type });
                 const url = URL.createObjectURL(blob);
                 window.open(url, '_blank');
@@ -5787,12 +5796,13 @@ window.deleteAttachmentChaimae = async function (attachmentId, invoiceId) {
     try {
         // Get attachment to find path
         const attResult = await window.electron.dbChaimae.getAttachment(attachmentId);
-        const pathToDelete = (attResult.success && attResult.data) ? attResult.data.file_path : null;
+        const att = (attResult.success && attResult.data) ? attResult.data : null;
+        const pathToDelete = att && att.file_path && !att.file_path.startsWith('http') ? att.file_path : null;
 
         const result = await window.electron.dbChaimae.deleteAttachment(attachmentId);
 
         if (result.success) {
-            // Delete from disk if path exists
+            // Delete local file only if it's a local path (not an online URL)
             if (pathToDelete) {
                 await window.electron.attachments.delete(pathToDelete);
             }
@@ -7203,4 +7213,29 @@ window.bulkResetArStatusChaimae = async function () {
     }
     window.notify.success('✅', `${success}/${toReset.length} facture(s) mises à jour.`, 3000);
     loadInvoicesChaimae();
+};
+
+// Migrate local attachments to server (CHAIMAE)
+window.migrateAttachmentsToServerChaimae = async function () {
+    const confirmed = await customConfirm(
+        'Migration des pièces jointes',
+        'Cela va transférer toutes les pièces jointes locales vers le serveur en ligne. Continuer ?',
+        'info'
+    );
+    if (!confirmed) return;
+
+    const loadingNotif = window.notify.loading('Migration en cours...', 'Transfert vers le serveur');
+    try {
+        const result = await window.electron.attachments.migrateToServer({ company: 'CHAIMAE' });
+        window.notify.remove(loadingNotif);
+        if (result.success) {
+            window.notify.success('Migration terminée', `${result.migrated} fichier(s) transféré(s) vers le serveur.`, 5000);
+            loadInvoicesChaimae();
+        } else {
+            window.notify.error('Erreur', result.error || 'Échec de la migration', 4000);
+        }
+    } catch (e) {
+        window.notify.remove(loadingNotif);
+        window.notify.error('Erreur', e.message, 4000);
+    }
 };

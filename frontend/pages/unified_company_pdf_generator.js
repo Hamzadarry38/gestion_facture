@@ -1095,10 +1095,28 @@ async function generateCustomCompanyPDF(invoiceId, sourceDb, companyCode) {
                 }));
             }
 
+            // Exclude products marked for deletion
+            if (customizationData.excludedIndices && customizationData.excludedIndices.length > 0) {
+                const excluded = new Set(customizationData.excludedIndices);
+                customizedInvoice.products = customizedInvoice.products.filter((_, index) => !excluded.has(index));
+                // Recalculate totals after exclusion
+                const newTotalHT = customizedInvoice.products.reduce((sum, p) => sum + parseFloat(p.total_ht || 0), 0);
+                const newMontantTVA = newTotalHT * (parseFloat(customizedInvoice.tva_rate || 20) / 100);
+                customizedInvoice.total_ht = newTotalHT;
+                customizedInvoice.montant_tva = newMontantTVA;
+                customizedInvoice.total_ttc = newTotalHT + newMontantTVA;
+            }
+
+            // If downloadAsOther: use current logged-in company header instead of target company
+            const effectiveCompanyCode = customizationData.downloadAsOther
+                ? (JSON.parse(localStorage.getItem('selectedCompany') || '{}').code || companyCode)
+                : companyCode;
+            const effectiveCompanyColor = customizationData.downloadAsOther ? '#2196f3' : companyColor;
+
             // Generate PDF content with dynamic company color and table style
             const tableStyle = companyData ? (companyData.tableStyle || 'style1') : 'style1';
             console.log(`📊 [${companyCode}] Using table style: ${tableStyle}`);
-            await generateGenericPDFContent(doc, customizedInvoice, companyCode, companyColor, tableStyle);
+            await generateGenericPDFContent(doc, customizedInvoice, effectiveCompanyCode, effectiveCompanyColor, tableStyle);
 
             // Save devis number to database for auto-increment tracking
             const invoiceNumber = customizationData.customDevisNumber || customizedInvoice.document_numero_devis || customizedInvoice.document_numero || 'N-A';
@@ -1255,17 +1273,44 @@ async function showCustomCompanyModal(invoice, companyCode, companyName, company
         const overlay = document.createElement('div');
         overlay.className = 'custom-modal-overlay';
 
+        // Track deleted product indices
+        const deletedProductIndices = new Set();
+
         // Generate product inputs
         const productsHtml = invoice.products.map((product, index) => {
             const displayName = savedProductNames[index] || product.designation || '';
             return `
-            <div style="margin-bottom: 0.5rem;">
-                <label style="display: block; margin-bottom: 0.2rem; color: #aaa; font-size: 0.8rem;">
-                    Produit ${index + 1}: Quantité: ${product.quantite}
-                </label>
-                <textarea class="product-name-input" data-index="${index}"
-                       style="width: 100%; padding: 0.5rem; background: #2d2d30; border: 1px solid #3e3e42; border-radius: 4px; color: #fff; font-size: 0.9rem; resize: vertical; min-height: 40px;"
-                       placeholder="Nom du produit">${displayName}</textarea>
+            <div id="product-row-${index}" style="margin-bottom: 0.5rem; display: flex; align-items: flex-start; gap: 0.5rem;">
+                <div style="flex: 1;">
+                    <label style="display: block; margin-bottom: 0.2rem; color: #aaa; font-size: 0.8rem;">
+                        Produit ${index + 1}: Quantité: ${product.quantite}
+                    </label>
+                    <textarea class="product-name-input" data-index="${index}"
+                           style="width: 100%; padding: 0.5rem; background: #2d2d30; border: 1px solid #3e3e42; border-radius: 4px; color: #fff; font-size: 0.9rem; resize: vertical; min-height: 40px;"
+                           placeholder="Nom du produit">${displayName}</textarea>
+                </div>
+                <button type="button" onclick="(function(){
+                    var row = document.getElementById('product-row-${index}');
+                    if(row.style.opacity === '0.3') {
+                        row.style.opacity = '1';
+                        row.querySelector('textarea').disabled = false;
+                        row.querySelector('button').title = 'Exclure ce produit du PDF';
+                        row.querySelector('button').style.background = '#c0392b';
+                        row.querySelector('button').textContent = '🗑️';
+                        window._deletedProductIndices_custom = window._deletedProductIndices_custom || new Set();
+                        window._deletedProductIndices_custom.delete(${index});
+                    } else {
+                        row.style.opacity = '0.3';
+                        row.querySelector('textarea').disabled = true;
+                        row.querySelector('button').title = 'Restaurer ce produit';
+                        row.querySelector('button').style.background = '#27ae60';
+                        row.querySelector('button').textContent = '↩️';
+                        window._deletedProductIndices_custom = window._deletedProductIndices_custom || new Set();
+                        window._deletedProductIndices_custom.add(${index});
+                    }
+                })()"
+                    title="Exclure ce produit du PDF"
+                    style="margin-top: 1.4rem; padding: 0.4rem 0.6rem; background: #c0392b; border: none; border-radius: 4px; color: #fff; cursor: pointer; font-size: 0.85rem; flex-shrink: 0;">🗑️</button>
             </div>
         `}).join('');
 
@@ -1337,13 +1382,32 @@ async function showCustomCompanyModal(invoice, companyCode, companyName, company
 
         document.getElementById('customCancelBtn').addEventListener('click', () => {
             overlay.remove();
+            window._deletedProductIndices_custom = new Set();
             resolve(null);
         });
 
-        document.getElementById('customGenerateBtn').addEventListener('click', async () => {
+        // Helper to collect form data
+        function collectCustomFormData() {
             const percentage = parseFloat(document.getElementById('customPercentageInput').value) || 0;
             const customDate = document.getElementById('customDateInput').value;
             const customDevisNumber = devisInput.value.trim();
+            const productNameInputs = document.querySelectorAll('.product-name-input');
+            const modifiedProducts = {};
+            const excludedIndices = Array.from(window._deletedProductIndices_custom || []);
+            productNameInputs.forEach(input => {
+                const indexStr = input.getAttribute('data-index');
+                if (indexStr !== null) {
+                    const index = parseInt(indexStr);
+                    if (!isNaN(index) && invoice.products[index]) {
+                        modifiedProducts[index] = input.value.trim() || invoice.products[index].designation;
+                    }
+                }
+            });
+            return { percentage, customDate, customDevisNumber, modifiedProducts, excludedIndices };
+        }
+
+        document.getElementById('customGenerateBtn').addEventListener('click', async () => {
+            const { percentage, customDate, customDevisNumber, modifiedProducts, excludedIndices } = collectCustomFormData();
 
             if (!customDevisNumber) {
                 window.notify.warning('Champ requis', 'Veuillez saisir un numéro de Devis.');
@@ -1365,29 +1429,15 @@ async function showCustomCompanyModal(invoice, companyCode, companyName, company
             }
             devisInput.style.borderColor = '#3e3e42';
 
-            // Collect product names
-            const productNameInputs = document.querySelectorAll('.product-name-input');
-            const modifiedProducts = {};
-            productNameInputs.forEach(input => {
-                const indexStr = input.getAttribute('data-index');
-                if (indexStr !== null) {
-                    const index = parseInt(indexStr);
-                    if (!isNaN(index) && invoice.products[index]) {
-                        modifiedProducts[index] = input.value.trim() || invoice.products[index].designation;
-                    }
-                }
-            });
-
-            // Save settings to localStorage for next time (percentage per-company, product names per-invoice)
+            // Save settings to localStorage for next time
             try {
-                localStorage.setItem(`customPdfSettings_${companyCode}`, JSON.stringify({
-                    percentage: percentage
-                }));
+                localStorage.setItem(`customPdfSettings_${companyCode}`, JSON.stringify({ percentage }));
                 localStorage.setItem(`customPdfProducts_${companyCode}_${invoice.id}`, JSON.stringify(modifiedProducts));
             } catch (e) {}
 
             overlay.remove();
-            resolve({ percentage, customDate, customDevisNumber, modifiedProducts });
+            window._deletedProductIndices_custom = new Set();
+            resolve({ percentage, customDate, customDevisNumber, modifiedProducts, excludedIndices });
         });
 
         overlay.addEventListener('click', (e) => {

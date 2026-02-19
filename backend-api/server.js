@@ -48,7 +48,7 @@ async function checkIsConvertedExists() {
   }
 }
 
-// --- FILE UPLOAD CONFIGURATION (Multer) ---
+// --- FILE UPLOAD CONFIGURATION (Multer) for PDFs ---
 const storage = multer.diskStorage({
   destination: function (req, file, cb) {
     const { company } = req.params;
@@ -63,8 +63,6 @@ const storage = multer.diskStorage({
     cb(null, uploadPath);
   },
   filename: function (req, file, cb) {
-    // Keep original filename but sanitize it slightly if needed
-    // In our case, the frontend sends a generated name like "Devis-123.pdf"
     const safeName = file.originalname.replace(/[^a-zA-Z0-9.\-_]/g, '_');
     cb(null, safeName);
   }
@@ -72,9 +70,32 @@ const storage = multer.diskStorage({
 
 const upload = multer({ storage: storage });
 
+// --- ATTACHMENT FILE UPLOAD CONFIGURATION (Multer) ---
+const attachmentStorage = multer.diskStorage({
+  destination: function (req, file, cb) {
+    const { company } = req.params;
+    const attachPath = path.join(__dirname, '..', 'attachments', company.toUpperCase());
+    if (!fs.existsSync(attachPath)) {
+      fs.mkdirSync(attachPath, { recursive: true });
+    }
+    cb(null, attachPath);
+  },
+  filename: function (req, file, cb) {
+    const uniqueName = `${Date.now()}_${file.originalname.replace(/[^a-zA-Z0-9.\-_]/g, '_')}`;
+    cb(null, uniqueName);
+  }
+});
+
+const uploadAttachment = multer({
+  storage: attachmentStorage,
+  limits: { fileSize: 20 * 1024 * 1024 } // 20MB max
+});
+
 // Serve static files from "uploads" directory
-// effectively making http://server:8001/uploads/... accessible
 app.use('/uploads', express.static(path.join(__dirname, '..', 'uploads')));
+
+// Serve static files from "attachments" directory (online access)
+app.use('/attachments', express.static(path.join(__dirname, '..', 'attachments')));
 
 // Database connection
 const pool = new Pool({
@@ -88,6 +109,16 @@ const pool = new Pool({
 app.use(cors());
 app.use(bodyParser.json({ limit: '50mb' }));
 app.use(bodyParser.urlencoded({ limit: '50mb', extended: true }));
+
+// Auto-migrate: ensure file_url column exists in invoice_attachments
+(async () => {
+  try {
+    await pool.query(`ALTER TABLE invoice_attachments ADD COLUMN IF NOT EXISTS file_url TEXT`);
+    console.log('✅ [MIGRATION] file_url column ensured in invoice_attachments');
+  } catch (e) {
+    console.warn('⚠️ [MIGRATION] Could not add file_url column:', e.message);
+  }
+})();
 
 // Helper: Hash password (matching the original app's crypto logic)
 function hashPassword(password) {
@@ -1081,11 +1112,129 @@ app.delete('/invoices/:id', async (req, res) => {
   }
 });
 
+// --- Ensure file_url column exists in invoice_attachments ---
+(async () => {
+  try {
+    await pool.query(`ALTER TABLE invoice_attachments ADD COLUMN IF NOT EXISTS file_url TEXT`);
+    console.log('✅ [ATTACHMENTS] file_url column ensured in invoice_attachments');
+  } catch (e) {
+    console.error('⚠️ [ATTACHMENTS] Could not add file_url column:', e.message);
+  }
+})();
+
+// --- UPLOAD ATTACHMENT FILE to server ---
+// POST /attachments/upload/:company  (multipart/form-data, field: "file")
+// Returns: { success, file_url, filename }
+app.post('/attachments/upload/:company', uploadAttachment.single('file'), async (req, res) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({ success: false, error: 'No file uploaded' });
+    }
+    const { company } = req.params;
+    const filename = req.file.filename;
+    // Build public URL (include /facture prefix for reverse proxy)
+    const baseUrl = `${req.protocol}://${req.get('host')}`;
+    const file_url = `${baseUrl}/facture/attachments/${company.toUpperCase()}/${filename}`;
+    console.log(`✅ [ATTACHMENT UPLOAD] ${filename} → ${file_url}`);
+
+    // If attachment_id provided (migration case), update file_url in DB
+    const attachment_id = req.body && req.body.attachment_id;
+    if (attachment_id) {
+      await pool.query(
+        'UPDATE invoice_attachments SET file_url = $1, file_path = NULL, file_data = NULL WHERE id = $2',
+        [file_url, attachment_id]
+      );
+      console.log(`✅ [ATTACHMENT UPLOAD] Updated DB for attachment id=${attachment_id}`);
+    }
+
+    res.json({ success: true, file_url, filename });
+  } catch (err) {
+    console.error('❌ [ATTACHMENT UPLOAD] Error:', err);
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// --- MIGRATE LOCAL ATTACHMENTS TO SERVER ---
+// POST /attachments/migrate-to-server
+// Body: { attachments: [{ id, file_data (base64), filename, company }] }
+// Saves files on server, updates file_url in DB
+app.post('/attachments/migrate-to-server', async (req, res) => {
+  try {
+    const { attachments } = req.body;
+    if (!attachments || !Array.isArray(attachments)) {
+      return res.status(400).json({ success: false, error: 'attachments array required' });
+    }
+
+    const baseUrl = `${req.protocol}://${req.get('host')}`;
+    let migrated = 0;
+    const errors = [];
+
+    for (const att of attachments) {
+      try {
+        const { id, file_data, filename, company } = att;
+        if (!file_data || !filename || !id) continue;
+
+        const companyUpper = (company || 'GENERAL').toUpperCase();
+        const attachDir = path.join(__dirname, '..', 'attachments', companyUpper);
+        if (!fs.existsSync(attachDir)) fs.mkdirSync(attachDir, { recursive: true });
+
+        const uniqueName = `${Date.now()}_${id}_${filename.replace(/[^a-zA-Z0-9.\-_]/g, '_')}`;
+        const filePath = path.join(attachDir, uniqueName);
+
+        // Write file from base64
+        const buffer = Buffer.from(file_data, 'base64');
+        fs.writeFileSync(filePath, buffer);
+
+        const file_url = `${baseUrl}/attachments/${companyUpper}/${uniqueName}`;
+
+        // Update DB
+        await pool.query(
+          'UPDATE invoice_attachments SET file_url = $1, file_path = NULL, file_data = NULL WHERE id = $2',
+          [file_url, id]
+        );
+
+        migrated++;
+      } catch (attErr) {
+        errors.push({ id: att.id, error: attErr.message });
+      }
+    }
+
+    res.json({ success: true, migrated, errors });
+  } catch (err) {
+    console.error('❌ [MIGRATE ATTACHMENTS] Error:', err);
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// Get attachments needing migration (have file_path or file_data but no file_url)
+app.get('/attachments/needs-migration/:company', async (req, res) => {
+  try {
+    const { company } = req.params;
+    const result = await pool.query(`
+      SELECT ia.id, ia.filename, ia.file_type, ia.file_path, ia.file_data,
+             i.company_code
+      FROM invoice_attachments ia
+      JOIN invoices i ON ia.invoice_id = i.id
+      WHERE (ia.file_url IS NULL OR ia.file_url = '')
+        AND (ia.file_path IS NOT NULL OR ia.file_data IS NOT NULL)
+        AND ($1 = 'ALL' OR UPPER(i.company_code) = UPPER($1))
+    `, [company]);
+
+    const rows = result.rows.map(r => {
+      if (r.file_data) r.file_data = Buffer.from(r.file_data).toString('base64');
+      return r;
+    });
+    res.json({ success: true, data: rows });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
 // --- ATTACHMENT ROUTES ---
 app.get('/attachments/id/:id', async (req, res) => {
   try {
     const { id } = req.params;
-    const result = await pool.query('SELECT id, invoice_id, filename, file_type, file_size, file_path, file_data FROM invoice_attachments WHERE id = $1', [id]);
+    const result = await pool.query('SELECT id, invoice_id, filename, file_type, file_size, file_path, file_url, file_data FROM invoice_attachments WHERE id = $1', [id]);
     if (result.rows.length === 0) {
       return res.status(404).json({ success: false, message: 'Attachment not found' });
     }
@@ -1146,11 +1295,16 @@ app.post('/attachments', async (req, res) => {
       }
     }
 
+    // If file_path is an online URL, store it in file_url column instead
+    const isOnlineUrl = file_path && (file_path.startsWith('http://') || file_path.startsWith('https://'));
+    const localFilePath = isOnlineUrl ? null : (file_path || null);
+    const fileUrl = isOnlineUrl ? file_path : null;
+
     const result = await client.query(
-      `INSERT INTO invoice_attachments (invoice_id, filename, file_type, file_size, file_path, file_data)
-       VALUES ($1, $2, $3, $4, $5, $6)
+      `INSERT INTO invoice_attachments (invoice_id, filename, file_type, file_size, file_path, file_url, file_data)
+       VALUES ($1, $2, $3, $4, $5, $6, $7)
        RETURNING id`,
-      [invoice_id, filename, file_type || 'application/octet-stream', file_size || 0, file_path || null, dataBuffer]
+      [invoice_id, filename, file_type || 'application/octet-stream', file_size || 0, localFilePath, fileUrl, dataBuffer]
     );
 
     const attachmentId = result.rows[0].id;

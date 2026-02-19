@@ -230,6 +230,37 @@ const service = {
         return res.data;
     },
 
+    // Upload attachment file to server, returns { success, file_url, filename }
+    // attachmentId (optional): if provided, server will update file_url in DB (migration use case)
+    uploadAttachmentFile: async (company, fileBuffer, filename, mimeType, attachmentId) => {
+        let formData;
+        if (isNode && FormDataNode) {
+            formData = new FormDataNode();
+            formData.append('file', Buffer.from(fileBuffer), { filename, contentType: mimeType });
+            if (attachmentId) formData.append('attachment_id', String(attachmentId));
+            const res = await apiClient.post(`/attachments/upload/${company}`, formData, {
+                headers: formData.getHeaders()
+            });
+            return res.data;
+        } else {
+            // Browser context (renderer)
+            const blob = new Blob([fileBuffer], { type: mimeType });
+            const fd = new FormData();
+            fd.append('file', blob, filename);
+            if (attachmentId) fd.append('attachment_id', String(attachmentId));
+            const res = await apiClient.post(`/attachments/upload/${company}`, fd, {
+                headers: { 'Content-Type': 'multipart/form-data' }
+            });
+            return res.data;
+        }
+    },
+
+    // Migrate local attachments to server
+    migrateAttachmentsToServer: async (attachments) => {
+        const res = await apiClient.post('/attachments/migrate-to-server', { attachments });
+        return res.data;
+    },
+
     deleteAttachment: async (id) => {
         const res = await apiClient.delete(`/attachments/${id}`);
         return res.data;
@@ -458,5 +489,9 @@ const service = {
         return res.data;
     }
 };
+
+// Single source of truth for the API base URL
+service.baseUrl = API_URL;
+service.getBaseUrl = () => API_URL;
 
 module.exports = service;
