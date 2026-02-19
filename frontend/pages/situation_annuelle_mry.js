@@ -365,7 +365,7 @@ window.generateSituationAnnuelleMRY = async function (clientId, year, selectedMo
         }
 
         // We will adapt the existing one slightly for "SITUATION"
-        addHeaderToPDFAnnuelleMRY(doc, client, dateRangeStr, blueColor, greenColor);
+        const titleLines = addHeaderToPDFAnnuelleMRY(doc, client, dateRangeStr, blueColor, greenColor);
 
         // Dynamic Column Positioning
         const startX = 40;
@@ -382,8 +382,8 @@ window.generateSituationAnnuelleMRY = async function (clientId, year, selectedMo
             col.x = startX + (columnWidth * index) + (columnWidth / 2);
         });
 
-        // Table Header
-        const startY = 85;
+        // Table Header - dynamic startY based on number of title lines
+        const startY = 77 + (titleLines || 1) * 7 + 4;
         doc.setFillColor(...blueColor);
         doc.rect(14, startY, 182, 10, 'F');
 
@@ -526,7 +526,9 @@ function addHeaderToPDFAnnuelleMRY(doc, client, dateRangeStr, blueColor, greenCo
 
     doc.setTextColor(...blueColor);
     doc.setFontSize(13);
-    doc.text(` ${dateRangeStr}`, 105, 77, { align: 'center' });
+    const splitTitle = doc.splitTextToSize(dateRangeStr, 170);
+    doc.text(splitTitle, 105, 77, { align: 'center' });
+    return splitTitle.length;
 }
 
 
@@ -809,10 +811,10 @@ window.generateSituationAnnuelleClientsMRY = async function (clientIds, year, se
         }
 
         const clientLabel = clientIds.length === 1 ? null : { nom: `MULTI-CLIENTS (${clientIds.length})` };
-        addHeaderToPDFAnnuelleMRY(doc, clientLabel, dateRangeStr, blueColor, greenColor);
+        const titleLinesGlobal = addHeaderToPDFAnnuelleMRY(doc, clientLabel, dateRangeStr, blueColor, greenColor);
 
-        // Table logic
-        const startY = 85;
+        // Table logic - dynamic startY based on number of title lines
+        const startY = 77 + (titleLinesGlobal || 1) * 7 + 4;
         doc.setFillColor(...blueColor);
         doc.rect(14, startY, 182, 10, 'F');
         doc.setTextColor(255, 255, 255);

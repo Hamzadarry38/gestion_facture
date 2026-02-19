@@ -368,7 +368,7 @@ window.generateSituationAnnuelleChaimae = async function (clientId, year, select
             dateRangeStr = `${year}`;
         }
 
-        addHeaderToPDFAnnuelleChaimae(doc, client, dateRangeStr, purpleColor, orangeColor);
+        const titleLines = addHeaderToPDFAnnuelleChaimae(doc, client, dateRangeStr, purpleColor, orangeColor);
 
         // Dynamic Column Positioning
         const startX = 35; // Move left to give more space
@@ -386,8 +386,8 @@ window.generateSituationAnnuelleChaimae = async function (clientId, year, select
             col.x = startX + (columnWidth * index) + (columnWidth / 2);
         });
 
-        // Table Header
-        const startY = 90; // Moved down from 85 to accommodate long month lists
+        // Table Header - dynamic startY based on number of title lines
+        const startY = 82 + (titleLines || 1) * 7 + 4;
         doc.setFillColor(...purpleColor);
         doc.rect(14, startY, 182, 10, 'F');
 
@@ -876,9 +876,7 @@ window.generateSituationAnnuelleClientsChaimae = async function (clientIds, year
 
                 clientsData.push({
                     clientName: clientName.toUpperCase(),
-                    facturesCount,
-                    devisCount,
-                    blCount,
+                    nbDocs: facturesCount + devisCount + blCount,
                     totalHT: clientTotalHT,
                     totalTTC: clientTotalTTC
                 });
@@ -900,8 +898,8 @@ window.generateSituationAnnuelleClientsChaimae = async function (clientIds, year
         const { jsPDF } = window.jspdf;
         const doc = new jsPDF();
 
-        const blueColor = [33, 97, 140]; // MRY Blue
-        const greenColor = [16, 172, 132]; // MRY Green
+        const blueColor = [33, 97, 140];   // MRY Blue (table header color)
+        const greenColor = [16, 172, 132]; // MRY Green (accent/text color)
 
         // Generate Title String
         const monthNamesUpper = ['', 'JANVIER', 'FÉVRIER', 'MARS', 'AVRIL', 'MAI', 'JUIN', 'JUILLET', 'AOÛT', 'SEPTEMBRE', 'OCTOBRE', 'NOVEMBRE', 'DÉCEMBRE'];
@@ -993,24 +991,8 @@ window.generateSituationAnnuelleClientsChaimae = async function (clientIds, year
 
         const titleLinesCount = await addGlobalHeaderChaimae(doc, finalClientLabel, dateRangeStr);
 
-        // Dynamic Column Positioning
-        const startX = 65; // Increased to avoid overlap
-        const endX = 135;
-        const totalWidth = endX - startX;
-
-        let activeColumns = [];
-        if (includeFacture) activeColumns.push({ label: 'Nbr FACTURES', key: 'facturesCount' });
-        if (includeDevis) activeColumns.push({ label: 'Nbr DEVIS', key: 'devisCount' });
-        if (includeBL) activeColumns.push({ label: 'Nbr BL', key: 'blCount' });
-
-        const columnWidth = totalWidth / activeColumns.length;
-
-        activeColumns.forEach((col, index) => {
-            col.x = startX + (columnWidth * index) + (columnWidth / 2);
-        });
-
-        // Table Header
-        const startY = 90 + (titleLinesCount > 1 ? (titleLinesCount - 1) * 7 : 0);
+        // Table Header - dynamic startY based on number of title lines
+        const startY = 82 + (titleLinesCount || 1) * 7 + 4;
         doc.setFillColor(...blueColor);
         doc.rect(14, startY, 182, 10, 'F');
 
@@ -1018,12 +1000,8 @@ window.generateSituationAnnuelleClientsChaimae = async function (clientIds, year
         doc.setFontSize(9);
         doc.setFont(undefined, 'bold');
         doc.text('CLIENT', 20, startY + 6.5);
-
-        activeColumns.forEach(col => {
-            doc.text(col.label, col.x, startY + 6.5, { align: 'center' });
-        });
-
-        doc.text('TOTAL H.T', 160, startY + 6.5, { align: 'right' });
+        doc.text('NB DOCS', 110, startY + 6.5, { align: 'center' });
+        doc.text('TOTAL H.T', 155, startY + 6.5, { align: 'right' });
         doc.text('TOTAL T.T.C', 190, startY + 6.5, { align: 'right' });
 
         // Table Content
@@ -1043,10 +1021,8 @@ window.generateSituationAnnuelleClientsChaimae = async function (clientIds, year
                 doc.setFontSize(9);
                 doc.setFont(undefined, 'bold');
                 doc.text('CLIENT', 20, tableStartY + 6.5);
-                activeColumns.forEach(col => {
-                    doc.text(col.label, col.x, tableStartY + 6.5, { align: 'center' });
-                });
-                doc.text('TOTAL H.T', 160, tableStartY + 6.5, { align: 'right' });
+                doc.text('NB DOCS', 110, tableStartY + 6.5, { align: 'center' });
+                doc.text('TOTAL H.T', 155, tableStartY + 6.5, { align: 'right' });
                 doc.text('TOTAL T.T.C', 190, tableStartY + 6.5, { align: 'right' });
                 currentY = tableStartY + 10;
             }
@@ -1058,12 +1034,8 @@ window.generateSituationAnnuelleClientsChaimae = async function (clientIds, year
 
             doc.setTextColor(0, 0, 0);
             doc.text(row.clientName, 20, currentY + 5.5);
-
-            activeColumns.forEach(col => {
-                doc.text(row[col.key].toString(), col.x, currentY + 5.5, { align: 'center' });
-            });
-
-            doc.text(formatAmountChaimae(row.totalHT), 160, currentY + 5.5, { align: 'right' });
+            doc.text(row.nbDocs.toString(), 110, currentY + 5.5, { align: 'center' });
+            doc.text(formatAmountChaimae(row.totalHT), 155, currentY + 5.5, { align: 'right' });
             doc.text(formatAmountChaimae(row.totalTTC), 190, currentY + 5.5, { align: 'right' });
 
             currentY += 8;

@@ -192,6 +192,11 @@ class Router {
             }
         });
 
+        // Always clear session on startup to force login
+        localStorage.removeItem('isAuthenticated');
+        localStorage.removeItem('selectedCompany');
+        localStorage.removeItem('user');
+
         // Check if any users exist in the database
         try {
             const result = await window.electron.users.hasUsers();
@@ -206,30 +211,8 @@ class Router {
             console.error('Error checking users:', error);
         }
 
-        // Check if user is already logged in
-        const isAuthenticated = localStorage.getItem('isAuthenticated');
-        const selectedCompanyStrClean = localStorage.getItem('selectedCompany');
-        
-        if (isAuthenticated === 'true') {
-            if (selectedCompanyStrClean) {
-                // User is logged in and has selected company -> go to company dashboard
-                const company = JSON.parse(selectedCompanyStrClean);
-                const route = company.route || '/company-select';
-                // Verify the route exists before navigating
-                if (this.routes[route]) {
-                    this.navigate(route);
-                } else {
-                    console.warn('⚠️ Route not found, redirecting to company select');
-                    this.navigate('/company-select');
-                }
-            } else {
-                // User is logged in but hasn't selected company -> go to company select
-                this.navigate('/company-select');
-            }
-        } else {
-            // User is not logged in -> go to login
-            this.navigate('/login');
-        }
+        // Always go to login on startup
+        this.navigate('/login');
     }
 }
 

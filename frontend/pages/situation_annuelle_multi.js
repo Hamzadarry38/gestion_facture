@@ -356,7 +356,7 @@ window.generateSituationAnnuelleMulti = async function (clientId, year, selected
             dateRangeStr = `${year}`;
         }
 
-        addHeaderToPDFAnnuelleMulti(doc, client, dateRangeStr, redColor, blueColor);
+        const titleLines = addHeaderToPDFAnnuelleMulti(doc, client, dateRangeStr, redColor, blueColor);
 
         // Dynamic Column Positioning
         const startX = 35;
@@ -373,8 +373,8 @@ window.generateSituationAnnuelleMulti = async function (clientId, year, selected
             col.x = startX + (columnWidth * index) + (columnWidth / 2);
         });
 
-        // Table Header
-        const startY = 85;
+        // Table Header - dynamic startY based on number of title lines
+        const startY = 77 + (titleLines || 1) * 7 + 4;
         doc.setFillColor(...redColor);
         doc.rect(14, startY, 182, 10, 'F');
 
@@ -462,6 +462,13 @@ window.generateSituationAnnuelleMulti = async function (clientId, year, selected
         doc.text('TOTAL TTC :', 113, currentY + 5.5);
         doc.text(`${formatAmountMulti(grandTotalTTC)} DH`, 192, currentY + 5.5, { align: 'right' });
 
+        // Add footer to all pages
+        const totalPages1 = doc.internal.getNumberOfPages();
+        for (let i = 1; i <= totalPages1; i++) {
+            doc.setPage(i);
+            addFooterToPDFMulti(doc, i, totalPages1);
+        }
+
         // Save
         const filename = `Situation_Annuelle_${client.nom.replace(/\s+/g, '_')}_${year}_MULTI.pdf`;
         doc.save(filename);
@@ -473,6 +480,20 @@ window.generateSituationAnnuelleMulti = async function (clientId, year, selected
         window.notify.error('Erreur', 'Impossible de générer le rapport: ' + error.message, 4000);
     }
 };
+
+function addFooterToPDFMulti(doc, pageNumber, totalPages) {
+    doc.setTextColor(0, 0, 0);
+    doc.setFontSize(7);
+    doc.setFont(undefined, 'normal');
+    doc.text('NIF 68717422 | TP 51001343 | RC 38633 | CNSS 6446237', 105, 275, { align: 'center' });
+    doc.text('ICE : 00380950500031', 105, 279, { align: 'center' });
+    doc.text('Tel: +212 661 307 323', 105, 283, { align: 'center' });
+    if (pageNumber && totalPages) {
+        doc.setFontSize(8);
+        doc.setTextColor(128, 128, 128);
+        doc.text(`Page ${pageNumber} / ${totalPages}`, 105, 293, { align: 'center' });
+    }
+}
 
 function formatAmountMulti(amount) {
     if (isNaN(amount) || amount === null || amount === undefined) {
@@ -819,8 +840,7 @@ window.generateSituationAnnuelleClientsMulti = async function (clientIds, year, 
 
                 clientsData.push({
                     clientName: clientName.toUpperCase(),
-                    facturesCount,
-                    devisCount,
+                    nbDocs: facturesCount + devisCount,
                     totalHT: clientTotalHT,
                     totalTTC: clientTotalTTC
                 });
@@ -842,8 +862,8 @@ window.generateSituationAnnuelleClientsMulti = async function (clientIds, year, 
         const { jsPDF } = window.jspdf;
         const doc = new jsPDF();
 
-        const redColor = [198, 40, 40];   // #c62828
-        const blueColor = [21, 101, 192];  // #1565c0
+        const redColor = [33, 97, 140];   // MRY Blue (table header color)
+        const blueColor = [16, 172, 132]; // MRY Green (accent/text color)
 
         // Generate Title String
         const monthNamesUpper = ['', 'JANVIER', 'FÉVRIER', 'MARS', 'AVRIL', 'MAI', 'JUIN', 'JUILLET', 'AOÛT', 'SEPTEMBRE', 'OCTOBRE', 'NOVEMBRE', 'DÉCEMBRE'];
@@ -924,25 +944,10 @@ window.generateSituationAnnuelleClientsMulti = async function (clientIds, year, 
         };
 
         const clientLabel = clientIds.length === 1 ? 'UN SEUL CLIENT' : `MULTI-CLIENTS (${clientIds.length})`;
-        await addGlobalHeaderMulti(doc, clientLabel, dateRangeStr);
+        const titleLinesCount = await addGlobalHeaderMulti(doc, clientLabel, dateRangeStr);
 
-        // Dynamic Column Positioning
-        const startX = 65; // Moved further right to avoid overlap with long client names
-        const endX = 135;
-        const totalWidth = endX - startX;
-
-        let activeColumns = [];
-        if (includeFacture) activeColumns.push({ label: 'Nbr FACTURES', key: 'facturesCount' });
-        if (includeDevis) activeColumns.push({ label: 'Nbr DEVIS', key: 'devisCount' });
-
-        const columnWidth = totalWidth / activeColumns.length;
-
-        activeColumns.forEach((col, index) => {
-            col.x = startX + (columnWidth * index) + (columnWidth / 2);
-        });
-
-        // Table Header
-        const startY = 85;
+        // Table Header - dynamic startY based on number of title lines
+        const startY = 77 + (titleLinesCount || 1) * 7 + 4;
         doc.setFillColor(...redColor);
         doc.rect(14, startY, 182, 10, 'F');
 
@@ -950,12 +955,8 @@ window.generateSituationAnnuelleClientsMulti = async function (clientIds, year, 
         doc.setFontSize(9);
         doc.setFont(undefined, 'bold');
         doc.text('CLIENT', 20, startY + 6.5);
-
-        activeColumns.forEach(col => {
-            doc.text(col.label, col.x, startY + 6.5, { align: 'center' });
-        });
-
-        doc.text('TOTAL H.T', 160, startY + 6.5, { align: 'right' }); // Moved further right
+        doc.text('NB DOCS', 110, startY + 6.5, { align: 'center' });
+        doc.text('TOTAL H.T', 155, startY + 6.5, { align: 'right' });
         doc.text('TOTAL T.T.C', 190, startY + 6.5, { align: 'right' });
 
         // Table Content
@@ -976,10 +977,8 @@ window.generateSituationAnnuelleClientsMulti = async function (clientIds, year, 
                 doc.setFontSize(9);
                 doc.setFont(undefined, 'bold');
                 doc.text('CLIENT', 20, tableStartY + 6.5);
-                activeColumns.forEach(col => {
-                    doc.text(col.label, col.x, tableStartY + 6.5, { align: 'center' });
-                });
-                doc.text('TOTAL H.T', 160, tableStartY + 6.5, { align: 'right' });
+                doc.text('NB DOCS', 110, tableStartY + 6.5, { align: 'center' });
+                doc.text('TOTAL H.T', 155, tableStartY + 6.5, { align: 'right' });
                 doc.text('TOTAL T.T.C', 190, tableStartY + 6.5, { align: 'right' });
                 currentY = tableStartY + 10;
             }
@@ -992,12 +991,8 @@ window.generateSituationAnnuelleClientsMulti = async function (clientIds, year, 
 
             doc.setTextColor(0, 0, 0);
             doc.text(row.clientName, 20, currentY + 5.5);
-
-            activeColumns.forEach(col => {
-                doc.text(row[col.key].toString(), col.x, currentY + 5.5, { align: 'center' });
-            });
-
-            doc.text(formatAmountMulti(row.totalHT), 160, currentY + 5.5, { align: 'right' });
+            doc.text(row.nbDocs.toString(), 110, currentY + 5.5, { align: 'center' });
+            doc.text(formatAmountMulti(row.totalHT), 155, currentY + 5.5, { align: 'right' });
             doc.text(formatAmountMulti(row.totalTTC), 190, currentY + 5.5, { align: 'right' });
 
             currentY += 8;
@@ -1024,6 +1019,13 @@ window.generateSituationAnnuelleClientsMulti = async function (clientIds, year, 
         doc.setTextColor(255, 255, 255);
         doc.text('TOTAL TTC :', 113, currentY + 5.5);
         doc.text(`${formatAmountMulti(grandTotalTTC)} DH`, 192, currentY + 5.5, { align: 'right' });
+
+        // Add footer to all pages
+        const totalPagesGlobal = doc.internal.getNumberOfPages();
+        for (let i = 1; i <= totalPagesGlobal; i++) {
+            doc.setPage(i);
+            addFooterToPDFMulti(doc, i, totalPagesGlobal);
+        }
 
         // Save
         const filename = `Situation_Globale_${year}_MULTI.pdf`;
