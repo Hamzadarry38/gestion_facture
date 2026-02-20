@@ -162,18 +162,11 @@ async function registerChaimaeHandlers() {
 
     // --- LEGACY SQLITE HANDLERS (Unchanged) ---
 
-    // --- Global Invoices (PostgreSQL Cloud Version) ---
+    // --- Global Invoices (Local SQLite - globalInvoiceOps) ---
     ipcMain.handle('db:chaimae:globalInvoices:create', async (event, globalInvoiceData) => {
         try {
-            const giData = {
-                ...globalInvoiceData,
-                company_code: COMPANY_CODE
-            };
-            const apiRes = await apiClient.createGlobalInvoice(giData);
-            if (apiRes.success) {
-                return { success: true, data: { id: apiRes.data.id } };
-            }
-            return { success: false, error: apiRes.error || 'API Error' };
+            const id = globalInvoiceOps.create(globalInvoiceData);
+            return { success: true, data: { id } };
         } catch (error) {
             console.error('❌ Error in db:chaimae:globalInvoices:create:', error);
             return { success: false, error: error.message };
@@ -182,11 +175,8 @@ async function registerChaimaeHandlers() {
 
     ipcMain.handle('db:chaimae:globalInvoices:getById', async (event, id) => {
         try {
-            const apiRes = await apiClient.getGlobalInvoiceById(id);
-            if (apiRes.success) {
-                return { success: true, data: apiRes.data };
-            }
-            return { success: true, data: null };
+            const data = globalInvoiceOps.getById(id);
+            return { success: true, data };
         } catch (error) {
             console.error('❌ Error in db:chaimae:globalInvoices:getById:', error);
             return { success: false, error: error.message };
@@ -195,8 +185,8 @@ async function registerChaimaeHandlers() {
 
     ipcMain.handle('db:chaimae:globalInvoices:getAll', async () => {
         try {
-            const apiRes = await apiClient.getGlobalInvoices(COMPANY_CODE);
-            return apiRes;
+            const data = globalInvoiceOps.getAll();
+            return { success: true, data };
         } catch (error) {
             console.error('❌ Error in db:chaimae:globalInvoices:getAll:', error);
             return { success: false, error: error.message };
@@ -205,7 +195,8 @@ async function registerChaimaeHandlers() {
 
     ipcMain.handle('db:chaimae:globalInvoices:update', async (event, id, globalInvoiceData) => {
         try {
-            return await apiClient.updateGlobalInvoice(id, globalInvoiceData);
+            const result = globalInvoiceOps.update(id, globalInvoiceData);
+            return { success: true, data: result };
         } catch (error) {
             console.error('❌ Error in db:chaimae:globalInvoices:update:', error);
             return { success: false, error: error.message };
@@ -214,7 +205,8 @@ async function registerChaimaeHandlers() {
 
     ipcMain.handle('db:chaimae:globalInvoices:delete', async (event, id) => {
         try {
-            return await apiClient.deleteGlobalInvoice(id);
+            const result = globalInvoiceOps.delete(id);
+            return { success: true, data: result };
         } catch (error) {
             console.error('❌ Error in db:chaimae:globalInvoices:delete:', error);
             return { success: false, error: error.message };

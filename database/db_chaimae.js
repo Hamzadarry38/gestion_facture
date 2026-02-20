@@ -380,6 +380,23 @@ async function initDatabase() {
             )
         `);
 
+        // Create snapshot table for bon de livraison data linked to global invoices
+        db.run(`
+            CREATE TABLE IF NOT EXISTS global_invoice_bons_snapshot (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                global_invoice_id INTEGER NOT NULL,
+                server_bon_id INTEGER,
+                document_numero TEXT,
+                document_numero_bl TEXT,
+                document_numero_commande TEXT,
+                document_date TEXT,
+                total_ht REAL DEFAULT 0,
+                total_ttc REAL DEFAULT 0,
+                client_nom TEXT,
+                FOREIGN KEY (global_invoice_id) REFERENCES global_invoices(id) ON DELETE CASCADE
+            )
+        `);
+
         // Create chaimae_order_prefixes table for storing CHAIMAE N° Order prefixes
         db.run(`
             CREATE TABLE IF NOT EXISTS chaimae_order_prefixes (
@@ -1005,13 +1022,33 @@ const globalInvoiceOps = {
         const result = db.exec('SELECT last_insert_rowid()');
         const globalInvoiceId = result[0].values[0][0];
 
-        // Link bon de livraison to global invoice
-        if (globalInvoiceData.bon_livraison_ids && globalInvoiceData.bon_livraison_ids.length > 0) {
-            for (const bonId of globalInvoiceData.bon_livraison_ids) {
+        // Save bon snapshots (full data, not just IDs)
+        if (globalInvoiceData.bons_snapshot && globalInvoiceData.bons_snapshot.length > 0) {
+            for (const bon of globalInvoiceData.bons_snapshot) {
                 db.run(`
-                    INSERT INTO global_invoice_bons (global_invoice_id, bon_livraison_id)
-                    VALUES (?, ?)
-                `, [globalInvoiceId, bonId]);
+                    INSERT INTO global_invoice_bons_snapshot (
+                        global_invoice_id, server_bon_id,
+                        document_numero, document_numero_bl, document_numero_commande,
+                        document_date, total_ht, total_ttc, client_nom
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                `, [
+                    globalInvoiceId,
+                    bon.id || null,
+                    bon.document_numero || null,
+                    bon.document_numero_bl || null,
+                    bon.document_numero_commande || null,
+                    bon.document_date || null,
+                    parseFloat(bon.total_ht) || 0,
+                    parseFloat(bon.total_ttc) || 0,
+                    bon.client_nom || null
+                ]);
+            }
+        } else if (globalInvoiceData.bon_livraison_ids && globalInvoiceData.bon_livraison_ids.length > 0) {
+            // Fallback: store just IDs in old table
+            for (const bonId of globalInvoiceData.bon_livraison_ids) {
+                try {
+                    db.run(`INSERT INTO global_invoice_bons (global_invoice_id, bon_livraison_id) VALUES (?, ?)`, [globalInvoiceId, bonId]);
+                } catch (e) { /* ignore FK errors for server IDs */ }
             }
         }
 
@@ -1050,43 +1087,57 @@ const globalInvoiceOps = {
             client_ice: getVal('client_ice')
         };
 
-        // Get linked bon de livraison IDs independently of mirrored invoices table
-        const bonsResult = db.exec(`
-            SELECT bon_livraison_id FROM global_invoice_bons WHERE global_invoice_id = ?
+        // Try snapshot table first (new approach - stores full bon data)
+        const snapshotResult = db.exec(`
+            SELECT * FROM global_invoice_bons_snapshot WHERE global_invoice_id = ? ORDER BY id ASC
         `, [id]);
 
-        globalInvoice.bon_livraison_ids = bonsResult.length > 0 ? bonsResult[0].values.map(row => row[0]) : [];
-        globalInvoice.bon_count = globalInvoice.bon_livraison_ids.length;
-
-        // Fallback/Legacy: Also try to join for any data that MIGHT be in SQLite
-        const legacyBonsResult = db.exec(`
-            SELECT i.*, c.nom as client_nom, c.ice as client_ice
-            FROM global_invoice_bons gib
-            JOIN invoices i ON gib.bon_livraison_id = i.id
-            JOIN clients c ON i.client_id = c.id
-            WHERE gib.global_invoice_id = ?
-        `, [id]);
-
-        if (legacyBonsResult.length > 0) {
-            const bCols = legacyBonsResult[0].columns;
-            globalInvoice.bons = legacyBonsResult[0].values.map(bRow => {
-                const getBVal = (col) => bRow[bCols.indexOf(col)];
+        if (snapshotResult.length > 0 && snapshotResult[0].values.length > 0) {
+            const sCols = snapshotResult[0].columns;
+            globalInvoice.bons = snapshotResult[0].values.map(sRow => {
+                const getSVal = (col) => sRow[sCols.indexOf(col)];
                 return {
-                    id: getBVal('id'),
-                    document_numero: getBVal('document_numero') || getBVal('document_numero_bl'),
-                    document_numero_commande: getBVal('document_numero_commande'),
-                    document_date: getBVal('document_date'),
-                    total_ht: getBVal('total_ht'),
-                    total_ttc: getBVal('total_ttc'),
-                    client_nom: getBVal('client_nom')
+                    id: getSVal('server_bon_id'),
+                    document_numero: getSVal('document_numero'),
+                    document_numero_bl: getSVal('document_numero_bl'),
+                    document_numero_commande: getSVal('document_numero_commande'),
+                    document_date: getSVal('document_date'),
+                    total_ht: getSVal('total_ht'),
+                    total_ttc: getSVal('total_ttc'),
+                    client_nom: getSVal('client_nom')
                 };
             });
+            globalInvoice.bon_count = globalInvoice.bons.length;
         } else {
-            // If join fails (data not in SQLite), populate with skeleton objects for enrichment
-            globalInvoice.bons = globalInvoice.bon_livraison_ids.map(bonId => ({ id: bonId }));
-        }
+            // Fallback: try legacy join with local invoices table
+            const legacyBonsResult = db.exec(`
+                SELECT i.*, c.nom as client_nom, c.ice as client_ice
+                FROM global_invoice_bons gib
+                JOIN invoices i ON gib.bon_livraison_id = i.id
+                JOIN clients c ON i.client_id = c.id
+                WHERE gib.global_invoice_id = ?
+            `, [id]);
 
-        return globalInvoice;
+            if (legacyBonsResult.length > 0 && legacyBonsResult[0].values.length > 0) {
+                const bCols = legacyBonsResult[0].columns;
+                globalInvoice.bons = legacyBonsResult[0].values.map(bRow => {
+                    const getBVal = (col) => bRow[bCols.indexOf(col)];
+                    return {
+                        id: getBVal('id'),
+                        document_numero: getBVal('document_numero'),
+                        document_numero_bl: getBVal('document_numero_bl'),
+                        document_numero_commande: getBVal('document_numero_commande'),
+                        document_date: getBVal('document_date'),
+                        total_ht: getBVal('total_ht'),
+                        total_ttc: getBVal('total_ttc'),
+                        client_nom: getBVal('client_nom')
+                    };
+                });
+            } else {
+                globalInvoice.bons = [];
+            }
+            globalInvoice.bon_count = globalInvoice.bons.length;
+        }
 
         return globalInvoice;
     },
@@ -1126,36 +1177,54 @@ const globalInvoiceOps = {
             };
         });
 
-        // Get bons for each global invoice
+        // Get bons for each global invoice (snapshot first, then legacy fallback)
         globalInvoices.forEach(gi => {
-            // Get linked IDs independently
-            const bonIdsQuery = 'SELECT bon_livraison_id FROM global_invoice_bons WHERE global_invoice_id = ?';
-            const bonIdsRes = db.exec(bonIdsQuery, [gi.id]);
-            gi.bon_livraison_ids = bonIdsRes.length > 0 ? bonIdsRes[0].values.map(row => row[0]) : [];
+            const snapshotRes = db.exec(
+                'SELECT * FROM global_invoice_bons_snapshot WHERE global_invoice_id = ? ORDER BY id ASC',
+                [gi.id]
+            );
 
-            // Legacy mirror lookup
-            const bonsQuery = `
-                SELECT i.id, i.document_numero, i.document_numero_bl, i.document_numero_commande,
-                       i.document_date, i.total_ht, i.total_ttc
-                FROM invoices i
-                JOIN global_invoice_bons gib ON i.id = gib.bon_livraison_id
-                WHERE gib.global_invoice_id = ?
-            `;
-            const bonsResult = db.exec(bonsQuery, [gi.id]);
-
-            if (bonsResult.length > 0) {
-                gi.bons = bonsResult[0].values.map(bonRow => ({
-                    id: bonRow[0],
-                    document_numero: bonRow[1] || bonRow[2],
-                    document_numero_bl: bonRow[2],
-                    document_numero_commande: bonRow[3],
-                    document_date: bonRow[4],
-                    total_ht: bonRow[5],
-                    total_ttc: bonRow[6]
-                }));
+            if (snapshotRes.length > 0 && snapshotRes[0].values.length > 0) {
+                const sCols = snapshotRes[0].columns;
+                gi.bons = snapshotRes[0].values.map(sRow => {
+                    const getSVal = (col) => sRow[sCols.indexOf(col)];
+                    return {
+                        id: getSVal('server_bon_id'),
+                        document_numero: getSVal('document_numero'),
+                        document_numero_bl: getSVal('document_numero_bl'),
+                        document_numero_commande: getSVal('document_numero_commande'),
+                        document_date: getSVal('document_date'),
+                        total_ht: getSVal('total_ht'),
+                        total_ttc: getSVal('total_ttc'),
+                        client_nom: getSVal('client_nom')
+                    };
+                });
+                gi.bon_count = gi.bons.length;
             } else {
-                // Skeleton objects for enrichment
-                gi.bons = gi.bon_livraison_ids.map(bonId => ({ id: bonId }));
+                // Legacy fallback: join with local invoices
+                const bonsQuery = `
+                    SELECT i.id, i.document_numero, i.document_numero_bl, i.document_numero_commande,
+                           i.document_date, i.total_ht, i.total_ttc
+                    FROM invoices i
+                    JOIN global_invoice_bons gib ON i.id = gib.bon_livraison_id
+                    WHERE gib.global_invoice_id = ?
+                `;
+                const bonsResult = db.exec(bonsQuery, [gi.id]);
+
+                if (bonsResult.length > 0 && bonsResult[0].values.length > 0) {
+                    gi.bons = bonsResult[0].values.map(bonRow => ({
+                        id: bonRow[0],
+                        document_numero: bonRow[1],
+                        document_numero_bl: bonRow[2],
+                        document_numero_commande: bonRow[3],
+                        document_date: bonRow[4],
+                        total_ht: bonRow[5],
+                        total_ttc: bonRow[6]
+                    }));
+                } else {
+                    gi.bons = [];
+                }
+                gi.bon_count = gi.bons.length;
             }
         });
 
@@ -1184,18 +1253,33 @@ const globalInvoiceOps = {
             id
         ]);
 
-        // Delete old links
-        db.run('DELETE FROM global_invoice_bons WHERE global_invoice_id = ?', [id]);
+        // Delete old snapshot and insert new one
+        db.run('DELETE FROM global_invoice_bons_snapshot WHERE global_invoice_id = ?', [id]);
 
-        // Insert new links
-        if (globalInvoiceData.bon_livraison_ids && globalInvoiceData.bon_livraison_ids.length > 0) {
-            for (const bonId of globalInvoiceData.bon_livraison_ids) {
+        if (globalInvoiceData.bons_snapshot && globalInvoiceData.bons_snapshot.length > 0) {
+            for (const bon of globalInvoiceData.bons_snapshot) {
                 db.run(`
-                    INSERT INTO global_invoice_bons (global_invoice_id, bon_livraison_id)
-                    VALUES (?, ?)
-                `, [id, bonId]);
+                    INSERT INTO global_invoice_bons_snapshot (
+                        global_invoice_id, server_bon_id,
+                        document_numero, document_numero_bl, document_numero_commande,
+                        document_date, total_ht, total_ttc, client_nom
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                `, [
+                    id,
+                    bon.id || null,
+                    bon.document_numero || null,
+                    bon.document_numero_bl || null,
+                    bon.document_numero_commande || null,
+                    bon.document_date || null,
+                    parseFloat(bon.total_ht) || 0,
+                    parseFloat(bon.total_ttc) || 0,
+                    bon.client_nom || null
+                ]);
             }
         }
+
+        // Also update legacy table (delete old, no re-insert since we use snapshot now)
+        db.run('DELETE FROM global_invoice_bons WHERE global_invoice_id = ?', [id]);
 
         saveDatabase();
         return { changes: 1 };

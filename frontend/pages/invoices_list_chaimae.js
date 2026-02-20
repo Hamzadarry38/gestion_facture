@@ -80,13 +80,6 @@ function InvoicesListChaimaePage() {
                                 <span>Nouvelle</span>
                             </button>
 
-                            <button class="action-btn" onclick="migrateAttachmentsToServerChaimae()" style="background:linear-gradient(135deg,#ff9800,#f57c00);" title="Migrer les pièces jointes locales vers le serveur">
-                                <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor">
-                                    <path d="M.5 9.9a.5.5 0 0 1 .5.5v2.5a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-2.5a.5.5 0 0 1 1 0v2.5a2 2 0 0 1-2 2H2a2 2 0 0 1-2-2v-2.5a.5.5 0 0 1 .5-.5z"/>
-                                    <path d="M7.646 1.146a.5.5 0 0 1 .708 0l3 3a.5.5 0 0 1-.708.708L8.5 2.707V11.5a.5.5 0 0 1-1 0V2.707L5.354 4.854a.5.5 0 1 1-.708-.708l3-3z"/>
-                                </svg>
-                                <span>Migrer</span>
-                            </button>
 
                             <button class="action-btn action-btn-secondary" onclick="router.navigate('/dashboard-chaimae')">
                                 <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor">
@@ -103,23 +96,38 @@ function InvoicesListChaimaePage() {
 
                     <!-- Filters -->
                     <div class="filters-section" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem; margin-bottom: 1.5rem;">
-                        <div class="filter-group" style="position: relative;">
-                            <label>Type de document:</label>
-                            <div class="custom-multiselect" id="typeMultiselectChaimae">
-                                <div class="multiselect-display" onclick="toggleTypeDropdownChaimae()" style="padding: 0.5rem; background: #1e1e1e; border: 1px solid #3e3e42; border-radius: 4px; cursor: pointer; color: #ffffff; display: flex; justify-content: space-between; align-items: center;">
-                                    <span id="typeSelectedTextChaimae">Tous</span>
-                                    <span style="font-size: 0.8rem;">▼</span>
+                        <div class="filter-group" style="position:relative;">
+                            <label style="display:block; color:#4caf50; font-weight:600; font-size:0.75rem; text-transform:uppercase; letter-spacing:0.6px; margin-bottom:0.4rem;">Type de document</label>
+                            <div style="position:relative;" id="typeDropdownWrapperChaimae">
+                                <!-- Trigger button -->
+                                <div onclick="toggleTypeDropdownChaimae()" id="typeDropdownDisplayChaimae"
+                                    style="display:flex; align-items:center; justify-content:space-between; padding:0.45rem 0.7rem; background:#252526; border:1px solid #3e3e42; border-radius:6px; cursor:pointer; transition:all 0.15s; user-select:none;">
+                                    <div style="display:flex; align-items:center; gap:0.4rem; flex-wrap:wrap; flex:1; min-width:0;">
+                                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#4caf50" stroke-width="2.5" style="flex-shrink:0;"><path d="M4 6h16M7 12h10M10 18h4"/></svg>
+                                        <span id="typeSelectedTextChaimae" style="color:#ccc; font-size:0.82rem; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">Tous les types</span>
+                                    </div>
+                                    <svg id="typeDropdownArrowChaimae" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#666" stroke-width="2.5" style="flex-shrink:0; transition:transform 0.2s;"><polyline points="6 9 12 15 18 9"/></svg>
                                 </div>
-                                <div class="multiselect-dropdown" id="typeDropdownChaimae" style="display: none; position: absolute; top: 100%; left: 0; right: 0; background: #1e1e1e; border: 1px solid #3e3e42; border-radius: 4px; margin-top: 0.25rem; z-index: 1000; max-height: 200px; overflow-y: auto;">
-                                    <label style="display: block; padding: 0.5rem; cursor: pointer; color: #ccc; transition: background 0.2s;" onmouseover="this.style.background='#2d2d30'" onmouseout="this.style.background='transparent'">
-                                        <input type="checkbox" class="filterTypeChaimaeCheckbox" value="facture" onchange="updateTypeSelectionChaimae()" style="margin-right: 0.5rem; accent-color: #4caf50;"> Factures
-                                    </label>
-                                    <label style="display: block; padding: 0.5rem; cursor: pointer; color: #ccc; transition: background 0.2s;" onmouseover="this.style.background='#2d2d30'" onmouseout="this.style.background='transparent'">
-                                        <input type="checkbox" class="filterTypeChaimaeCheckbox" value="devis" onchange="updateTypeSelectionChaimae()" style="margin-right: 0.5rem; accent-color: #4caf50;"> Devis
-                                    </label>
-                                    <label style="display: block; padding: 0.5rem; cursor: pointer; color: #ccc; transition: background 0.2s;" onmouseover="this.style.background='#2d2d30'" onmouseout="this.style.background='transparent'">
-                                        <input type="checkbox" class="filterTypeChaimaeCheckbox" value="bon_livraison" onchange="updateTypeSelectionChaimae()" style="margin-right: 0.5rem; accent-color: #4caf50;"> Bon de livraison
-                                    </label>
+                                <!-- Dropdown panel -->
+                                <div id="typeDropdownChaimae" style="display:none; position:absolute; top:calc(100% + 3px); left:0; right:0; background:#252526; border:1px solid #3e3e42; border-radius:6px; z-index:9999; overflow:hidden; box-shadow:0 6px 18px rgba(0,0,0,0.5);">
+                                    <div onclick="toggleTypeChaimae('facture')" style="display:flex; align-items:center; gap:0.6rem; padding:0.45rem 0.7rem; cursor:pointer; transition:background 0.12s;" onmouseover="this.style.background='#2d2d30'" onmouseout="this.style.background='transparent'">
+                                        <span id="typeCheckFactureChaimae" data-active="false" style="width:14px; height:14px; border-radius:3px; border:1.5px solid #555; display:inline-flex; align-items:center; justify-content:center; font-size:0.65rem; flex-shrink:0; transition:all 0.12s; color:#fff;"></span>
+                                        <span style="color:#d4d4d4; font-size:0.82rem;">Factures</span>
+                                    </div>
+                                    <div onclick="toggleTypeChaimae('devis')" style="display:flex; align-items:center; gap:0.6rem; padding:0.45rem 0.7rem; cursor:pointer; border-top:1px solid #2a2a2a; transition:background 0.12s;" onmouseover="this.style.background='#2d2d30'" onmouseout="this.style.background='transparent'">
+                                        <span id="typeCheckDevisChaimae" data-active="false" style="width:14px; height:14px; border-radius:3px; border:1.5px solid #555; display:inline-flex; align-items:center; justify-content:center; font-size:0.65rem; flex-shrink:0; transition:all 0.12s; color:#fff;"></span>
+                                        <span style="color:#d4d4d4; font-size:0.82rem;">Devis</span>
+                                    </div>
+                                    <div onclick="toggleTypeChaimae('bon_livraison')" style="display:flex; align-items:center; gap:0.6rem; padding:0.45rem 0.7rem; cursor:pointer; border-top:1px solid #2a2a2a; transition:background 0.12s;" onmouseover="this.style.background='#2d2d30'" onmouseout="this.style.background='transparent'">
+                                        <span id="typeCheckBLChaimae" data-active="false" style="width:14px; height:14px; border-radius:3px; border:1.5px solid #555; display:inline-flex; align-items:center; justify-content:center; font-size:0.65rem; flex-shrink:0; transition:all 0.12s; color:#fff;"></span>
+                                        <span style="color:#d4d4d4; font-size:0.82rem;">Bon de livraison</span>
+                                    </div>
+                                </div>
+                                <!-- Hidden state buttons for compatibility -->
+                                <div style="display:none;">
+                                    <button id="typeToggleFactureChaimae" data-active="false"></button>
+                                    <button id="typeToggleDevisChaimae" data-active="false"></button>
+                                    <button id="typeToggleBLChaimae" data-active="false"></button>
                                 </div>
                             </div>
                         </div>
@@ -1208,43 +1216,101 @@ window.changeItemsPerPageChaimae = function () {
     displayInvoicesChaimae(filteredInvoicesChaimae);
 }
 
-// Toggle Type dropdown
+// Toggle Type dropdown (unified)
 window.toggleTypeDropdownChaimae = function() {
     const dropdown = document.getElementById('typeDropdownChaimae');
-    if (dropdown) {
-        dropdown.style.display = dropdown.style.display === 'none' ? 'block' : 'none';
+    const display  = document.getElementById('typeDropdownDisplayChaimae');
+    const arrow    = document.getElementById('typeDropdownArrowChaimae');
+    if (!dropdown) return;
+    const isOpen = dropdown.style.display !== 'none';
+    dropdown.style.display = isOpen ? 'none' : 'block';
+    if (display) {
+        display.style.borderColor  = isOpen ? '#3e3e42' : '#4caf50';
+        display.style.background   = isOpen ? '#252526' : '#2a2a2e';
     }
-}
-
-// Update Type selection text
-window.updateTypeSelectionChaimae = function() {
-    const checkboxes = document.querySelectorAll('.filterTypeChaimaeCheckbox:checked');
-    const selectedText = document.getElementById('typeSelectedTextChaimae');
-    
-    if (checkboxes.length === 0) {
-        selectedText.textContent = 'Tous';
-    } else if (checkboxes.length === 1) {
-        const labels = {
-            'facture': 'Factures',
-            'devis': 'Devis',
-            'bon_livraison': 'Bon de livraison'
-        };
-        selectedText.textContent = labels[checkboxes[0].value] || checkboxes[0].value;
-    } else {
-        selectedText.textContent = `${checkboxes.length} sélectionnés`;
-    }
-    
-    filterInvoicesChaimae();
+    if (arrow) arrow.style.transform = isOpen ? 'rotate(0deg)' : 'rotate(180deg)';
 }
 
 // Close dropdown when clicking outside
-document.addEventListener('click', function(event) {
-    const multiselect = document.getElementById('typeMultiselectChaimae');
+document.addEventListener('click', function(e) {
+    const wrapper = document.getElementById('typeDropdownWrapperChaimae');
     const dropdown = document.getElementById('typeDropdownChaimae');
-    if (multiselect && dropdown && !multiselect.contains(event.target)) {
+    const display  = document.getElementById('typeDropdownDisplayChaimae');
+    if (wrapper && dropdown && !wrapper.contains(e.target)) {
         dropdown.style.display = 'none';
+        if (display) display.style.borderColor = '#3e3e42';
     }
 });
+
+// Update Type selection text
+window.updateTypeSelectionChaimae = function() {
+    filterInvoicesChaimae();
+}
+
+// Handle select change for Type de document - syncs toggle buttons visually
+window.onTypeSelectChaimae = function(value) {
+    const map = {
+        'facture':       { btn: 'typeToggleFactureChaimae', check: 'typeCheckFactureChaimae' },
+        'devis':         { btn: 'typeToggleDevisChaimae',   check: 'typeCheckDevisChaimae'   },
+        'bon_livraison': { btn: 'typeToggleBLChaimae',      check: 'typeCheckBLChaimae'      }
+    };
+    Object.entries(map).forEach(([type, ids]) => {
+        const btn   = document.getElementById(ids.btn);
+        const check = document.getElementById(ids.check);
+        const active = (value === type);
+        if (btn) {
+            btn.dataset.active = active ? 'true' : 'false';
+            btn.style.background   = active ? 'rgba(76,175,80,0.12)' : '#1e1e1e';
+            btn.style.borderColor  = active ? '#4caf50' : '#3e3e42';
+            btn.style.color        = active ? '#fff' : '#aaa';
+        }
+        if (check) {
+            check.style.background  = active ? '#4caf50' : 'transparent';
+            check.style.borderColor = active ? '#4caf50' : '#3e3e42';
+            check.textContent       = active ? '\u2713' : '';
+        }
+    });
+    filterInvoicesChaimae();
+};
+
+// Toggle type checkbox inside unified dropdown
+window.toggleTypeChaimae = function(type) {
+    const map = {
+        'facture':       { btn: 'typeToggleFactureChaimae', check: 'typeCheckFactureChaimae' },
+        'devis':         { btn: 'typeToggleDevisChaimae',   check: 'typeCheckDevisChaimae'   },
+        'bon_livraison': { btn: 'typeToggleBLChaimae',      check: 'typeCheckBLChaimae'      }
+    };
+    const ids = map[type];
+    if (!ids) return;
+    const btn   = document.getElementById(ids.btn);
+    const check = document.getElementById(ids.check);
+    if (!check) return;
+
+    const isActive = btn ? btn.dataset.active === 'true' : check.dataset.active === 'true';
+    const nowActive = !isActive;
+
+    if (btn) btn.dataset.active = nowActive ? 'true' : 'false';
+    check.dataset.active = nowActive ? 'true' : 'false';
+    check.style.background  = nowActive ? '#4caf50' : 'transparent';
+    check.style.borderColor = nowActive ? '#4caf50' : '#3e3e42';
+    check.textContent       = nowActive ? '\u2713' : '';
+
+    // Update display text
+    const labels = { facture: 'Factures', devis: 'Devis', bon_livraison: 'Bon de livraison' };
+    const activeTypes = Object.keys(map).filter(t => {
+        const b = document.getElementById(map[t].btn);
+        const c = document.getElementById(map[t].check);
+        return (b ? b.dataset.active : c?.dataset.active) === 'true';
+    });
+    const textEl = document.getElementById('typeSelectedTextChaimae');
+    if (textEl) {
+        if (activeTypes.length === 0) textEl.textContent = 'Tous les types';
+        else if (activeTypes.length === 1) textEl.textContent = labels[activeTypes[0]];
+        else textEl.textContent = activeTypes.map(t => labels[t]).join(', ');
+    }
+
+    filterInvoicesChaimae();
+};
 
 // Go to specific page
 window.goToPageChaimae = function (page) {
@@ -1269,8 +1335,12 @@ window.changePaginationPageChaimae = function (direction) {
 
 // Filter invoices
 window.filterInvoicesChaimae = function () {
-    // Multi-select type filter from checkboxes
-    const selectedTypes = Array.from(document.querySelectorAll('.filterTypeChaimaeCheckbox:checked')).map(cb => cb.value);
+    // Read active types from unified dropdown checkboxes
+    const checkIdMap = { facture:'typeCheckFactureChaimae', devis:'typeCheckDevisChaimae', bon_livraison:'typeCheckBLChaimae' };
+    const selectedTypes = ['facture','devis','bon_livraison'].filter(t => {
+        const el = document.getElementById(checkIdMap[t]);
+        return el && (el.dataset.active === 'true' || document.getElementById({ facture:'typeToggleFactureChaimae', devis:'typeToggleDevisChaimae', bon_livraison:'typeToggleBLChaimae' }[t])?.dataset.active === 'true');
+    });
     const filterStatus = document.getElementById('filterStatusChaimae')?.value || 'all';
     const filterAttachments = document.getElementById('filterAttachmentsChaimae')?.value || 'all';
     const filterCreationMethod = document.getElementById('filterCreationMethodChaimae')?.value || 'all';
@@ -1425,9 +1495,14 @@ window.filterInvoicesChaimae = function () {
 
 // Reset filters
 window.resetFiltersChaimae = function () {
-    document.querySelectorAll('.filterTypeChaimaeCheckbox').forEach(cb => cb.checked = false);
-    const selectedText = document.getElementById('typeSelectedTextChaimae');
-    if (selectedText) selectedText.textContent = 'Tous';
+    // Reset type select
+    const selectEl = document.getElementById('typeSelectChaimae');
+    if (selectEl) selectEl.value = '';
+    // Reset hidden toggle buttons
+    ['typeToggleFactureChaimae','typeToggleDevisChaimae','typeToggleBLChaimae'].forEach(id => {
+        const btn = document.getElementById(id);
+        if (btn) btn.dataset.active = 'false';
+    });
     document.getElementById('filterYearChaimae').value = '';
     document.getElementById('filterMonthChaimae').value = '';
     document.getElementById('filterClientChaimae').value = '';
@@ -5889,8 +5964,9 @@ window.showCreateGlobalInvoiceModalChaimae = async function () {
     }
 
     // Check if type filter is set to bon_livraison
-    const typeFilter = document.getElementById('filterTypeChaimae').value;
-    if (typeFilter !== 'bon_livraison') {
+    const blActive = document.getElementById('typeCheckBLChaimae')?.dataset.active === 'true'
+                  || document.getElementById('typeToggleBLChaimae')?.dataset.active === 'true';
+    if (!blActive) {
         window.notify.error('Erreur', 'Veuillez sélectionner "Bon de livraison" dans le filtre Type', 4000);
         return;
     }
@@ -6044,8 +6120,9 @@ window.updateGlobalInvoiceTotals = function () {
     });
 
     const tvaRate = 20;
-    const montantTVA = totalHT * (tvaRate / 100);
-    const totalTTC = totalHT + montantTVA;
+    const montantTVA = Math.round(totalHT * (tvaRate / 100) * 100) / 100;
+    const totalTTC = Math.round((totalHT + montantTVA) * 100) / 100;
+    totalHT = Math.round(totalHT * 100) / 100;
 
     document.getElementById('modalTotalHT').textContent = formatNumberChaimae(totalHT) + ' DH';
     document.getElementById('modalTotalTVA').textContent = formatNumberChaimae(montantTVA) + ' DH';
@@ -6094,12 +6171,12 @@ window.saveGlobalInvoiceFromModal = async function () {
     if (!data) return;
     const clientBons = data.clientBons || [];
 
-    // Calculate totals
+    // Calculate totals (parseFloat to handle string values from API)
     let totalHT = 0;
     selectedIds.forEach(bonId => {
         const bon = clientBons.find(b => b.id === bonId);
         if (bon) {
-            totalHT += bon.total_ht || 0;
+            totalHT += parseFloat(bon.total_ht) || 0;
         }
     });
 
@@ -6132,17 +6209,33 @@ window.saveGlobalInvoiceFromModal = async function () {
             }
         }
 
+        // Build snapshot of selected bons (full data for local storage)
+        const bonsSnapshot = selectedIds.map(bonId => {
+            const bon = clientBons.find(b => b.id === bonId);
+            return bon ? {
+                id: bon.id,
+                document_numero: bon.document_numero || null,
+                document_numero_bl: bon.document_numero_bl || null,
+                document_numero_commande: bon.document_numero_commande || null,
+                document_date: bon.document_date || null,
+                total_ht: parseFloat(bon.total_ht) || 0,
+                total_ttc: parseFloat(bon.total_ttc) || 0,
+                client_nom: bon.client_nom || data.clientName
+            } : { id: bonId };
+        });
+
         const formData = {
             client: { nom: data.clientName, ICE: data.clientICE },
             client_id: data.clientId,
-            company_code: 'CHAIMAE', // Ensure company_code is sent
+            company_code: 'CHAIMAE',
             document_numero: numero,
             document_date: date,
             total_ht: totalHT,
             tva_rate: tvaRate,
             montant_tva: montantTVA,
             total_ttc: totalTTC,
-            bon_livraison_ids: selectedIds
+            bon_livraison_ids: selectedIds,
+            bons_snapshot: bonsSnapshot
         };
 
         console.log('📤 [FRONTEND] Creating global invoice with data:', JSON.stringify(formData, null, 2));

@@ -80,10 +80,6 @@ function CompanySelectPage() {
                             </svg>
                             <span>Importer MULTI</span>
                         </button>
-                        <button id="migrateToPostgresBtn" style="background: #9c27b0; color: white; padding: 0.75rem 1.5rem; border: none; border-radius: 8px; cursor: pointer; font-weight: 600; display: flex; align-items: center; gap: 0.5rem; width: 100%; justify-content: center;">
-                            <span class="icon">🚀</span>
-                            <span>Migrer vers PostgreSQL (Online Mode)</span>
-                        </button>
                     </div>
                 </div>
 

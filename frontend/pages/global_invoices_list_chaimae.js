@@ -292,9 +292,12 @@ function displayGlobalInvoices() {
         // Calculate total dynamically from bons
         let calculatedTotalTTC = 0;
         if (invoice.bons && invoice.bons.length > 0) {
+            let sumHT = 0;
             invoice.bons.forEach(bon => {
-                calculatedTotalTTC += parseFloat(bon.total_ttc) || 0;
+                sumHT += parseFloat(bon.total_ht) || 0;
             });
+            const tvaRate = parseFloat(invoice.tva_rate) || 20;
+            calculatedTotalTTC = Math.round((sumHT + sumHT * tvaRate / 100) * 100) / 100;
         } else {
             // Fallback to stored value if no bons data
             calculatedTotalTTC = parseFloat(invoice.total_ttc) || 0;
@@ -455,16 +458,25 @@ function showGlobalInvoiceDetailsModal(invoice) {
     modal.className = 'modal-overlay';
     modal.style.cssText = 'position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.8); display: flex; align-items: center; justify-content: center; z-index: 10000;';
 
-    const bonsHtml = invoice.bon_livraisons && invoice.bon_livraisons.length > 0
-        ? invoice.bon_livraisons.map(bon => `
+    const bonsData = invoice.bons && invoice.bons.length > 0 ? invoice.bons : [];
+    const bonsHtml = bonsData.length > 0
+        ? bonsData.map(bon => `
             <tr style="border-bottom: 1px solid #3e3e42;">
-                <td style="padding: 0.75rem; color: #2196f3;">${bon.document_numero || '-'}</td>
+                <td style="padding: 0.75rem; color: #2196f3;">${bon.document_numero_bl || bon.document_numero || '-'}</td>
                 <td style="padding: 0.75rem; color: #cccccc;">${bon.document_numero_commande || '-'}</td>
-                <td style="padding: 0.75rem; color: #cccccc;">${(window.safeParseDate||function(d){return new Date(d)})(bon.document_date).toLocaleDateString('fr-FR')}</td>
-                <td style="padding: 0.75rem; color: #4caf50;">${formatNumberGlobalList(bon.total_ttc || 0)} DH</td>
+                <td style="padding: 0.75rem; color: #cccccc;">${bon.document_date ? (window.safeParseDate||function(d){return new Date(d)})(bon.document_date).toLocaleDateString('fr-FR') : '-'}</td>
+                <td style="padding: 0.75rem; color: #4caf50;">${formatNumberGlobalList(parseFloat(bon.total_ht) || 0)} DH</td>
             </tr>
         `).join('')
         : '<tr><td colspan="4" style="padding: 1rem; text-align: center; color: #999;">Aucun bon de livraison</td></tr>';
+
+    // Calculate totals from actual bons data
+    let calcTotalHT = 0;
+    bonsData.forEach(bon => { calcTotalHT += parseFloat(bon.total_ht) || 0; });
+    const calcTvaRate = parseFloat(invoice.tva_rate) || 20;
+    const calcMontantTVA = Math.round(calcTotalHT * (calcTvaRate / 100) * 100) / 100;
+    const calcTotalTTC = Math.round((calcTotalHT + calcMontantTVA) * 100) / 100;
+    calcTotalHT = Math.round(calcTotalHT * 100) / 100;
 
     modal.innerHTML = `
         <div style="background: #2d2d30; border-radius: 12px; padding: 2rem; max-width: 800px; width: 90%; max-height: 90vh; overflow-y: auto;">
@@ -522,15 +534,15 @@ function showGlobalInvoiceDetailsModal(invoice) {
             <div style="background: #1e1e1e; border-radius: 8px; padding: 1.5rem;">
                 <div style="display: flex; justify-content: space-between; margin-bottom: 0.5rem;">
                     <span style="color: #999;">Total HT:</span>
-                    <span style="color: #cccccc; font-weight: 600;">${formatNumberGlobalList(invoice.total_ht || 0)} DH</span>
+                    <span style="color: #cccccc; font-weight: 600;">${formatNumberGlobalList(calcTotalHT)} DH</span>
                 </div>
                 <div style="display: flex; justify-content: space-between; margin-bottom: 0.5rem;">
-                    <span style="color: #999;">TVA (${invoice.tva_rate}%):</span>
-                    <span style="color: #cccccc; font-weight: 600;">${formatNumberGlobalList(invoice.montant_tva || 0)} DH</span>
+                    <span style="color: #999;">TVA (${calcTvaRate}%):</span>
+                    <span style="color: #cccccc; font-weight: 600;">${formatNumberGlobalList(calcMontantTVA)} DH</span>
                 </div>
                 <div style="display: flex; justify-content: space-between; padding-top: 0.5rem; border-top: 2px solid #3e3e42;">
                     <span style="color: #fff; font-weight: 600;">Total TTC:</span>
-                    <span style="color: #4caf50; font-weight: 600; font-size: 1.25rem;">${formatNumberGlobalList(invoice.total_ttc || 0)} DH</span>
+                    <span style="color: #4caf50; font-weight: 600; font-size: 1.25rem;">${formatNumberGlobalList(calcTotalTTC)} DH</span>
                 </div>
             </div>
             

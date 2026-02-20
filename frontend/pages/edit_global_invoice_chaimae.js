@@ -515,7 +515,7 @@ window.calculateTotalsEdit = function () {
     selectedCurrentBonIds.forEach(bonId => {
         const bon = currentBonsEdit.find(b => b.id === bonId);
         if (bon) {
-            totalHT += bon.total_ht || 0;
+            totalHT += parseFloat(bon.total_ht) || 0;
         }
     });
 
@@ -523,7 +523,7 @@ window.calculateTotalsEdit = function () {
     selectedAvailableBonIds.forEach(bonId => {
         const bon = availableBonsEdit.find(b => b.id === bonId);
         if (bon) {
-            totalHT += bon.total_ht || 0;
+            totalHT += parseFloat(bon.total_ht) || 0;
         }
     });
 
@@ -998,6 +998,7 @@ async function handleFormSubmitEdit(e) {
         for (const manualBon of manualBons) {
             console.log('💾 [SAVE] Saving manual bon:', manualBon.document_numero_bl);
 
+            const currentUser = JSON.parse(localStorage.getItem('user') || '{}');
             const bonData = {
                 client: {
                     nom: currentInvoiceEdit.client_nom,
@@ -1006,12 +1007,15 @@ async function handleFormSubmitEdit(e) {
                 document: {
                     type: 'bon_livraison',
                     date: manualBon.document_date,
-                    numero: manualBon.document_numero_bl, // For bon_livraison, this goes to document_numero
-                    numero_BL: manualBon.document_numero_bl, // This should go to document_numero_bl
+                    numero: manualBon.document_numero_bl,
+                    numero_BL: manualBon.document_numero_bl,
                     numero_devis: null,
                     numero_Order: null,
                     bon_de_livraison: null,
-                    numero_commande: manualBon.document_numero_commande === '-' ? null : manualBon.document_numero_commande
+                    numero_commande: manualBon.document_numero_commande === '-' ? null : manualBon.document_numero_commande,
+                    created_by_user_id: currentUser.id || null,
+                    created_by_user_name: currentUser.name || null,
+                    created_by_user_email: currentUser.email || null
                 },
                 products: manualBon.products || [],
                 totals: {
@@ -1069,6 +1073,39 @@ async function handleFormSubmitEdit(e) {
         const montantTVAText = document.getElementById('montantTVAEditGlobal').textContent.replace(/\s/g, '').replace('DH', '').replace(',', '.');
         const totalTTCText = document.getElementById('totalTTCEditGlobal').textContent.replace(/\s/g, '').replace('DH', '').replace(',', '.');
 
+        // Build snapshot of selected bons (current + available)
+        const bonsSnapshot = [];
+        selectedCurrentBonIds.forEach(bonId => {
+            const bon = currentBonsEdit.find(b => b.id === bonId);
+            if (bon) {
+                bonsSnapshot.push({
+                    id: bon.id,
+                    document_numero: bon.document_numero || null,
+                    document_numero_bl: bon.document_numero_bl || null,
+                    document_numero_commande: bon.document_numero_commande || null,
+                    document_date: bon.document_date || null,
+                    total_ht: parseFloat(bon.total_ht) || 0,
+                    total_ttc: parseFloat(bon.total_ttc) || 0,
+                    client_nom: bon.client_nom || currentInvoiceEdit.client_nom
+                });
+            }
+        });
+        selectedAvailableBonIds.forEach(bonId => {
+            const bon = availableBonsEdit.find(b => b.id === bonId);
+            if (bon) {
+                bonsSnapshot.push({
+                    id: bon.id,
+                    document_numero: bon.document_numero || null,
+                    document_numero_bl: bon.document_numero_bl || null,
+                    document_numero_commande: bon.document_numero_commande || null,
+                    document_date: bon.document_date || null,
+                    total_ht: parseFloat(bon.total_ht) || 0,
+                    total_ttc: parseFloat(bon.total_ttc) || 0,
+                    client_nom: bon.client_nom || currentInvoiceEdit.client_nom
+                });
+            }
+        });
+
         const formData = {
             document_numero: document.getElementById('documentNumeroEditGlobal').value,
             document_date: document.getElementById('documentDateEditGlobal').value,
@@ -1076,7 +1113,8 @@ async function handleFormSubmitEdit(e) {
             tva_rate: parseFloat(document.getElementById('tvaRateEditGlobal').value),
             montant_tva: parseFloat(montantTVAText),
             total_ttc: parseFloat(totalTTCText),
-            bon_livraison_ids: allSelectedBonIds
+            bon_livraison_ids: allSelectedBonIds,
+            bons_snapshot: bonsSnapshot
         };
 
         console.log('📤 [EDIT SUBMIT] Updating global invoice ID:', currentInvoiceEdit.id);

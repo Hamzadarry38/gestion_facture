@@ -3,10 +3,10 @@ const axios = require('axios');
 // Test script to verify secondary companies are fetching data from localhost
 async function testSecondaryCompaniesConnection() {
     console.log('🧪 Testing Secondary Companies API Connection...\n');
-    console.log('📍 Target: https://redouan.ddns.net/facture\n');
+    console.log('📍 Target: https://anpe-web-api.ddns.net/facture\n');
 
     const companies = ['SKM', 'SAAISS', 'BENALI', 'MSH3'];
-    const API_URL = 'https://redouan.ddns.net/facture';
+    const API_URL = 'https://anpe-web-api.ddns.net/facture';
 
     for (const company of companies) {
         console.log(`\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`);
@@ -79,7 +79,7 @@ async function testSecondaryCompaniesConnection() {
     console.log('✅ Ready for online deployment!');
     console.log('\nIf any tests failed:');
     console.log('❌ Check that node server.js is running');
-    console.log('❌ Check api-client.js uses https://redouan.ddns.net/facture');
+    console.log('❌ Check api-client.js uses https://anpe-web-api.ddns.net/facture');
     console.log('❌ Restart the Electron app after changes');
     console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n');
 }
