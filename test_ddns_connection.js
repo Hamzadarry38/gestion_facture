@@ -4,8 +4,8 @@ async function testDDNSConnection() {
     console.log('🧪 Testing DDNS Connection...\n');
 
     const urls = [
-        'https://anpe-web-api.ddns.net/facture/test',
-        'https://anpe-web-api.ddns.net/facture/test'
+        'https://redouan.ddns.net/facture/test',
+        'https://redouan.ddns.net/facture/test'
     ];
 
     for (const url of urls) {
