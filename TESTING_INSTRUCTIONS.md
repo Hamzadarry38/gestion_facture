@@ -18,12 +18,12 @@ npm run dev
 ستجد رسائل مثل:
 
 ```
-[API Client] Using Base URL: https://anpe-web-api.ddns.net/facture
-[API Client] 🌐 DDNS URL: https://anpe-web-api.ddns.net/facture
-[API Client] 🏠 Localhost URL: https://anpe-web-api.ddns.net/facture
-[API Client] ✅ Active URL: https://anpe-web-api.ddns.net/facture
+[API Client] Using Base URL: https://redouan.ddns.net/facture
+[API Client] 🌐 DDNS URL: https://redouan.ddns.net/facture
+[API Client] 🏠 Localhost URL: https://redouan.ddns.net/facture
+[API Client] ✅ Active URL: https://redouan.ddns.net/facture
 
-[API Request] 🚀 GET https://anpe-web-api.ddns.net/facture/devis/BENALI
+[API Request] 🚀 GET https://redouan.ddns.net/facture/devis/BENALI
 [API Response] ✅ GET /devis/BENALI - Status: 200
 ```
 
@@ -31,22 +31,22 @@ npm run dev
 
 ### ✅ إذا رأيت:
 ```
-[API Request] 🚀 GET https://anpe-web-api.ddns.net/facture/...
+[API Request] 🚀 GET https://redouan.ddns.net/facture/...
 [API Response] ✅ ...
 ```
 **معناها:** التطبيق يتصل بالسيرفر Online بنجاح! 🎉
 
 ### ❌ إذا رأيت:
 ```
-[API Request] 🚀 GET https://anpe-web-api.ddns.net/facture/...
+[API Request] 🚀 GET https://redouan.ddns.net/facture/...
 [API Network Error] ❌ No response received
-[API Network Error] ❌ This means the server is not reachable at: https://anpe-web-api.ddns.net/facture
+[API Network Error] ❌ This means the server is not reachable at: https://redouan.ddns.net/facture
 ```
 **معناها:** التطبيق يحاول الاتصال بـ DDNS لكن السيرفر غير متاح!
 
 ### 🔍 إذا رأيت:
 ```
-[API Request] 🚀 GET https://anpe-web-api.ddns.net/facture/...
+[API Request] 🚀 GET https://redouan.ddns.net/facture/...
 ```
 **معناها:** التطبيق ما زال يستخدم localhost (ليس DDNS)!
 
