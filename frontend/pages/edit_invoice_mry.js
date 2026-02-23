@@ -94,14 +94,16 @@ function EditInvoiceMRYPage() {
 
                     <!-- Section 3: Products -->
                     <div class="invoice-section">
-                        <div class="section-header">
+                        <div class="section-header" style="display: flex; justify-content: space-between; align-items: center;">
                             <h2>📊 Produits et services</h2>
-                            <button type="button" class="add-product-btn" onclick="addProductRowEditMRY()">
-                                <span>+ Ajouter un produit</span>
-                            </button>
-                            <button type="button" id="toggleDragMRY" onclick="toggleDragModeMRY()" title="Activer/Désactiver le glisser-déposer" style="background:#3e3e42; border:1px solid #555; color:#aaa; border-radius:6px; cursor:pointer; padding:0.4rem 0.8rem; font-size:0.85rem; display:flex; align-items:center; gap:0.4rem;">
-                                <span>⋮⋮</span><span id="toggleDragLabelMRY">Réorganiser: OFF</span>
-                            </button>
+                            <div style="display: flex; gap: 0.5rem;">
+                                <button type="button" id="toggleDragMRY" onclick="toggleDragModeMRY()" title="Activer/Désactiver le glisser-déposer" style="background:#3e3e42; border:1px solid #555; color:#aaa; border-radius:6px; cursor:pointer; padding:0.4rem 0.8rem; font-size:0.85rem; display:flex; align-items:center; gap:0.4rem;">
+                                    <span>⋮⋮</span><span id="toggleDragLabelMRY">Réorganiser: OFF</span>
+                                </button>
+                                <button type="button" class="add-product-btn" onclick="addProductRowEditMRY()">
+                                    <span>+ Ajouter un produit</span>
+                                </button>
+                            </div>
                         </div>
                         <div class="section-body">
                             <div class="products-table-container">

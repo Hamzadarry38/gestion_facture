@@ -120,6 +120,25 @@ app.use(bodyParser.urlencoded({ limit: '50mb', extended: true }));
   }
 })();
 
+// Auto-migrate: ensure position column exists in invoice_products
+(async () => {
+  try {
+    await pool.query(`ALTER TABLE invoice_products ADD COLUMN IF NOT EXISTS position INTEGER DEFAULT 0`);
+    // Update existing products that have position=0 with correct order based on id
+    await pool.query(`
+      WITH ranked AS (
+        SELECT id, invoice_id, ROW_NUMBER() OVER (PARTITION BY invoice_id ORDER BY id) - 1 as new_pos
+        FROM invoice_products WHERE position = 0 OR position IS NULL
+      )
+      UPDATE invoice_products ip SET position = r.new_pos
+      FROM ranked r WHERE ip.id = r.id AND (ip.position = 0 OR ip.position IS NULL)
+    `);
+    console.log('✅ [MIGRATION] position column ensured in invoice_products');
+  } catch (e) {
+    console.warn('⚠️ [MIGRATION] Could not add position column:', e.message);
+  }
+})();
+
 // Helper: Hash password (matching the original app's crypto logic)
 function hashPassword(password) {
   return crypto.createHash('sha256').update(password).digest('hex');
@@ -521,7 +540,7 @@ app.get('/invoices/:company', async (req, res) => {
     // Let's do a second query for products.
     if (invoices.length > 0) {
       const invoiceIds = invoices.map(inv => inv.id);
-      const productsRes = await pool.query(`SELECT * FROM invoice_products WHERE invoice_id = ANY($1::int[])`, [invoiceIds]);
+      const productsRes = await pool.query(`SELECT * FROM invoice_products WHERE invoice_id = ANY($1::int[]) ORDER BY position, id`, [invoiceIds]);
 
       // Map products to invoices
       const productsMap = {};
@@ -584,7 +603,7 @@ app.get('/invoices/id/:id', async (req, res) => {
 
     const invoice = invoiceRes.rows[0];
     console.log(`📅 [DATE DIAGNOSTIC] GET /invoices/id/${id} - document_date from DB: "${invoice.document_date}" (type: ${typeof invoice.document_date}), created_at: "${invoice.created_at}"`);
-    const productsRes = await pool.query('SELECT * FROM invoice_products WHERE invoice_id = $1', [id]);
+    const productsRes = await pool.query('SELECT * FROM invoice_products WHERE invoice_id = $1 ORDER BY position, id', [id]);
     invoice.products = productsRes.rows;
 
     // Fetch attachments
@@ -829,11 +848,12 @@ app.post('/invoices', async (req, res) => {
 
     if (products && products.length > 0) {
       const insertProductText = `
-        INSERT INTO invoice_products (invoice_id, designation, quantite, prix_unitaire_ht, total_ht)
-        VALUES ($1, $2, $3, $4, $5)
+        INSERT INTO invoice_products (invoice_id, designation, quantite, prix_unitaire_ht, total_ht, position)
+        VALUES ($1, $2, $3, $4, $5, $6)
       `;
-      for (const p of products) {
-        await client.query(insertProductText, [invoiceId, p.designation, p.quantite, p.prix_unitaire_ht, p.total_ht]);
+      for (let i = 0; i < products.length; i++) {
+        const p = products[i];
+        await client.query(insertProductText, [invoiceId, p.designation, p.quantite, p.prix_unitaire_ht, p.total_ht, i]);
       }
     }
 
@@ -1088,11 +1108,12 @@ app.put('/invoices/:id', async (req, res) => {
 
       if (products && products.length > 0) {
         const insertProductText = `
-                  INSERT INTO invoice_products (invoice_id, designation, quantite, prix_unitaire_ht, total_ht)
-                  VALUES ($1, $2, $3, $4, $5)
+                  INSERT INTO invoice_products (invoice_id, designation, quantite, prix_unitaire_ht, total_ht, position)
+                  VALUES ($1, $2, $3, $4, $5, $6)
               `;
-        for (const p of products) {
-          await client.query(insertProductText, [id, p.designation, p.quantite, p.prix_unitaire_ht, p.total_ht]);
+        for (let i = 0; i < products.length; i++) {
+          const p = products[i];
+          await client.query(insertProductText, [id, p.designation, p.quantite, p.prix_unitaire_ht, p.total_ht, i]);
         }
       }
     }
