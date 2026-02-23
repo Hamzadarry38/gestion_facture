@@ -10,7 +10,7 @@ contextBridge.exposeInMainWorld('electron', {
 
   // General API
   api: {
-    getPendingInvoices: (companyCode) => ipcRenderer.invoke('api:invoices:getPending', companyCode),
+    getPendingInvoices: (companyCode, userId) => ipcRenderer.invoke('api:invoices:getPending', companyCode, userId),
   },
 
   // Database API for MRY

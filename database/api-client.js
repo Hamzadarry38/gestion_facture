@@ -396,10 +396,12 @@ const service = {
     },
 
     // Validation & Permissions
-    getPendingInvoices: async (companyCode) => {
-        const res = await apiClient.get('/invoices/pending', {
-            params: { company_code: companyCode }
-        });
+    getPendingInvoices: async (companyCode, userId) => {
+        const params = { company_code: companyCode };
+        if (userId) {
+            params.user_id = userId;
+        }
+        const res = await apiClient.get('/invoices/pending', { params });
         return res.data;
     },
 

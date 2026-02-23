@@ -284,9 +284,9 @@ async function registerMultiHandlers() {
     });
 
     // Validation API (Global)
-    ipcMain.handle('api:invoices:getPending', async (event, companyCode) => {
+    ipcMain.handle('api:invoices:getPending', async (event, companyCode, userId) => {
         try {
-            return await apiClient.getPendingInvoices(companyCode);
+            return await apiClient.getPendingInvoices(companyCode, userId);
         } catch (error) {
             console.error('[API] Error getting pending invoices:', error);
             return { success: false, error: error.message };

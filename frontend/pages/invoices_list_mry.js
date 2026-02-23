@@ -696,8 +696,9 @@ function displayInvoices(invoices) {
         const arStatus = invoice.ar_status || '';
         const arBg = arStatus === 'accuse' ? '#4caf50' : (arStatus === 'en_attente' ? '#ff9800' : (arStatus === 'sans_accuse' ? '#f44336' : (arStatus === 'done' ? '#2196f3' : '#424242')));
 
-        // Show red/yellow indicators for ALL users (Admin needs to see them too)
-        const isUnseen = invoice.validation_status === 'pending';
+        // Show red/yellow indicators - but NOT for invoices created by current user
+        const currentUser = JSON.parse(localStorage.getItem('user') || '{}');
+        const isUnseen = invoice.validation_status === 'pending' && invoice.created_by_user_id !== currentUser.id;
         const isModified = invoice.is_modified === true;
 
         // Debug logging for background color issue
@@ -963,7 +964,8 @@ window.filterInvoices = async function () {
     const filterAttachments = document.getElementById('filterAttachments')?.value || 'all';
     const filterMethod = document.getElementById('filterMethod')?.value || 'all';
     const filterDevisConversion = document.getElementById('filterDevisConversionMRY')?.value || 'all';
-    const arStatusFilter = document.getElementById('filterArStatusMRY')?.value || 'all';
+    const arStatusFilterEl = document.getElementById('filterArStatusMRY');
+    const arStatusFilter = arStatusFilterEl ? arStatusFilterEl.value : 'all';
     const filterStatus = document.getElementById('filterStatusMRY')?.value || 'all';
     const searchInput = document.getElementById('searchInput')?.value.toLowerCase() || '';
 
@@ -1045,10 +1047,14 @@ window.filterInvoices = async function () {
         const beforeCount = filtered.length;
         filtered = filtered.filter(inv => {
             if (inv.document_type === 'devis') return false;
-            const status = inv.ar_status || '';
-            const match = status === arStatusFilter;
+            
+            // Normalize both values: treat null/undefined/empty string as empty
+            const status = (inv.ar_status === null || inv.ar_status === undefined || inv.ar_status === '') ? '' : inv.ar_status;
+            const filterVal = (arStatusFilter === null || arStatusFilter === undefined || arStatusFilter === '') ? '' : arStatusFilter;
+            
+            const match = status === filterVal;
             if (!match) {
-                console.log(`  ❌ Invoice ${inv.id} (${inv.document_type}): ar_status=${JSON.stringify(inv.ar_status)} normalized=${JSON.stringify(status)} vs filter=${JSON.stringify(arStatusFilter)}`);
+                console.log(`  ❌ Invoice ${inv.id} (${inv.document_type}): ar_status=${JSON.stringify(inv.ar_status)} normalized=${JSON.stringify(status)} vs filter=${JSON.stringify(filterVal)}`);
             }
             return match;
         });

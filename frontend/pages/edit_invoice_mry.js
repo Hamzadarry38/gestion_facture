@@ -99,6 +99,9 @@ function EditInvoiceMRYPage() {
                             <button type="button" class="add-product-btn" onclick="addProductRowEditMRY()">
                                 <span>+ Ajouter un produit</span>
                             </button>
+                            <button type="button" id="toggleDragMRY" onclick="toggleDragModeMRY()" title="Activer/Désactiver le glisser-déposer" style="background:#3e3e42; border:1px solid #555; color:#aaa; border-radius:6px; cursor:pointer; padding:0.4rem 0.8rem; font-size:0.85rem; display:flex; align-items:center; gap:0.4rem;">
+                                <span>⋮⋮</span><span id="toggleDragLabelMRY">Réorganiser: OFF</span>
+                            </button>
                         </div>
                         <div class="section-body">
                             <div class="products-table-container">
@@ -191,6 +194,7 @@ let currentDocumentTypeMRY = null;
 let currentNumeroOrderMRY = null;
 
 // Drag and drop state
+let dragModeEditMRY = false;
 let draggedRowMRY = null;
 let draggedIndexMRY = null;
 
@@ -281,11 +285,10 @@ window.addProductRowEditMRY = function (productData = null) {
 
     const row = document.createElement('tr');
     row.id = rowId;
-    row.draggable = true;
-    row.style.cursor = 'grab';
+    row.setAttribute('draggable', 'false');
 
     row.innerHTML = `
-        <td style="cursor: grab; user-select: none; width: 20px; padding: 0.5rem 0.25rem; text-align: center; color: #666; font-size: 16px;" class="drag-handle">
+        <td style="cursor: default; user-select: none; width: 20px; padding: 0.5rem 0.25rem; text-align: center; color: #444; font-size: 16px;" class="drag-handle" title="Activer Réorganiser pour glisser">
             ⋮⋮
         </td>
         <td style="width: 50%;">
@@ -314,29 +317,24 @@ window.addProductRowEditMRY = function (productData = null) {
         </td>
     `;
 
-    // Add drag event listeners - only on drag handle
-    const dragHandle = row.querySelector('.drag-handle');
-    dragHandle.addEventListener('mousedown', (e) => {
-        row.setAttribute('draggable', 'true');
-    });
-
     row.addEventListener('dragstart', handleDragStartMRY);
     row.addEventListener('dragover', handleDragOverMRY);
     row.addEventListener('drop', handleDropMRY);
     row.addEventListener('dragend', handleDragEndMRY);
 
-    // Prevent dragging when clicking on inputs
     const inputs = row.querySelectorAll('input, textarea');
     inputs.forEach(input => {
-        input.addEventListener('mousedown', (e) => {
-            row.setAttribute('draggable', 'false');
-        });
-        input.addEventListener('blur', () => {
-            row.setAttribute('draggable', 'true');
-        });
+        input.addEventListener('mousedown', () => row.setAttribute('draggable', 'false'));
+        input.addEventListener('blur', () => { if (dragModeEditMRY) row.setAttribute('draggable', 'true'); });
     });
 
     tbody.appendChild(row);
+
+    if (dragModeEditMRY) {
+        row.setAttribute('draggable', 'true');
+        row.querySelector('.drag-handle').style.cursor = 'grab';
+        row.querySelector('.drag-handle').style.color = '#888';
+    }
 
     if (productData) {
         calculateRowTotalEditMRY(rowId);
@@ -370,72 +368,67 @@ window.deleteProductRowEditMRY = function (rowId) {
     calculateTotalsEditMRY();
 }
 
+// Drag mode toggle
+window.toggleDragModeMRY = function () {
+    dragModeEditMRY = !dragModeEditMRY;
+    const btn = document.getElementById('toggleDragMRY');
+    const label = document.getElementById('toggleDragLabelMRY');
+    const tbody = document.getElementById('editProductsTableBodyMRY');
+    Array.from(tbody.querySelectorAll('tr')).forEach(row => {
+        row.setAttribute('draggable', dragModeEditMRY ? 'true' : 'false');
+        const handle = row.querySelector('.drag-handle');
+        if (handle) {
+            handle.style.cursor = dragModeEditMRY ? 'grab' : 'default';
+            handle.style.color = dragModeEditMRY ? '#888' : '#444';
+        }
+    });
+    if (dragModeEditMRY) {
+        btn.style.background = '#4caf50'; btn.style.color = '#fff'; btn.style.borderColor = '#4caf50';
+        label.textContent = 'Réorganiser: ON';
+    } else {
+        btn.style.background = '#3e3e42'; btn.style.color = '#aaa'; btn.style.borderColor = '#555';
+        label.textContent = 'Réorganiser: OFF';
+    }
+}
+
 // Drag and drop handlers
 function handleDragStartMRY(e) {
-    draggedRowMRY = e.target;
-    const tbody = document.getElementById('editProductsTableBodyMRY');
-    const rows = Array.from(tbody.querySelectorAll('tr'));
+    if (!dragModeEditMRY) return;
+    draggedRowMRY = e.currentTarget;
+    const rows = Array.from(document.getElementById('editProductsTableBodyMRY').querySelectorAll('tr'));
     draggedIndexMRY = rows.indexOf(draggedRowMRY);
-
-    e.target.style.opacity = '0.5';
-    e.target.style.cursor = 'grabbing';
+    e.currentTarget.style.opacity = '0.5';
     e.dataTransfer.effectAllowed = 'move';
-    e.dataTransfer.setData('text/html', e.target.innerHTML);
+    e.dataTransfer.setData('text/plain', draggedIndexMRY);
 }
 
 function handleDragOverMRY(e) {
+    if (!dragModeEditMRY) return;
     e.preventDefault();
     e.dataTransfer.dropEffect = 'move';
-
     const targetRow = e.target.closest('tr');
-    if (targetRow && targetRow !== draggedRowMRY) {
-        targetRow.style.borderTop = '2px solid #9c27b0';
-    }
+    if (targetRow && targetRow !== draggedRowMRY) targetRow.style.borderTop = '2px solid #4caf50';
 }
 
 function handleDropMRY(e) {
-    e.preventDefault();
-    e.stopPropagation();
-
+    if (!dragModeEditMRY) return;
+    e.preventDefault(); e.stopPropagation();
     const targetRow = e.target.closest('tr');
-    if (!targetRow || targetRow === draggedRowMRY) {
-        return;
-    }
-
+    if (!targetRow || targetRow === draggedRowMRY) return;
     targetRow.style.borderTop = '';
-
     const tbody = document.getElementById('editProductsTableBodyMRY');
     const rows = Array.from(tbody.querySelectorAll('tr'));
     const dropIndex = rows.indexOf(targetRow);
-
-    if (draggedIndexMRY === null || draggedIndexMRY === dropIndex) {
-        return;
-    }
-
-    // Reorder the rows
-    if (draggedIndexMRY < dropIndex) {
-        tbody.insertBefore(draggedRowMRY, targetRow.nextSibling);
-    } else {
-        tbody.insertBefore(draggedRowMRY, targetRow);
-    }
-
-    // Recalculate totals after reorder
+    if (draggedIndexMRY === null || draggedIndexMRY === dropIndex) return;
+    if (draggedIndexMRY < dropIndex) tbody.insertBefore(draggedRowMRY, targetRow.nextSibling);
+    else tbody.insertBefore(draggedRowMRY, targetRow);
     calculateTotalsEditMRY();
 }
 
 function handleDragEndMRY(e) {
-    e.target.style.opacity = '1';
-    e.target.style.cursor = 'grab';
-
-    // Remove all border highlights
-    const tbody = document.getElementById('editProductsTableBodyMRY');
-    const rows = Array.from(tbody.querySelectorAll('tr'));
-    rows.forEach(row => {
-        row.style.borderTop = '';
-    });
-
-    draggedRowMRY = null;
-    draggedIndexMRY = null;
+    e.currentTarget.style.opacity = '1';
+    Array.from(document.getElementById('editProductsTableBodyMRY').querySelectorAll('tr')).forEach(r => r.style.borderTop = '');
+    draggedRowMRY = null; draggedIndexMRY = null;
 }
 
 // Calculate totals

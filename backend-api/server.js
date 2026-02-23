@@ -441,8 +441,8 @@ app.delete('/clients/:id', async (req, res) => {
 // Get all pending invoices (MUST be before /invoices/:company)
 app.get('/invoices/pending', async (req, res) => {
   try {
-    const { company_code } = req.query;
-    console.log(`🔍 [API DEBUG] GET /invoices/pending called for company: ${company_code || 'ALL'}`);
+    const { company_code, user_id } = req.query;
+    console.log(`🔍 [API DEBUG] GET /invoices/pending called for company: ${company_code || 'ALL'}, user_id: ${user_id || 'NONE'}`);
 
     let query = `
       SELECT i.*, c.nom as client_nom, c.ice as client_ice 
@@ -451,10 +451,19 @@ app.get('/invoices/pending', async (req, res) => {
       WHERE i.validation_status = 'pending'
     `;
     const params = [];
+    let paramIndex = 1;
 
     if (company_code) {
-      query += ` AND i.company_code = $1`;
+      query += ` AND i.company_code = $${paramIndex}`;
       params.push(company_code.toUpperCase());
+      paramIndex++;
+    }
+
+    // Exclude invoices created by the current user
+    if (user_id) {
+      query += ` AND (i.created_by_user_id IS NULL OR i.created_by_user_id != $${paramIndex})`;
+      params.push(parseInt(user_id));
+      paramIndex++;
     }
 
     query += ` ORDER BY i.id DESC`;
@@ -2409,6 +2418,73 @@ app.delete('/pdf-companies/:code', async (req, res) => {
   }
 })();
 
+// DEBUG: Check pending invoices with user info
+app.get('/debug/pending-invoices', async (req, res) => {
+  try {
+    const { company_code, user_id } = req.query;
+    
+    // Query 1: All pending invoices
+    const allPending = await pool.query(`
+      SELECT id, document_numero, document_type, validation_status, 
+             created_by_user_id, created_by_user_name, created_by_user_email,
+             company_code, created_at
+      FROM invoices 
+      WHERE validation_status = 'pending'
+      ${company_code ? `AND company_code = '${company_code.toUpperCase()}'` : ''}
+      ORDER BY id DESC 
+      LIMIT 50
+    `);
+
+    // Query 2: Pending invoices excluding user_id
+    let excludedPending = { rows: [] };
+    if (user_id) {
+      excludedPending = await pool.query(`
+        SELECT id, document_numero, document_type, validation_status, 
+               created_by_user_id, created_by_user_name, created_by_user_email,
+               company_code, created_at
+        FROM invoices 
+        WHERE validation_status = 'pending'
+        AND (created_by_user_id IS NULL OR created_by_user_id != $1)
+        ${company_code ? `AND company_code = '${company_code.toUpperCase()}'` : ''}
+        ORDER BY id DESC 
+        LIMIT 50
+      `, [parseInt(user_id)]);
+    }
+
+    // Query 3: Statistics
+    const stats = await pool.query(`
+      SELECT 
+        created_by_user_id,
+        created_by_user_name,
+        company_code,
+        COUNT(*) as count
+      FROM invoices 
+      WHERE validation_status = 'pending'
+      ${company_code ? `AND company_code = '${company_code.toUpperCase()}'` : ''}
+      GROUP BY created_by_user_id, created_by_user_name, company_code
+      ORDER BY count DESC
+    `);
+
+    res.json({
+      success: true,
+      filters: { company_code, user_id },
+      all_pending: {
+        count: allPending.rows.length,
+        invoices: allPending.rows
+      },
+      excluded_pending: {
+        count: excludedPending.rows.length,
+        invoices: excludedPending.rows
+      },
+      statistics: stats.rows
+    });
+  } catch (err) {
+    console.error('❌ [DEBUG] Error:', err);
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
 app.listen(port, '0.0.0.0', () => {
   console.log(`API Backend (API 5) running on http://localhost:${port}`);
+  console.log(`🔍 Debug endpoint: http://localhost:${port}/debug/pending-invoices`);
 });

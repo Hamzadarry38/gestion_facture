@@ -241,12 +241,17 @@ function initCompanySelectPage() {
 // Fetch and display pending counts
 async function updatePendingCounts() {
     const companies = ['mry', 'chaimae', 'multi'];
+    const currentUser = JSON.parse(localStorage.getItem('user') || '{}');
+    const userId = currentUser.id;
+
+    console.log(`🔔 [PENDING] updatePendingCounts called. userId=${userId}, user:`, currentUser);
 
     for (const company of companies) {
         try {
-            // Fetch pending invoices count
+            // Fetch pending invoices count (excluding user's own invoices)
             // We use the exposed API which should work for all companies
-            const result = await window.electron.api.getPendingInvoices(company.toUpperCase());
+            const result = await window.electron.api.getPendingInvoices(company.toUpperCase(), userId);
+            console.log(`🔔 [PENDING] ${company.toUpperCase()}: ${result.success ? result.data?.length : 'ERROR'} pending invoices (excluding user ${userId})`);
 
             if (result.success && result.data && result.data.length > 0) {
                 const card = document.querySelector(`.company-card[data-company="${company}"]`);

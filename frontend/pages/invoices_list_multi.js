@@ -747,8 +747,10 @@ function filterInvoicesMulti() {
             if (invoice.document_type === 'devis') {
                 matchAR = false;
             } else {
-                const status = invoice.ar_status || '';
-                matchAR = status === arStatusFilter;
+                // Normalize both values: treat null/undefined/empty string as empty
+                const status = (invoice.ar_status === null || invoice.ar_status === undefined || invoice.ar_status === '') ? '' : invoice.ar_status;
+                const filterVal = (arStatusFilter === null || arStatusFilter === undefined || arStatusFilter === '') ? '' : arStatusFilter;
+                matchAR = status === filterVal;
             }
         }
 
@@ -889,8 +891,9 @@ function displayInvoicesMulti() {
             created_by_user_id: invoice.created_by_user_id
         });
 
-        // Show red/yellow indicators for ALL users (Admin needs to see them too)
-        const isUnseen = invoice.validation_status === 'pending';
+        // Show red/yellow indicators - but NOT for invoices created by current user
+        const currentUser = JSON.parse(localStorage.getItem('user') || '{}');
+        const isUnseen = invoice.validation_status === 'pending' && invoice.created_by_user_id !== currentUser.id;
         const isModified = invoice.is_modified === true;
 
         let rowClass = invoice.creation_method === 'converted' ? 'row-converted' : '';

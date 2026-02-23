@@ -1016,8 +1016,9 @@ function displayInvoicesChaimae(invoices) {
             additionalInfo += `<div style="font-size: 0.85rem; color: #9c27b0; margin-top: 0.25rem;">📦 ${invoice.bon_count} Bons de livraison</div>`;
         }
 
-        // Show red/yellow indicators for ALL users (Admin needs to see them too)
-        const isUnseen = invoice.validation_status === 'pending';
+        // Show red/yellow indicators - but NOT for invoices created by current user
+        const currentUser = JSON.parse(localStorage.getItem('user') || '{}');
+        const isUnseen = invoice.validation_status === 'pending' && invoice.created_by_user_id !== currentUser.id;
         const isModified = invoice.is_modified === true;
 
         // Determine row style
@@ -1383,9 +1384,13 @@ window.filterInvoicesChaimae = function () {
         // AR Status filter (exclude devis - they don't have AR status)
         if (filterArStatus !== 'all') {
             if (invoice.document_type === 'devis') return false;
-            const arVal = invoice.ar_status || '';
-            if (arVal !== filterArStatus) {
-                console.log(`  ❌ [CHAIMAE] Invoice ${invoice.id} (${invoice.document_type}): ar_status=${JSON.stringify(invoice.ar_status)} normalized=${JSON.stringify(arVal)} vs filter=${JSON.stringify(filterArStatus)}`);
+            
+            // Normalize both values: treat null/undefined/empty string as empty
+            const arVal = (invoice.ar_status === null || invoice.ar_status === undefined || invoice.ar_status === '') ? '' : invoice.ar_status;
+            const filterVal = (filterArStatus === null || filterArStatus === undefined || filterArStatus === '') ? '' : filterArStatus;
+            
+            if (arVal !== filterVal) {
+                console.log(`  ❌ [CHAIMAE] Invoice ${invoice.id} (${invoice.document_type}): ar_status=${JSON.stringify(invoice.ar_status)} normalized=${JSON.stringify(arVal)} vs filter=${JSON.stringify(filterVal)}`);
                 return false;
             }
         }

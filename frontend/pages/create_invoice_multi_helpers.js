@@ -324,13 +324,21 @@ function focusCellMulti(row, cellIndex) {
 }
 
 let productRowCounterMulti = 0;
+let dragModeCreateMulti = false;
+let draggedRowCreateMulti = null;
+let draggedIndexCreateMulti = null;
+
 window.addProductRowMulti = function () {
     const tbody = document.getElementById('productsTableBodyMulti');
     const rowId = `product-multi-${productRowCounterMulti++}`;
 
     const row = document.createElement('tr');
     row.id = rowId;
+    row.setAttribute('draggable', 'false');
     row.innerHTML = `
+        <td style="cursor: default; user-select: none; width: 20px; padding: 0.5rem 0.25rem; text-align: center; color: #444; font-size: 16px;" class="drag-handle" title="Activer Réorganiser pour glisser">
+            ⋮⋮
+        </td>
         <td>
             <textarea class="product-designation" rows="2" placeholder="Description du produit..." onkeydown="handleArrowNavigationMulti(event, '${rowId}', 0)"></textarea>
         </td>
@@ -356,7 +364,24 @@ window.addProductRowMulti = function () {
             </button>
         </td>
     `;
+    row.addEventListener('dragstart', handleDragStartCreateMulti);
+    row.addEventListener('dragover', handleDragOverCreateMulti);
+    row.addEventListener('drop', handleDropCreateMulti);
+    row.addEventListener('dragend', handleDragEndCreateMulti);
+
+    const inputs = row.querySelectorAll('input, textarea');
+    inputs.forEach(input => {
+        input.addEventListener('mousedown', () => row.setAttribute('draggable', 'false'));
+        input.addEventListener('blur', () => { if (dragModeCreateMulti) row.setAttribute('draggable', 'true'); });
+    });
+
     tbody.appendChild(row);
+
+    if (dragModeCreateMulti) {
+        row.setAttribute('draggable', 'true');
+        row.querySelector('.drag-handle').style.cursor = 'grab';
+        row.querySelector('.drag-handle').style.color = '#888';
+    }
 }
 
 window.calculateRowTotalMulti = function (rowId) {
@@ -382,6 +407,69 @@ window.calculateRowTotalMulti = function (rowId) {
 window.deleteProductRowMulti = function (rowId) {
     document.getElementById(rowId).remove();
     calculateTotalsMulti();
+}
+
+// Drag mode toggle for create
+window.toggleDragModeCreateMulti = function () {
+    dragModeCreateMulti = !dragModeCreateMulti;
+    const btn = document.getElementById('toggleDragCreateMulti');
+    const label = document.getElementById('toggleDragLabelCreateMulti');
+    const tbody = document.getElementById('productsTableBodyMulti');
+    Array.from(tbody.querySelectorAll('tr')).forEach(row => {
+        row.setAttribute('draggable', dragModeCreateMulti ? 'true' : 'false');
+        const handle = row.querySelector('.drag-handle');
+        if (handle) {
+            handle.style.cursor = dragModeCreateMulti ? 'grab' : 'default';
+            handle.style.color = dragModeCreateMulti ? '#888' : '#444';
+        }
+    });
+    if (dragModeCreateMulti) {
+        btn.style.background = '#2196f3'; btn.style.color = '#fff'; btn.style.borderColor = '#2196f3';
+        label.textContent = 'Réorganiser: ON';
+    } else {
+        btn.style.background = '#3e3e42'; btn.style.color = '#aaa'; btn.style.borderColor = '#555';
+        label.textContent = 'Réorganiser: OFF';
+    }
+}
+
+// Drag and drop handlers for create
+function handleDragStartCreateMulti(e) {
+    if (!dragModeCreateMulti) return;
+    draggedRowCreateMulti = e.currentTarget;
+    const rows = Array.from(document.getElementById('productsTableBodyMulti').querySelectorAll('tr'));
+    draggedIndexCreateMulti = rows.indexOf(draggedRowCreateMulti);
+    e.currentTarget.style.opacity = '0.5';
+    e.dataTransfer.effectAllowed = 'move';
+    e.dataTransfer.setData('text/plain', draggedIndexCreateMulti);
+}
+
+function handleDragOverCreateMulti(e) {
+    if (!dragModeCreateMulti) return;
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+    const targetRow = e.target.closest('tr');
+    if (targetRow && targetRow !== draggedRowCreateMulti) targetRow.style.borderTop = '2px solid #2196f3';
+}
+
+function handleDropCreateMulti(e) {
+    if (!dragModeCreateMulti) return;
+    e.preventDefault(); e.stopPropagation();
+    const targetRow = e.target.closest('tr');
+    if (!targetRow || targetRow === draggedRowCreateMulti) return;
+    targetRow.style.borderTop = '';
+    const tbody = document.getElementById('productsTableBodyMulti');
+    const rows = Array.from(tbody.querySelectorAll('tr'));
+    const dropIndex = rows.indexOf(targetRow);
+    if (draggedIndexCreateMulti === null || draggedIndexCreateMulti === dropIndex) return;
+    if (draggedIndexCreateMulti < dropIndex) tbody.insertBefore(draggedRowCreateMulti, targetRow.nextSibling);
+    else tbody.insertBefore(draggedRowCreateMulti, targetRow);
+    calculateTotalsMulti();
+}
+
+function handleDragEndCreateMulti(e) {
+    e.currentTarget.style.opacity = '1';
+    Array.from(document.getElementById('productsTableBodyMulti').querySelectorAll('tr')).forEach(r => r.style.borderTop = '');
+    draggedRowCreateMulti = null; draggedIndexCreateMulti = null;
 }
 
 window.calculateTotalsMulti = function () {

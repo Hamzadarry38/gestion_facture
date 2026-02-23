@@ -105,17 +105,21 @@ function CreateInvoiceMRYPage() {
                             <button type="button" class="add-product-btn" onclick="addProductRow()">
                                 <span>+ Ajouter un produit</span>
                             </button>
+                            <button type="button" id="toggleDragCreateMRY" onclick="toggleDragModeCreateMRY()" title="Activer/Désactiver le glisser-déposer" style="background:#3e3e42; border:1px solid #555; color:#aaa; border-radius:6px; cursor:pointer; padding:0.4rem 0.8rem; font-size:0.85rem; display:flex; align-items:center; gap:0.4rem;">
+                                <span>⋮⋮</span><span id="toggleDragLabelCreateMRY">Réorganiser: OFF</span>
+                            </button>
                         </div>
                         <div class="section-body">
                             <div class="products-table-container">
                                 <table class="products-table">
                                     <thead>
                                         <tr>
-                                            <th>Désignation</th>
-                                            <th>Quantité</th>
-                                            <th>Prix unitaire HT</th>
-                                            <th>Total HT</th>
-                                            <th>Actions</th>
+                                            <th style="width: 20px; padding: 0.5rem 0.25rem;"></th>
+                                            <th style="width: 50%;">Désignation</th>
+                                            <th style="width: 120px;">Quantité</th>
+                                            <th style="width: 140px;">Prix unitaire HT</th>
+                                            <th style="width: 120px;">Total HT</th>
+                                            <th style="width: 60px;">Actions</th>
                                         </tr>
                                     </thead>
                                     <tbody id="productsTableBody">
@@ -493,13 +497,21 @@ function focusCellMry(row, cellIndex) {
 
 // Add product row (Global)
 let productRowCounter = 0;
+let dragModeCreateMRY = false;
+let draggedRowCreateMRY = null;
+let draggedIndexCreateMRY = null;
+
 window.addProductRow = function () {
     const tbody = document.getElementById('productsTableBody');
     const rowId = `product-${productRowCounter++}`;
 
     const row = document.createElement('tr');
     row.id = rowId;
+    row.setAttribute('draggable', 'false');
     row.innerHTML = `
+        <td style="cursor: default; user-select: none; width: 20px; padding: 0.5rem 0.25rem; text-align: center; color: #444; font-size: 16px;" class="drag-handle" title="Activer Réorganiser pour glisser">
+            ⋮⋮
+        </td>
         <td>
             <textarea class="product-designation" rows="2" placeholder="Description du produit..." onkeydown="handleArrowNavigation(event, '${rowId}', 0)"></textarea>
         </td>
@@ -526,7 +538,24 @@ window.addProductRow = function () {
         </td>
     `;
 
+    row.addEventListener('dragstart', handleDragStartCreateMRY);
+    row.addEventListener('dragover', handleDragOverCreateMRY);
+    row.addEventListener('drop', handleDropCreateMRY);
+    row.addEventListener('dragend', handleDragEndCreateMRY);
+
+    const inputs = row.querySelectorAll('input, textarea');
+    inputs.forEach(input => {
+        input.addEventListener('mousedown', () => row.setAttribute('draggable', 'false'));
+        input.addEventListener('blur', () => { if (dragModeCreateMRY) row.setAttribute('draggable', 'true'); });
+    });
+
     tbody.appendChild(row);
+
+    if (dragModeCreateMRY) {
+        row.setAttribute('draggable', 'true');
+        row.querySelector('.drag-handle').style.cursor = 'grab';
+        row.querySelector('.drag-handle').style.color = '#888';
+    }
 }
 
 // Calculate row total (Global)
@@ -568,6 +597,69 @@ window.calculateRowTotal = function (rowId) {
 window.deleteProductRow = function (rowId) {
     document.getElementById(rowId).remove();
     calculateTotals();
+}
+
+// Drag mode toggle for create
+window.toggleDragModeCreateMRY = function () {
+    dragModeCreateMRY = !dragModeCreateMRY;
+    const btn = document.getElementById('toggleDragCreateMRY');
+    const label = document.getElementById('toggleDragLabelCreateMRY');
+    const tbody = document.getElementById('productsTableBody');
+    Array.from(tbody.querySelectorAll('tr')).forEach(row => {
+        row.setAttribute('draggable', dragModeCreateMRY ? 'true' : 'false');
+        const handle = row.querySelector('.drag-handle');
+        if (handle) {
+            handle.style.cursor = dragModeCreateMRY ? 'grab' : 'default';
+            handle.style.color = dragModeCreateMRY ? '#888' : '#444';
+        }
+    });
+    if (dragModeCreateMRY) {
+        btn.style.background = '#4caf50'; btn.style.color = '#fff'; btn.style.borderColor = '#4caf50';
+        label.textContent = 'Réorganiser: ON';
+    } else {
+        btn.style.background = '#3e3e42'; btn.style.color = '#aaa'; btn.style.borderColor = '#555';
+        label.textContent = 'Réorganiser: OFF';
+    }
+}
+
+// Drag and drop handlers for create
+function handleDragStartCreateMRY(e) {
+    if (!dragModeCreateMRY) return;
+    draggedRowCreateMRY = e.currentTarget;
+    const rows = Array.from(document.getElementById('productsTableBody').querySelectorAll('tr'));
+    draggedIndexCreateMRY = rows.indexOf(draggedRowCreateMRY);
+    e.currentTarget.style.opacity = '0.5';
+    e.dataTransfer.effectAllowed = 'move';
+    e.dataTransfer.setData('text/plain', draggedIndexCreateMRY);
+}
+
+function handleDragOverCreateMRY(e) {
+    if (!dragModeCreateMRY) return;
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+    const targetRow = e.target.closest('tr');
+    if (targetRow && targetRow !== draggedRowCreateMRY) targetRow.style.borderTop = '2px solid #4caf50';
+}
+
+function handleDropCreateMRY(e) {
+    if (!dragModeCreateMRY) return;
+    e.preventDefault(); e.stopPropagation();
+    const targetRow = e.target.closest('tr');
+    if (!targetRow || targetRow === draggedRowCreateMRY) return;
+    targetRow.style.borderTop = '';
+    const tbody = document.getElementById('productsTableBody');
+    const rows = Array.from(tbody.querySelectorAll('tr'));
+    const dropIndex = rows.indexOf(targetRow);
+    if (draggedIndexCreateMRY === null || draggedIndexCreateMRY === dropIndex) return;
+    if (draggedIndexCreateMRY < dropIndex) tbody.insertBefore(draggedRowCreateMRY, targetRow.nextSibling);
+    else tbody.insertBefore(draggedRowCreateMRY, targetRow);
+    calculateTotals();
+}
+
+function handleDragEndCreateMRY(e) {
+    e.currentTarget.style.opacity = '1';
+    Array.from(document.getElementById('productsTableBody').querySelectorAll('tr')).forEach(r => r.style.borderTop = '');
+    draggedRowCreateMRY = null; draggedIndexCreateMRY = null;
 }
 
 // Calculate all totals (Global)

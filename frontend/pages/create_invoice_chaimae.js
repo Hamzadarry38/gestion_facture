@@ -154,17 +154,21 @@ function CreateInvoiceChaimaePage() {
                             <button type="button" class="add-product-btn" onclick="addProductRowChaimae()">
                                 <span>+ Ajouter un produit</span>
                             </button>
+                            <button type="button" id="toggleDragCreateChaimae" onclick="toggleDragModeCreateChaimae()" title="Activer/Désactiver le glisser-déposer" style="background:#3e3e42; border:1px solid #555; color:#aaa; border-radius:6px; cursor:pointer; padding:0.4rem 0.8rem; font-size:0.85rem; display:flex; align-items:center; gap:0.4rem;">
+                                <span>⋮⋮</span><span id="toggleDragLabelCreateChaimae">Réorganiser: OFF</span>
+                            </button>
                         </div>
                         <div class="section-body">
                             <div class="products-table-container">
                                 <table class="products-table">
                                     <thead>
                                         <tr>
-                                            <th>Désignation</th>
-                                            <th>Quantité</th>
-                                            <th>Prix unitaire HT</th>
-                                            <th>Total HT</th>
-                                            <th>Actions</th>
+                                            <th style="width: 20px; padding: 0.5rem 0.25rem;"></th>
+                                            <th style="width: 50%;">Désignation</th>
+                                            <th style="width: 120px;">Quantité</th>
+                                            <th style="width: 140px;">Prix unitaire HT</th>
+                                            <th style="width: 120px;">Total HT</th>
+                                            <th style="width: 60px;">Actions</th>
                                         </tr>
                                     </thead>
                                     <tbody id="productsTableBodyChaimae">
@@ -1331,13 +1335,21 @@ function focusCell(row, cellIndex) {
 
 // Add product row for Chaimae (Global)
 let productRowCounterChaimae = 0;
+let dragModeCreateChaimae = false;
+let draggedRowCreateChaimae = null;
+let draggedIndexCreateChaimae = null;
+
 window.addProductRowChaimae = function () {
     const tbody = document.getElementById('productsTableBodyChaimae');
     const rowId = `product-chaimae-${productRowCounterChaimae++}`;
 
     const row = document.createElement('tr');
     row.id = rowId;
+    row.setAttribute('draggable', 'false');
     row.innerHTML = `
+        <td style="cursor: default; user-select: none; width: 20px; padding: 0.5rem 0.25rem; text-align: center; color: #444; font-size: 16px;" class="drag-handle" title="Activer Réorganiser pour glisser">
+            ⋮⋮
+        </td>
         <td>
             <textarea class="product-designation" rows="2" placeholder="Description du produit..." onkeydown="handleArrowNavigationChaimae(event, '${rowId}', 0)"></textarea>
         </td>
@@ -1364,7 +1376,24 @@ window.addProductRowChaimae = function () {
         </td>
     `;
 
+    row.addEventListener('dragstart', handleDragStartCreateChaimae);
+    row.addEventListener('dragover', handleDragOverCreateChaimae);
+    row.addEventListener('drop', handleDropCreateChaimae);
+    row.addEventListener('dragend', handleDragEndCreateChaimae);
+
+    const inputs = row.querySelectorAll('input, textarea');
+    inputs.forEach(input => {
+        input.addEventListener('mousedown', () => row.setAttribute('draggable', 'false'));
+        input.addEventListener('blur', () => { if (dragModeCreateChaimae) row.setAttribute('draggable', 'true'); });
+    });
+
     tbody.appendChild(row);
+
+    if (dragModeCreateChaimae) {
+        row.setAttribute('draggable', 'true');
+        row.querySelector('.drag-handle').style.cursor = 'grab';
+        row.querySelector('.drag-handle').style.color = '#888';
+    }
 }
 
 // Calculate row total for Chaimae (Global)
@@ -1406,6 +1435,69 @@ window.calculateRowTotalChaimae = function (rowId) {
 window.deleteProductRowChaimae = function (rowId) {
     document.getElementById(rowId).remove();
     calculateTotalsChaimae();
+}
+
+// Drag mode toggle for create
+window.toggleDragModeCreateChaimae = function () {
+    dragModeCreateChaimae = !dragModeCreateChaimae;
+    const btn = document.getElementById('toggleDragCreateChaimae');
+    const label = document.getElementById('toggleDragLabelCreateChaimae');
+    const tbody = document.getElementById('productsTableBodyChaimae');
+    Array.from(tbody.querySelectorAll('tr')).forEach(row => {
+        row.setAttribute('draggable', dragModeCreateChaimae ? 'true' : 'false');
+        const handle = row.querySelector('.drag-handle');
+        if (handle) {
+            handle.style.cursor = dragModeCreateChaimae ? 'grab' : 'default';
+            handle.style.color = dragModeCreateChaimae ? '#888' : '#444';
+        }
+    });
+    if (dragModeCreateChaimae) {
+        btn.style.background = '#9c27b0'; btn.style.color = '#fff'; btn.style.borderColor = '#9c27b0';
+        label.textContent = 'Réorganiser: ON';
+    } else {
+        btn.style.background = '#3e3e42'; btn.style.color = '#aaa'; btn.style.borderColor = '#555';
+        label.textContent = 'Réorganiser: OFF';
+    }
+}
+
+// Drag and drop handlers for create
+function handleDragStartCreateChaimae(e) {
+    if (!dragModeCreateChaimae) return;
+    draggedRowCreateChaimae = e.currentTarget;
+    const rows = Array.from(document.getElementById('productsTableBodyChaimae').querySelectorAll('tr'));
+    draggedIndexCreateChaimae = rows.indexOf(draggedRowCreateChaimae);
+    e.currentTarget.style.opacity = '0.5';
+    e.dataTransfer.effectAllowed = 'move';
+    e.dataTransfer.setData('text/plain', draggedIndexCreateChaimae);
+}
+
+function handleDragOverCreateChaimae(e) {
+    if (!dragModeCreateChaimae) return;
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+    const targetRow = e.target.closest('tr');
+    if (targetRow && targetRow !== draggedRowCreateChaimae) targetRow.style.borderTop = '2px solid #9c27b0';
+}
+
+function handleDropCreateChaimae(e) {
+    if (!dragModeCreateChaimae) return;
+    e.preventDefault(); e.stopPropagation();
+    const targetRow = e.target.closest('tr');
+    if (!targetRow || targetRow === draggedRowCreateChaimae) return;
+    targetRow.style.borderTop = '';
+    const tbody = document.getElementById('productsTableBodyChaimae');
+    const rows = Array.from(tbody.querySelectorAll('tr'));
+    const dropIndex = rows.indexOf(targetRow);
+    if (draggedIndexCreateChaimae === null || draggedIndexCreateChaimae === dropIndex) return;
+    if (draggedIndexCreateChaimae < dropIndex) tbody.insertBefore(draggedRowCreateChaimae, targetRow.nextSibling);
+    else tbody.insertBefore(draggedRowCreateChaimae, targetRow);
+    calculateTotalsChaimae();
+}
+
+function handleDragEndCreateChaimae(e) {
+    e.currentTarget.style.opacity = '1';
+    Array.from(document.getElementById('productsTableBodyChaimae').querySelectorAll('tr')).forEach(r => r.style.borderTop = '');
+    draggedRowCreateChaimae = null; draggedIndexCreateChaimae = null;
 }
 
 // Calculate totals for Chaimae (Global)

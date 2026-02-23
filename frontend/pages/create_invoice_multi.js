@@ -107,17 +107,21 @@ function CreateInvoiceMultiPage() {
                             <button type="button" class="add-product-btn" onclick="addProductRowMulti()">
                                 <span>+ Ajouter un produit</span>
                             </button>
+                            <button type="button" id="toggleDragCreateMulti" onclick="toggleDragModeCreateMulti()" title="Activer/Désactiver le glisser-déposer" style="background:#3e3e42; border:1px solid #555; color:#aaa; border-radius:6px; cursor:pointer; padding:0.4rem 0.8rem; font-size:0.85rem; display:flex; align-items:center; gap:0.4rem;">
+                                <span>⋮⋮</span><span id="toggleDragLabelCreateMulti">Réorganiser: OFF</span>
+                            </button>
                         </div>
                         <div class="section-body">
                             <div class="products-table-container">
                                 <table class="products-table">
                                     <thead>
                                         <tr>
-                                            <th>Désignation</th>
-                                            <th>Quantité</th>
-                                            <th>Prix unitaire HT</th>
-                                            <th>Total HT</th>
-                                            <th>Actions</th>
+                                            <th style="width: 20px; padding: 0.5rem 0.25rem;"></th>
+                                            <th style="width: 50%;">Désignation</th>
+                                            <th style="width: 120px;">Quantité</th>
+                                            <th style="width: 140px;">Prix unitaire HT</th>
+                                            <th style="width: 120px;">Total HT</th>
+                                            <th style="width: 60px;">Actions</th>
                                         </tr>
                                     </thead>
                                     <tbody id="productsTableBodyMulti">
