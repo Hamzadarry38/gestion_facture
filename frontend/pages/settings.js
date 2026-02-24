@@ -60,7 +60,7 @@ function SettingsPage() {
                                 <label>Portail Web</label>
                                 <div style="display: flex; align-items: center; gap: 0.5rem; margin-top: 0.5rem;">
                                     <span class="icon">🌐</span>
-                                    <a id="webPortalLink" href="#" onclick="(function(e){e.preventDefault();var u=localStorage.getItem('API_BASE_URL')||'https://anpe-web-api.ddns.net/facture';window.open(u.replace(/\/api$/,'')+'/','_blank');})(event)" style="color: #2196f3; text-decoration: none; font-weight: 500;">Ouvrir le portail web</a>
+                                    <a id="webPortalLink" href="#" onclick="(function(e){e.preventDefault();var u=localStorage.getItem('API_BASE_URL')||'https://redouan.ddns.net/facture';window.open(u.replace(/\/api$/,'')+'/','_blank');})(event)" style="color: #2196f3; text-decoration: none; font-weight: 500;">Ouvrir le portail web</a>
                                 </div>
                             </div>
                             <button class="btn btn-primary" style="margin-top: 1.5rem;">Save Settings</button>
