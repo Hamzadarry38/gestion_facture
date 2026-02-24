@@ -308,8 +308,11 @@ window.handleArrowNavigationMulti = function (event, currentRowId, currentCellIn
 // Helper function to focus a specific cell in a row
 function focusCellMulti(row, cellIndex) {
     const cells = row.querySelectorAll('td');
-    if (cells[cellIndex]) {
-        const input = cells[cellIndex].querySelector('textarea, input');
+    // cellIndex: 0=designation, 1=quantity, 2=price
+    // But table has drag handle as first column, so add +1
+    const actualIndex = cellIndex + 1;
+    if (cells[actualIndex]) {
+        const input = cells[actualIndex].querySelector('textarea, input');
         if (input) {
             input.focus();
             // For text inputs, move cursor to end

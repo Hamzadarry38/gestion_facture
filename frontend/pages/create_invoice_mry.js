@@ -100,14 +100,16 @@ function CreateInvoiceMRYPage() {
 
                     <!-- Section 4: Products -->
                     <div class="invoice-section">
-                        <div class="section-header">
+                        <div class="section-header" style="display: flex; justify-content: space-between; align-items: center;">
                             <h2>📊 Produits et services</h2>
-                            <button type="button" class="add-product-btn" onclick="addProductRow()">
-                                <span>+ Ajouter un produit</span>
-                            </button>
-                            <button type="button" id="toggleDragCreateMRY" onclick="toggleDragModeCreateMRY()" title="Activer/Désactiver le glisser-déposer" style="background:#3e3e42; border:1px solid #555; color:#aaa; border-radius:6px; cursor:pointer; padding:0.4rem 0.8rem; font-size:0.85rem; display:flex; align-items:center; gap:0.4rem;">
-                                <span>⋮⋮</span><span id="toggleDragLabelCreateMRY">Réorganiser: OFF</span>
-                            </button>
+                            <div style="display: flex; gap: 0.5rem;">
+                                <button type="button" id="toggleDragCreateMRY" onclick="toggleDragModeCreateMRY()" title="Activer/Désactiver le glisser-déposer" style="background:#3e3e42; border:1px solid #555; color:#aaa; border-radius:6px; cursor:pointer; padding:0.4rem 0.8rem; font-size:0.85rem; display:flex; align-items:center; gap:0.4rem;">
+                                    <span>⋮⋮</span><span id="toggleDragLabelCreateMRY">Réorganiser: OFF</span>
+                                </button>
+                                <button type="button" class="add-product-btn" onclick="addProductRow()">
+                                    <span>+ Ajouter un produit</span>
+                                </button>
+                            </div>
                         </div>
                         <div class="section-body">
                             <div class="products-table-container">
@@ -480,8 +482,11 @@ window.handleArrowNavigation = function (event, currentRowId, currentCellIndex) 
 // Helper function to focus a specific cell in a row
 function focusCellMry(row, cellIndex) {
     const cells = row.querySelectorAll('td');
-    if (cells[cellIndex]) {
-        const input = cells[cellIndex].querySelector('textarea, input');
+    // cellIndex: 0=designation, 1=quantity, 2=price
+    // But table has drag handle as first column, so add +1
+    const actualIndex = cellIndex + 1;
+    if (cells[actualIndex]) {
+        const input = cells[actualIndex].querySelector('textarea, input');
         if (input) {
             input.focus();
             // For text inputs, move cursor to end
