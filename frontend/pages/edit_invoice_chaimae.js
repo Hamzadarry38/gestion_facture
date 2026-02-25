@@ -836,13 +836,22 @@ window.handleEditInvoiceSubmitChaimae = async function (e) {
             formData.document.numero = documentNumeroValue;
             formData.document.numero_devis = null;
             formData.document.numero_bl = null;
-            formData.document.numero_Order = document.getElementById('editNumeroOrderChaimae')?.value || null;
-            formData.document.bon_de_livraison = document.getElementById('editBonLivraisonChaimae')?.value || null;
+            const numeroOrderTrimmed = document.getElementById('editNumeroOrderChaimae')?.value?.trim();
+            const bonLivraisonTrimmed = document.getElementById('editBonLivraisonChaimae')?.value?.trim();
+            console.log('🔍 [SAVE DEBUG] N° Order raw value:', document.getElementById('editNumeroOrderChaimae')?.value);
+            console.log('🔍 [SAVE DEBUG] N° Order trimmed:', numeroOrderTrimmed);
+            console.log('🔍 [SAVE DEBUG] Bon de livraison raw value:', document.getElementById('editBonLivraisonChaimae')?.value);
+            console.log('🔍 [SAVE DEBUG] Bon de livraison trimmed:', bonLivraisonTrimmed);
+            formData.document.numero_Order = numeroOrderTrimmed || null;
+            formData.document.bon_de_livraison = bonLivraisonTrimmed || null;
+            console.log('🔍 [SAVE DEBUG] Final numero_Order:', formData.document.numero_Order);
+            console.log('🔍 [SAVE DEBUG] Final bon_de_livraison:', formData.document.bon_de_livraison);
         } else if (currentDocumentTypeChaimae === 'bon_livraison') {
             formData.document.numero_bl = documentNumeroValue;
             formData.document.numero = null;
             formData.document.numero_devis = null;
-            formData.document.numero_commande = document.getElementById('editBonCommandeChaimae')?.value || null;
+            const numeroCommandeTrimmed = document.getElementById('editBonCommandeChaimae')?.value?.trim();
+            formData.document.numero_commande = numeroCommandeTrimmed || null;
         } else {
             formData.document.numero_devis = documentNumeroValue;
             formData.document.numero = null;
@@ -1127,18 +1136,13 @@ window.showConvertDocumentTypeModalChaimae = async function () {
 
         // Mapping for Order/Command field
         if (currentType === 'bon_livraison' && selectedNewType === 'facture') {
-            // BL -> Facture: Pre-fill Order with BL number if no existing command number
-            if (!existingOrderNumber && currentNumero) {
-                existingOrderNumber = currentNumero;
-            }
+            // BL -> Facture: Transfer numero_commande to Order field
+            // existingOrderNumber already contains document_numero_commande from line 1121
+            // Keep Bon de livraison field EMPTY when converting from BL to Facture
+            existingBLNumber = '';
         }
         // Note: Facture -> BL conversion now correctly keeps existingOrderNumber as is (original order or empty)
         // without falling back to the Facture number.
-
-        // Refinement: If converting to Facture and BL field is still empty, pre-fill it with Order number if available
-        if (selectedNewType === 'facture' && !existingBLNumber && existingOrderNumber) {
-            existingBLNumber = existingOrderNumber;
-        }
 
         // Use current number as prefill (user can modify if needed)
         const inputData = await showConvertInputModalChaimae(selectedNewType, newTypeText, currentNumero, existingOrderNumber, existingBLNumber, existingDeliveredBy);

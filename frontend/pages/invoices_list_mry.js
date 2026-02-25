@@ -129,19 +129,56 @@ function InvoicesListMRYPage() {
                         </div>
                         
                         <div class="filter-group" style="grid-column: 1 / -1;">
-                            <label>🔍 Recherche avancée:</label>
-                            <div style="display: grid; grid-template-columns: 200px 1fr; gap: 0.5rem;">
-                                <select id="searchType" onchange="filterInvoices()" style="padding: 0.75rem; background: #1e1e1e; border: 1px solid #3e3e42; border-radius: 4px; color: #ffffff; font-size: 0.95rem;">
-                                    <option value="all">🔍 Tout</option>
-                                    <option value="numero">📄 N° Document</option>
-                                    <option value="order">📋 N° Order</option>
-                                    <option value="client">👤 Client</option>
-                                    <option value="ice">🏢 ICE</option>
-                                    <option value="product">📦 Produit</option>
-                                    <option value="price">💰 Prix</option>
-                                    <option value="total_ht">💵 Total H.T</option>
-                                    <option value="total">💵 Total TTC</option>
-                                </select>
+                            <label style="display:block; color:#4caf50; font-weight:600; font-size:0.75rem; text-transform:uppercase; letter-spacing:0.6px; margin-bottom:0.4rem;">🔍 Recherche avancée</label>
+                            <div style="display: grid; grid-template-columns: 250px 1fr; gap: 0.5rem;">
+                                <div style="position:relative;" id="searchTypeDropdownWrapperMry">
+                                    <div onclick="toggleSearchTypeDropdownMry()" id="searchTypeDropdownDisplayMry"
+                                        style="display:flex; align-items:center; justify-content:space-between; padding:0.45rem 0.7rem; background:#252526; border:1px solid #3e3e42; border-radius:6px; cursor:pointer; transition:all 0.15s; user-select:none;">
+                                        <div style="display:flex; align-items:center; gap:0.4rem; flex-wrap:wrap; flex:1; min-width:0;">
+                                            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#4caf50" stroke-width="2.5" style="flex-shrink:0;"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+                                            <span id="searchTypeSelectedTextMry" style="color:#ccc; font-size:0.82rem; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">Tous les champs</span>
+                                        </div>
+                                        <svg id="searchTypeDropdownArrowMry" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#666" stroke-width="2.5" style="flex-shrink:0; transition:transform 0.2s;"><polyline points="6 9 12 15 18 9"/></svg>
+                                    </div>
+                                    <div id="searchTypeDropdownMry" style="display:none; position:absolute; top:calc(100% + 3px); left:0; right:0; background:#252526; border:1px solid #3e3e42; border-radius:6px; z-index:9999; overflow:hidden; box-shadow:0 6px 18px rgba(0,0,0,0.5); max-height:300px; overflow-y:auto;">
+                                        <div onclick="toggleAllSearchTypesMry()" style="display:flex; align-items:center; gap:0.6rem; padding:0.55rem 0.7rem; cursor:pointer; background:#2a2a2e; border-bottom:2px solid #3e3e42; transition:background 0.12s;" onmouseover="this.style.background='#323235'" onmouseout="this.style.background='#2a2a2e'">
+                                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#4caf50" stroke-width="2.5" style="flex-shrink:0;"><polyline points="20 6 9 17 4 12"/></svg>
+                                            <span id="searchTypeToggleAllTextMry" style="color:#4caf50; font-size:0.82rem; font-weight:600;">Sélectionner tout</span>
+                                        </div>
+                                        <div onclick="toggleSearchTypeMry('numero')" style="display:flex; align-items:center; gap:0.6rem; padding:0.45rem 0.7rem; cursor:pointer; transition:background 0.12s;" onmouseover="this.style.background='#2d2d30'" onmouseout="this.style.background='transparent'">
+                                            <span id="searchTypeCheckNumeroMry" data-active="false" style="width:14px; height:14px; border-radius:3px; border:1.5px solid #555; display:inline-flex; align-items:center; justify-content:center; font-size:0.65rem; flex-shrink:0; transition:all 0.12s; color:#fff;"></span>
+                                            <span style="color:#d4d4d4; font-size:0.82rem;">📄 N° Document</span>
+                                        </div>
+                                        <div onclick="toggleSearchTypeMry('order')" style="display:flex; align-items:center; gap:0.6rem; padding:0.45rem 0.7rem; cursor:pointer; border-top:1px solid #2a2a2a; transition:background 0.12s;" onmouseover="this.style.background='#2d2d30'" onmouseout="this.style.background='transparent'">
+                                            <span id="searchTypeCheckOrderMry" data-active="false" style="width:14px; height:14px; border-radius:3px; border:1.5px solid #555; display:inline-flex; align-items:center; justify-content:center; font-size:0.65rem; flex-shrink:0; transition:all 0.12s; color:#fff;"></span>
+                                            <span style="color:#d4d4d4; font-size:0.82rem;">📋 N° Order</span>
+                                        </div>
+                                        <div onclick="toggleSearchTypeMry('client')" style="display:flex; align-items:center; gap:0.6rem; padding:0.45rem 0.7rem; cursor:pointer; border-top:1px solid #2a2a2a; transition:background 0.12s;" onmouseover="this.style.background='#2d2d30'" onmouseout="this.style.background='transparent'">
+                                            <span id="searchTypeCheckClientMry" data-active="false" style="width:14px; height:14px; border-radius:3px; border:1.5px solid #555; display:inline-flex; align-items:center; justify-content:center; font-size:0.65rem; flex-shrink:0; transition:all 0.12s; color:#fff;"></span>
+                                            <span style="color:#d4d4d4; font-size:0.82rem;">👤 Client</span>
+                                        </div>
+                                        <div onclick="toggleSearchTypeMry('ice')" style="display:flex; align-items:center; gap:0.6rem; padding:0.45rem 0.7rem; cursor:pointer; border-top:1px solid #2a2a2a; transition:background 0.12s;" onmouseover="this.style.background='#2d2d30'" onmouseout="this.style.background='transparent'">
+                                            <span id="searchTypeCheckIceMry" data-active="false" style="width:14px; height:14px; border-radius:3px; border:1.5px solid #555; display:inline-flex; align-items:center; justify-content:center; font-size:0.65rem; flex-shrink:0; transition:all 0.12s; color:#fff;"></span>
+                                            <span style="color:#d4d4d4; font-size:0.82rem;">🏢 ICE</span>
+                                        </div>
+                                        <div onclick="toggleSearchTypeMry('product')" style="display:flex; align-items:center; gap:0.6rem; padding:0.45rem 0.7rem; cursor:pointer; border-top:1px solid #2a2a2a; transition:background 0.12s;" onmouseover="this.style.background='#2d2d30'" onmouseout="this.style.background='transparent'">
+                                            <span id="searchTypeCheckProductMry" data-active="false" style="width:14px; height:14px; border-radius:3px; border:1.5px solid #555; display:inline-flex; align-items:center; justify-content:center; font-size:0.65rem; flex-shrink:0; transition:all 0.12s; color:#fff;"></span>
+                                            <span style="color:#d4d4d4; font-size:0.82rem;">📦 Produit</span>
+                                        </div>
+                                        <div onclick="toggleSearchTypeMry('price')" style="display:flex; align-items:center; gap:0.6rem; padding:0.45rem 0.7rem; cursor:pointer; border-top:1px solid #2a2a2a; transition:background 0.12s;" onmouseover="this.style.background='#2d2d30'" onmouseout="this.style.background='transparent'">
+                                            <span id="searchTypeCheckPriceMry" data-active="false" style="width:14px; height:14px; border-radius:3px; border:1.5px solid #555; display:inline-flex; align-items:center; justify-content:center; font-size:0.65rem; flex-shrink:0; transition:all 0.12s; color:#fff;"></span>
+                                            <span style="color:#d4d4d4; font-size:0.82rem;">💰 Prix</span>
+                                        </div>
+                                        <div onclick="toggleSearchTypeMry('total_ht')" style="display:flex; align-items:center; gap:0.6rem; padding:0.45rem 0.7rem; cursor:pointer; border-top:1px solid #2a2a2a; transition:background 0.12s;" onmouseover="this.style.background='#2d2d30'" onmouseout="this.style.background='transparent'">
+                                            <span id="searchTypeCheckTotalHtMry" data-active="false" style="width:14px; height:14px; border-radius:3px; border:1.5px solid #555; display:inline-flex; align-items:center; justify-content:center; font-size:0.65rem; flex-shrink:0; transition:all 0.12s; color:#fff;"></span>
+                                            <span style="color:#d4d4d4; font-size:0.82rem;">💵 Total H.T</span>
+                                        </div>
+                                        <div onclick="toggleSearchTypeMry('total')" style="display:flex; align-items:center; gap:0.6rem; padding:0.45rem 0.7rem; cursor:pointer; border-top:1px solid #2a2a2a; transition:background 0.12s;" onmouseover="this.style.background='#2d2d30'" onmouseout="this.style.background='transparent'">
+                                            <span id="searchTypeCheckTotalMry" data-active="false" style="width:14px; height:14px; border-radius:3px; border:1.5px solid #555; display:inline-flex; align-items:center; justify-content:center; font-size:0.65rem; flex-shrink:0; transition:all 0.12s; color:#fff;"></span>
+                                            <span style="color:#d4d4d4; font-size:0.82rem;">💵 Total TTC</span>
+                                        </div>
+                                    </div>
+                                </div>
                                 <input type="text" id="searchInput" placeholder="Tapez votre recherche..." onkeyup="filterInvoices()" style="width: 100%; padding: 0.75rem; background: #1e1e1e; border: 1px solid #3e3e42; border-radius: 4px; color: #ffffff; font-size: 0.95rem;">
                             </div>
                         </div>
@@ -948,11 +985,108 @@ window.resetFilters = function () {
     document.getElementById('filterAttachments').value = 'all';
     document.getElementById('filterMethod').value = 'all';
     if (document.getElementById('filterDevisConversionMRY')) document.getElementById('filterDevisConversionMRY').value = 'all';
-    document.getElementById('searchType').value = 'all';
+    
+    // Reset search type checkboxes
+    const searchTypeChecks = [
+        'searchTypeCheckNumeroMry', 'searchTypeCheckOrderMry', 'searchTypeCheckClientMry',
+        'searchTypeCheckIceMry', 'searchTypeCheckProductMry', 'searchTypeCheckPriceMry',
+        'searchTypeCheckTotalHtMry', 'searchTypeCheckTotalMry'
+    ];
+    searchTypeChecks.forEach(id => {
+        const check = document.getElementById(id);
+        if (check) {
+            check.dataset.active = 'false';
+            check.style.background = 'transparent';
+            check.style.borderColor = '#555';
+            check.textContent = '';
+        }
+    });
+    const searchTypeText = document.getElementById('searchTypeSelectedTextMry');
+    if (searchTypeText) searchTypeText.textContent = 'Tous les champs';
+    const toggleAllText = document.getElementById('searchTypeToggleAllTextMry');
+    if (toggleAllText) toggleAllText.textContent = 'Sélectionner tout';
+    
     document.getElementById('searchInput').value = '';
     currentPage = 1;
     filterInvoices();
 }
+
+// Toggle Search Type dropdown for MRY
+window.toggleSearchTypeDropdownMry = function() {
+    const dropdown = document.getElementById('searchTypeDropdownMry');
+    const display  = document.getElementById('searchTypeDropdownDisplayMry');
+    const arrow    = document.getElementById('searchTypeDropdownArrowMry');
+    if (!dropdown) return;
+    const isOpen = dropdown.style.display !== 'none';
+    dropdown.style.display = isOpen ? 'none' : 'block';
+    if (display) {
+        display.style.borderColor  = isOpen ? '#3e3e42' : '#4caf50';
+        display.style.background   = isOpen ? '#252526' : '#2a2a2e';
+    }
+    if (arrow) arrow.style.transform = isOpen ? 'rotate(0deg)' : 'rotate(180deg)';
+}
+
+document.addEventListener('click', function(e) {
+    const wrapper = document.getElementById('searchTypeDropdownWrapperMry');
+    const dropdown = document.getElementById('searchTypeDropdownMry');
+    if (wrapper && dropdown && !wrapper.contains(e.target)) {
+        dropdown.style.display = 'none';
+        const display = document.getElementById('searchTypeDropdownDisplayMry');
+        if (display) {
+            display.style.borderColor = '#3e3e42';
+            display.style.background = '#252526';
+        }
+        const arrow = document.getElementById('searchTypeDropdownArrowMry');
+        if (arrow) arrow.style.transform = 'rotate(0deg)';
+    }
+});
+
+window.toggleAllSearchTypesMry = function() {
+    const map = {'numero': 'searchTypeCheckNumeroMry', 'order': 'searchTypeCheckOrderMry', 'client': 'searchTypeCheckClientMry', 'ice': 'searchTypeCheckIceMry', 'product': 'searchTypeCheckProductMry', 'price': 'searchTypeCheckPriceMry', 'total_ht': 'searchTypeCheckTotalHtMry', 'total': 'searchTypeCheckTotalMry'};
+    const allSelected = Object.values(map).every(id => document.getElementById(id)?.dataset.active === 'true');
+    const newState = !allSelected;
+    Object.values(map).forEach(id => {
+        const check = document.getElementById(id);
+        if (check) {
+            check.dataset.active = newState ? 'true' : 'false';
+            check.style.background = newState ? '#4caf50' : 'transparent';
+            check.style.borderColor = newState ? '#4caf50' : '#555';
+            check.textContent = newState ? '\u2713' : '';
+        }
+    });
+    const toggleAllText = document.getElementById('searchTypeToggleAllTextMry');
+    if (toggleAllText) toggleAllText.textContent = newState ? 'Désélectionner tout' : 'Sélectionner tout';
+    const textEl = document.getElementById('searchTypeSelectedTextMry');
+    if (textEl) textEl.textContent = 'Tous les champs';
+    filterInvoices();
+};
+
+window.toggleSearchTypeMry = function(type) {
+    const map = {'numero': 'searchTypeCheckNumeroMry', 'order': 'searchTypeCheckOrderMry', 'client': 'searchTypeCheckClientMry', 'ice': 'searchTypeCheckIceMry', 'product': 'searchTypeCheckProductMry', 'price': 'searchTypeCheckPriceMry', 'total_ht': 'searchTypeCheckTotalHtMry', 'total': 'searchTypeCheckTotalMry'};
+    const labels = {'numero': 'N° Document', 'order': 'N° Order', 'client': 'Client', 'ice': 'ICE', 'product': 'Produit', 'price': 'Prix', 'total_ht': 'Total H.T', 'total': 'Total TTC'};
+    const checkId = map[type];
+    if (!checkId) return;
+    const check = document.getElementById(checkId);
+    if (!check) return;
+    const isActive = check.dataset.active === 'true';
+    const nowActive = !isActive;
+    check.dataset.active = nowActive ? 'true' : 'false';
+    check.style.background = nowActive ? '#4caf50' : 'transparent';
+    check.style.borderColor = nowActive ? '#4caf50' : '#555';
+    check.textContent = nowActive ? '\u2713' : '';
+    const activeTypes = Object.keys(map).filter(t => document.getElementById(map[t])?.dataset.active === 'true');
+    const textEl = document.getElementById('searchTypeSelectedTextMry');
+    if (textEl) {
+        if (activeTypes.length === 0) textEl.textContent = 'Tous les champs';
+        else if (activeTypes.length === 1) textEl.textContent = labels[activeTypes[0]];
+        else if (activeTypes.length === 2) textEl.textContent = activeTypes.map(t => labels[t]).join(', ');
+        else textEl.textContent = activeTypes.length + ' champs sélectionnés';
+    }
+    const allSelected = activeTypes.length === Object.keys(map).length;
+    const toggleAllText = document.getElementById('searchTypeToggleAllTextMry');
+    if (toggleAllText) toggleAllText.textContent = allSelected ? 'Désélectionner tout' : 'Sélectionner tout';
+    filterInvoices();
+};
 
 // Filter invoices
 window.filterInvoices = async function () {
@@ -1061,12 +1195,24 @@ window.filterInvoices = async function () {
         console.log(`🔍 [MRY] AR Filter result: ${beforeCount} → ${filtered.length} invoices`);
     }
 
-    // Advanced search
+    // Advanced search with multi-select checkboxes
     if (searchInput) {
-        const searchType = document.getElementById('searchType').value;
+        // Get selected search types from dropdown checkboxes
+        const searchTypes = {
+            numero: document.getElementById('searchTypeCheckNumeroMry')?.dataset.active === 'true',
+            order: document.getElementById('searchTypeCheckOrderMry')?.dataset.active === 'true',
+            client: document.getElementById('searchTypeCheckClientMry')?.dataset.active === 'true',
+            ice: document.getElementById('searchTypeCheckIceMry')?.dataset.active === 'true',
+            product: document.getElementById('searchTypeCheckProductMry')?.dataset.active === 'true',
+            price: document.getElementById('searchTypeCheckPriceMry')?.dataset.active === 'true',
+            total_ht: document.getElementById('searchTypeCheckTotalHtMry')?.dataset.active === 'true',
+            total: document.getElementById('searchTypeCheckTotalMry')?.dataset.active === 'true'
+        };
+
+        const hasSearchTypes = Object.values(searchTypes).some(v => v);
 
         // Get all invoices with their products for product/price search
-        const needProducts = searchType === 'all' || searchType === 'product' || searchType === 'price';
+        const needProducts = !hasSearchTypes || searchTypes.product || searchTypes.price;
         const invoicesWithProducts = needProducts ? await Promise.all(
             filtered.map(async inv => {
                 const result = await window.electron.db.getInvoiceById(inv.id);
@@ -1078,84 +1224,64 @@ window.filterInvoices = async function () {
             const numero = (inv.document_numero || inv.document_numero_devis || '').toLowerCase();
             const numeroOrder = (inv.document_numero_Order || '').toLowerCase();
             const client = inv.client_nom.toLowerCase();
-            const ice = inv.client_ice.toLowerCase();
-            const totalTTC = inv.total_ttc.toString();
+            const ice = (inv.client_ice || '').toLowerCase();
+            const totalTTC = (inv.total_ttc || 0).toString();
+            const totalHT = (inv.total_ht || 0).toString();
 
-            // Search based on selected type
-            switch (searchType) {
-                case 'numero':
-                    return numero.includes(searchInput);
+            // Check for product match
+            const hasProductMatch = (inv.products && inv.products.length > 0) ?
+                inv.products.some(p => {
+                    const designation = (p.designation || '').toLowerCase();
+                    return designation.includes(searchInput);
+                }) : false;
 
-                case 'order':
-                    return numeroOrder.includes(searchInput);
+            // Check for price match
+            const hasPriceMatch = (inv.products && inv.products.length > 0) ?
+                inv.products.some(p => {
+                    const price = (p.prix_unitaire_ht || 0).toString();
+                    return price.includes(searchInput);
+                }) : false;
 
-                case 'client':
-                    return client.includes(searchInput);
+            // If no search types selected, search in ALL fields
+            if (!hasSearchTypes) {
+                return numero.includes(searchInput) ||
+                    numeroOrder.includes(searchInput) ||
+                    client.includes(searchInput) ||
+                    ice.includes(searchInput) ||
+                    totalHT.includes(searchInput) ||
+                    totalTTC.includes(searchInput) ||
+                    hasProductMatch ||
+                    hasPriceMatch;
+            } else {
+                // Search ONLY in selected fields (OR logic)
+                let matchFound = false;
 
-                case 'ice':
-                    return ice.includes(searchInput);
+                if (searchTypes.numero && numero.includes(searchInput)) {
+                    matchFound = true;
+                }
+                if (searchTypes.order && numeroOrder.includes(searchInput)) {
+                    matchFound = true;
+                }
+                if (searchTypes.client && client.includes(searchInput)) {
+                    matchFound = true;
+                }
+                if (searchTypes.ice && ice.includes(searchInput)) {
+                    matchFound = true;
+                }
+                if (searchTypes.product && hasProductMatch) {
+                    matchFound = true;
+                }
+                if (searchTypes.price && hasPriceMatch) {
+                    matchFound = true;
+                }
+                if (searchTypes.total_ht && totalHT.includes(searchInput)) {
+                    matchFound = true;
+                }
+                if (searchTypes.total && totalTTC.includes(searchInput)) {
+                    matchFound = true;
+                }
 
-                case 'product':
-                    if (inv.products && inv.products.length > 0) {
-                        return inv.products.some(p => {
-                            const designation = (p.designation || '').toLowerCase();
-                            return designation.includes(searchInput);
-                        });
-                    }
-                    return false;
-
-                case 'price':
-                    if (inv.products && inv.products.length > 0) {
-                        return inv.products.some(p => {
-                            const price = p.prix_unitaire_ht.toString();
-                            const total = p.total_ht.toString();
-                            return price.includes(searchInput) || total.includes(searchInput);
-                        });
-                    }
-                    return false;
-
-                case 'total_ht':
-                    // Search from the beginning of the number
-                    const searchNumberHT = searchInput.trim();
-                    const totalHTStr = (inv.total_ht || 0).toString();
-
-                    // Check if total HT starts with the search number
-                    return totalHTStr.startsWith(searchNumberHT);
-
-                case 'total':
-                    // Search from the beginning of the number
-                    const searchNumber = searchInput.trim();
-                    const totalStr = (inv.total_ttc || 0).toString();
-
-                    // Check if total starts with the search number
-                    return totalStr.startsWith(searchNumber);
-
-                case 'all':
-                default:
-                    // Search in products
-                    let productMatch = false;
-                    if (inv.products && inv.products.length > 0) {
-                        productMatch = inv.products.some(p => {
-                            const designation = (p.designation || '').toLowerCase();
-                            const price = p.prix_unitaire_ht.toString();
-                            const total = p.total_ht.toString();
-
-                            return designation.includes(searchInput) ||
-                                price.includes(searchInput) ||
-                                total.includes(searchInput);
-                        });
-                    }
-
-                    // Search in ALL fields when "Tout" is selected
-                    const totalHT = (inv.total_ht || 0).toString();
-
-                    return numero.includes(searchInput) ||
-                        numeroOrder.includes(searchInput) ||
-                        client.includes(searchInput) ||
-                        ice.includes(searchInput) ||
-                        totalHT.includes(searchInput) ||
-                        totalTTC.includes(searchInput) ||
-                        productMatch;
+                return matchFound;
             }
         });
     }

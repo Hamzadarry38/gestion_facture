@@ -728,8 +728,9 @@ async function handleEditInvoiceSubmitMulti(e) {
         }
 
         const numeroOrder = document.getElementById('editDocumentNumeroOrderMulti');
-        if (numeroOrder && numeroOrder.value) {
-            formData.document.numero_Order = numeroOrder.value;
+        const numeroOrderTrimmed = numeroOrder?.value?.trim();
+        if (numeroOrderTrimmed) {
+            formData.document.numero_Order = numeroOrderTrimmed;
         } else {
             formData.document.numero_Order = null;
         }

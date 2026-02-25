@@ -138,19 +138,56 @@ function InvoicesListMultiPage() {
                         </div>
                         
                         <div class="filter-group" style="grid-column: 1 / -1;">
-                            <label>🔍 Recherche avancée:</label>
-                            <div style="display: grid; grid-template-columns: 200px 1fr; gap: 0.5rem;">
-                                <select id="searchTypeMulti" onchange="filterInvoicesMulti()" style="padding: 0.75rem; background: #1e1e1e; border: 1px solid #3e3e42; border-radius: 4px; color: #ffffff; font-size: 0.95rem;">
-                                    <option value="all">🔍 Tout</option>
-                                    <option value="numero">📄 N° Document</option>
-                                    <option value="order">📋 N° Order</option>
-                                    <option value="client">👤 Client</option>
-                                    <option value="ice">🏢 ICE</option>
-                                    <option value="product">📦 Produit</option>
-                                    <option value="price">💰 Prix</option>
-                                    <option value="total_ht">💵 Total H.T</option>
-                                    <option value="total">💵 Total TTC</option>
-                                </select>
+                            <label style="display:block; color:#4caf50; font-weight:600; font-size:0.75rem; text-transform:uppercase; letter-spacing:0.6px; margin-bottom:0.4rem;">🔍 Recherche avancée</label>
+                            <div style="display: grid; grid-template-columns: 250px 1fr; gap: 0.5rem;">
+                                <div style="position:relative;" id="searchTypeDropdownWrapperMulti">
+                                    <div onclick="toggleSearchTypeDropdownMulti()" id="searchTypeDropdownDisplayMulti"
+                                        style="display:flex; align-items:center; justify-content:space-between; padding:0.45rem 0.7rem; background:#252526; border:1px solid #3e3e42; border-radius:6px; cursor:pointer; transition:all 0.15s; user-select:none;">
+                                        <div style="display:flex; align-items:center; gap:0.4rem; flex-wrap:wrap; flex:1; min-width:0;">
+                                            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#4caf50" stroke-width="2.5" style="flex-shrink:0;"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+                                            <span id="searchTypeSelectedTextMulti" style="color:#ccc; font-size:0.82rem; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">Tous les champs</span>
+                                        </div>
+                                        <svg id="searchTypeDropdownArrowMulti" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#666" stroke-width="2.5" style="flex-shrink:0; transition:transform 0.2s;"><polyline points="6 9 12 15 18 9"/></svg>
+                                    </div>
+                                    <div id="searchTypeDropdownMulti" style="display:none; position:absolute; top:calc(100% + 3px); left:0; right:0; background:#252526; border:1px solid #3e3e42; border-radius:6px; z-index:9999; overflow:hidden; box-shadow:0 6px 18px rgba(0,0,0,0.5); max-height:300px; overflow-y:auto;">
+                                        <div onclick="toggleAllSearchTypesMulti()" style="display:flex; align-items:center; gap:0.6rem; padding:0.55rem 0.7rem; cursor:pointer; background:#2a2a2e; border-bottom:2px solid #3e3e42; transition:background 0.12s;" onmouseover="this.style.background='#323235'" onmouseout="this.style.background='#2a2a2e'">
+                                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#4caf50" stroke-width="2.5" style="flex-shrink:0;"><polyline points="20 6 9 17 4 12"/></svg>
+                                            <span id="searchTypeToggleAllTextMulti" style="color:#4caf50; font-size:0.82rem; font-weight:600;">Sélectionner tout</span>
+                                        </div>
+                                        <div onclick="toggleSearchTypeMulti('numero')" style="display:flex; align-items:center; gap:0.6rem; padding:0.45rem 0.7rem; cursor:pointer; transition:background 0.12s;" onmouseover="this.style.background='#2d2d30'" onmouseout="this.style.background='transparent'">
+                                            <span id="searchTypeCheckNumeroMulti" data-active="false" style="width:14px; height:14px; border-radius:3px; border:1.5px solid #555; display:inline-flex; align-items:center; justify-content:center; font-size:0.65rem; flex-shrink:0; transition:all 0.12s; color:#fff;"></span>
+                                            <span style="color:#d4d4d4; font-size:0.82rem;">📄 N° Document</span>
+                                        </div>
+                                        <div onclick="toggleSearchTypeMulti('order')" style="display:flex; align-items:center; gap:0.6rem; padding:0.45rem 0.7rem; cursor:pointer; border-top:1px solid #2a2a2a; transition:background 0.12s;" onmouseover="this.style.background='#2d2d30'" onmouseout="this.style.background='transparent'">
+                                            <span id="searchTypeCheckOrderMulti" data-active="false" style="width:14px; height:14px; border-radius:3px; border:1.5px solid #555; display:inline-flex; align-items:center; justify-content:center; font-size:0.65rem; flex-shrink:0; transition:all 0.12s; color:#fff;"></span>
+                                            <span style="color:#d4d4d4; font-size:0.82rem;">📋 N° Order</span>
+                                        </div>
+                                        <div onclick="toggleSearchTypeMulti('client')" style="display:flex; align-items:center; gap:0.6rem; padding:0.45rem 0.7rem; cursor:pointer; border-top:1px solid #2a2a2a; transition:background 0.12s;" onmouseover="this.style.background='#2d2d30'" onmouseout="this.style.background='transparent'">
+                                            <span id="searchTypeCheckClientMulti" data-active="false" style="width:14px; height:14px; border-radius:3px; border:1.5px solid #555; display:inline-flex; align-items:center; justify-content:center; font-size:0.65rem; flex-shrink:0; transition:all 0.12s; color:#fff;"></span>
+                                            <span style="color:#d4d4d4; font-size:0.82rem;">👤 Client</span>
+                                        </div>
+                                        <div onclick="toggleSearchTypeMulti('ice')" style="display:flex; align-items:center; gap:0.6rem; padding:0.45rem 0.7rem; cursor:pointer; border-top:1px solid #2a2a2a; transition:background 0.12s;" onmouseover="this.style.background='#2d2d30'" onmouseout="this.style.background='transparent'">
+                                            <span id="searchTypeCheckIceMulti" data-active="false" style="width:14px; height:14px; border-radius:3px; border:1.5px solid #555; display:inline-flex; align-items:center; justify-content:center; font-size:0.65rem; flex-shrink:0; transition:all 0.12s; color:#fff;"></span>
+                                            <span style="color:#d4d4d4; font-size:0.82rem;">🏢 ICE</span>
+                                        </div>
+                                        <div onclick="toggleSearchTypeMulti('product')" style="display:flex; align-items:center; gap:0.6rem; padding:0.45rem 0.7rem; cursor:pointer; border-top:1px solid #2a2a2a; transition:background 0.12s;" onmouseover="this.style.background='#2d2d30'" onmouseout="this.style.background='transparent'">
+                                            <span id="searchTypeCheckProductMulti" data-active="false" style="width:14px; height:14px; border-radius:3px; border:1.5px solid #555; display:inline-flex; align-items:center; justify-content:center; font-size:0.65rem; flex-shrink:0; transition:all 0.12s; color:#fff;"></span>
+                                            <span style="color:#d4d4d4; font-size:0.82rem;">📦 Produit</span>
+                                        </div>
+                                        <div onclick="toggleSearchTypeMulti('price')" style="display:flex; align-items:center; gap:0.6rem; padding:0.45rem 0.7rem; cursor:pointer; border-top:1px solid #2a2a2a; transition:background 0.12s;" onmouseover="this.style.background='#2d2d30'" onmouseout="this.style.background='transparent'">
+                                            <span id="searchTypeCheckPriceMulti" data-active="false" style="width:14px; height:14px; border-radius:3px; border:1.5px solid #555; display:inline-flex; align-items:center; justify-content:center; font-size:0.65rem; flex-shrink:0; transition:all 0.12s; color:#fff;"></span>
+                                            <span style="color:#d4d4d4; font-size:0.82rem;">💰 Prix</span>
+                                        </div>
+                                        <div onclick="toggleSearchTypeMulti('total_ht')" style="display:flex; align-items:center; gap:0.6rem; padding:0.45rem 0.7rem; cursor:pointer; border-top:1px solid #2a2a2a; transition:background 0.12s;" onmouseover="this.style.background='#2d2d30'" onmouseout="this.style.background='transparent'">
+                                            <span id="searchTypeCheckTotalHtMulti" data-active="false" style="width:14px; height:14px; border-radius:3px; border:1.5px solid #555; display:inline-flex; align-items:center; justify-content:center; font-size:0.65rem; flex-shrink:0; transition:all 0.12s; color:#fff;"></span>
+                                            <span style="color:#d4d4d4; font-size:0.82rem;">💵 Total H.T</span>
+                                        </div>
+                                        <div onclick="toggleSearchTypeMulti('total')" style="display:flex; align-items:center; gap:0.6rem; padding:0.45rem 0.7rem; cursor:pointer; border-top:1px solid #2a2a2a; transition:background 0.12s;" onmouseover="this.style.background='#2d2d30'" onmouseout="this.style.background='transparent'">
+                                            <span id="searchTypeCheckTotalMulti" data-active="false" style="width:14px; height:14px; border-radius:3px; border:1.5px solid #555; display:inline-flex; align-items:center; justify-content:center; font-size:0.65rem; flex-shrink:0; transition:all 0.12s; color:#fff;"></span>
+                                            <span style="color:#d4d4d4; font-size:0.82rem;">💵 Total TTC</span>
+                                        </div>
+                                    </div>
+                                </div>
                                 <input type="text" id="searchInputMulti" placeholder="Tapez votre recherche..." onkeyup="filterInvoicesMulti()" style="width: 100%; padding: 0.75rem; background: #1e1e1e; border: 1px solid #3e3e42; border-radius: 4px; color: #ffffff; font-size: 0.95rem;">
                             </div>
                         </div>
@@ -692,6 +729,83 @@ function populateFiltersMulti() {
     console.log('📋 [MULTI] Dropdown visible?', clientFilter.offsetParent !== null);
 }
 
+// Toggle Search Type dropdown for MULTI
+window.toggleSearchTypeDropdownMulti = function() {
+    const dropdown = document.getElementById('searchTypeDropdownMulti');
+    const display = document.getElementById('searchTypeDropdownDisplayMulti');
+    const arrow = document.getElementById('searchTypeDropdownArrowMulti');
+    if (!dropdown) return;
+    const isOpen = dropdown.style.display !== 'none';
+    dropdown.style.display = isOpen ? 'none' : 'block';
+    if (display) {
+        display.style.borderColor = isOpen ? '#3e3e42' : '#4caf50';
+        display.style.background = isOpen ? '#252526' : '#2a2a2e';
+    }
+    if (arrow) arrow.style.transform = isOpen ? 'rotate(0deg)' : 'rotate(180deg)';
+}
+
+document.addEventListener('click', function(e) {
+    const wrapper = document.getElementById('searchTypeDropdownWrapperMulti');
+    const dropdown = document.getElementById('searchTypeDropdownMulti');
+    if (wrapper && dropdown && !wrapper.contains(e.target)) {
+        dropdown.style.display = 'none';
+        const display = document.getElementById('searchTypeDropdownDisplayMulti');
+        if (display) {
+            display.style.borderColor = '#3e3e42';
+            display.style.background = '#252526';
+        }
+        const arrow = document.getElementById('searchTypeDropdownArrowMulti');
+        if (arrow) arrow.style.transform = 'rotate(0deg)';
+    }
+});
+
+window.toggleAllSearchTypesMulti = function() {
+    const map = {'numero': 'searchTypeCheckNumeroMulti', 'order': 'searchTypeCheckOrderMulti', 'client': 'searchTypeCheckClientMulti', 'ice': 'searchTypeCheckIceMulti', 'product': 'searchTypeCheckProductMulti', 'price': 'searchTypeCheckPriceMulti', 'total_ht': 'searchTypeCheckTotalHtMulti', 'total': 'searchTypeCheckTotalMulti'};
+    const allSelected = Object.values(map).every(id => document.getElementById(id)?.dataset.active === 'true');
+    const newState = !allSelected;
+    Object.values(map).forEach(id => {
+        const check = document.getElementById(id);
+        if (check) {
+            check.dataset.active = newState ? 'true' : 'false';
+            check.style.background = newState ? '#4caf50' : 'transparent';
+            check.style.borderColor = newState ? '#4caf50' : '#555';
+            check.textContent = newState ? '\u2713' : '';
+        }
+    });
+    const toggleAllText = document.getElementById('searchTypeToggleAllTextMulti');
+    if (toggleAllText) toggleAllText.textContent = newState ? 'Désélectionner tout' : 'Sélectionner tout';
+    const textEl = document.getElementById('searchTypeSelectedTextMulti');
+    if (textEl) textEl.textContent = 'Tous les champs';
+    filterInvoicesMulti();
+};
+
+window.toggleSearchTypeMulti = function(type) {
+    const map = {'numero': 'searchTypeCheckNumeroMulti', 'order': 'searchTypeCheckOrderMulti', 'client': 'searchTypeCheckClientMulti', 'ice': 'searchTypeCheckIceMulti', 'product': 'searchTypeCheckProductMulti', 'price': 'searchTypeCheckPriceMulti', 'total_ht': 'searchTypeCheckTotalHtMulti', 'total': 'searchTypeCheckTotalMulti'};
+    const labels = {'numero': 'N° Document', 'order': 'N° Order', 'client': 'Client', 'ice': 'ICE', 'product': 'Produit', 'price': 'Prix', 'total_ht': 'Total H.T', 'total': 'Total TTC'};
+    const checkId = map[type];
+    if (!checkId) return;
+    const check = document.getElementById(checkId);
+    if (!check) return;
+    const isActive = check.dataset.active === 'true';
+    const nowActive = !isActive;
+    check.dataset.active = nowActive ? 'true' : 'false';
+    check.style.background = nowActive ? '#4caf50' : 'transparent';
+    check.style.borderColor = nowActive ? '#4caf50' : '#555';
+    check.textContent = nowActive ? '\u2713' : '';
+    const activeTypes = Object.keys(map).filter(t => document.getElementById(map[t])?.dataset.active === 'true');
+    const textEl = document.getElementById('searchTypeSelectedTextMulti');
+    if (textEl) {
+        if (activeTypes.length === 0) textEl.textContent = 'Tous les champs';
+        else if (activeTypes.length === 1) textEl.textContent = labels[activeTypes[0]];
+        else if (activeTypes.length === 2) textEl.textContent = activeTypes.map(t => labels[t]).join(', ');
+        else textEl.textContent = activeTypes.length + ' champs sélectionnés';
+    }
+    const allSelected = activeTypes.length === Object.keys(map).length;
+    const toggleAllText = document.getElementById('searchTypeToggleAllTextMulti');
+    if (toggleAllText) toggleAllText.textContent = allSelected ? 'Désélectionner tout' : 'Sélectionner tout';
+    filterInvoicesMulti();
+};
+
 // Filter invoices
 function filterInvoicesMulti() {
     const typeFilter = document.getElementById('filterTypeMulti')?.value || '';
@@ -704,7 +818,19 @@ function filterInvoicesMulti() {
     const arStatusFilterEl = document.getElementById('filterArStatusMulti');
     const arStatusFilter = arStatusFilterEl ? arStatusFilterEl.value : 'all';
     console.log('🔍 [MULTI] AR Filter value:', JSON.stringify(arStatusFilter), 'Type:', typeof arStatusFilter);
-    const searchType = document.getElementById('searchTypeMulti')?.value || 'all';
+    
+    // Get selected search types from dropdown checkboxes
+    const searchTypes = {
+        numero: document.getElementById('searchTypeCheckNumeroMulti')?.dataset.active === 'true',
+        order: document.getElementById('searchTypeCheckOrderMulti')?.dataset.active === 'true',
+        client: document.getElementById('searchTypeCheckClientMulti')?.dataset.active === 'true',
+        ice: document.getElementById('searchTypeCheckIceMulti')?.dataset.active === 'true',
+        product: document.getElementById('searchTypeCheckProductMulti')?.dataset.active === 'true',
+        price: document.getElementById('searchTypeCheckPriceMulti')?.dataset.active === 'true',
+        total_ht: document.getElementById('searchTypeCheckTotalHtMulti')?.dataset.active === 'true',
+        total: document.getElementById('searchTypeCheckTotalMulti')?.dataset.active === 'true'
+    };
+    const hasSearchTypes = Object.values(searchTypes).some(v => v);
     const searchInput = document.getElementById('searchInputMulti')?.value.toLowerCase() || '';
 
     filteredInvoicesMulti = allInvoicesMulti.filter(invoice => {
@@ -712,12 +838,10 @@ function filterInvoicesMulti() {
         const isModified = invoice.is_modified === true;
 
         if (filterStatus === 'unseen') {
-            // Unseen only shows pending invoices that are NOT modified
             if (invoice.validation_status !== 'pending' || isModified) return false;
         }
         if (filterStatus === 'seen' && invoice.validation_status === 'pending') return false;
         if (filterStatus === 'modified') {
-            // Show invoices that have been modified (updated_by_user_name exists and is different from creator)
             if (!isModified) return false;
         }
 
@@ -741,13 +865,12 @@ function filterInvoicesMulti() {
             matchCreationMethod = invoice.creation_method === 'converted';
         }
 
-        // AR Status Match (exclude devis - they don't have AR status)
+        // AR Status Match
         let matchAR = true;
         if (arStatusFilter !== 'all') {
             if (invoice.document_type === 'devis') {
                 matchAR = false;
             } else {
-                // Normalize both values: treat null/undefined/empty string as empty
                 const status = (invoice.ar_status === null || invoice.ar_status === undefined || invoice.ar_status === '') ? '' : invoice.ar_status;
                 const filterVal = (arStatusFilter === null || arStatusFilter === undefined || arStatusFilter === '') ? '' : arStatusFilter;
                 matchAR = status === filterVal;
@@ -756,54 +879,43 @@ function filterInvoicesMulti() {
 
         let searchMatch = true;
         if (searchInput) {
-            switch (searchType) {
-                case 'numero':
-                    searchMatch = (invoice.document_numero && invoice.document_numero.toLowerCase().includes(searchInput)) ||
-                        (invoice.document_numero_devis && invoice.document_numero_devis.toLowerCase().includes(searchInput));
-                    break;
-                case 'order':
-                    searchMatch = invoice.document_numero_Order && invoice.document_numero_Order.toLowerCase().includes(searchInput);
-                    break;
-                case 'client':
-                    searchMatch = invoice.client_nom.toLowerCase().includes(searchInput);
-                    break;
-                case 'ice':
-                    searchMatch = invoice.client_ice.toLowerCase().includes(searchInput);
-                    break;
-                case 'product':
-                    searchMatch = invoice.products && invoice.products.some(p =>
-                        p.designation && p.designation.toLowerCase().includes(searchInput)
-                    );
-                    break;
-                case 'price':
-                    const productMatchPrice = invoice.products && invoice.products.some(p =>
-                        (p.prix_unitaire_ht && p.prix_unitaire_ht.toString().includes(searchInput)) ||
-                        (p.total_ht && p.total_ht.toString().includes(searchInput))
-                    );
-                    searchMatch = productMatchPrice;
-                    break;
-                case 'total_ht':
-                    searchMatch = invoice.total_ht.toString().includes(searchInput);
-                    break;
-                case 'total':
-                    searchMatch = invoice.total_ttc.toString().includes(searchInput);
-                    break;
-                case 'all':
-                default:
-                    const productMatchAll = invoice.products && invoice.products.some(p =>
-                        (p.designation && p.designation.toLowerCase().includes(searchInput)) ||
-                        (p.prix_unitaire_ht && p.prix_unitaire_ht.toString().includes(searchInput))
-                    );
-                    searchMatch =
-                        (invoice.document_numero && invoice.document_numero.toLowerCase().includes(searchInput)) ||
-                        (invoice.document_numero_devis && invoice.document_numero_devis.toLowerCase().includes(searchInput)) ||
-                        (invoice.document_numero_Order && invoice.document_numero_Order.toLowerCase().includes(searchInput)) ||
-                        invoice.client_nom.toLowerCase().includes(searchInput) ||
-                        invoice.client_ice.toLowerCase().includes(searchInput) ||
-                        invoice.total_ht.toString().includes(searchInput) ||
-                        invoice.total_ttc.toString().includes(searchInput) ||
-                        productMatchAll;
-                    break;
+            const numero = (invoice.document_numero || invoice.document_numero_devis || '').toLowerCase();
+            const numeroOrder = (invoice.document_numero_Order || '').toLowerCase();
+            const client = invoice.client_nom.toLowerCase();
+            const ice = (invoice.client_ice || '').toLowerCase();
+            const totalTTC = (invoice.total_ttc || 0).toString();
+            const totalHT = (invoice.total_ht || 0).toString();
+
+            const hasProductMatch = (invoice.products && invoice.products.length > 0) ?
+                invoice.products.some(p => (p.designation || '').toLowerCase().includes(searchInput)) : false;
+
+            const hasPriceMatch = (invoice.products && invoice.products.length > 0) ?
+                invoice.products.some(p => (p.prix_unitaire_ht || 0).toString().includes(searchInput)) : false;
+
+            // If no search types selected, search in ALL fields
+            if (!hasSearchTypes) {
+                searchMatch = numero.includes(searchInput) ||
+                    numeroOrder.includes(searchInput) ||
+                    client.includes(searchInput) ||
+                    ice.includes(searchInput) ||
+                    totalHT.includes(searchInput) ||
+                    totalTTC.includes(searchInput) ||
+                    hasProductMatch ||
+                    hasPriceMatch;
+            } else {
+                // Search ONLY in selected fields (OR logic)
+                let matchFound = false;
+
+                if (searchTypes.numero && numero.includes(searchInput)) matchFound = true;
+                if (searchTypes.order && numeroOrder.includes(searchInput)) matchFound = true;
+                if (searchTypes.client && client.includes(searchInput)) matchFound = true;
+                if (searchTypes.ice && ice.includes(searchInput)) matchFound = true;
+                if (searchTypes.product && hasProductMatch) matchFound = true;
+                if (searchTypes.price && hasPriceMatch) matchFound = true;
+                if (searchTypes.total_ht && totalHT.includes(searchInput)) matchFound = true;
+                if (searchTypes.total && totalTTC.includes(searchInput)) matchFound = true;
+
+                searchMatch = matchFound;
             }
         }
 
@@ -2740,7 +2852,6 @@ window.resetFiltersMulti = function () {
     const methodFilter = document.getElementById('filterCreationMethodMulti');
     const convFilter = document.getElementById('filterDevisConversionMulti');
     const arFilter = document.getElementById('filterArStatusMulti');
-    const searchType = document.getElementById('searchTypeMulti');
     const searchInput = document.getElementById('searchInputMulti');
 
     if (typeFilter) typeFilter.value = '';
@@ -2752,7 +2863,27 @@ window.resetFiltersMulti = function () {
     if (methodFilter) methodFilter.value = 'all';
     if (convFilter) convFilter.value = 'all';
     if (arFilter) arFilter.value = 'all';
-    if (searchType) searchType.value = 'all';
+    
+    // Reset search type checkboxes
+    const searchTypeChecks = [
+        'searchTypeCheckNumeroMulti', 'searchTypeCheckOrderMulti', 'searchTypeCheckClientMulti',
+        'searchTypeCheckIceMulti', 'searchTypeCheckProductMulti', 'searchTypeCheckPriceMulti',
+        'searchTypeCheckTotalHtMulti', 'searchTypeCheckTotalMulti'
+    ];
+    searchTypeChecks.forEach(id => {
+        const check = document.getElementById(id);
+        if (check) {
+            check.dataset.active = 'false';
+            check.style.background = 'transparent';
+            check.style.borderColor = '#555';
+            check.textContent = '';
+        }
+    });
+    const searchTypeText = document.getElementById('searchTypeSelectedTextMulti');
+    if (searchTypeText) searchTypeText.textContent = 'Tous les champs';
+    const toggleAllText = document.getElementById('searchTypeToggleAllTextMulti');
+    if (toggleAllText) toggleAllText.textContent = 'Sélectionner tout';
+    
     if (searchInput) searchInput.value = '';
 
     currentPageMulti = 1;
