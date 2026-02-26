@@ -1138,8 +1138,8 @@ window.showConvertDocumentTypeModalChaimae = async function () {
         if (currentType === 'bon_livraison' && selectedNewType === 'facture') {
             // BL -> Facture: Transfer numero_commande to Order field
             // existingOrderNumber already contains document_numero_commande from line 1121
-            // Keep Bon de livraison field EMPTY when converting from BL to Facture
-            existingBLNumber = '';
+            // Transfer BL number (with prefix MG) to bon_de_livraison field
+            // existingBLNumber already contains document_numero_bl from line 1129
         }
         // Note: Facture -> BL conversion now correctly keeps existingOrderNumber as is (original order or empty)
         // without falling back to the Facture number.

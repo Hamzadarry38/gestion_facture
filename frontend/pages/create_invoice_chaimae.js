@@ -688,7 +688,20 @@ window.renderPrefixListChaimae = function () {
     const listContainer = document.getElementById('prefixListChaimae');
     if (!listContainer) return;
 
-    listContainer.innerHTML = window.bonLivraisonPrefixes.map((prefix, index) => `
+    // Add "Sans Prefix" option at the beginning
+    const sansPrefixOption = `
+        <div onclick="selectPrefixChaimae('')" 
+             style="margin: 0.35rem; padding: 0.75rem 1rem; cursor: pointer; border-radius: 8px; transition: all 0.3s; color: #fff; display: flex; justify-content: space-between; align-items: center; background: ${window.selectedPrefix === '' ? 'linear-gradient(90deg, #ff9800 0%, #f57c00 100%)' : 'rgba(255,255,255,0.05)'}; border: 2px solid ${window.selectedPrefix === '' ? '#ff9800' : 'transparent'}; box-shadow: ${window.selectedPrefix === '' ? '0 2px 8px rgba(255, 152, 0, 0.3)' : 'none'};"
+             onmouseover="if(window.selectedPrefix !== '') { this.style.background='rgba(255, 152, 0, 0.2)'; this.style.borderColor='#ff9800'; this.style.transform='translateX(5px)'; }" 
+             onmouseout="if(window.selectedPrefix !== '') { this.style.background='rgba(255,255,255,0.05)'; this.style.borderColor='transparent'; this.style.transform='translateX(0)'; }">
+            <div style="display: flex; align-items: center; gap: 0.75rem;">
+                <span style="font-size: 1.2rem;">${window.selectedPrefix === '' ? '✓' : '🚫'}</span>
+                <span style="font-weight: ${window.selectedPrefix === '' ? '700' : '500'}; font-size: 1rem; letter-spacing: 1px;">Sans Prefix</span>
+            </div>
+        </div>
+    `;
+
+    const prefixOptions = window.bonLivraisonPrefixes.map((prefix, index) => `
         <div onclick="selectPrefixChaimae('${prefix}')" 
              style="margin: 0.35rem; padding: 0.75rem 1rem; cursor: pointer; border-radius: 8px; transition: all 0.3s; color: #fff; display: flex; justify-content: space-between; align-items: center; background: ${prefix === window.selectedPrefix ? 'linear-gradient(90deg, #667eea 0%, #764ba2 100%)' : 'rgba(255,255,255,0.05)'}; border: 2px solid ${prefix === window.selectedPrefix ? '#667eea' : 'transparent'}; box-shadow: ${prefix === window.selectedPrefix ? '0 2px 8px rgba(102, 126, 234, 0.3)' : 'none'};"
              onmouseover="if('${prefix}' !== window.selectedPrefix) { this.style.background='rgba(102, 126, 234, 0.2)'; this.style.borderColor='#667eea'; this.style.transform='translateX(5px)'; }" 
@@ -712,6 +725,8 @@ window.renderPrefixListChaimae = function () {
             ` : ''}
         </div>
     `).join('');
+
+    listContainer.innerHTML = sansPrefixOption + prefixOptions;
 }
 
 // Select prefix (Global)
@@ -724,21 +739,24 @@ window.selectPrefixChaimae = function (prefix) {
 
     if (prefixInput) {
         prefixInput.value = prefix;
-        console.log('✅ [PREFIX SELECT] Updated prefixInput to:', prefix);
+        console.log('✅ [PREFIX SELECT] Updated prefixInput to:', prefix === '' ? '(empty)' : prefix);
     } else {
         console.log('❌ [PREFIX SELECT] prefixInput not found');
     }
 
     if (prefixExample) {
-        prefixExample.textContent = prefix;
-        console.log('✅ [PREFIX SELECT] Updated prefixExample to:', prefix);
+        prefixExample.textContent = prefix === '' ? '' : prefix;
+        console.log('✅ [PREFIX SELECT] Updated prefixExample to:', prefix === '' ? '(aucun)' : prefix);
     }
 
     // Update highest number display based on selected prefix
     const highestDisplay = document.getElementById('createHighestNumberChaimae');
     const highestContainer = document.getElementById('createHighestNumberContainerChaimae');
     if (highestDisplay && highestContainer && window.createHighestByPrefix) {
-        if (window.createHighestByPrefix[prefix]) {
+        if (prefix === '') {
+            // For "Sans Prefix", hide the highest number display
+            highestContainer.style.display = 'none';
+        } else if (window.createHighestByPrefix[prefix]) {
             const currentYear = 2026;
             const pCurrent = window.createHighestByPrefix[prefix][currentYear];
             highestDisplay.textContent = pCurrent ? pCurrent.full : 'Aucun';
@@ -844,7 +862,20 @@ window.renderOrderPrefixListChaimae = function () {
     const listContainer = document.getElementById('orderPrefixListChaimae');
     if (!listContainer) return;
 
-    listContainer.innerHTML = window.orderPrefixes.map((prefix, index) => `
+    // Add "Sans Prefix" option at the beginning
+    const sansPrefixOption = `
+        <div onclick="selectOrderPrefixChaimae('')" 
+             style="margin: 0.35rem; padding: 0.75rem 1rem; cursor: pointer; border-radius: 8px; transition: all 0.3s; color: #fff; display: flex; justify-content: space-between; align-items: center; background: ${window.selectedOrderPrefix === '' ? 'linear-gradient(90deg, #ff9800 0%, #f57c00 100%)' : 'rgba(255,255,255,0.05)'}; border: 2px solid ${window.selectedOrderPrefix === '' ? '#ff9800' : 'transparent'}; box-shadow: ${window.selectedOrderPrefix === '' ? '0 2px 8px rgba(255, 152, 0, 0.3)' : 'none'};"
+             onmouseover="if(window.selectedOrderPrefix !== '') { this.style.background='rgba(255, 152, 0, 0.2)'; this.style.borderColor='#ff9800'; this.style.transform='translateX(5px)'; }" 
+             onmouseout="if(window.selectedOrderPrefix !== '') { this.style.background='rgba(255,255,255,0.05)'; this.style.borderColor='transparent'; this.style.transform='translateX(0)'; }">
+            <div style="display: flex; align-items: center; gap: 0.75rem;">
+                <span style="font-size: 1.2rem;">${window.selectedOrderPrefix === '' ? '✓' : '🚫'}</span>
+                <span style="font-weight: ${window.selectedOrderPrefix === '' ? '700' : '500'}; font-size: 1rem; letter-spacing: 1px;">Sans Prefix</span>
+            </div>
+        </div>
+    `;
+
+    const prefixOptions = window.orderPrefixes.map((prefix, index) => `
         <div onclick="selectOrderPrefixChaimae('${prefix}')" 
              style="margin: 0.35rem; padding: 0.75rem 1rem; cursor: pointer; border-radius: 8px; transition: all 0.3s; color: #fff; display: flex; justify-content: space-between; align-items: center; background: ${prefix === window.selectedOrderPrefix ? 'linear-gradient(90deg, #2196f3 0%, #1976d2 100%)' : 'rgba(255,255,255,0.05)'}; border: 2px solid ${prefix === window.selectedOrderPrefix ? '#2196f3' : 'transparent'}; box-shadow: ${prefix === window.selectedOrderPrefix ? '0 2px 8px rgba(33, 150, 243, 0.3)' : 'none'};"
              onmouseover="if('${prefix}' !== window.selectedOrderPrefix) { this.style.background='rgba(33, 150, 243, 0.2)'; this.style.borderColor='#2196f3'; this.style.transform='translateX(5px)'; }" 
@@ -868,6 +899,8 @@ window.renderOrderPrefixListChaimae = function () {
             ` : ''}
         </div>
     `).join('');
+
+    listContainer.innerHTML = sansPrefixOption + prefixOptions;
 }
 
 // Select order prefix (Global)
@@ -1198,6 +1231,7 @@ window.formatBonLivraisonWithPrefixChaimae = function (input) {
 
     // 🔍 DEBUG: Log input value
     console.log('🔴 [FORMAT BON LIVRAISON] Input value:', value);
+    console.log('🔴 [FORMAT BON LIVRAISON] Selected prefix:', window.selectedPrefix);
 
     // إذا كان الحقل فارغاً، لا تفعل شيئاً
     if (!value) {
@@ -1221,7 +1255,7 @@ window.formatBonLivraisonWithPrefixChaimae = function (input) {
         const year = new Date().getFullYear();
         const formatted = `${numbers}/${year}`;
         input.value = formatted;
-        console.log('✅ [FORMAT BON LIVRAISON] Formatted value:', formatted);
+        console.log('✅ [FORMAT BON LIVRAISON] Formatted value (without prefix in input):', formatted);
     }
 }
 
@@ -2058,7 +2092,8 @@ async function handleFormSubmitChaimae(e) {
             const numeroOrderChaimae = document.getElementById('documentNumeroOrderChaimae');
             if (numeroOrderChaimae && numeroOrderChaimae.value) {
                 const prefix = window.selectedSimpleOrderPrefix;
-                if (prefix) {
+                // Only add prefix if it's not empty (Sans Prefix)
+                if (prefix && prefix !== '' && prefix !== 'Sans Prefix') {
                     formData.document.numero_Order = `${prefix}${numeroOrderChaimae.value}`;
                 } else {
                     formData.document.numero_Order = numeroOrderChaimae.value;
@@ -2071,16 +2106,20 @@ async function handleFormSubmitChaimae(e) {
             formData.document.numero_devis = mainNumero;
         } else if (docType === 'bon_livraison') {
             // Get selected prefix and combine with numero
-            const selectedPrefix = window.selectedPrefix || 'MG';
+            const selectedPrefix = window.selectedPrefix !== undefined ? window.selectedPrefix : 'MG';
 
             // 🔍 DEBUG: Log what we're getting
             console.log('🔴 [CREATE DEBUG] SELECTED PREFIX:', selectedPrefix);
             console.log('🔴 [CREATE DEBUG] MAIN NUMERO:', mainNumero);
             console.log('🔴 [CREATE DEBUG] MAIN NUMERO contains prefix?', mainNumero?.startsWith(selectedPrefix));
 
-            // ✅ FIX: Check if mainNumero already contains the prefix
+            // ✅ FIX: Check if mainNumero already contains the prefix OR if "Sans Prefix" is selected
             let fullNumero;
-            if (mainNumero?.startsWith(selectedPrefix)) {
+            if (selectedPrefix === '' || selectedPrefix === 'Sans Prefix') {
+                // Sans Prefix selected - use number as-is without any prefix
+                fullNumero = mainNumero;
+                console.log('🚫 [CREATE DEBUG] Sans Prefix selected, using numero without prefix:', fullNumero);
+            } else if (mainNumero?.startsWith(selectedPrefix)) {
                 fullNumero = mainNumero; // Already has prefix, don't add it again
                 console.log('⚠️ [CREATE DEBUG] NUMERO already has prefix, using as-is:', fullNumero);
             } else {
@@ -2096,7 +2135,7 @@ async function handleFormSubmitChaimae(e) {
             // Format N° Order with prefix if provided
             const orderValue = document.getElementById('documentBonCommandeChaimae')?.value?.trim();
             if (orderValue) {
-                const selectedOrderPrefix = window.selectedOrderPrefix || 'BC';
+                const selectedOrderPrefix = window.selectedOrderPrefix !== undefined ? window.selectedOrderPrefix : 'BC';
 
                 // Remove any existing prefix from all known prefixes
                 let cleanValue = orderValue;
@@ -2109,8 +2148,12 @@ async function handleFormSubmitChaimae(e) {
                     }
                 }
 
-                // Add the selected prefix
-                formData.document.numero_commande = `${selectedOrderPrefix}${cleanValue}`;
+                // Add the selected prefix (or leave empty if "Sans Prefix" is selected)
+                if (selectedOrderPrefix === '' || selectedOrderPrefix === 'Sans Prefix') {
+                    formData.document.numero_commande = cleanValue;
+                } else {
+                    formData.document.numero_commande = `${selectedOrderPrefix}${cleanValue}`;
+                }
             } else {
                 formData.document.numero_commande = null;
             }
@@ -2178,9 +2221,11 @@ async function handleFormSubmitChaimae(e) {
                             inv.document_numero_devis &&
                             inv.document_numero_devis.toLowerCase().trim() === searchNum;
                     } else if (docType === 'bon_livraison') {
-                        const selectedPrefix = window.selectedPrefix || 'MG';
+                        const selectedPrefix = window.selectedPrefix !== undefined ? window.selectedPrefix : 'MG';
                         let fullNumero;
-                        if (mainNumero?.startsWith(selectedPrefix)) {
+                        if (selectedPrefix === '' || selectedPrefix === 'Sans Prefix') {
+                            fullNumero = mainNumero;
+                        } else if (mainNumero?.startsWith(selectedPrefix)) {
                             fullNumero = mainNumero;
                         } else {
                             fullNumero = selectedPrefix + mainNumero;

@@ -1,0 +1,679 @@
+<!DOCTYPE html>
+<html lang="fr" dir="ltr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Guide de Conversion - CHAIMAE</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #1e1e1e 0%, #2d2d30 100%);
+            color: #e0e0e0;
+            padding: 2rem;
+            min-height: 100vh;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 3rem;
+            padding: 2rem;
+            background: rgba(76, 175, 80, 0.1);
+            border-radius: 12px;
+            border: 2px solid #4caf50;
+        }
+
+        .header h1 {
+            color: #4caf50;
+            font-size: 2.5rem;
+            margin-bottom: 0.5rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 1rem;
+        }
+
+        .header p {
+            color: #b0b0b0;
+            font-size: 1.1rem;
+        }
+
+        .selector-section {
+            background: #252526;
+            padding: 2rem;
+            border-radius: 12px;
+            margin-bottom: 2rem;
+            border: 1px solid #3e3e42;
+        }
+
+        .selector-section h2 {
+            color: #4caf50;
+            margin-bottom: 1.5rem;
+            font-size: 1.5rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .selector-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .doc-type-btn {
+            padding: 1.2rem;
+            background: #2d2d30;
+            border: 2px solid #3e3e42;
+            border-radius: 8px;
+            color: #d4d4d4;
+            font-size: 1rem;
+            cursor: pointer;
+            transition: all 0.3s;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .doc-type-btn:hover {
+            border-color: #4caf50;
+            background: #323235;
+            transform: translateY(-2px);
+        }
+
+        .doc-type-btn.active {
+            border-color: #4caf50;
+            background: rgba(76, 175, 80, 0.2);
+            color: #4caf50;
+            font-weight: 600;
+        }
+
+        .doc-type-btn .icon {
+            font-size: 2rem;
+        }
+
+        .arrow-section {
+            text-align: center;
+            margin: 2rem 0;
+            font-size: 3rem;
+            color: #4caf50;
+        }
+
+        .result-section {
+            background: #1e1e1e;
+            padding: 2rem;
+            border-radius: 12px;
+            border: 2px solid #4caf50;
+            display: none;
+        }
+
+        .result-section.active {
+            display: block;
+            animation: fadeIn 0.5s;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .result-header {
+            text-align: center;
+            margin-bottom: 2rem;
+        }
+
+        .result-header h3 {
+            color: #4caf50;
+            font-size: 1.8rem;
+            margin-bottom: 0.5rem;
+        }
+
+        .result-header p {
+            color: #999;
+            font-size: 1rem;
+        }
+
+        .fields-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 1.5rem;
+            margin-top: 2rem;
+        }
+
+        .field-card {
+            background: #252526;
+            padding: 1.5rem;
+            border-radius: 8px;
+            border-left: 4px solid #666;
+        }
+
+        .field-card.transferred {
+            border-left-color: #4caf50;
+            background: rgba(76, 175, 80, 0.05);
+        }
+
+        .field-card.empty {
+            border-left-color: #f44336;
+            background: rgba(244, 67, 54, 0.05);
+        }
+
+        .field-card.new {
+            border-left-color: #2196f3;
+            background: rgba(33, 150, 243, 0.05);
+        }
+
+        .field-label {
+            font-weight: 600;
+            color: #d4d4d4;
+            margin-bottom: 0.5rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .field-value {
+            padding: 0.8rem;
+            background: #1e1e1e;
+            border-radius: 6px;
+            border: 1px solid #3e3e42;
+            font-family: 'Courier New', monospace;
+            margin-top: 0.5rem;
+        }
+
+        .field-value.empty-value {
+            color: #f44336;
+            font-style: italic;
+        }
+
+        .field-value.transferred-value {
+            color: #4caf50;
+        }
+
+        .field-value.new-value {
+            color: #2196f3;
+        }
+
+        .badge {
+            display: inline-block;
+            padding: 0.3rem 0.8rem;
+            border-radius: 12px;
+            font-size: 0.75rem;
+            font-weight: 600;
+            text-transform: uppercase;
+        }
+
+        .badge.transferred {
+            background: rgba(76, 175, 80, 0.2);
+            color: #4caf50;
+        }
+
+        .badge.empty {
+            background: rgba(244, 67, 54, 0.2);
+            color: #f44336;
+        }
+
+        .badge.new {
+            background: rgba(33, 150, 243, 0.2);
+            color: #2196f3;
+        }
+
+        .legend {
+            display: flex;
+            gap: 2rem;
+            justify-content: center;
+            margin-top: 2rem;
+            padding: 1.5rem;
+            background: #252526;
+            border-radius: 8px;
+        }
+
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .legend-color {
+            width: 20px;
+            height: 20px;
+            border-radius: 4px;
+        }
+
+        .legend-color.transferred {
+            background: #4caf50;
+        }
+
+        .legend-color.empty {
+            background: #f44336;
+        }
+
+        .legend-color.new {
+            background: #2196f3;
+        }
+
+        .info-box {
+            background: rgba(33, 150, 243, 0.1);
+            border: 1px solid #2196f3;
+            border-radius: 8px;
+            padding: 1rem;
+            margin-top: 1.5rem;
+            color: #90caf9;
+        }
+
+        .info-box strong {
+            color: #2196f3;
+        }
+
+        .example-section {
+            margin-top: 2rem;
+            padding: 1.5rem;
+            background: #2d2d30;
+            border-radius: 8px;
+            border: 1px solid #3e3e42;
+        }
+
+        .example-section h4 {
+            color: #4caf50;
+            margin-bottom: 1rem;
+            font-size: 1.2rem;
+        }
+
+        .example-grid {
+            display: grid;
+            grid-template-columns: 1fr auto 1fr;
+            gap: 1rem;
+            align-items: center;
+        }
+
+        .example-doc {
+            background: #1e1e1e;
+            padding: 1rem;
+            border-radius: 6px;
+            border: 1px solid #3e3e42;
+        }
+
+        .example-doc h5 {
+            color: #4caf50;
+            margin-bottom: 0.5rem;
+            font-size: 0.9rem;
+        }
+
+        .example-doc p {
+            font-size: 0.85rem;
+            color: #b0b0b0;
+            margin: 0.3rem 0;
+        }
+
+        .example-arrow {
+            font-size: 2rem;
+            color: #4caf50;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>
+                <span>🔄</span>
+                Guide de Conversion des Documents
+                <span>📋</span>
+            </h1>
+            <p>Comprendre comment les champs sont transférés lors de la conversion entre types de documents</p>
+        </div>
+
+        <div class="selector-section">
+            <h2>🎯 Étape 1 : Sélectionnez le type de document SOURCE</h2>
+            <div class="selector-grid">
+                <button class="doc-type-btn" onclick="selectSource('devis')">
+                    <span class="icon">📄</span>
+                    <span>Devis</span>
+                </button>
+                <button class="doc-type-btn" onclick="selectSource('facture')">
+                    <span class="icon">🧾</span>
+                    <span>Facture</span>
+                </button>
+                <button class="doc-type-btn" onclick="selectSource('bon_livraison')">
+                    <span class="icon">📦</span>
+                    <span>Bon de Livraison</span>
+                </button>
+            </div>
+        </div>
+
+        <div class="arrow-section" id="arrowSection" style="display: none;">
+            ⬇️
+        </div>
+
+        <div class="selector-section" id="targetSection" style="display: none;">
+            <h2>🎯 Étape 2 : Sélectionnez le type de document CIBLE</h2>
+            <div class="selector-grid" id="targetGrid">
+            </div>
+        </div>
+
+        <div class="result-section" id="resultSection">
+            <div class="result-header">
+                <h3 id="conversionTitle"></h3>
+                <p id="conversionDesc"></p>
+            </div>
+
+            <div class="fields-grid" id="fieldsGrid">
+            </div>
+
+            <div class="legend">
+                <div class="legend-item">
+                    <div class="legend-color transferred"></div>
+                    <span>Champ transféré</span>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-color empty"></div>
+                    <span>Champ vide</span>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-color new"></div>
+                    <span>Nouveau numéro</span>
+                </div>
+            </div>
+
+            <div class="example-section" id="exampleSection">
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let selectedSource = null;
+        let selectedTarget = null;
+
+        const conversions = {
+            'devis_facture': {
+                title: 'Conversion : Devis → Facture',
+                desc: 'Transformation d\'un devis en facture',
+                fields: [
+                    { label: 'N° Document', value: 'Nouveau numéro de facture', type: 'new', icon: '📄' },
+                    { label: 'N° Order', value: 'document_order_devis (transféré)', type: 'transferred', icon: '📋' },
+                    { label: 'Bon de Livraison', value: 'VIDE', type: 'empty', icon: '📦' },
+                    { label: 'Client', value: 'Transféré automatiquement', type: 'transferred', icon: '👤' },
+                    { label: 'Produits', value: 'Tous les produits transférés', type: 'transferred', icon: '📦' },
+                    { label: 'Totaux', value: 'Tous les montants transférés', type: 'transferred', icon: '💰' }
+                ],
+                example: {
+                    source: {
+                        title: 'Devis Original',
+                        fields: [
+                            'N° Devis: D-2025-001',
+                            'N° Order: ORDER-123',
+                            'Client: ABC Company'
+                        ]
+                    },
+                    target: {
+                        title: 'Facture Créée',
+                        fields: [
+                            'N° Facture: F-2025-001 (nouveau)',
+                            'N° Order: ORDER-123 ✅',
+                            'Bon de Livraison: (vide) ❌',
+                            'Client: ABC Company ✅'
+                        ]
+                    }
+                }
+            },
+            'devis_bon_livraison': {
+                title: 'Conversion : Devis → Bon de Livraison',
+                desc: 'Transformation d\'un devis en bon de livraison',
+                fields: [
+                    { label: 'N° Document BL', value: 'Nouveau numéro (ex: MG100/2025)', type: 'new', icon: '📄' },
+                    { label: 'N° Commande', value: 'document_order_devis (transféré)', type: 'transferred', icon: '📋' },
+                    { label: 'Client', value: 'Transféré automatiquement', type: 'transferred', icon: '👤' },
+                    { label: 'Produits', value: 'Tous les produits transférés', type: 'transferred', icon: '📦' },
+                    { label: 'Totaux', value: 'Tous les montants transférés', type: 'transferred', icon: '💰' }
+                ],
+                example: {
+                    source: {
+                        title: 'Devis Original',
+                        fields: [
+                            'N° Devis: D-2025-001',
+                            'N° Order: ORDER-456',
+                            'Client: XYZ Corp'
+                        ]
+                    },
+                    target: {
+                        title: 'Bon de Livraison Créé',
+                        fields: [
+                            'N° BL: MG100/2025 (nouveau)',
+                            'N° Commande: ORDER-456 ✅',
+                            'Client: XYZ Corp ✅'
+                        ]
+                    }
+                }
+            },
+            'facture_devis': {
+                title: 'Conversion : Facture → Devis',
+                desc: 'Transformation d\'une facture en devis',
+                fields: [
+                    { label: 'N° Devis', value: 'Nouveau numéro de devis', type: 'new', icon: '📄' },
+                    { label: 'N° Order Devis', value: 'document_numero_Order (transféré)', type: 'transferred', icon: '📋' },
+                    { label: 'Client', value: 'Transféré automatiquement', type: 'transferred', icon: '👤' },
+                    { label: 'Produits', value: 'Tous les produits transférés', type: 'transferred', icon: '📦' },
+                    { label: 'Totaux', value: 'Tous les montants transférés', type: 'transferred', icon: '💰' }
+                ],
+                example: {
+                    source: {
+                        title: 'Facture Originale',
+                        fields: [
+                            'N° Facture: F-100/2025',
+                            'N° Order: ORD-789',
+                            'Client: DEF Ltd'
+                        ]
+                    },
+                    target: {
+                        title: 'Devis Créé',
+                        fields: [
+                            'N° Devis: D-2025-050 (nouveau)',
+                            'N° Order Devis: ORD-789 ✅',
+                            'Client: DEF Ltd ✅'
+                        ]
+                    }
+                }
+            },
+            'facture_bon_livraison': {
+                title: 'Conversion : Facture → Bon de Livraison',
+                desc: 'Transformation d\'une facture en bon de livraison',
+                fields: [
+                    { label: 'N° Document BL', value: 'Nouveau numéro (ex: MG200/2025)', type: 'new', icon: '📄' },
+                    { label: 'N° Commande', value: 'document_numero_Order (transféré)', type: 'transferred', icon: '📋' },
+                    { label: 'Client', value: 'Transféré automatiquement', type: 'transferred', icon: '👤' },
+                    { label: 'Produits', value: 'Tous les produits transférés', type: 'transferred', icon: '📦' },
+                    { label: 'Totaux', value: 'Tous les montants transférés', type: 'transferred', icon: '💰' }
+                ],
+                example: {
+                    source: {
+                        title: 'Facture Originale',
+                        fields: [
+                            'N° Facture: F-200/2025',
+                            'N° Order: ORD-999',
+                            'Client: GHI Inc'
+                        ]
+                    },
+                    target: {
+                        title: 'Bon de Livraison Créé',
+                        fields: [
+                            'N° BL: MG200/2025 (nouveau)',
+                            'N° Commande: ORD-999 ✅',
+                            'Client: GHI Inc ✅'
+                        ]
+                    }
+                }
+            },
+            'bon_livraison_facture': {
+                title: 'Conversion : Bon de Livraison → Facture',
+                desc: 'Transformation d\'un bon de livraison en facture',
+                fields: [
+                    { label: 'N° Facture', value: 'Nouveau numéro sans préfixe (ex: 14/2026)', type: 'new', icon: '📄' },
+                    { label: 'N° Order', value: 'Numéro de commande du BL (transféré)', type: 'transferred', icon: '📋' },
+                    { label: 'Bon de Livraison', value: 'N° BL original avec préfixe (transféré)', type: 'transferred', icon: '📦' },
+                    { label: 'Client', value: 'Transféré automatiquement', type: 'transferred', icon: '👤' },
+                    { label: 'Produits', value: 'Tous les produits transférés', type: 'transferred', icon: '📦' },
+                    { label: 'Totaux', value: 'Tous les montants transférés', type: 'transferred', icon: '💰' }
+                ],
+                example: {
+                    source: {
+                        title: 'Bon de Livraison Original',
+                        fields: [
+                            'N° BL: MG14/2026',
+                            'N° Order: 145',
+                            'Client: ABC Company'
+                        ]
+                    },
+                    target: {
+                        title: 'Facture Créée',
+                        fields: [
+                            'N° Facture: 14/2026 ✅ (sans MG)',
+                            'N° Order: 145 ✅',
+                            'Bon de Livraison: MG14/2026 ✅',
+                            'Client: ABC Company ✅'
+                        ]
+                    }
+                }
+            },
+            'bon_livraison_devis': {
+                title: 'Conversion : Bon de Livraison → Devis',
+                desc: 'Transformation d\'un bon de livraison en devis',
+                fields: [
+                    { label: 'N° Devis', value: 'Nouveau numéro de devis', type: 'new', icon: '📄' },
+                    { label: 'N° Order Devis', value: 'document_numero_commande (transféré)', type: 'transferred', icon: '📋' },
+                    { label: 'Client', value: 'Transféré automatiquement', type: 'transferred', icon: '👤' },
+                    { label: 'Produits', value: 'Tous les produits transférés', type: 'transferred', icon: '📦' },
+                    { label: 'Totaux', value: 'Tous les montants transférés', type: 'transferred', icon: '💰' }
+                ],
+                example: {
+                    source: {
+                        title: 'Bon de Livraison Original',
+                        fields: [
+                            'N° BL: MG300/2025',
+                            'N° Commande: CMD-777',
+                            'Client: MNO Ltd'
+                        ]
+                    },
+                    target: {
+                        title: 'Devis Créé',
+                        fields: [
+                            'N° Devis: D-2025-100 (nouveau)',
+                            'N° Order Devis: CMD-777 ✅',
+                            'Client: MNO Ltd ✅'
+                        ]
+                    }
+                }
+            }
+        };
+
+        const docTypes = {
+            'devis': { name: 'Devis', icon: '📄' },
+            'facture': { name: 'Facture', icon: '🧾' },
+            'bon_livraison': { name: 'Bon de Livraison', icon: '📦' }
+        };
+
+        function selectSource(type) {
+            selectedSource = type;
+            
+            document.querySelectorAll('.selector-section:first-child .doc-type-btn').forEach(btn => {
+                btn.classList.remove('active');
+            });
+            event.target.closest('.doc-type-btn').classList.add('active');
+
+            document.getElementById('arrowSection').style.display = 'block';
+            document.getElementById('targetSection').style.display = 'block';
+
+            const targetGrid = document.getElementById('targetGrid');
+            targetGrid.innerHTML = '';
+
+            Object.keys(docTypes).forEach(targetType => {
+                if (targetType !== type) {
+                    const btn = document.createElement('button');
+                    btn.className = 'doc-type-btn';
+                    btn.onclick = () => selectTarget(targetType);
+                    btn.innerHTML = `
+                        <span class="icon">${docTypes[targetType].icon}</span>
+                        <span>${docTypes[targetType].name}</span>
+                    `;
+                    targetGrid.appendChild(btn);
+                }
+            });
+
+            document.getElementById('resultSection').classList.remove('active');
+        }
+
+        function selectTarget(type) {
+            selectedTarget = type;
+
+            document.querySelectorAll('#targetGrid .doc-type-btn').forEach(btn => {
+                btn.classList.remove('active');
+            });
+            event.target.closest('.doc-type-btn').classList.add('active');
+
+            showConversion();
+        }
+
+        function showConversion() {
+            const key = `${selectedSource}_${selectedTarget}`;
+            const conversion = conversions[key];
+
+            if (!conversion) return;
+
+            document.getElementById('conversionTitle').textContent = conversion.title;
+            document.getElementById('conversionDesc').textContent = conversion.desc;
+
+            const fieldsGrid = document.getElementById('fieldsGrid');
+            fieldsGrid.innerHTML = '';
+
+            conversion.fields.forEach(field => {
+                const card = document.createElement('div');
+                card.className = `field-card ${field.type}`;
+                card.innerHTML = `
+                    <div class="field-label">
+                        <span>${field.icon}</span>
+                        <span>${field.label}</span>
+                        <span class="badge ${field.type}">${field.type === 'transferred' ? 'Transféré' : field.type === 'empty' ? 'Vide' : 'Nouveau'}</span>
+                    </div>
+                    <div class="field-value ${field.type}-value">${field.value}</div>
+                `;
+                fieldsGrid.appendChild(card);
+            });
+
+            const exampleSection = document.getElementById('exampleSection');
+            exampleSection.innerHTML = `
+                <h4>📝 Exemple Pratique</h4>
+                <div class="example-grid">
+                    <div class="example-doc">
+                        <h5>${conversion.example.source.title}</h5>
+                        ${conversion.example.source.fields.map(f => `<p>${f}</p>`).join('')}
+                    </div>
+                    <div class="example-arrow">➡️</div>
+                    <div class="example-doc">
+                        <h5>${conversion.example.target.title}</h5>
+                        ${conversion.example.target.fields.map(f => `<p>${f}</p>`).join('')}
+                    </div>
+                </div>
+                ${key === 'bon_livraison_facture' ? `
+                    <div class="info-box">
+                        <strong>✅ IMPORTANT:</strong> Lors de la conversion de Bon de Livraison vers Facture, 
+                        le numéro du BL (avec préfixe MG) sera <strong>transféré</strong> vers le champ "Bon de Livraison" de la facture.
+                        Le numéro de la facture sera créé <strong>sans le préfixe MG</strong> (ex: MG14/2026 → 14/2026).
+                    </div>
+                ` : ''}
+            `;
+
+            document.getElementById('resultSection').classList.add('active');
+            document.getElementById('resultSection').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        }
+    </script>
+</body>
+</html>

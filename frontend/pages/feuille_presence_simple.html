@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Feuille de Présence</title>
+    <style>
+        @page {
+            size: A4;
+            margin: 20mm;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: Arial, sans-serif;
+            padding: 20px;
+            background: white;
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+
+        .header h1 {
+            font-size: 24px;
+            margin-bottom: 20px;
+        }
+
+        .info {
+            margin-bottom: 30px;
+            line-height: 1.8;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 40px;
+        }
+
+        th, td {
+            border: 1px solid #000;
+            padding: 12px 8px;
+            text-align: left;
+        }
+
+        th {
+            background: white;
+            font-weight: bold;
+        }
+
+        .col-num {
+            width: 50px;
+            text-align: center;
+        }
+
+        .col-name {
+            width: auto;
+        }
+
+        .col-signature {
+            width: 200px;
+        }
+
+        .signatures {
+            margin-top: 50px;
+            display: flex;
+            justify-content: space-between;
+        }
+
+        .signature-box {
+            width: 45%;
+        }
+
+        .signature-box p {
+            margin-bottom: 60px;
+        }
+
+        @media print {
+            body {
+                padding: 0;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>FEUILLE DE PRÉSENCE</h1>
+    </div>
+
+    <div class="info">
+        <p><strong>Date :</strong> _____________________</p>
+        <p><strong>Formation :</strong> _____________________</p>
+        <p><strong>Formateur :</strong> _____________________</p>
+        <p><strong>Horaire :</strong> _____________________</p>
+    </div>
+
+    <table>
+        <thead>
+            <tr>
+                <th class="col-num">N°</th>
+                <th class="col-name">Nom Complet</th>
+                <th class="col-signature">Signature</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr><td class="col-num">1</td><td></td><td></td></tr>
+            <tr><td class="col-num">2</td><td></td><td></td></tr>
+            <tr><td class="col-num">3</td><td></td><td></td></tr>
+            <tr><td class="col-num">4</td><td></td><td></td></tr>
+            <tr><td class="col-num">5</td><td></td><td></td></tr>
+            <tr><td class="col-num">6</td><td></td><td></td></tr>
+            <tr><td class="col-num">7</td><td></td><td></td></tr>
+            <tr><td class="col-num">8</td><td></td><td></td></tr>
+            <tr><td class="col-num">9</td><td></td><td></td></tr>
+            <tr><td class="col-num">10</td><td></td><td></td></tr>
+            <tr><td class="col-num">11</td><td></td><td></td></tr>
+            <tr><td class="col-num">12</td><td></td><td></td></tr>
+            <tr><td class="col-num">13</td><td></td><td></td></tr>
+            <tr><td class="col-num">14</td><td></td><td></td></tr>
+            <tr><td class="col-num">15</td><td></td><td></td></tr>
+            <tr><td class="col-num">16</td><td></td><td></td></tr>
+            <tr><td class="col-num">17</td><td></td><td></td></tr>
+            <tr><td class="col-num">18</td><td></td><td></td></tr>
+            <tr><td class="col-num">19</td><td></td><td></td></tr>
+            <tr><td class="col-num">20</td><td></td><td></td></tr>
+            <tr><td class="col-num">21</td><td></td><td></td></tr>
+            <tr><td class="col-num">22</td><td></td><td></td></tr>
+            <tr><td class="col-num">23</td><td></td><td></td></tr>
+            <tr><td class="col-num">24</td><td></td><td></td></tr>
+            <tr><td class="col-num">25</td><td></td><td></td></tr>
+        </tbody>
+    </table>
+
+    <div class="signatures">
+        <div class="signature-box">
+            <p><strong>Signature du Responsable :</strong></p>
+        </div>
+        <div class="signature-box">
+            <p><strong>Cachet de l'établissement :</strong></p>
+        </div>
+    </div>
+</body>
+</html>
