@@ -25,7 +25,14 @@ window.handleDocumentTypeChangeMulti = async function () {
             // Helper function to extract numeric value from document number
             const extractNumber = (docNumber) => {
                 if (!docNumber) return 0;
-                const match = docNumber.toString().match(/\d+/);
+                const str = docNumber.toString();
+                // For MULTI format: MTT542026 -> extract 54 (sequential number before year)
+                const multiMatch = str.match(/^MTT\s*(\d+)(\d{4})$/);
+                if (multiMatch) {
+                    return parseInt(multiMatch[1], 10);
+                }
+                // For other formats: extract first number
+                const match = str.match(/\d+/);
                 return match ? parseInt(match[0], 10) : 0;
             };
 

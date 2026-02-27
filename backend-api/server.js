@@ -358,12 +358,20 @@ app.get('/invoices/missing-numbers/:company/:year/:docType', async (req, res) =>
     // For backward compatibility with simpler frontend, flatten if only one prefix or empty
     const flattenedMissing = [].concat(...Object.values(missingByPrefix));
 
+    // Calculate overall min and max from all existing numbers
+    const allNumericValues = [].concat(...Object.values(prefixGroups));
+    const overallMin = allNumericValues.length > 0 ? Math.min(...allNumericValues) : 0;
+    const overallMax = allNumericValues.length > 0 ? Math.max(...allNumericValues) : 0;
+
     res.json({
       success: true,
       data: flattenedMissing,
       byPrefix: missingByPrefix,
       stats: {
+        min: overallMin,
+        max: overallMax,
         totalMissing: totalMissing,
+        missing: totalMissing,
         prefixCount: Object.keys(missingByPrefix).length,
         used: allNumbers.length
       }

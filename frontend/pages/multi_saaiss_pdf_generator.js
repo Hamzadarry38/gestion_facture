@@ -226,7 +226,15 @@ window.generateSAAISSPDFWithCustomization = async function (invoice, customizati
         const docType = customizedInvoice.document_type === 'devis' ? 'Devis' : 'Facture';
         const invoiceNumber = customizedInvoice.document_numero_devis || customizedInvoice.document_numero || 'N-A';
         const companyFileName = window.getPdfCompanyFileName ? window.getPdfCompanyFileName('SAAISS') : 'STé_MSH3_SERVICES';
-        const fileName = `${companyFileName}_${docType}_${customizedInvoice.client_nom}_${invoiceNumber}.pdf`;
+        
+        // Sanitize client name to remove spaces and special characters
+        const sanitizeFileName = (str) => {
+            return str.replace(/\s+/g, '_').replace(/[^a-zA-Z0-9_-]/g, '');
+        };
+        const sanitizedClientName = sanitizeFileName(customizedInvoice.client_nom);
+        const sanitizedInvoiceNumber = sanitizeFileName(invoiceNumber);
+        
+        const fileName = `${companyFileName}_${docType}_${sanitizedClientName}_${sanitizedInvoiceNumber}.pdf`;
 
         // Get PDF as ArrayBuffer
         const pdfArrayBuffer = doc.output('arraybuffer');
@@ -808,6 +816,14 @@ async function generateSAAISSPDF(doc, invoice, includeZeroProducts = true, notes
                 doc.setFontSize(8);
                 doc.setFont(undefined, 'bold');
                 doc.text(`ICE:${invoice.client_ice}`, boxX + 3, boxY + 13);
+            }
+
+            // N° Order if exists (for facture type)
+            if (invoice.document_numero_Order || invoice.document_numero_order) {
+                const orderNumber = invoice.document_numero_Order || invoice.document_numero_order;
+                doc.setFontSize(8);
+                doc.setFont(undefined, 'bold');
+                doc.text(`N° Order: ${orderNumber}`, boxX + 3, boxY + 19);
             }
 
             currentY += boxHeight + 8;

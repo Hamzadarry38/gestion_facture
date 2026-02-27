@@ -233,7 +233,8 @@ window.downloadInvoicePDFMulti = async function (invoiceId) {
 
         // Show dialog with checkbox for FACTURE type (only if Order exists)
         // Show dialog with checkbox for FACTURE type (only if Order exists)
-        if (invoice.document_type === 'facture' && invoice.document_numero_Order && invoice.document_numero_Order.trim() !== '') {
+        const orderNumber = invoice.document_numero_Order || invoice.document_numero_order;
+        if (invoice.document_type === 'facture' && orderNumber && orderNumber.trim() !== '') {
             const includeOrderResult = await new Promise((resolve) => {
                 const overlay = document.createElement('div');
                 overlay.className = 'custom-modal-overlay';
@@ -246,7 +247,7 @@ window.downloadInvoicePDFMulti = async function (invoiceId) {
                         </div>
                         <div class="custom-modal-body">
                             <!-- Order Number Toggle -->
-                             <p style="margin-bottom:1.25rem;color:#e0e0e0;font-size:0.95rem;">N° Order actuel: <strong style="color:#2196F3;font-size:1.05rem;">${invoice.document_numero_Order}</strong></p>
+                             <p style="margin-bottom:1.25rem;color:#e0e0e0;font-size:0.95rem;">N° Order actuel: <strong style="color:#2196F3;font-size:1.05rem;">${orderNumber}</strong></p>
                             <label style="display:flex;align-items:center;cursor:pointer;padding:1rem;background:#1e1e1e;border:2px solid #2196F3;border-radius:10px;transition:all 0.2s ease; margin-bottom: 1.5rem;">
                                 <input type="checkbox" id="includeOrderCheckbox" checked style="width:20px;height:20px;margin-right:1rem;cursor:pointer;accent-color:#2196F3;">
                                 <span style="font-size:0.95rem;color:#e0e0e0;font-weight:500;">
@@ -329,8 +330,9 @@ window.downloadInvoicePDFMulti = async function (invoiceId) {
             if (!includeOrderResult.includeOrder) {
                 console.log('⚠️ User chose not to include Order number in PDF');
                 invoice.document_numero_Order = null;
+                invoice.document_numero_order = null;
             } else {
-                console.log('✅ Including Order number in PDF:', invoice.document_numero_Order);
+                console.log('✅ Including Order number in PDF:', orderNumber);
             }
             // Store font size for later use
             var selectedNotesFontSize = includeOrderResult.notesFontSize;
@@ -435,7 +437,8 @@ window.downloadInvoicePDFMulti = async function (invoiceId) {
             includeSignature = includeSignature.include;
         } else if (!selectedNotesFontSize) {
             // If normal invoice WITHOUT order number (no first modal shown), show simple font size modal
-            if (invoice.document_type === 'facture' && (!invoice.document_numero_Order || invoice.document_numero_Order.trim() === '')) {
+            const checkOrderNumber = invoice.document_numero_Order || invoice.document_numero_order;
+            if (invoice.document_type === 'facture' && (!checkOrderNumber || checkOrderNumber.trim() === '')) {
                 const fontSizeResult = await new Promise((resolve) => {
                     const overlay = document.createElement('div');
                     overlay.className = 'custom-modal-overlay';
@@ -652,8 +655,9 @@ window.downloadInvoicePDFMulti = async function (invoiceId) {
                 doc.text(`Numéro de facture : ${invoice.document_numero || '-'}`, 195, 26, { align: 'right' });
 
                 // Add Order number on new line below invoice number if exists
-                if (invoice.document_numero_Order && invoice.document_numero_Order.trim() !== '') {
-                    doc.text(`N° Order : ${invoice.document_numero_Order}`, 195, 31, { align: 'right' });
+                const orderNumber = invoice.document_numero_Order || invoice.document_numero_order;
+                if (orderNumber && orderNumber.trim() !== '') {
+                    doc.text(`N° Order : ${orderNumber}`, 195, 31, { align: 'right' });
                     doc.text(`Date de facture : ${dateStr}`, 195, 36, { align: 'right' });
                 } else {
                     doc.text(`Date de facture : ${dateStr}`, 195, 31, { align: 'right' });

@@ -880,7 +880,7 @@ function filterInvoicesMulti() {
         let searchMatch = true;
         if (searchInput) {
             const numero = (invoice.document_numero || invoice.document_numero_devis || '').toLowerCase();
-            const numeroOrder = (invoice.document_numero_Order || '').toLowerCase();
+            const numeroOrder = (invoice.document_numero_Order || invoice.document_numero_order || '').toLowerCase();
             const client = invoice.client_nom.toLowerCase();
             const ice = (invoice.client_ice || '').toLowerCase();
             const totalTTC = (invoice.total_ttc || 0).toString();
@@ -1806,6 +1806,24 @@ async function loadMultiSignature() {
     }
 }
 
+// Load Multi logo image for PDF
+async function loadMultiLogo() {
+    try {
+        const response = await fetch('assets/logos/multi.png');
+        if (!response.ok) throw new Error('Failed to fetch');
+        const blob = await response.blob();
+        return await new Promise((resolve) => {
+            const reader = new FileReader();
+            reader.onloadend = () => resolve(reader.result);
+            reader.onerror = () => resolve(null);
+            reader.readAsDataURL(blob);
+        });
+    } catch (e) {
+        console.warn('Could not load Multi logo image:', e);
+        return null;
+    }
+}
+
 // Help functionality for Multi Bon de travaux customization
 async function showMultiBonDeTravauxCustomizationModal(invoice) {
     return new Promise((resolve) => {
@@ -1932,8 +1950,9 @@ window.downloadBonDeTravaux = async function (invoiceId) {
         const { jsPDF } = window.jspdf;
         const doc = new jsPDF();
 
-        // Load signature image
+        // Load signature and logo images
         const signatureImgMulti = await loadMultiSignature();
+        const logoImgMulti = await loadMultiLogo();
 
         // Colors - MULTI TRAVAUX TETOUAN theme
         const darkGrayColor = [96, 125, 139]; // #607D8B
@@ -1943,11 +1962,29 @@ window.downloadBonDeTravaux = async function (invoiceId) {
 
         // Function to add header
         const addHeader = (isFirstPage = true) => {
-            // Company Name - Left aligned, large
+            // Add company logo - Left side (same method as invoice PDF)
+            try {
+                const logoImg = document.querySelector('img[src*="multi.png"]') ||
+                    document.querySelector('img[alt="Multi Company"]');
+                if (logoImg && logoImg.src && logoImg.complete) {
+                    // Image is already loaded
+                    const canvas = document.createElement('canvas');
+                    canvas.width = logoImg.naturalWidth || 200;
+                    canvas.height = logoImg.naturalHeight || 200;
+                    const ctx = canvas.getContext('2d');
+                    ctx.drawImage(logoImg, 0, 0);
+                    const imgData = canvas.toDataURL('image/png');
+                    doc.addImage(imgData, 'PNG', 15, 8, 20, 20);
+                }
+            } catch (error) {
+                console.log('Logo not available:', error.message);
+            }
+
+            // Company Name - Left aligned, large (moved right to make space for logo)
             doc.setFontSize(18);
             doc.setTextColor(96, 125, 139);
             doc.setFont(undefined, 'bold');
-            doc.text('MULTI TRAVAUX TETOUAN', 15, 18);
+            doc.text('MULTI TRAVAUX TETOUAN', 40, 22);
 
             // Document Type - Right aligned, underlined
             doc.setFontSize(18);
@@ -1983,12 +2020,24 @@ window.downloadBonDeTravaux = async function (invoiceId) {
             doc.text(`BON DE TRAVAUX à: ${invoice.client_nom} `, 117, 42);
 
             // Only show ICE if it exists and is not "0"
+            let clientInfoY = 44;
             if (invoice.client_ice && invoice.client_ice !== '0') {
                 doc.setFillColor(...lightGrayBg);
-                doc.rect(115, 44, 80, 6, 'F');
+                doc.rect(115, clientInfoY, 80, 6, 'F');
                 doc.setTextColor(0, 0, 0);
                 doc.setFontSize(7);
-                doc.text(`ICE: ${invoice.client_ice} `, 117, 48);
+                doc.text(`ICE: ${invoice.client_ice} `, 117, clientInfoY + 4);
+                clientInfoY += 6;
+            }
+
+            // Show N° Order if it exists (for facture type)
+            if (invoice.document_numero_Order || invoice.document_numero_order) {
+                const orderNumber = invoice.document_numero_Order || invoice.document_numero_order;
+                doc.setFillColor(...lightGrayBg);
+                doc.rect(115, clientInfoY, 80, 6, 'F');
+                doc.setTextColor(0, 0, 0);
+                doc.setFontSize(7);
+                doc.text(`N° Order: ${orderNumber} `, 117, clientInfoY + 4);
             }
         };
 
@@ -2436,17 +2485,13 @@ window.downloadInvoicePDFMulti = async function (invoiceId) {
                 doc.text(`Numéro de facture : ${invoice.document_numero || '-'}`, 195, 26, { align: 'right' });
 
                 // Add Order number on new line below invoice number if exists
-                if (invoice.document_numero_Order && invoice.document_numero_Order.trim() !== '') {
-                    doc.text(`N° Order : ${invoice.document_numero_Order}`, 195, 31, { align: 'right' });
+                const orderNumber = invoice.document_numero_Order || invoice.document_numero_order;
+                if (orderNumber && orderNumber.trim() !== '') {
+                    doc.text(`N° Order : ${orderNumber}`, 195, 31, { align: 'right' });
                     doc.text(`Date de facture : ${dateStr}`, 195, 36, { align: 'right' });
+                    console.log('✅ Order number exists in PDF generation:', orderNumber);
                 } else {
                     doc.text(`Date de facture : ${dateStr}`, 195, 31, { align: 'right' });
-                }
-
-                // DEBUG: Log to verify Order number
-                if (invoice.document_numero_Order) {
-                    console.log('✅ Order number exists in PDF generation:', invoice.document_numero_Order);
-                } else {
                     console.log('❌ Order number is missing or null');
                 }
             }
