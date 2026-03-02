@@ -1959,6 +1959,9 @@ window.downloadBonDeTravaux = async function (invoiceId) {
         const lightGrayBg = [236, 239, 241]; // #ECEFF1
 
         const dateStr = (window.safeParseDate||function(d){return new Date(d)})(invoice.document_date).toLocaleDateString('fr-FR');
+        
+        // Get Order number if exists
+        const orderNumber = invoice.document_numero_Order || invoice.document_numero_order || '';
 
         // Function to add header
         const addHeader = (isFirstPage = true) => {
@@ -1993,11 +1996,16 @@ window.downloadBonDeTravaux = async function (invoiceId) {
             doc.setLineWidth(0.5);
             doc.line(195 - doc.getTextWidth('BON DE TRAVAUX'), 19, 195, 19);
 
-            // Date - Right side
+            // N° Order - Right side
             doc.setFontSize(9);
             doc.setFont(undefined, 'normal');
             doc.setTextColor(0, 0, 0);
-            doc.text(`Date: ${dateStr} `, 195, 26, { align: 'right' });
+            if (orderNumber && orderNumber.trim() !== '') {
+                doc.text(`N° Order: ${orderNumber}`, 195, 26, { align: 'right' });
+                doc.text(`Date: ${dateStr}`, 195, 31, { align: 'right' });
+            } else {
+                doc.text(`Date: ${dateStr}`, 195, 26, { align: 'right' });
+            }
 
             // Email and Address - Left side with gray background
             doc.setFillColor(...darkGrayColor);
@@ -2020,24 +2028,12 @@ window.downloadBonDeTravaux = async function (invoiceId) {
             doc.text(`BON DE TRAVAUX à: ${invoice.client_nom} `, 117, 42);
 
             // Only show ICE if it exists and is not "0"
-            let clientInfoY = 44;
             if (invoice.client_ice && invoice.client_ice !== '0') {
                 doc.setFillColor(...lightGrayBg);
-                doc.rect(115, clientInfoY, 80, 6, 'F');
+                doc.rect(115, 44, 80, 6, 'F');
                 doc.setTextColor(0, 0, 0);
                 doc.setFontSize(7);
-                doc.text(`ICE: ${invoice.client_ice} `, 117, clientInfoY + 4);
-                clientInfoY += 6;
-            }
-
-            // Show N° Order if it exists (for facture type)
-            if (invoice.document_numero_Order || invoice.document_numero_order) {
-                const orderNumber = invoice.document_numero_Order || invoice.document_numero_order;
-                doc.setFillColor(...lightGrayBg);
-                doc.rect(115, clientInfoY, 80, 6, 'F');
-                doc.setTextColor(0, 0, 0);
-                doc.setFontSize(7);
-                doc.text(`N° Order: ${orderNumber} `, 117, clientInfoY + 4);
+                doc.text(`ICE: ${invoice.client_ice} `, 117, 48);
             }
         };
 
@@ -2091,7 +2087,7 @@ window.downloadBonDeTravaux = async function (invoiceId) {
 
         invoice.products.forEach((product, index) => {
             const designation = product.designation || '';
-            const lines = doc.splitTextToSize(designation, 95);
+            const lines = doc.splitTextToSize(designation, 115);
             const rowHeight = Math.max(8, (lines.length * 4.5) + 4);
 
             // Check if we need a new page
@@ -2126,10 +2122,10 @@ window.downloadBonDeTravaux = async function (invoiceId) {
 
             doc.setFontSize(7.5);
             lines.forEach((line, lineIndex) => {
-                doc.text(line, 18, currentY + 3 + (lineIndex * 4.5));
+                doc.text(line, 18, currentY + 3 + (lineIndex * 4));
             });
 
-            const centerOffset = (lines.length > 1) ? ((lines.length - 1) * 2.25) : 0;
+            const centerOffset = (lines.length > 1) ? ((lines.length - 1) * 2) : 0;
 
             doc.setFontSize(8);
             // Show quantity only if it's not zero OR if user chose to show zero values
