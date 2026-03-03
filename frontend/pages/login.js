@@ -98,14 +98,21 @@ async function initializeLoginPage() {
         const result = await window.electron.users.getAll();
 
         if (result.success && result.users && result.users.length > 0) {
-            // Display users
-            usersList.innerHTML = result.users.map(user => `
-                <div class="user-card" onclick="selectUser('${user.id}', '${user.name}', '${user.email}')">
-                    <div class="user-avatar">${user.name.charAt(0).toUpperCase()}</div>
-                    <div class="user-name">${user.name}</div>
-                    <div class="user-email">${user.email}</div>
-                </div>
-            `).join('');
+            // Sort users by ID to ensure first user is always at the top
+            const sortedUsers = [...result.users].sort((a, b) => a.id - b.id);
+            
+            // Display users with premium design
+            usersList.innerHTML = sortedUsers.map((user, index) => {
+                const isFirst = index === 0;
+                const gradientClass = isFirst ? 'user-card-premium' : 'user-card';
+                return `
+                    <div class="${gradientClass}" onclick="selectUser('${user.id}', '${user.name}', '${user.email}')">
+                        <div class="user-avatar ${isFirst ? 'avatar-premium' : ''}">${user.name.charAt(0).toUpperCase()}</div>
+                        <div class="user-name ${isFirst ? 'name-premium' : ''}">${user.name}</div>
+                        <div class="user-email">${user.email}</div>
+                    </div>
+                `;
+            }).join('');
         } else {
             // No users, show register option
             usersList.innerHTML = `

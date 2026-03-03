@@ -2934,8 +2934,8 @@ async function loadMRYSignature() {
         const img = new Image();
         img.onload = () => {
             const canvas = document.createElement('canvas');
-            canvas.width = img.width;
-            canvas.height = img.height;
+            canvas.width = img.naturalWidth;
+            canvas.height = img.naturalHeight;
             const ctx = canvas.getContext('2d');
             ctx.drawImage(img, 0, 0);
             resolve(canvas.toDataURL('image/png'));
@@ -3214,16 +3214,16 @@ window.downloadInvoicePDF = async function (invoiceId) {
             // Add signature image above footer (right side)
             // Add signature image above footer (right side) - ONLY FOR DEVIS AND IF USER APPROVED
             if (signatureImgMRY && invoice.document_type === 'devis' && includeSignature) {
-                doc.addImage(signatureImgMRY, 'PNG', 140, 235, 60, 30);
+                doc.addImage(signatureImgMRY, 'PNG', 135, 230, 57, 40);
             }
 
             doc.setTextColor(0, 0, 0);
             doc.setFontSize(7);
             doc.setFont(undefined, 'normal');
-            doc.text('NIF : 25077370  TP : 51200166  R.C : 23181  CNSS : 5679058  ICE : 002036664000051', 15, 275);
-            doc.text('R.I.B : 007 720 0005973000000519 74  ATTIJARI WAFA BANQ', 15, 279);
-            doc.text('AV, BNI IDDER RUE 14 N°10 COELMA - TÉTOUAN.', 15, 283);
-            doc.text('EMAIL: errbahiabderrahim@gmail.com  TEL : 0661307323', 15, 287);
+            doc.text('NIF : 25077370  TP : 51200166  R.C : 23181  CNSS : 5679058  ICE : 002036664000051', 105, 275, { align: 'center' });
+            doc.text('R.I.B : 007 720 0005973000000519 74  ATTIJARI WAFA BANQ', 105, 279, { align: 'center' });
+            doc.text('AV, BNI IDDER RUE 14 N°10 COELMA - TÉTOUAN.', 105, 283, { align: 'center' });
+            doc.text('EMAIL: errbahiabderrahim@gmail.com  TEL : 0661307323', 105, 287, { align: 'center' });
 
             // Page numbering
             if (pageNum && totalPages) {

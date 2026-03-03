@@ -940,14 +940,29 @@ window.downloadInvoicePDFMulti = async function (invoiceId) {
             const fontSizeKey = selectedNotesFontSize || 'medium';
             const selectedFont = fontSizeMap[fontSizeKey] || fontSizeMap['medium'];
 
-            // Force new page for Notes
-            pages.push(pageCount);
-            doc.addPage();
-            addHeader(false);
-            pageCount++;
-
-            const notesY = 60; // Start at top of new page
+            // Calculate space needed for notes
+            const tempNoteLines = doc.splitTextToSize(noteResult.data, 180);
+            const notesHeight = 6 + (tempNoteLines.length * selectedFont.lineheight); // Title + lines
+            const currentY = amountWordsY + 5;
             const footerTopY = 270;
+            const availableSpace = footerTopY - currentY;
+
+            let notesY;
+            let needsNewPage = false;
+
+            // Check if notes fit on current page
+            if (notesHeight > availableSpace) {
+                // Not enough space - add new page
+                needsNewPage = true;
+                pages.push(pageCount);
+                doc.addPage();
+                addHeader(false);
+                pageCount++;
+                notesY = 60; // Start at top of new page
+            } else {
+                // Enough space - add notes on current page
+                notesY = currentY;
+            }
 
             // Title for notes block
             doc.setFontSize(10);

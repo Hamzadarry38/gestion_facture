@@ -3853,8 +3853,8 @@ async function loadChaimaeSignature() {
             const img = new Image();
             img.onload = () => {
                 const canvas = document.createElement('canvas');
-                canvas.width = img.width;
-                canvas.height = img.height;
+                canvas.width = img.naturalWidth;
+                canvas.height = img.naturalHeight;
                 const ctx = canvas.getContext('2d');
                 ctx.drawImage(img, 0, 0);
                 resolve(canvas.toDataURL('image/png'));
@@ -4205,16 +4205,16 @@ window.downloadInvoicePDFChaimae = async function (invoiceId) {
             // Add signature image above footer (right side)
             // Add signature image above footer (right side) - ONLY FOR DEVIS AND IF USER APPROVED
             if (signatureImgChaimae && invoice.document_type === 'devis' && includeSignature) {
-                doc.addImage(signatureImgChaimae, 'PNG', 140, 255, 60, 30);
+                doc.addImage(signatureImgChaimae, 'PNG', 140, 235, 60, 60);
             }
 
             doc.setTextColor(0, 0, 0);
             doc.setFontSize(7);
             doc.setFont(undefined, 'normal');
-            doc.text('RIB : 007 720 00 05979000000368 12  ATTIJARI WAFA BANQ', 15, 275);
-            doc.text('Email: errbahiabderrahim@gmail.com', 15, 279);
-            doc.text('ADRESSE: LOT ALBAHR AV TETOUAN N94 GARAGE 2 M\'DIQ', 15, 283);
-            doc.text('Tel: +212 661 307 323', 15, 287);
+            doc.text('RIB : 007 720 00 05979000000368 12  ATTIJARI WAFA BANQ', 105, 275, { align: 'center' });
+            doc.text('Email: errbahiabderrahim@gmail.com', 105, 279, { align: 'center' });
+            doc.text('ADRESSE: LOT ALBAHR AV TETOUAN N94 GARAGE 2 M\'DIQ', 105, 283, { align: 'center' });
+            doc.text('Tel: +212 661 307 323', 105, 287, { align: 'center' });
 
             // Page numbering
             if (pageNum && totalPages) {
