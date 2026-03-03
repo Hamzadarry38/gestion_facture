@@ -215,7 +215,7 @@ async function generateFlattenedFooterMulti(signatureDataUrl, nif, ice, tel) {
 
 
 // Download invoice as PDF - MULTI TRAVAUX TETOUAN Design
-window.downloadInvoicePDFMulti = async function (invoiceId) {
+window.downloadInvoicePDFMulti = async function (invoiceId, returnBlob = false, options = {}) {
     try {
         console.log('📥 Generating PDF for invoice:', invoiceId);
 
@@ -231,10 +231,37 @@ window.downloadInvoicePDFMulti = async function (invoiceId) {
         console.log('🔍 Invoice type:', invoice.document_type);
         console.log('🔍 Current Order number:', invoice.document_numero_Order);
 
-        // Show dialog with checkbox for FACTURE type (only if Order exists)
-        // Show dialog with checkbox for FACTURE type (only if Order exists)
+        // Extract options for bulk download
+        const skipModals = options.skipModals || false;
+        let includeOrder = options.includeOrder !== undefined ? options.includeOrder : true;
+        let bulkIncludeSignature = options.includeSignature !== undefined ? options.includeSignature : false;
+        let bulkIncludeZeroProducts = options.includeZeroProducts !== undefined ? options.includeZeroProducts : false;
+        let selectedNotesFontSize = options.selectedFontSize || 'medium';
+
+        // Initialize includeSignature variable BEFORE using it
+        let includeSignature = skipModals ? bulkIncludeSignature : false;
+
+        // Apply includeOrder from bulk options when skipModals is true
         const orderNumber = invoice.document_numero_Order || invoice.document_numero_order;
-        if (invoice.document_type === 'facture' && orderNumber && orderNumber.trim() !== '') {
+        if (skipModals) {
+            console.log('🚀 [MULTI PDF] SKIP MODALS MODE - Applying options directly');
+            console.log('🚀 [MULTI PDF] includeOrder:', includeOrder);
+            console.log('🚀 [MULTI PDF] bulkIncludeSignature:', bulkIncludeSignature);
+            console.log('🚀 [MULTI PDF] selectedNotesFontSize:', selectedNotesFontSize);
+            
+            // Bulk download: apply options directly without modals
+            if (!includeOrder) {
+                console.log('⚠️ [MULTI PDF] Removing order number from invoice');
+                invoice.document_numero_Order = null;
+                invoice.document_numero_order = null;
+            }
+            
+            // Set signature and font size from bulk options (already set above)
+            includeSignature = bulkIncludeSignature;
+            selectedNotesFontSize = selectedNotesFontSize;
+            
+            console.log('✅ [MULTI PDF] Skip modals completed, proceeding to PDF generation...');
+        } else if (invoice.document_type === 'facture' && orderNumber && orderNumber.trim() !== '') {
             const includeOrderResult = await new Promise((resolve) => {
                 const overlay = document.createElement('div');
                 overlay.className = 'custom-modal-overlay';
@@ -335,12 +362,11 @@ window.downloadInvoicePDFMulti = async function (invoiceId) {
                 console.log('✅ Including Order number in PDF:', orderNumber);
             }
             // Store font size for later use
-            var selectedNotesFontSize = includeOrderResult.notesFontSize;
+            selectedNotesFontSize = includeOrderResult.notesFontSize;
         }
 
         // Dedicated Prompt for Signature (Yes/No) - ONLY FOR DEVIS
-        let includeSignature = false;
-        if (invoice.document_type === 'devis') {
+        if (!skipModals && invoice.document_type === 'devis') {
             includeSignature = await new Promise((resolve) => {
                 const overlay = document.createElement('div');
                 overlay.className = 'custom-modal-overlay';
@@ -432,10 +458,10 @@ window.downloadInvoicePDFMulti = async function (invoiceId) {
             });
             console.log('📄 User choice for signature (Multi Devis):', includeSignature.include ? 'Yes' : 'No');
             // Store font size from Devis modal
-            var selectedNotesFontSize = includeSignature.notesFontSize;
+            selectedNotesFontSize = includeSignature.notesFontSize;
             // Update includeSignature to boolean
             includeSignature = includeSignature.include;
-        } else if (!selectedNotesFontSize) {
+        } else if (!skipModals && !selectedNotesFontSize) {
             // If normal invoice WITHOUT order number (no first modal shown), show simple font size modal
             const checkOrderNumber = invoice.document_numero_Order || invoice.document_numero_order;
             if (invoice.document_type === 'facture' && (!checkOrderNumber || checkOrderNumber.trim() === '')) {
@@ -505,7 +531,7 @@ window.downloadInvoicePDFMulti = async function (invoiceId) {
                     });
                     setTimeout(() => continueBtn.focus(), 100);
                 });
-                var selectedNotesFontSize = fontSizeResult;
+                selectedNotesFontSize = fontSizeResult;
             } else {
                 console.log('📄 Document type is not devis, skipping signature prompt for Multi.');
             }
@@ -518,9 +544,9 @@ window.downloadInvoicePDFMulti = async function (invoiceId) {
             parseFloat(p.quantite) === 0 || parseFloat(p.prix_unitaire_ht) === 0
         );
 
-        let includeZeroProducts = true; // Default: include all products
+        let includeZeroProducts = bulkIncludeZeroProducts; // Use bulk option if provided
 
-        if (hasZeroProducts) {
+        if (!skipModals && hasZeroProducts) {
             includeZeroProducts = await new Promise((resolve) => {
                 const overlay = document.createElement('div');
                 overlay.className = 'custom-modal-overlay';
@@ -1016,15 +1042,31 @@ window.downloadInvoicePDFMulti = async function (invoiceId) {
             addFooter(i + 1, totalPages);
         }
 
-        // Save PDF
-        const docNumero = invoice.document_numero || invoice.document_numero_devis || 'N';
-        const filename = `${invoice.document_type === 'devis' ? 'Devis' : 'Facture'}_${docNumero}_${invoice.client_nom}-MULTI.pdf`;
-        doc.save(filename);
-
-        window.notify.success('Succès', 'PDF téléchargé avec succès', 3000);
+        console.log('🎯 [MULTI PDF] Reached end of PDF generation, preparing output...');
+        console.log('🎯 [MULTI PDF] returnBlob:', returnBlob);
+        
+        // Return blob for bulk download OR save PDF for single download
+        if (returnBlob) {
+            console.log('📦 [MULTI PDF] Generating blob output...');
+            const blob = doc.output('blob');
+            console.log('✅ [MULTI PDF] Blob generated successfully, size:', blob.size, 'bytes');
+            return blob;
+        } else {
+            console.log('💾 [MULTI PDF] Saving PDF file...');
+            const docNumero = invoice.document_numero || invoice.document_numero_devis || 'N';
+            const filename = `${invoice.document_type === 'devis' ? 'Devis' : 'Facture'}_${docNumero}_${invoice.client_nom}-MULTI.pdf`;
+            console.log('📄 [MULTI PDF] Filename:', filename);
+            doc.save(filename);
+            window.notify.success('Succès', 'PDF téléchargé avec succès', 3000);
+            console.log('✅ [MULTI PDF] PDF saved successfully');
+        }
 
     } catch (error) {
-        console.error('❌ Error generating PDF:', error);
-        window.notify.error('Erreur', 'Impossible de générer le PDF: ' + error.message, 4000);
+        console.error('💥 [MULTI PDF] FATAL ERROR in PDF generation:', error);
+        console.error('💥 [MULTI PDF] Error stack:', error.stack);
+        if (!returnBlob) {
+            window.notify.error('Erreur', 'Impossible de générer le PDF: ' + error.message, 4000);
+        }
+        return null;
     }
 }

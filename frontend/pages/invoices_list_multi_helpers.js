@@ -353,28 +353,73 @@ window.selectOrganizationMulti = function (element, value) {
     element.querySelector('input').checked = true;
 };
 
-// Show Order selection modal before download
+// Show unified options modal before bulk download - ALL options in ONE modal
 window.showOrderSelectionModalBeforeDownloadMulti = function (selectedIds, organizationType) {
     const selectionOverlay = document.createElement('div');
     selectionOverlay.className = 'custom-modal-overlay';
     selectionOverlay.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.95);z-index:10000;display:flex;align-items:center;justify-content:center;';
 
     selectionOverlay.innerHTML = `
-        <div class="custom-modal">
+        <div class="custom-modal" style="max-width:500px;">
             <div class="custom-modal-header">
-                <span class="custom-modal-icon info">📋</span>
-                <h3 class="custom-modal-title">Options d'affichage PDF</h3>
+                <span class="custom-modal-icon info">⚙️</span>
+                <h3 class="custom-modal-title">Paramètres de téléchargement</h3>
+                <p style="color:#999;font-size:0.85rem;margin-top:0.5rem;">${selectedIds.length} facture(s) sélectionnée(s)</p>
             </div>
-            <div class="custom-modal-body">
-                <p style="margin-bottom:1.25rem;color:#e0e0e0;font-size:0.95rem;">Choisissez les informations à afficher dans les PDFs:</p>
-                <label style="display:flex;align-items:center;cursor:pointer;padding:1rem;background:#1e1e1e;border:2px solid #2196F3;border-radius:10px;transition:all 0.2s ease;">
+            <div class="custom-modal-body" style="max-height:60vh;overflow-y:auto;">
+                <p style="margin-bottom:1.25rem;color:#e0e0e0;font-size:0.95rem;font-weight:600;">Ces paramètres seront appliqués à TOUS les PDFs:</p>
+                
+                <!-- Order Number -->
+                <label style="display:flex;align-items:center;cursor:pointer;padding:1rem;background:#1e1e1e;border:2px solid #3e3e42;border-radius:10px;transition:all 0.2s ease;margin-bottom:0.75rem;">
                     <input type="checkbox" id="includeOrderCheckboxDownloadMulti" checked style="width:20px;height:20px;margin-right:1rem;cursor:pointer;accent-color:#2196F3;">
                     <span style="font-size:0.95rem;color:#e0e0e0;font-weight:500;">
-                        Afficher les N° Order dans les PDFs
+                        📋 Afficher les N° Order
                     </span>
                 </label>
+
+                <!-- Signature (for DEVIS) -->
+                <label style="display:flex;align-items:center;cursor:pointer;padding:1rem;background:#1e1e1e;border:2px solid #3e3e42;border-radius:10px;transition:all 0.2s ease;margin-bottom:0.75rem;">
+                    <input type="checkbox" id="includeSignatureCheckboxDownloadMulti" checked style="width:20px;height:20px;margin-right:1rem;cursor:pointer;accent-color:#2196F3;">
+                    <span style="font-size:0.95rem;color:#e0e0e0;font-weight:500;">
+                        ✍️ Inclure la signature (pour DEVIS)
+                    </span>
+                </label>
+
+                <!-- Zero Products -->
+                <label style="display:flex;align-items:center;cursor:pointer;padding:1rem;background:#1e1e1e;border:2px solid #3e3e42;border-radius:10px;transition:all 0.2s ease;margin-bottom:0.75rem;">
+                    <input type="checkbox" id="includeZeroProductsCheckboxDownloadMulti" style="width:20px;height:20px;margin-right:1rem;cursor:pointer;accent-color:#2196F3;">
+                    <span style="font-size:0.95rem;color:#e0e0e0;font-weight:500;">
+                        0️⃣ Afficher les produits avec quantité/prix = 0
+                    </span>
+                </label>
+
+                <!-- Font Size for Notes -->
+                <div style="padding:1rem;background:#1e1e1e;border:2px solid #3e3e42;border-radius:10px;margin-bottom:0.75rem;">
+                    <label style="display:block;margin-bottom:0.8rem;color:#e0e0e0;font-weight:600;font-size:0.95rem;">
+                        🔤 Taille de police des Notes:
+                    </label>
+                    <div style="display:flex;gap:0.5rem;background:#2d2d30;padding:0.5rem;border-radius:8px;">
+                        <label style="flex:1;display:flex;flex-direction:column;align-items:center;cursor:pointer;padding:0.5rem;border-radius:6px;transition:all 0.2s;">
+                            <input type="radio" name="fontSizeBulkDownload" value="small" style="margin-bottom:0.4rem;cursor:pointer;">
+                            <span style="font-size:0.75rem;color:#999;">Petit</span>
+                        </label>
+                        <label style="flex:1;display:flex;flex-direction:column;align-items:center;cursor:pointer;padding:0.5rem;border-radius:6px;transition:all 0.2s;background:#3e3e42;">
+                            <input type="radio" name="fontSizeBulkDownload" value="medium" checked style="margin-bottom:0.4rem;cursor:pointer;">
+                            <span style="font-size:0.85rem;color:#fff;">Moyen</span>
+                        </label>
+                        <label style="flex:1;display:flex;flex-direction:column;align-items:center;cursor:pointer;padding:0.5rem;border-radius:6px;transition:all 0.2s;">
+                            <input type="radio" name="fontSizeBulkDownload" value="large" style="margin-bottom:0.4rem;cursor:pointer;">
+                            <span style="font-size:0.95rem;color:#999;">Grand</span>
+                        </label>
+                        <label style="flex:1;display:flex;flex-direction:column;align-items:center;cursor:pointer;padding:0.5rem;border-radius:6px;transition:all 0.2s;">
+                            <input type="radio" name="fontSizeBulkDownload" value="xlarge" style="margin-bottom:0.4rem;cursor:pointer;">
+                            <span style="font-size:1.05rem;color:#999;">Très G.</span>
+                        </label>
+                    </div>
+                </div>
             </div>
             <div class="custom-modal-footer">
+                <button class="custom-modal-btn secondary" id="cancelBtnDownloadMulti" style="padding:0.75rem 2rem;font-size:1rem;">Annuler</button>
                 <button class="custom-modal-btn primary" id="continueBtnDownloadMulti" style="padding:0.75rem 2rem;font-size:1rem;">Télécharger</button>
             </div>
         </div>
@@ -383,23 +428,58 @@ window.showOrderSelectionModalBeforeDownloadMulti = function (selectedIds, organ
     document.body.appendChild(selectionOverlay);
 
     const orderCheckbox = selectionOverlay.querySelector('#includeOrderCheckboxDownloadMulti');
+    const signatureCheckbox = selectionOverlay.querySelector('#includeSignatureCheckboxDownloadMulti');
+    const zeroProductsCheckbox = selectionOverlay.querySelector('#includeZeroProductsCheckboxDownloadMulti');
+    const fontSizeRadios = selectionOverlay.querySelectorAll('input[name="fontSizeBulkDownload"]');
     const continueBtn = selectionOverlay.querySelector('#continueBtnDownloadMulti');
+    const cancelBtn = selectionOverlay.querySelector('#cancelBtnDownloadMulti');
+
+    // Update font size radio button styling
+    fontSizeRadios.forEach(radio => {
+        radio.addEventListener('change', (e) => {
+            fontSizeRadios.forEach(r => {
+                const label = r.parentElement;
+                label.style.background = 'transparent';
+                label.querySelector('span').style.color = '#999';
+            });
+            if (e.target.checked) {
+                const label = e.target.parentElement;
+                label.style.background = '#3e3e42';
+                label.querySelector('span').style.color = '#fff';
+            }
+        });
+    });
 
     continueBtn.addEventListener('click', async () => {
         const includeOrder = orderCheckbox.checked;
+        const includeSignature = signatureCheckbox.checked;
+        const includeZeroProducts = zeroProductsCheckbox.checked;
+        const selectedFontSize = selectionOverlay.querySelector('input[name="fontSizeBulkDownload"]:checked').value;
 
-        console.log('✅ [MULTI DOWNLOAD] Include Order:', includeOrder);
+        console.log('✅ [MULTI BULK DOWNLOAD] Options:', {
+            includeOrder,
+            includeSignature,
+            includeZeroProducts,
+            selectedFontSize
+        });
 
         selectionOverlay.remove();
 
-        await startBulkDownloadMulti(selectedIds, organizationType, includeOrder);
+        await startBulkDownloadMulti(selectedIds, organizationType, {
+            includeOrder,
+            includeSignature,
+            includeZeroProducts,
+            selectedFontSize
+        });
+    });
+
+    cancelBtn.addEventListener('click', () => {
+        selectionOverlay.remove();
     });
 
     selectionOverlay.addEventListener('click', (e) => {
         if (e.target === selectionOverlay) {
-            const includeOrder = orderCheckbox.checked;
             selectionOverlay.remove();
-            startBulkDownloadMulti(selectedIds, organizationType, includeOrder);
         }
     });
 
@@ -425,31 +505,133 @@ async function loadJSZipMulti() {
     });
 }
 
-// Start bulk download
-window.startBulkDownloadMulti = async function (selectedIds, organizationType, includeOrder = true) {
+// Start bulk download with loading indicator and progress bar
+window.startBulkDownloadMulti = async function (selectedIds, organizationType, options = {}) {
+    console.log('🚀 [MULTI BULK] Starting bulk download...');
+    console.log('📋 [MULTI BULK] Selected IDs:', selectedIds);
+    console.log('⚙️ [MULTI BULK] Organization type:', organizationType);
+    console.log('🎛️ [MULTI BULK] Options:', options);
+    
     try {
-        window.notify.info('Téléchargement', 'Préparation du téléchargement...', 2000);
+        const {
+            includeOrder = true,
+            includeSignature = true,
+            includeZeroProducts = false,
+            selectedFontSize = 'medium'
+        } = options;
+
+        console.log('✅ [MULTI BULK] Options parsed successfully');
+
+        // Create loading overlay with progress bar
+        console.log('🎨 [MULTI BULK] Creating loading overlay...');
+        const loadingOverlay = document.createElement('div');
+        loadingOverlay.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.95);z-index:10001;display:flex;align-items:center;justify-content:center;';
+        
+        loadingOverlay.innerHTML = `
+            <div style="background:#2d2d30;border-radius:12px;padding:2rem;max-width:400px;width:90%;box-shadow:0 20px 60px rgba(0,0,0,0.9);">
+                <div style="text-align:center;margin-bottom:1.5rem;">
+                    <div style="font-size:3rem;margin-bottom:0.5rem;animation:spin 1s linear infinite;">⚙️</div>
+                    <h3 style="color:#fff;margin:0;font-size:1.2rem;font-weight:600;">Téléchargement en cours</h3>
+                    <p style="color:#999;margin-top:0.5rem;font-size:0.9rem;">Génération des PDFs...</p>
+                </div>
+                
+                <div style="margin-bottom:1rem;">
+                    <div style="display:flex;justify-content:space-between;margin-bottom:0.5rem;">
+                        <span style="color:#e0e0e0;font-size:0.9rem;">Progression</span>
+                        <span id="progressText" style="color:#2196F3;font-size:0.9rem;font-weight:600;">0/${selectedIds.length}</span>
+                    </div>
+                    <div style="background:#1e1e1e;border-radius:8px;height:8px;overflow:hidden;border:1px solid #3e3e42;">
+                        <div id="progressBar" style="background:linear-gradient(90deg, #2196F3, #21CBF3);height:100%;width:0%;transition:width 0.3s ease;"></div>
+                    </div>
+                </div>
+                
+                <style>
+                    @keyframes spin {
+                        from { transform: rotate(0deg); }
+                        to { transform: rotate(360deg); }
+                    }
+                </style>
+            </div>
+        `;
+        
+        document.body.appendChild(loadingOverlay);
+        console.log('✅ [MULTI BULK] Loading overlay created and added to DOM');
 
         // Load JSZip if not already loaded
+        console.log('📦 [MULTI BULK] Loading JSZip...');
         await loadJSZipMulti();
+        console.log('✅ [MULTI BULK] JSZip loaded successfully');
 
         const zip = new JSZip();
         const folderName = `Factures_Multi_${window.todayDateString ? window.todayDateString() : new Date().toISOString().split('T')[0]}`;
+        console.log('📁 [MULTI BULK] ZIP folder name:', folderName);
 
         let successCount = 0;
+        const progressText = loadingOverlay.querySelector('#progressText');
+        const progressBar = loadingOverlay.querySelector('#progressBar');
+        console.log('🎯 [MULTI BULK] Progress elements found:', !!progressText, !!progressBar);
 
-        for (const id of selectedIds) {
+        console.log('🔄 [MULTI BULK] Starting PDF generation loop...');
+        for (let index = 0; index < selectedIds.length; index++) {
+            const id = selectedIds[index];
+            console.log(`\n📄 [MULTI BULK] Processing invoice ${index + 1}/${selectedIds.length} - ID: ${id}`);
+            
             try {
-                const result = await window.electron.dbMulti.getInvoiceById(id);
+                console.log('🔍 [MULTI BULK] Checking if downloadInvoicePDFMulti function exists:', typeof window.downloadInvoicePDFMulti);
+                
+                if (typeof window.downloadInvoicePDFMulti !== 'function') {
+                    console.error('❌ [MULTI BULK] downloadInvoicePDFMulti function not found!');
+                    throw new Error('downloadInvoicePDFMulti function not found');
+                }
 
-                if (!result.success || !result.data) continue;
+                console.log('📞 [MULTI BULK] Calling downloadInvoicePDFMulti with params:', {
+                    id,
+                    returnBlob: true,
+                    options: {
+                        includeOrder,
+                        includeSignature,
+                        includeZeroProducts,
+                        selectedFontSize,
+                        skipModals: true
+                    }
+                });
+
+                // Use the EXACT SAME function as single download - downloadInvoicePDFMulti
+                // Call it with returnBlob=true to get blob instead of saving file
+                // Pass options to control behavior without showing modals
+                const pdfBlob = await window.downloadInvoicePDFMulti(id, true, {
+                    includeOrder,
+                    includeSignature,
+                    includeZeroProducts,
+                    selectedFontSize,
+                    skipModals: true
+                });
+
+                console.log('📄 [MULTI BULK] PDF generation result:', !!pdfBlob, pdfBlob ? `${pdfBlob.size} bytes` : 'null');
+
+                if (!pdfBlob) {
+                    console.warn('⚠️ [MULTI BULK] No PDF blob returned, skipping...');
+                    continue;
+                }
+
+                console.log('🗃️ [MULTI BULK] Fetching invoice data from database...');
+                const result = await window.electron.dbMulti.getInvoiceById(id);
+                console.log('🗃️ [MULTI BULK] Database result:', result.success, result.data ? 'data exists' : 'no data');
+
+                if (!result.success || !result.data) {
+                    console.warn('⚠️ [MULTI BULK] Failed to get invoice data, skipping...');
+                    continue;
+                }
 
                 const invoice = result.data;
-
-                // Generate PDF using existing function with includeOrder parameter
-                const pdfBlob = await generatePDFBlobMulti(invoice, includeOrder);
+                console.log('📋 [MULTI BULK] Invoice data:', {
+                    client: invoice.client_nom,
+                    type: invoice.document_type,
+                    numero: invoice.document_numero
+                });
 
                 // Organize files
+                console.log('📁 [MULTI BULK] Organizing file structure...');
                 const date = (window.safeParseDate||function(d){return new Date(d)})(invoice.document_date);
                 const yearMonth = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
                 const clientName = invoice.client_nom.replace(/[^a-z0-9]/gi, '_');
@@ -463,6 +645,7 @@ window.startBulkDownloadMulti = async function (selectedIds, organizationType, i
                 }
 
                 const filename = `${docPrefix}_${numero}_${clientName}.pdf`;
+                console.log('📄 [MULTI BULK] Generated filename:', filename);
 
                 let zipPath = '';
                 if (organizationType === 'client-month-type') {
@@ -480,35 +663,69 @@ window.startBulkDownloadMulti = async function (selectedIds, organizationType, i
                 } else {
                     zipPath = `${docType}/${filename}`;
                 }
+                console.log('🗂️ [MULTI BULK] ZIP path:', zipPath);
 
+                console.log('📦 [MULTI BULK] Adding file to ZIP...');
                 zip.file(zipPath, pdfBlob);
                 successCount++;
+                console.log('✅ [MULTI BULK] File added successfully. Success count:', successCount);
+
+                // Update progress
+                const progress = ((index + 1) / selectedIds.length) * 100;
+                progressBar.style.width = progress + '%';
+                progressText.textContent = `${index + 1}/${selectedIds.length}`;
+                console.log('📊 [MULTI BULK] Progress updated:', `${index + 1}/${selectedIds.length}`, `${progress.toFixed(1)}%`);
+
             } catch (error) {
-                console.error(`Error generating PDF for invoice ${id}:`, error);
+                console.error(`❌ [MULTI BULK] Error generating PDF for invoice ${id}:`, error);
             }
         }
 
+        console.log('🔄 [MULTI BULK] PDF generation loop completed. Total success:', successCount);
+
+        // Update loading text
+        console.log('🎨 [MULTI BULK] Updating loading text for ZIP creation...');
+        loadingOverlay.querySelector('h3').textContent = 'Création du fichier ZIP...';
+        loadingOverlay.querySelector('p').textContent = 'Compression en cours...';
+
         // Generate and download ZIP
-        window.notify.info('Téléchargement', 'Création du fichier ZIP...', 3000);
+        console.log('📦 [MULTI BULK] Generating ZIP file...');
         const zipBlob = await zip.generateAsync({ type: 'blob' });
+        console.log('✅ [MULTI BULK] ZIP generated successfully. Size:', zipBlob.size, 'bytes');
 
         // Download ZIP file
+        console.log('⬇️ [MULTI BULK] Starting ZIP download...');
         const link = document.createElement('a');
         link.href = URL.createObjectURL(zipBlob);
         link.download = `${folderName}.zip`;
         link.click();
         URL.revokeObjectURL(link.href);
+        console.log('✅ [MULTI BULK] ZIP download initiated');
 
+        // Remove loading overlay
+        console.log('🎨 [MULTI BULK] Removing loading overlay...');
+        loadingOverlay.remove();
+
+        console.log('🎉 [MULTI BULK] Showing success notification...');
         window.notify.success('Succès', `${successCount} PDF(s) téléchargé(s) dans ${folderName}.zip`, 4000);
 
         // Uncheck all checkboxes
+        console.log('☑️ [MULTI BULK] Unchecking all checkboxes...');
         document.querySelectorAll('.invoice-checkbox-multi').forEach(cb => cb.checked = false);
         const selectAllCheckbox = document.getElementById('selectAllInvoicesMulti');
         if (selectAllCheckbox) selectAllCheckbox.checked = false;
         updateSelectedCountMulti();
+        console.log('✅ [MULTI BULK] Bulk download completed successfully!');
 
     } catch (error) {
-        console.error('Error in bulk download:', error);
+        console.error('💥 [MULTI BULK] FATAL ERROR in bulk download:', error);
+        console.error('💥 [MULTI BULK] Error stack:', error.stack);
+        // Remove loading overlay if it exists
+        const existingOverlay = document.querySelector('[style*="z-index:10001"]');
+        if (existingOverlay) {
+            console.log('🎨 [MULTI BULK] Removing loading overlay due to error...');
+            existingOverlay.remove();
+        }
         window.notify.error('Erreur', 'Erreur lors du téléchargement: ' + error.message, 5000);
     }
 };

@@ -3083,7 +3083,7 @@ async function showMRYPDFCustomizationModal(invoice) {
     });
 }
 
-window.downloadInvoicePDF = async function (invoiceId) {
+window.downloadInvoicePDF = async function (invoiceId, returnBlob = false, options = {}) {
     try {
         console.log('📥 Generating PDF for invoice:', invoiceId);
 
@@ -3096,25 +3096,38 @@ window.downloadInvoicePDF = async function (invoiceId) {
 
         const invoice = result.data;
 
-        // Show consolidated customization modal
-        const customParams = await showMRYPDFCustomizationModal(invoice);
-        if (!customParams) {
-            console.log('❌ User cancelled PDF generation');
-            return;
-        }
+        const skipModals = options.skipModals || false;
+        let includeSignature, includeZeroProducts, notesFontSize;
 
-        console.log('⚙️ PDF Custom Parameters:', customParams);
-
-        // Apply parameters
-        if (invoice.document_type === 'facture') {
-            if (!customParams.includeOrder) {
+        if (skipModals) {
+            // Bulk download: apply options directly without modals
+            if (!options.includeOrder) {
                 invoice.document_numero_Order = null;
             }
-        }
+            includeSignature = options.includeSignature || false;
+            includeZeroProducts = options.includeZeroProducts || false;
+            notesFontSize = options.selectedFontSize || 'medium';
+        } else {
+            // Show consolidated customization modal
+            const customParams = await showMRYPDFCustomizationModal(invoice);
+            if (!customParams) {
+                console.log('❌ User cancelled PDF generation');
+                return;
+            }
 
-        const includeSignature = customParams.includeSignature;
-        const includeZeroProducts = customParams.includeZero;
-        const notesFontSize = customParams.notesFontSize;
+            console.log('⚙️ PDF Custom Parameters:', customParams);
+
+            // Apply parameters
+            if (invoice.document_type === 'facture') {
+                if (!customParams.includeOrder) {
+                    invoice.document_numero_Order = null;
+                }
+            }
+
+            includeSignature = customParams.includeSignature;
+            includeZeroProducts = customParams.includeZero;
+            notesFontSize = customParams.notesFontSize;
+        }
 
         console.log('📄 Continuing with PDF generation...');
         // Mark products with zero values for special display
@@ -3491,13 +3504,20 @@ window.downloadInvoicePDF = async function (invoiceId) {
         } else {
             filename = `Facture_${invoice.document_numero || invoice.id}_${invoice.client_nom}_${companyName}.pdf`;
         }
-        doc.save(filename);
-
-        window.notify.success('Succès', 'PDF téléchargé avec succès', 3000);
+        // Return blob for bulk download OR save PDF for single download
+        if (returnBlob) {
+            return doc.output('blob');
+        } else {
+            doc.save(filename);
+            window.notify.success('Succès', 'PDF téléchargé avec succès', 3000);
+        }
 
     } catch (error) {
         console.error('❌ Error generating PDF:', error);
-        window.notify.error('Erreur', 'Impossible de générer le PDF: ' + error.message, 4000);
+        if (!returnBlob) {
+            window.notify.error('Erreur', 'Impossible de générer le PDF: ' + error.message, 4000);
+        }
+        return null;
     }
 }
 
@@ -4077,28 +4097,61 @@ window.selectOrganization = function (element, value) {
     element.querySelector('input').checked = true;
 };
 
-// Show Order selection modal before download for MRY
+// Show unified options modal before bulk download for MRY - ALL options in ONE modal
 window.showOrderSelectionModalBeforeDownloadMRY = function (selectedIds, organizationType) {
     const selectionOverlay = document.createElement('div');
     selectionOverlay.className = 'custom-modal-overlay';
     selectionOverlay.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.95);z-index:10000;display:flex;align-items:center;justify-content:center;';
 
     selectionOverlay.innerHTML = `
-        <div class="custom-modal">
+        <div class="custom-modal" style="max-width:500px;">
             <div class="custom-modal-header">
-                <span class="custom-modal-icon info">📋</span>
-                <h3 class="custom-modal-title">Options d'affichage PDF</h3>
+                <span class="custom-modal-icon info">⚙️</span>
+                <h3 class="custom-modal-title">Paramètres de téléchargement</h3>
+                <p style="color:#999;font-size:0.85rem;margin-top:0.5rem;">${selectedIds.length} facture(s) sélectionnée(s)</p>
             </div>
-            <div class="custom-modal-body">
-                <p style="margin-bottom:1.25rem;color:#e0e0e0;font-size:0.95rem;">Choisissez les informations à afficher dans les PDFs:</p>
-                <label style="display:flex;align-items:center;cursor:pointer;padding:1rem;background:#1e1e1e;border:2px solid #2196F3;border-radius:10px;transition:all 0.2s ease;">
+            <div class="custom-modal-body" style="max-height:60vh;overflow-y:auto;">
+                <p style="margin-bottom:1.25rem;color:#e0e0e0;font-size:0.95rem;font-weight:600;">Ces paramètres seront appliqués à TOUS les PDFs:</p>
+                
+                <label style="display:flex;align-items:center;cursor:pointer;padding:1rem;background:#1e1e1e;border:2px solid #3e3e42;border-radius:10px;transition:all 0.2s ease;margin-bottom:0.75rem;">
                     <input type="checkbox" id="includeOrderCheckboxDownloadMRY" checked style="width:20px;height:20px;margin-right:1rem;cursor:pointer;accent-color:#2196F3;">
-                    <span style="font-size:0.95rem;color:#e0e0e0;font-weight:500;">
-                        Afficher les N° Order dans les PDFs
-                    </span>
+                    <span style="font-size:0.95rem;color:#e0e0e0;font-weight:500;">📋 Afficher les N° Order</span>
                 </label>
+
+                <label style="display:flex;align-items:center;cursor:pointer;padding:1rem;background:#1e1e1e;border:2px solid #3e3e42;border-radius:10px;transition:all 0.2s ease;margin-bottom:0.75rem;">
+                    <input type="checkbox" id="includeSignatureCheckboxDownloadMRY" checked style="width:20px;height:20px;margin-right:1rem;cursor:pointer;accent-color:#2196F3;">
+                    <span style="font-size:0.95rem;color:#e0e0e0;font-weight:500;">✍️ Inclure la signature (pour DEVIS)</span>
+                </label>
+
+                <label style="display:flex;align-items:center;cursor:pointer;padding:1rem;background:#1e1e1e;border:2px solid #3e3e42;border-radius:10px;transition:all 0.2s ease;margin-bottom:0.75rem;">
+                    <input type="checkbox" id="includeZeroProductsCheckboxDownloadMRY" style="width:20px;height:20px;margin-right:1rem;cursor:pointer;accent-color:#2196F3;">
+                    <span style="font-size:0.95rem;color:#e0e0e0;font-weight:500;">0️⃣ Afficher les produits avec quantité/prix = 0</span>
+                </label>
+
+                <div style="padding:1rem;background:#1e1e1e;border:2px solid #3e3e42;border-radius:10px;margin-bottom:0.75rem;">
+                    <label style="display:block;margin-bottom:0.8rem;color:#e0e0e0;font-weight:600;font-size:0.95rem;">🔤 Taille de police des Notes:</label>
+                    <div style="display:flex;gap:0.5rem;background:#2d2d30;padding:0.5rem;border-radius:8px;">
+                        <label style="flex:1;display:flex;flex-direction:column;align-items:center;cursor:pointer;padding:0.5rem;border-radius:6px;transition:all 0.2s;">
+                            <input type="radio" name="fontSizeBulkDownloadMRY" value="small" style="margin-bottom:0.4rem;cursor:pointer;">
+                            <span style="font-size:0.75rem;color:#999;">Petit</span>
+                        </label>
+                        <label style="flex:1;display:flex;flex-direction:column;align-items:center;cursor:pointer;padding:0.5rem;border-radius:6px;transition:all 0.2s;background:#3e3e42;">
+                            <input type="radio" name="fontSizeBulkDownloadMRY" value="medium" checked style="margin-bottom:0.4rem;cursor:pointer;">
+                            <span style="font-size:0.85rem;color:#fff;">Moyen</span>
+                        </label>
+                        <label style="flex:1;display:flex;flex-direction:column;align-items:center;cursor:pointer;padding:0.5rem;border-radius:6px;transition:all 0.2s;">
+                            <input type="radio" name="fontSizeBulkDownloadMRY" value="large" style="margin-bottom:0.4rem;cursor:pointer;">
+                            <span style="font-size:0.95rem;color:#999;">Grand</span>
+                        </label>
+                        <label style="flex:1;display:flex;flex-direction:column;align-items:center;cursor:pointer;padding:0.5rem;border-radius:6px;transition:all 0.2s;">
+                            <input type="radio" name="fontSizeBulkDownloadMRY" value="xlarge" style="margin-bottom:0.4rem;cursor:pointer;">
+                            <span style="font-size:1.05rem;color:#999;">Très G.</span>
+                        </label>
+                    </div>
+                </div>
             </div>
             <div class="custom-modal-footer">
+                <button class="custom-modal-btn secondary" id="cancelBtnDownloadMRY" style="padding:0.75rem 2rem;font-size:1rem;">Annuler</button>
                 <button class="custom-modal-btn primary" id="continueBtnDownloadMRY" style="padding:0.75rem 2rem;font-size:1rem;">Télécharger</button>
             </div>
         </div>
@@ -4106,28 +4159,39 @@ window.showOrderSelectionModalBeforeDownloadMRY = function (selectedIds, organiz
 
     document.body.appendChild(selectionOverlay);
 
-    const orderCheckbox = selectionOverlay.querySelector('#includeOrderCheckboxDownloadMRY');
-    const continueBtn = selectionOverlay.querySelector('#continueBtnDownloadMRY');
-
-    continueBtn.addEventListener('click', async () => {
-        const includeOrder = orderCheckbox.checked;
-
-        console.log('✅ [MRY DOWNLOAD] Include Order:', includeOrder);
-
-        selectionOverlay.remove();
-
-        await startBulkDownload(selectedIds, organizationType, includeOrder);
+    const fontSizeRadios = selectionOverlay.querySelectorAll('input[name="fontSizeBulkDownloadMRY"]');
+    fontSizeRadios.forEach(radio => {
+        radio.addEventListener('change', (e) => {
+            fontSizeRadios.forEach(r => {
+                r.parentElement.style.background = 'transparent';
+                r.parentElement.querySelector('span').style.color = '#999';
+            });
+            if (e.target.checked) {
+                e.target.parentElement.style.background = '#3e3e42';
+                e.target.parentElement.querySelector('span').style.color = '#fff';
+            }
+        });
     });
+
+    selectionOverlay.querySelector('#continueBtnDownloadMRY').addEventListener('click', async () => {
+        const opts = {
+            includeOrder: selectionOverlay.querySelector('#includeOrderCheckboxDownloadMRY').checked,
+            includeSignature: selectionOverlay.querySelector('#includeSignatureCheckboxDownloadMRY').checked,
+            includeZeroProducts: selectionOverlay.querySelector('#includeZeroProductsCheckboxDownloadMRY').checked,
+            selectedFontSize: selectionOverlay.querySelector('input[name="fontSizeBulkDownloadMRY"]:checked').value
+        };
+        console.log('✅ [MRY BULK DOWNLOAD] Options:', opts);
+        selectionOverlay.remove();
+        await startBulkDownload(selectedIds, organizationType, opts);
+    });
+
+    selectionOverlay.querySelector('#cancelBtnDownloadMRY').addEventListener('click', () => selectionOverlay.remove());
 
     selectionOverlay.addEventListener('click', (e) => {
-        if (e.target === selectionOverlay) {
-            const includeOrder = orderCheckbox.checked;
-            selectionOverlay.remove();
-            startBulkDownload(selectedIds, organizationType, includeOrder);
-        }
+        if (e.target === selectionOverlay) selectionOverlay.remove();
     });
 
-    setTimeout(() => continueBtn.focus(), 100);
+    setTimeout(() => selectionOverlay.querySelector('#continueBtnDownloadMRY').focus(), 100);
 };
 
 // Load JSZip library
@@ -4149,29 +4213,42 @@ async function loadJSZip() {
     });
 }
 
-// Start bulk download
-window.startBulkDownload = async function (selectedIds, organizationType, includeOrder = true) {
+// Start bulk download with loading indicator and progress bar
+window.startBulkDownload = async function (selectedIds, organizationType, options = {}) {
     try {
+        const {
+            includeOrder = true,
+            includeSignature = true,
+            includeZeroProducts = false,
+            selectedFontSize = 'medium'
+        } = options;
 
         // Close modal
         document.querySelector('.modal-overlay')?.remove();
 
-        // Show progress notification
-        window.notify.info('Téléchargement', `Génération de ${selectedIds.length} PDF(s)...`, 10000);
-
-        // Get all selected invoices data
-        const invoicesData = [];
-        for (const id of selectedIds) {
-            const result = await window.electron.db.getInvoiceById(id);
-            if (result.success && result.data) {
-                invoicesData.push(result.data);
-            }
-        }
-
-        if (invoicesData.length === 0) {
-            window.notify.error('Erreur', 'Aucune facture trouvée', 3000);
-            return;
-        }
+        // Create loading overlay with progress bar
+        const loadingOverlay = document.createElement('div');
+        loadingOverlay.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.95);z-index:10001;display:flex;align-items:center;justify-content:center;';
+        loadingOverlay.innerHTML = `
+            <div style="background:#2d2d30;border-radius:12px;padding:2rem;max-width:400px;width:90%;box-shadow:0 20px 60px rgba(0,0,0,0.9);">
+                <div style="text-align:center;margin-bottom:1.5rem;">
+                    <div style="font-size:3rem;margin-bottom:0.5rem;animation:spinMRY 1s linear infinite;">⚙️</div>
+                    <h3 style="color:#fff;margin:0;font-size:1.2rem;font-weight:600;">Téléchargement en cours</h3>
+                    <p style="color:#999;margin-top:0.5rem;font-size:0.9rem;">Génération des PDFs...</p>
+                </div>
+                <div style="margin-bottom:1rem;">
+                    <div style="display:flex;justify-content:space-between;margin-bottom:0.5rem;">
+                        <span style="color:#e0e0e0;font-size:0.9rem;">Progression</span>
+                        <span id="progressTextMRY" style="color:#2196F3;font-size:0.9rem;font-weight:600;">0/${selectedIds.length}</span>
+                    </div>
+                    <div style="background:#1e1e1e;border-radius:8px;height:8px;overflow:hidden;border:1px solid #3e3e42;">
+                        <div id="progressBarMRY" style="background:linear-gradient(90deg, #2196F3, #21CBF3);height:100%;width:0%;transition:width 0.3s ease;"></div>
+                    </div>
+                </div>
+                <style>@keyframes spinMRY { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }</style>
+            </div>
+        `;
+        document.body.appendChild(loadingOverlay);
 
         // Load libraries
         if (typeof window.jspdf === 'undefined') {
@@ -4184,65 +4261,79 @@ window.startBulkDownload = async function (selectedIds, organizationType, includ
         const timestamp = (window.todayDateString ? window.todayDateString() : new Date().toISOString().split('T')[0]);
         const folderName = `Factures_Export_${timestamp}`;
 
-        // Generate all PDFs and add to ZIP
         let successCount = 0;
+        const progressText = loadingOverlay.querySelector('#progressTextMRY');
+        const progressBar = loadingOverlay.querySelector('#progressBarMRY');
 
-        for (const invoice of invoicesData) {
+        for (let index = 0; index < selectedIds.length; index++) {
+            const id = selectedIds[index];
             try {
-                const pdfBlob = await generateSinglePDFBlob(invoice, organizationType, folderName, includeOrder);
+                // Use the EXACT SAME function as single download with skipModals
+                const pdfBlob = await window.downloadInvoicePDF(id, true, {
+                    includeOrder,
+                    includeSignature,
+                    includeZeroProducts,
+                    selectedFontSize,
+                    skipModals: true
+                });
 
-                // Organize in folders based on type
+                if (!pdfBlob) continue;
+
+                const result = await window.electron.db.getInvoiceById(id);
+                if (!result.success || !result.data) continue;
+                const invoice = result.data;
+
                 const invoiceDate = (window.safeParseDate||function(d){return new Date(d)})(invoice.document_date);
                 const yearMonth = `${invoiceDate.getFullYear()}-${String(invoiceDate.getMonth() + 1).padStart(2, '0')}`;
                 const clientName = invoice.client_nom.replace(/[^a-zA-Z0-9]/g, '_');
                 const numero = (invoice.document_numero || invoice.document_numero_devis || invoice.id).replace(/\//g, '_');
 
-                // Determine document type folder
                 const docType = invoice.document_type === 'facture' ? 'Factures' : 'Devis';
                 const docPrefix = invoice.document_type === 'facture' ? 'Facture' : 'Devis';
                 const filename = `${docPrefix}_${numero}_${clientName}.pdf`;
 
                 let zipPath = '';
                 if (organizationType === 'client-month-type') {
-                    // Client → Mois → Type
                     zipPath = `${clientName}/${yearMonth}/${docType}/${filename}`;
                 } else if (organizationType === 'client-type-month') {
-                    // Client → Type → Mois
                     zipPath = `${clientName}/${docType}/${yearMonth}/${filename}`;
                 } else if (organizationType === 'type-month-client') {
-                    // Type → Mois → Client
                     zipPath = `${docType}/${yearMonth}/${clientName}/${filename}`;
                 } else if (organizationType === 'type-client-month') {
-                    // Type → Client → Mois
                     zipPath = `${docType}/${clientName}/${yearMonth}/${filename}`;
                 } else if (organizationType === 'month-type-client') {
-                    // Mois → Type → Client
                     zipPath = `${yearMonth}/${docType}/${clientName}/${filename}`;
                 } else if (organizationType === 'month-client-type') {
-                    // Mois → Client → Type
                     zipPath = `${yearMonth}/${clientName}/${docType}/${filename}`;
                 } else {
-                    // Tout dans un dossier (flat)
                     zipPath = `${docType}/${filename}`;
                 }
 
                 zip.file(zipPath, pdfBlob);
                 successCount++;
+
+                // Update progress
+                const progress = ((index + 1) / selectedIds.length) * 100;
+                progressBar.style.width = progress + '%';
+                progressText.textContent = `${index + 1}/${selectedIds.length}`;
             } catch (error) {
-                console.error(`Error generating PDF for invoice ${invoice.id}:`, error);
+                console.error(`Error generating PDF for invoice ${id}:`, error);
             }
         }
 
-        // Generate and download ZIP
-        window.notify.info('Téléchargement', 'Création du fichier ZIP...', 3000);
+        // Update loading text
+        loadingOverlay.querySelector('h3').textContent = 'Création du fichier ZIP...';
+        loadingOverlay.querySelector('p').textContent = 'Compression en cours...';
+
         const zipBlob = await zip.generateAsync({ type: 'blob' });
 
-        // Download ZIP file
         const link = document.createElement('a');
         link.href = URL.createObjectURL(zipBlob);
         link.download = `${folderName}.zip`;
         link.click();
         URL.revokeObjectURL(link.href);
+
+        loadingOverlay.remove();
 
         window.notify.success('Succès', `${successCount} PDF(s) téléchargé(s) dans ${folderName}.zip`, 4000);
 
@@ -4257,13 +4348,24 @@ window.startBulkDownload = async function (selectedIds, organizationType, includ
     }
 };
 
-// Generate single PDF as Blob (for ZIP)
+// Generate single PDF as Blob (for ZIP) - using the same logic as downloadInvoicePDF
 async function generateSinglePDFBlob(invoice, organizationType, folderName, includeOrder = true) {
-    // This will use the same PDF generation logic as downloadInvoicePDF
-    // but with custom filename based on organization type and includeOrder parameter
+    // Use the exact same PDF generation logic as downloadInvoicePDF
+    // Create a temporary invoice object with includeOrder setting
+    const tempInvoice = { ...invoice };
+    
+    // Apply includeOrder setting
+    if (invoice.document_type === 'facture' && !includeOrder) {
+        tempInvoice.document_numero_Order = null;
+    }
 
-    // For bulk PDF, always hide zero values (no prompt)
-    const showZeroValues = false;
+    // For bulk download, use default settings
+    const includeSignature = invoice.document_type === 'devis'; // Include signature for devis
+    const includeZeroProducts = false; // Don't include zero products in bulk
+    const notesFontSize = 'medium'; // Default font size
+
+    // Load signature
+    const signatureImgMRY = await loadMRYSignature();
 
     const { jsPDF } = window.jspdf;
     const doc = new jsPDF();
@@ -4272,10 +4374,10 @@ async function generateSinglePDFBlob(invoice, organizationType, folderName, incl
     const blueColor = [33, 97, 140];
     const greenColor = [16, 172, 132];
     const orangeColor = [255, 152, 0];
-    const dateStr = (window.safeParseDate||function(d){return new Date(d)})(invoice.document_date).toLocaleDateString('fr-FR');
+    const dateStr = (window.safeParseDate||function(d){return new Date(d)})(tempInvoice.document_date).toLocaleDateString('fr-FR');
 
-    // Add header function (same as before)
-    const addHeader = () => {
+    // Function to add header to any page (same as downloadInvoicePDF)
+    const addHeader = (isFirstPage = true) => {
         try {
             const logoImg = document.querySelector('img[src*="mry.png"]') ||
                 document.querySelector('img[data-asset="mry"]') ||
@@ -4337,14 +4439,26 @@ async function generateSinglePDFBlob(invoice, organizationType, folderName, incl
         }
     };
 
-    const addFooter = () => {
+    const addFooter = (pageNum, totalPages) => {
+        // Add signature image above footer (right side) - ONLY FOR DEVIS AND IF USER APPROVED
+        if (signatureImgMRY && tempInvoice.document_type === 'devis' && includeSignature) {
+            doc.addImage(signatureImgMRY, 'PNG', 135, 230, 57, 40);
+        }
+
         doc.setTextColor(0, 0, 0);
         doc.setFontSize(7);
         doc.setFont(undefined, 'normal');
-        doc.text('NIF : 25077370  TP : 51200166  R.C : 23181  CNSS : 5679058  ICE : 002036664000051', 15, 280);
-        doc.text('R.I.B : 007 720 0005973000000519 74  ATTIJARI WAFA BANQ', 15, 284);
-        doc.text('AV, BNI IDDER RUE 14 N°10 COELMA - TÉTOUAN.', 15, 288);
-        doc.text('EMAIL: errbahiabderrahim@gmail.com  TEL : 0661307323', 15, 292);
+        doc.text('NIF : 25077370  TP : 51200166  R.C : 23181  CNSS : 5679058  ICE : 002036664000051', 105, 275, { align: 'center' });
+        doc.text('R.I.B : 007 720 0005973000000519 74  ATTIJARI WAFA BANQ', 105, 279, { align: 'center' });
+        doc.text('AV, BNI IDDER RUE 14 N°10 COELMA - TÉTOUAN.', 105, 283, { align: 'center' });
+        doc.text('EMAIL: errbahiabderrahim@gmail.com  TEL : 0661307323', 105, 287, { align: 'center' });
+
+        // Page numbering
+        if (pageNum && totalPages) {
+            doc.setFontSize(8);
+            doc.setTextColor(128, 128, 128);
+            doc.text(`Page ${pageNum} / ${totalPages}`, 105, 293, { align: 'center' });
+        }
     };
 
     addHeader();
@@ -4366,22 +4480,23 @@ async function generateSinglePDFBlob(invoice, organizationType, folderName, incl
     doc.setFont(undefined, 'normal');
     doc.setFontSize(9);
 
-    let pageCount = 0;
+    let pageCount = 1;
+    const pages = [];
 
-    invoice.products.forEach((product, index) => {
+    tempInvoice.products.forEach((product, index) => {
         const designation = product.designation || '';
         const lines = doc.splitTextToSize(designation, 85);
         const rowHeight = Math.max(8, (lines.length * 4.5) + 4);
 
         if (currentY + rowHeight > 215) {
-            addFooter();
+            pages.push(pageCount);
             doc.addPage();
             addHeader();
             pageCount++;
 
             // Re-draw table header on new page
             let newStartY = 80;
-            if (invoice.document_numero_Order) newStartY += 7;
+            if (tempInvoice.document_numero_Order) newStartY += 7;
 
             doc.setFillColor(...blueColor);
             doc.rect(15, newStartY, 180, 8, 'F');
@@ -4494,11 +4609,12 @@ async function generateSinglePDFBlob(invoice, organizationType, folderName, incl
                 let lineY = currentY + 4;
                 for (let i = 0; i < noteLines.length; i++) {
                     if (lineY > footerTopY) {
-                        addFooter();
+                        pages.push(pageCount);
                         doc.addPage();
                         addHeader();
+                        pageCount++;
                         // start continuation on new page below header
-                        const notesStartY = invoice.document_numero_Order ? 95 : 88;
+                        const notesStartY = tempInvoice.document_numero_Order ? 95 : 88;
                         doc.setFontSize(8);
                         doc.setFont(undefined, 'bold');
                         doc.setTextColor(96, 125, 139);
@@ -4517,7 +4633,14 @@ async function generateSinglePDFBlob(invoice, organizationType, folderName, incl
         }
     }
 
-    addFooter();
+    // Add page numbering to all pages
+    pages.push(pageCount);
+    const totalPages = pages.length;
+
+    for (let i = 0; i < totalPages; i++) {
+        doc.setPage(i + 1);
+        addFooter(i + 1, totalPages);
+    }
 
     // Return PDF as Blob instead of downloading
     return doc.output('blob');

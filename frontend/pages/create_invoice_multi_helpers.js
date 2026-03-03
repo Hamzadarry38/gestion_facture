@@ -18,9 +18,13 @@ window.handleDocumentTypeChangeMulti = async function () {
 
     try {
         // Get the last invoice from database
+        console.log('📡 [MULTI] Calling dbMulti.getAllInvoices for type:', type);
         const invoicesResult = await window.electron.dbMulti.getAllInvoices('MULTI');
+        console.log('📡 [MULTI] Server response:', invoicesResult.success, invoicesResult.data ? `${invoicesResult.data.length} invoices` : 'no data');
+        
         if (invoicesResult.success && invoicesResult.data && invoicesResult.data.length > 0) {
             const invoices = invoicesResult.data;
+            console.log('📋 [MULTI] Processing', invoices.length, 'invoices for type:', type);
 
             // Helper function to extract numeric value from document number
             const extractNumber = (docNumber) => {
@@ -36,7 +40,24 @@ window.handleDocumentTypeChangeMulti = async function () {
                 return match ? parseInt(match[0], 10) : 0;
             };
 
-            // Helper function to get max for a specific year
+            // Helper function to get max SEQUENTIAL NUMBER for a specific year (like stats.max)
+            const getMaxSequentialForYear = (list, field, year) => {
+                const yearStr = year.toString();
+                const filtered = list.filter(inv => {
+                    const val = inv[field];
+                    return val && val.toString().endsWith(yearStr);
+                });
+                if (filtered.length === 0) return 0;
+                
+                // Extract all sequential numbers and find the maximum
+                const sequentialNumbers = filtered.map(inv => extractNumber(inv[field]));
+                const maxSequential = Math.max(...sequentialNumbers);
+                
+                console.log('🔍 [MULTI] Max sequential number found:', maxSequential);
+                return maxSequential;
+            };
+
+            // Helper function to get max document for a specific year (original function)
             const getMaxForYear = (list, field, year) => {
                 const yearStr = year.toString();
                 const filtered = list.filter(inv => {
@@ -44,26 +65,158 @@ window.handleDocumentTypeChangeMulti = async function () {
                     return val && val.toString().endsWith(yearStr);
                 });
                 if (filtered.length === 0) return 'Aucun';
+                
+                // Sort by sequential number (extracted number) to get the real highest
                 filtered.sort((a, b) => extractNumber(b[field]) - extractNumber(a[field]));
-                return filtered[0][field];
+                
+                // Return the document with the highest sequential number
+                const maxDoc = filtered[0];
+                console.log('🔍 [MULTI] Max document found:', maxDoc[field], 'Sequential number:', extractNumber(maxDoc[field]));
+                return maxDoc[field];
             };
 
             const currentYear = new Date().getFullYear(); // Dynamic current year
 
             if (type === 'facture') {
                 const factures = invoices.filter(inv => inv.document_numero);
-                lastNumbers.main = getMaxForYear(factures, 'document_numero', currentYear);
+                
+                // Get max sequential number (like stats.max in missing numbers modal)
+                const maxSequential = getMaxSequentialForYear(factures, 'document_numero', currentYear);
+                
+                // Format as MTT[number][year] for display
+                if (maxSequential > 0) {
+                    lastNumbers.main = `MTT${maxSequential}${currentYear}`;
+                    console.log('✅ [MULTI] Using max sequential number:', maxSequential, 'Formatted as:', lastNumbers.main);
+                } else {
+                    lastNumbers.main = 'Aucun';
+                }
 
                 const orders = invoices.filter(inv => inv.document_numero_Order);
-                lastNumbers.order = getMaxForYear(orders, 'document_numero_Order', currentYear);
+                const maxOrderSequential = getMaxSequentialForYear(orders, 'document_numero_Order', currentYear);
+                if (maxOrderSequential > 0) {
+                    lastNumbers.order = `MTT${maxOrderSequential}${currentYear}`;
+                } else {
+                    lastNumbers.order = 'Aucun';
+                }
 
             } else if (type === 'devis') {
                 const devisList = invoices.filter(inv => inv.document_numero_devis);
-                lastNumbers.main = getMaxForYear(devisList, 'document_numero_devis', currentYear);
+                console.log('📋 [MULTI DEVIS] Found', devisList.length, 'devis in database');
+                
+                // Show all devis numbers for debugging
+                const devisNumbers = devisList.map(inv => inv.document_numero_devis).filter(num => num);
+                console.log('📋 [MULTI DEVIS] All devis numbers:', devisNumbers.slice(0, 10)); // Show first 10
+                
+                // Check for suspicious devis with 999
+                const suspiciousDevis = devisList.filter(inv => inv.document_numero_devis && inv.document_numero_devis.includes('999'));
+                if (suspiciousDevis.length > 0) {
+                    console.log('🚨 [MULTI DEVIS] Found', suspiciousDevis.length, 'suspicious devis with 999:');
+                    suspiciousDevis.forEach((d, index) => {
+                        console.log(`🚨 [MULTI DEVIS] Suspicious ${index + 1}:`, {
+                            id: d.id,
+                            numero: d.document_numero_devis,
+                            client: d.client_nom,
+                            date: d.document_date,
+                            created_at: d.created_at
+                        });
+                    });
+                    
+                    // Show the exact devis that has sequential number 999
+                    const devis999 = suspiciousDevis.find(d => extractNumber(d.document_numero_devis) === 999);
+                    if (devis999) {
+                        console.log('🎯 [MULTI DEVIS] THE CULPRIT - Devis with sequential 999:', {
+                            id: devis999.id,
+                            numero: devis999.document_numero_devis,
+                            client: devis999.client_nom,
+                            date: devis999.document_date,
+                            sequential: extractNumber(devis999.document_numero_devis)
+                        });
+                        
+                        // Offer to clean up duplicate devis - Show cleanup button in UI
+                        console.log('🧹 [MULTI DEVIS] CLEANUP SUGGESTION: Found', suspiciousDevis.length, 'duplicate devis with MTT9992026');
+                        console.log('🧹 [MULTI DEVIS] IDs to delete:', suspiciousDevis.map(d => d.id));
+                        console.log('🧹 [MULTI DEVIS] Call window.cleanupDuplicateDevisMulti() to remove these duplicates');
+                        
+                        // Show cleanup notification with button
+                        if (!document.getElementById('cleanupNotificationMulti')) {
+                            const cleanupNotif = document.createElement('div');
+                            cleanupNotif.id = 'cleanupNotificationMulti';
+                            cleanupNotif.style.cssText = `
+                                position: fixed;
+                                top: 20px;
+                                right: 20px;
+                                background: linear-gradient(135deg, #ff6b6b 0%, #ee5a6f 100%);
+                                color: white;
+                                padding: 1.5rem;
+                                border-radius: 12px;
+                                box-shadow: 0 8px 24px rgba(255, 107, 107, 0.3);
+                                z-index: 9999;
+                                max-width: 400px;
+                                font-family: Arial, sans-serif;
+                            `;
+                            cleanupNotif.innerHTML = `
+                                <div style="margin-bottom: 1rem;">
+                                    <h3 style="margin: 0 0 0.5rem 0; font-size: 1.1rem;">🧹 Nettoyage nécessaire</h3>
+                                    <p style="margin: 0 0 0.5rem 0; font-size: 0.95rem;">
+                                        ${suspiciousDevis.length} devis dupliqués détectés (MTT9992026)
+                                    </p>
+                                    <p style="margin: 0; font-size: 0.85rem; opacity: 0.9;">
+                                        Cliquez sur "Nettoyer" pour supprimer les doublons
+                                    </p>
+                                </div>
+                                <div style="display: flex; gap: 0.5rem;">
+                                    <button onclick="window.cleanupDuplicateDevisMulti()" style="
+                                        flex: 1;
+                                        padding: 0.75rem;
+                                        background: white;
+                                        color: #ff6b6b;
+                                        border: none;
+                                        border-radius: 8px;
+                                        cursor: pointer;
+                                        font-weight: 600;
+                                        transition: all 0.3s;
+                                    " onmouseover="this.style.transform='scale(1.05)'" onmouseout="this.style.transform='scale(1)'">
+                                        ✅ Nettoyer
+                                    </button>
+                                    <button onclick="document.getElementById('cleanupNotificationMulti').remove()" style="
+                                        padding: 0.75rem 1rem;
+                                        background: rgba(255,255,255,0.2);
+                                        color: white;
+                                        border: none;
+                                        border-radius: 8px;
+                                        cursor: pointer;
+                                        transition: all 0.3s;
+                                    " onmouseover="this.style.background='rgba(255,255,255,0.3)'" onmouseout="this.style.background='rgba(255,255,255,0.2)'">
+                                        ✕
+                                    </button>
+                                </div>
+                            `;
+                            document.body.appendChild(cleanupNotif);
+                        }
+                    }
+                }
+                
+                // Get max sequential number for devis (like stats.max in missing numbers modal)
+                const maxDevisSequential = getMaxSequentialForYear(devisList, 'document_numero_devis', currentYear);
+                
+                // Format as MTT[number][year] for display
+                if (maxDevisSequential > 0) {
+                    lastNumbers.main = `MTT${maxDevisSequential}${currentYear}`;
+                    console.log('✅ [MULTI DEVIS] Using max sequential number:', maxDevisSequential, 'Formatted as:', lastNumbers.main);
+                } else {
+                    lastNumbers.main = 'Aucun';
+                }
+            }
+        } else {
+            console.warn('⚠️ [MULTI] No invoices data received from server');
+            console.log('⚠️ [MULTI] invoicesResult:', invoicesResult);
+            if (!invoicesResult.success) {
+                console.error('❌ [MULTI] Server returned error:', invoicesResult.error);
             }
         }
     } catch (error) {
-        console.error('[MULTI] Error getting last numbers:', error);
+        console.error('💥 [MULTI] Fatal error getting last numbers:', error);
+        console.error('💥 [MULTI] Error stack:', error.stack);
     }
 
     let html = '<div class="form-row">';
@@ -157,6 +310,68 @@ window.handleDocumentTypeChangeMulti = async function () {
     }
 
     container.innerHTML = html;
+}
+
+// Function to clean up duplicate devis with MTT9992026
+window.cleanupDuplicateDevisMulti = async function() {
+    console.log('🧹 [MULTI CLEANUP] Starting cleanup of duplicate devis...');
+    
+    try {
+        // Get all invoices to find duplicates
+        const result = await window.electron.dbMulti.getAllInvoices('MULTI');
+        if (!result.success || !result.data) {
+            console.error('❌ [MULTI CLEANUP] Failed to get invoices');
+            return;
+        }
+        
+        const invoices = result.data;
+        const devisList = invoices.filter(inv => inv.document_numero_devis);
+        
+        // Find all devis with MTT9992026
+        const duplicateDevis = devisList.filter(inv => 
+            inv.document_numero_devis && inv.document_numero_devis === 'MTT9992026'
+        );
+        
+        console.log('🧹 [MULTI CLEANUP] Found', duplicateDevis.length, 'duplicate devis to delete');
+        
+        if (duplicateDevis.length === 0) {
+            console.log('✅ [MULTI CLEANUP] No duplicates found, cleanup not needed');
+            return;
+        }
+        
+        // Delete each duplicate devis
+        let deletedCount = 0;
+        for (const devis of duplicateDevis) {
+            try {
+                console.log('🗑️ [MULTI CLEANUP] Deleting devis ID:', devis.id, 'Client:', devis.client_nom);
+                const deleteResult = await window.electron.dbMulti.deleteInvoice(devis.id);
+                
+                if (deleteResult.success) {
+                    deletedCount++;
+                    console.log('✅ [MULTI CLEANUP] Deleted devis ID:', devis.id);
+                } else {
+                    console.error('❌ [MULTI CLEANUP] Failed to delete devis ID:', devis.id, deleteResult.error);
+                }
+            } catch (error) {
+                console.error('❌ [MULTI CLEANUP] Error deleting devis ID:', devis.id, error);
+            }
+        }
+        
+        console.log('🎉 [MULTI CLEANUP] Cleanup completed! Deleted', deletedCount, 'duplicate devis');
+        
+        if (deletedCount > 0) {
+            window.notify.success('Nettoyage terminé', `${deletedCount} devis dupliqués supprimés`, 4000);
+            
+            // Refresh the page to update the numbers
+            setTimeout(() => {
+                window.location.reload();
+            }, 2000);
+        }
+        
+    } catch (error) {
+        console.error('💥 [MULTI CLEANUP] Fatal error during cleanup:', error);
+        window.notify.error('Erreur', 'Erreur lors du nettoyage: ' + error.message, 5000);
+    }
 }
 
 // Format invoice number on blur - add MTT prefix and year suffix

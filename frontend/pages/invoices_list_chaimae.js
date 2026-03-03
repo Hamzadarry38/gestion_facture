@@ -4036,7 +4036,7 @@ async function showChaimaePDFCustomizationModal(invoice) {
 }
 
 
-window.downloadInvoicePDFChaimae = async function (invoiceId) {
+window.downloadInvoicePDFChaimae = async function (invoiceId, returnBlob = false, options = {}) {
     try {
         console.log('📥 Generating PDF for invoice:', invoiceId);
 
@@ -4054,26 +4054,39 @@ window.downloadInvoicePDFChaimae = async function (invoiceId) {
             invoice.document_numero_Order = invoice.document_numero_order;
         }
 
-        // Show consolidated customization modal
-        const customParams = await showChaimaePDFCustomizationModal(invoice);
-        if (!customParams) {
-            console.log('❌ User cancelled PDF generation');
-            return;
+        const skipModals = options.skipModals || false;
+        let includeSignature, includeZeroProducts, notesFontSize;
+
+        if (skipModals) {
+            // Bulk download: apply options directly without modals
+            if (!options.includeOrder) invoice.document_numero_Order = null;
+            if (!options.includeBL) invoice.document_bon_de_livraison = null;
+            if (!options.includeBC) invoice.document_numero_commande = null;
+            includeSignature = options.includeSignature || false;
+            includeZeroProducts = options.includeZeroProducts || false;
+            notesFontSize = options.selectedFontSize || 'medium';
+        } else {
+            // Show consolidated customization modal
+            const customParams = await showChaimaePDFCustomizationModal(invoice);
+            if (!customParams) {
+                console.log('❌ User cancelled PDF generation');
+                return;
+            }
+
+            console.log('⚙️ PDF Custom Parameters:', customParams);
+
+            // Apply parameters
+            if (invoice.document_type === 'facture') {
+                if (!customParams.includeOrder) invoice.document_numero_Order = null;
+                if (!customParams.includeBL) invoice.document_bon_de_livraison = null;
+            } else if (invoice.document_type === 'bl' || invoice.document_type === 'bon_livraison') {
+                if (!customParams.includeBC) invoice.document_numero_commande = null;
+            }
+
+            includeSignature = customParams.includeSignature;
+            includeZeroProducts = customParams.includeZero;
+            notesFontSize = customParams.notesFontSize;
         }
-
-        console.log('⚙️ PDF Custom Parameters:', customParams);
-
-        // Apply parameters
-        if (invoice.document_type === 'facture') {
-            if (!customParams.includeOrder) invoice.document_numero_Order = null;
-            if (!customParams.includeBL) invoice.document_bon_de_livraison = null;
-        } else if (invoice.document_type === 'bl' || invoice.document_type === 'bon_livraison') {
-            if (!customParams.includeBC) invoice.document_numero_commande = null;
-        }
-
-        const includeSignature = customParams.includeSignature;
-        const includeZeroProducts = customParams.includeZero;
-        const notesFontSize = customParams.notesFontSize;
 
         console.log('📄 Continuing with PDF generation...');
 
@@ -4498,13 +4511,20 @@ window.downloadInvoicePDFChaimae = async function (invoiceId) {
         const selectedCompany = JSON.parse(localStorage.getItem('selectedCompany') || '{}');
         const companyName = selectedCompany.name ? selectedCompany.name.replace(' Company', '') : 'Unknown';
         const filename = `${docType}_${docNumero}_${invoice.client_nom}_${companyName}.pdf`;
-        doc.save(filename);
-
-        window.notify.success('Succès', 'PDF téléchargé avec succès', 3000);
+        // Return blob for bulk download OR save PDF for single download
+        if (returnBlob) {
+            return doc.output('blob');
+        } else {
+            doc.save(filename);
+            window.notify.success('Succès', 'PDF téléchargé avec succès', 3000);
+        }
 
     } catch (error) {
         console.error('❌ Error generating PDF:', error);
-        window.notify.error('Erreur', 'Impossible de générer le PDF: ' + error.message, 4000);
+        if (!returnBlob) {
+            window.notify.error('Erreur', 'Impossible de générer le PDF: ' + error.message, 4000);
+        }
+        return null;
     }
 }
 
@@ -4949,10 +4969,30 @@ function numberToFrenchWordsChaimae(number) {
     return result.charAt(0).toUpperCase() + result.slice(1);
 }
 
-// Generate single PDF as Blob (for ZIP)
+// Generate single PDF as Blob (for ZIP) - using the same logic as downloadInvoicePDFChaimae
 async function generateSinglePDFBlobChaimae(invoice, organizationType, folderName, includeOrder = true, includeBL = true, includeBC = true) {
-    // For bulk PDF, always hide zero values (no prompt)
-    const showZeroValues = false;
+    // Use the exact same PDF generation logic as downloadInvoicePDFChaimae
+    // Create a temporary invoice object with settings
+    const tempInvoice = { ...invoice };
+    
+    // Apply includeOrder setting
+    if (invoice.document_type === 'facture' && !includeOrder) {
+        tempInvoice.document_numero_Order = null;
+    }
+    if (!includeBL) {
+        tempInvoice.document_bon_de_livraison = null;
+    }
+    if (!includeBC) {
+        tempInvoice.document_numero_commande = null;
+    }
+
+    // For bulk download, use default settings
+    const includeSignature = invoice.document_type === 'devis'; // Include signature for devis
+    const includeZeroProducts = false; // Don't include zero products in bulk
+    const notesFontSize = 'medium'; // Default font size
+
+    // Load signature
+    const signatureImgChaimae = await loadChaimaeSignature();
 
     const { jsPDF } = window.jspdf;
     const doc = new jsPDF();
@@ -4961,7 +5001,7 @@ async function generateSinglePDFBlobChaimae(invoice, organizationType, folderNam
     const blueColor = [33, 97, 140];
     const greenColor = [76, 175, 80];
     const orangeColor = [255, 152, 0];
-    const dateStr = (window.safeParseDate||function(d){return new Date(d)})(invoice.document_date).toLocaleDateString('fr-FR');
+    const dateStr = (window.safeParseDate||function(d){return new Date(d)})(tempInvoice.document_date).toLocaleDateString('fr-FR');
 
     const docType = invoice.document_type === 'facture' ? 'FACTURE' :
         invoice.document_type === 'devis' ? 'DEVIS' :
@@ -5054,13 +5094,18 @@ async function generateSinglePDFBlobChaimae(invoice, organizationType, folderNam
     };
 
     const addFooter = (pageNum, totalPages) => {
+        // Add signature image above footer (right side) - ONLY FOR DEVIS AND IF USER APPROVED
+        if (signatureImgChaimae && tempInvoice.document_type === 'devis' && includeSignature) {
+            doc.addImage(signatureImgChaimae, 'PNG', 140, 235, 60, 60);
+        }
+
         doc.setTextColor(0, 0, 0);
         doc.setFontSize(7);
         doc.setFont(undefined, 'normal');
-        doc.text('RIB : 007 720 00 05979000000368 12  ATTIJARI WAFA BANQ', 15, 275);
-        doc.text('Email: errbahiabderrahim@gmail.com', 15, 279);
-        doc.text('ADRESSE: LOT ALBAHR AV TETOUAN N94 GARAGE 2 M\'DIQ', 15, 283);
-        doc.text('Tel: +212 661 307 323', 15, 287);
+        doc.text('RIB : 007 720 00 05979000000368 12  ATTIJARI WAFA BANQ', 105, 275, { align: 'center' });
+        doc.text('Email: errbahiabderrahim@gmail.com', 105, 279, { align: 'center' });
+        doc.text('ADRESSE: LOT ALBAHR AV TETOUAN N94 GARAGE 2 M\'DIQ', 105, 283, { align: 'center' });
+        doc.text('Tel: +212 661 307 323', 105, 287, { align: 'center' });
 
         // Page numbering
         if (pageNum && totalPages) {
@@ -5774,40 +5819,71 @@ window.selectOrganizationChaimae = function (element, value) {
     element.querySelector('input').checked = true;
 };
 
-// Show Order/BL/BC selection modal before download for Chaimae
+// Show unified options modal before bulk download for Chaimae - ALL options in ONE modal
 window.showOrderBLBCSelectionModalBeforeDownloadChaimae = function (selectedIds, organizationType) {
     const selectionOverlay = document.createElement('div');
     selectionOverlay.className = 'custom-modal-overlay';
     selectionOverlay.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.95);z-index:10000;display:flex;align-items:center;justify-content:center;';
 
     selectionOverlay.innerHTML = `
-        <div class="custom-modal">
+        <div class="custom-modal" style="max-width:500px;">
             <div class="custom-modal-header">
-                <span class="custom-modal-icon info">📋</span>
-                <h3 class="custom-modal-title">Options d'affichage PDF</h3>
+                <span class="custom-modal-icon info">⚙️</span>
+                <h3 class="custom-modal-title">Paramètres de téléchargement</h3>
+                <p style="color:#999;font-size:0.85rem;margin-top:0.5rem;">${selectedIds.length} facture(s) sélectionnée(s)</p>
             </div>
-            <div class="custom-modal-body">
-                <p style="margin-bottom:1.25rem;color:#e0e0e0;font-size:0.95rem;">Choisissez les informations à afficher dans les PDFs:</p>
-                <label style="display:flex;align-items:center;cursor:pointer;padding:1rem;background:#1e1e1e;border:2px solid #2196F3;border-radius:10px;margin-bottom:1rem;transition:all 0.2s ease;">
+            <div class="custom-modal-body" style="max-height:60vh;overflow-y:auto;">
+                <p style="margin-bottom:1.25rem;color:#e0e0e0;font-size:0.95rem;font-weight:600;">Ces paramètres seront appliqués à TOUS les PDFs:</p>
+                
+                <label style="display:flex;align-items:center;cursor:pointer;padding:1rem;background:#1e1e1e;border:2px solid #3e3e42;border-radius:10px;transition:all 0.2s ease;margin-bottom:0.75rem;">
                     <input type="checkbox" id="includeOrderCheckboxDownloadChaimae" checked style="width:20px;height:20px;margin-right:1rem;cursor:pointer;accent-color:#2196F3;">
-                    <span style="font-size:0.95rem;color:#e0e0e0;font-weight:500;">
-                        Afficher les N° Order dans les PDFs
-                    </span>
+                    <span style="font-size:0.95rem;color:#e0e0e0;font-weight:500;">📋 Afficher les N° Order</span>
                 </label>
-                <label style="display:flex;align-items:center;cursor:pointer;padding:1rem;background:#1e1e1e;border:2px solid #4caf50;border-radius:10px;margin-bottom:1rem;transition:all 0.2s ease;">
+
+                <label style="display:flex;align-items:center;cursor:pointer;padding:1rem;background:#1e1e1e;border:2px solid #3e3e42;border-radius:10px;transition:all 0.2s ease;margin-bottom:0.75rem;">
                     <input type="checkbox" id="includeBLCheckboxDownloadChaimae" checked style="width:20px;height:20px;margin-right:1rem;cursor:pointer;accent-color:#4caf50;">
-                    <span style="font-size:0.95rem;color:#e0e0e0;font-weight:500;">
-                        Afficher les Bon de livraison dans les PDFs
-                    </span>
+                    <span style="font-size:0.95rem;color:#e0e0e0;font-weight:500;">📦 Afficher les Bon de livraison</span>
                 </label>
-                <label style="display:flex;align-items:center;cursor:pointer;padding:1rem;background:#1e1e1e;border:2px solid #ff9800;border-radius:10px;transition:all 0.2s ease;">
+
+                <label style="display:flex;align-items:center;cursor:pointer;padding:1rem;background:#1e1e1e;border:2px solid #3e3e42;border-radius:10px;transition:all 0.2s ease;margin-bottom:0.75rem;">
                     <input type="checkbox" id="includeBCCheckboxDownloadChaimae" checked style="width:20px;height:20px;margin-right:1rem;cursor:pointer;accent-color:#ff9800;">
-                    <span style="font-size:0.95rem;color:#e0e0e0;font-weight:500;">
-                        Afficher les N° Order dans les PDFs
-                    </span>
+                    <span style="font-size:0.95rem;color:#e0e0e0;font-weight:500;">📝 Afficher les N° Commande</span>
                 </label>
+
+                <label style="display:flex;align-items:center;cursor:pointer;padding:1rem;background:#1e1e1e;border:2px solid #3e3e42;border-radius:10px;transition:all 0.2s ease;margin-bottom:0.75rem;">
+                    <input type="checkbox" id="includeSignatureCheckboxDownloadChaimae" checked style="width:20px;height:20px;margin-right:1rem;cursor:pointer;accent-color:#2196F3;">
+                    <span style="font-size:0.95rem;color:#e0e0e0;font-weight:500;">✍️ Inclure la signature (pour DEVIS)</span>
+                </label>
+
+                <label style="display:flex;align-items:center;cursor:pointer;padding:1rem;background:#1e1e1e;border:2px solid #3e3e42;border-radius:10px;transition:all 0.2s ease;margin-bottom:0.75rem;">
+                    <input type="checkbox" id="includeZeroProductsCheckboxDownloadChaimae" style="width:20px;height:20px;margin-right:1rem;cursor:pointer;accent-color:#2196F3;">
+                    <span style="font-size:0.95rem;color:#e0e0e0;font-weight:500;">0️⃣ Afficher les produits avec quantité/prix = 0</span>
+                </label>
+
+                <div style="padding:1rem;background:#1e1e1e;border:2px solid #3e3e42;border-radius:10px;margin-bottom:0.75rem;">
+                    <label style="display:block;margin-bottom:0.8rem;color:#e0e0e0;font-weight:600;font-size:0.95rem;">🔤 Taille de police des Notes:</label>
+                    <div style="display:flex;gap:0.5rem;background:#2d2d30;padding:0.5rem;border-radius:8px;">
+                        <label style="flex:1;display:flex;flex-direction:column;align-items:center;cursor:pointer;padding:0.5rem;border-radius:6px;transition:all 0.2s;">
+                            <input type="radio" name="fontSizeBulkDownloadChaimae" value="small" style="margin-bottom:0.4rem;cursor:pointer;">
+                            <span style="font-size:0.75rem;color:#999;">Petit</span>
+                        </label>
+                        <label style="flex:1;display:flex;flex-direction:column;align-items:center;cursor:pointer;padding:0.5rem;border-radius:6px;transition:all 0.2s;background:#3e3e42;">
+                            <input type="radio" name="fontSizeBulkDownloadChaimae" value="medium" checked style="margin-bottom:0.4rem;cursor:pointer;">
+                            <span style="font-size:0.85rem;color:#fff;">Moyen</span>
+                        </label>
+                        <label style="flex:1;display:flex;flex-direction:column;align-items:center;cursor:pointer;padding:0.5rem;border-radius:6px;transition:all 0.2s;">
+                            <input type="radio" name="fontSizeBulkDownloadChaimae" value="large" style="margin-bottom:0.4rem;cursor:pointer;">
+                            <span style="font-size:0.95rem;color:#999;">Grand</span>
+                        </label>
+                        <label style="flex:1;display:flex;flex-direction:column;align-items:center;cursor:pointer;padding:0.5rem;border-radius:6px;transition:all 0.2s;">
+                            <input type="radio" name="fontSizeBulkDownloadChaimae" value="xlarge" style="margin-bottom:0.4rem;cursor:pointer;">
+                            <span style="font-size:1.05rem;color:#999;">Très G.</span>
+                        </label>
+                    </div>
+                </div>
             </div>
             <div class="custom-modal-footer">
+                <button class="custom-modal-btn secondary" id="cancelBtnDownloadChaimae" style="padding:0.75rem 2rem;font-size:1rem;">Annuler</button>
                 <button class="custom-modal-btn primary" id="continueBtnDownloadChaimae" style="padding:0.75rem 2rem;font-size:1rem;">Télécharger</button>
             </div>
         </div>
@@ -5815,34 +5891,41 @@ window.showOrderBLBCSelectionModalBeforeDownloadChaimae = function (selectedIds,
 
     document.body.appendChild(selectionOverlay);
 
-    const orderCheckbox = selectionOverlay.querySelector('#includeOrderCheckboxDownloadChaimae');
-    const blCheckbox = selectionOverlay.querySelector('#includeBLCheckboxDownloadChaimae');
-    const bcCheckbox = selectionOverlay.querySelector('#includeBCCheckboxDownloadChaimae');
-    const continueBtn = selectionOverlay.querySelector('#continueBtnDownloadChaimae');
-
-    continueBtn.addEventListener('click', async () => {
-        const includeOrder = orderCheckbox.checked;
-        const includeBL = blCheckbox.checked;
-        const includeBC = bcCheckbox.checked;
-
-        console.log('✅ [CHAIMAE DOWNLOAD] Include Order:', includeOrder, '| Include BL:', includeBL, '| Include BC:', includeBC);
-
-        selectionOverlay.remove();
-
-        await startBulkDownloadChaimae(selectedIds, organizationType, includeOrder, includeBL, includeBC);
+    const fontSizeRadios = selectionOverlay.querySelectorAll('input[name="fontSizeBulkDownloadChaimae"]');
+    fontSizeRadios.forEach(radio => {
+        radio.addEventListener('change', (e) => {
+            fontSizeRadios.forEach(r => {
+                r.parentElement.style.background = 'transparent';
+                r.parentElement.querySelector('span').style.color = '#999';
+            });
+            if (e.target.checked) {
+                e.target.parentElement.style.background = '#3e3e42';
+                e.target.parentElement.querySelector('span').style.color = '#fff';
+            }
+        });
     });
+
+    selectionOverlay.querySelector('#continueBtnDownloadChaimae').addEventListener('click', async () => {
+        const opts = {
+            includeOrder: selectionOverlay.querySelector('#includeOrderCheckboxDownloadChaimae').checked,
+            includeBL: selectionOverlay.querySelector('#includeBLCheckboxDownloadChaimae').checked,
+            includeBC: selectionOverlay.querySelector('#includeBCCheckboxDownloadChaimae').checked,
+            includeSignature: selectionOverlay.querySelector('#includeSignatureCheckboxDownloadChaimae').checked,
+            includeZeroProducts: selectionOverlay.querySelector('#includeZeroProductsCheckboxDownloadChaimae').checked,
+            selectedFontSize: selectionOverlay.querySelector('input[name="fontSizeBulkDownloadChaimae"]:checked').value
+        };
+        console.log('✅ [CHAIMAE BULK DOWNLOAD] Options:', opts);
+        selectionOverlay.remove();
+        await startBulkDownloadChaimae(selectedIds, organizationType, opts);
+    });
+
+    selectionOverlay.querySelector('#cancelBtnDownloadChaimae').addEventListener('click', () => selectionOverlay.remove());
 
     selectionOverlay.addEventListener('click', (e) => {
-        if (e.target === selectionOverlay) {
-            const includeOrder = orderCheckbox.checked;
-            const includeBL = blCheckbox.checked;
-            const includeBC = bcCheckbox.checked;
-            selectionOverlay.remove();
-            startBulkDownloadChaimae(selectedIds, organizationType, includeOrder, includeBL, includeBC);
-        }
+        if (e.target === selectionOverlay) selectionOverlay.remove();
     });
 
-    setTimeout(() => continueBtn.focus(), 100);
+    setTimeout(() => selectionOverlay.querySelector('#continueBtnDownloadChaimae').focus(), 100);
 };
 
 // Load JSZip library
@@ -5864,29 +5947,44 @@ async function loadJSZipChaimae() {
     });
 }
 
-// Start bulk download
-window.startBulkDownloadChaimae = async function (selectedIds, organizationType, includeOrder = true, includeBL = true, includeBC = true) {
+// Start bulk download with loading indicator and progress bar
+window.startBulkDownloadChaimae = async function (selectedIds, organizationType, options = {}) {
     try {
+        const {
+            includeOrder = true,
+            includeBL = true,
+            includeBC = true,
+            includeSignature = true,
+            includeZeroProducts = false,
+            selectedFontSize = 'medium'
+        } = options;
 
         // Close modal
         document.querySelector('.modal-overlay')?.remove();
 
-        // Show progress notification
-        window.notify.info('Téléchargement', `Génération de ${selectedIds.length} PDF(s)...`, 10000);
-
-        // Get all selected invoices data
-        const invoicesData = [];
-        for (const id of selectedIds) {
-            const result = await window.electron.dbChaimae.getInvoiceById(id);
-            if (result.success && result.data) {
-                invoicesData.push(result.data);
-            }
-        }
-
-        if (invoicesData.length === 0) {
-            window.notify.error('Erreur', 'Aucune facture trouvée', 3000);
-            return;
-        }
+        // Create loading overlay with progress bar
+        const loadingOverlay = document.createElement('div');
+        loadingOverlay.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.95);z-index:10001;display:flex;align-items:center;justify-content:center;';
+        loadingOverlay.innerHTML = `
+            <div style="background:#2d2d30;border-radius:12px;padding:2rem;max-width:400px;width:90%;box-shadow:0 20px 60px rgba(0,0,0,0.9);">
+                <div style="text-align:center;margin-bottom:1.5rem;">
+                    <div style="font-size:3rem;margin-bottom:0.5rem;animation:spinCH 1s linear infinite;">⚙️</div>
+                    <h3 style="color:#fff;margin:0;font-size:1.2rem;font-weight:600;">Téléchargement en cours</h3>
+                    <p style="color:#999;margin-top:0.5rem;font-size:0.9rem;">Génération des PDFs...</p>
+                </div>
+                <div style="margin-bottom:1rem;">
+                    <div style="display:flex;justify-content:space-between;margin-bottom:0.5rem;">
+                        <span style="color:#e0e0e0;font-size:0.9rem;">Progression</span>
+                        <span id="progressTextCH" style="color:#2196F3;font-size:0.9rem;font-weight:600;">0/${selectedIds.length}</span>
+                    </div>
+                    <div style="background:#1e1e1e;border-radius:8px;height:8px;overflow:hidden;border:1px solid #3e3e42;">
+                        <div id="progressBarCH" style="background:linear-gradient(90deg, #2196F3, #21CBF3);height:100%;width:0%;transition:width 0.3s ease;"></div>
+                    </div>
+                </div>
+                <style>@keyframes spinCH { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }</style>
+            </div>
+        `;
+        document.body.appendChild(loadingOverlay);
 
         // Load libraries
         if (typeof window.jspdf === 'undefined') {
@@ -5899,20 +5997,35 @@ window.startBulkDownloadChaimae = async function (selectedIds, organizationType,
         const timestamp = (window.todayDateString ? window.todayDateString() : new Date().toISOString().split('T')[0]);
         const folderName = `Factures_CHAIMAE_Export_${timestamp}`;
 
-        // Generate all PDFs and add to ZIP
         let successCount = 0;
+        const progressText = loadingOverlay.querySelector('#progressTextCH');
+        const progressBar = loadingOverlay.querySelector('#progressBarCH');
 
-        for (const invoice of invoicesData) {
+        for (let index = 0; index < selectedIds.length; index++) {
+            const id = selectedIds[index];
             try {
-                const pdfBlob = await generateSinglePDFBlobChaimae(invoice, organizationType, folderName, includeOrder, includeBL, includeBC);
+                // Use the EXACT SAME function as single download with skipModals
+                const pdfBlob = await window.downloadInvoicePDFChaimae(id, true, {
+                    includeOrder,
+                    includeBL,
+                    includeBC,
+                    includeSignature,
+                    includeZeroProducts,
+                    selectedFontSize,
+                    skipModals: true
+                });
 
-                // Organize in folders based on type
+                if (!pdfBlob) continue;
+
+                const result = await window.electron.dbChaimae.getInvoiceById(id);
+                if (!result.success || !result.data) continue;
+                const invoice = result.data;
+
                 const invoiceDate = (window.safeParseDate||function(d){return new Date(d)})(invoice.document_date);
                 const yearMonth = `${invoiceDate.getFullYear()}-${String(invoiceDate.getMonth() + 1).padStart(2, '0')}`;
                 const clientName = invoice.client_nom.replace(/[^a-zA-Z0-9]/g, '_');
                 const numero = (invoice.document_numero || invoice.document_numero_devis || invoice.document_numero_bl || invoice.id).toString().replace(/\//g, '_');
 
-                // Determine document type folder
                 let docType = 'Documents';
                 let docPrefix = 'Document';
                 if (invoice.document_type === 'facture') {
@@ -5930,45 +6043,46 @@ window.startBulkDownloadChaimae = async function (selectedIds, organizationType,
 
                 let zipPath = '';
                 if (organizationType === 'client-month-type') {
-                    // Client → Mois → Type
                     zipPath = `${clientName}/${yearMonth}/${docType}/${filename}`;
                 } else if (organizationType === 'client-type-month') {
-                    // Client → Type → Mois
                     zipPath = `${clientName}/${docType}/${yearMonth}/${filename}`;
                 } else if (organizationType === 'type-month-client') {
-                    // Type → Mois → Client
                     zipPath = `${docType}/${yearMonth}/${clientName}/${filename}`;
                 } else if (organizationType === 'type-client-month') {
-                    // Type → Client → Mois
                     zipPath = `${docType}/${clientName}/${yearMonth}/${filename}`;
                 } else if (organizationType === 'month-type-client') {
-                    // Mois → Type → Client
                     zipPath = `${yearMonth}/${docType}/${clientName}/${filename}`;
                 } else if (organizationType === 'month-client-type') {
-                    // Mois → Client → Type
                     zipPath = `${yearMonth}/${clientName}/${docType}/${filename}`;
                 } else {
-                    // Tout dans un dossier (flat)
                     zipPath = `${docType}/${filename}`;
                 }
 
                 zip.file(zipPath, pdfBlob);
                 successCount++;
+
+                // Update progress
+                const progress = ((index + 1) / selectedIds.length) * 100;
+                progressBar.style.width = progress + '%';
+                progressText.textContent = `${index + 1}/${selectedIds.length}`;
             } catch (error) {
-                console.error(`Error generating PDF for invoice ${invoice.id}:`, error);
+                console.error(`Error generating PDF for invoice ${id}:`, error);
             }
         }
 
-        // Generate and download ZIP
-        window.notify.info('Téléchargement', 'Création du fichier ZIP...', 3000);
+        // Update loading text
+        loadingOverlay.querySelector('h3').textContent = 'Création du fichier ZIP...';
+        loadingOverlay.querySelector('p').textContent = 'Compression en cours...';
+
         const zipBlob = await zip.generateAsync({ type: 'blob' });
 
-        // Download ZIP file
         const link = document.createElement('a');
         link.href = URL.createObjectURL(zipBlob);
         link.download = `${folderName}.zip`;
         link.click();
         URL.revokeObjectURL(link.href);
+
+        loadingOverlay.remove();
 
         window.notify.success('Succès', `${successCount} PDF(s) téléchargé(s) dans ${folderName}.zip`, 4000);
 
@@ -5980,6 +6094,8 @@ window.startBulkDownloadChaimae = async function (selectedIds, organizationType,
 
     } catch (error) {
         console.error('Error in bulk download:', error);
+        const existingOverlay = document.querySelector('[style*="z-index:10001"]');
+        if (existingOverlay) existingOverlay.remove();
         window.notify.error('Erreur', 'Erreur lors du téléchargement: ' + error.message, 5000);
     }
 };
