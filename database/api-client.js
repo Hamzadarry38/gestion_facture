@@ -198,6 +198,13 @@ const service = {
         return res.data;
     },
 
+    updateInvoiceMetadata: async (id, metadata) => {
+        console.log(`📡 [API] updateInvoiceMetadata called - ID: ${id}, metadata:`, JSON.stringify(metadata));
+        const res = await apiClient.patch(`/invoices/${id}/metadata`, metadata);
+        console.log(`📡 [API] updateInvoiceMetadata response:`, JSON.stringify(res.data));
+        return res.data;
+    },
+
     deleteInvoice: async (id) => {
         const res = await apiClient.delete(`/invoices/${id}`);
         return res.data;

@@ -917,7 +917,7 @@ window.downloadInvoicePDFMulti = async function (invoiceId, returnBlob = false, 
         doc.setTextColor(0, 0, 0);
         doc.setFont(undefined, 'normal');
         doc.setFontSize(8);
-        doc.text('ATTIJARI WAFA BANQ', 17, fixedBottomY + 10);
+        doc.text('ATTIJARI WAFA BANK', 17, fixedBottomY + 10);
         doc.text('RIB : 007 720 0005979000000953 03', 17, fixedBottomY + 15);
 
         // Totals - Right side with gray background (same Y position)

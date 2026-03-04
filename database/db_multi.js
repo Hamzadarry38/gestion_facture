@@ -113,6 +113,14 @@ async function initDatabase() {
                 db.run(`ALTER TABLE invoices ADD COLUMN creation_method TEXT DEFAULT 'normal'`);
                 columnsAdded.push('creation_method');
             }
+            if (!columns.includes('is_featured')) {
+                db.run(`ALTER TABLE invoices ADD COLUMN is_featured INTEGER DEFAULT 0`);
+                columnsAdded.push('is_featured');
+            }
+            if (!columns.includes('private_notes')) {
+                db.run(`ALTER TABLE invoices ADD COLUMN private_notes TEXT`);
+                columnsAdded.push('private_notes');
+            }
 
             if (columnsAdded.length > 0) {
                 console.log('✅ [MULTI] Added user tracking columns:', columnsAdded);
@@ -663,6 +671,30 @@ const invoiceOps = {
         db.run('DELETE FROM invoices WHERE id = ?', [id]);
         saveDatabase();
         return { changes: 1 };
+    },
+
+    updateMetadata: (id, metadata) => {
+        const updates = [];
+        const params = [];
+        
+        if (metadata.is_featured !== undefined) {
+            updates.push('is_featured = ?');
+            params.push(metadata.is_featured || 0);
+        }
+        if (metadata.private_notes !== undefined && metadata.private_notes !== null) {
+            updates.push('private_notes = ?');
+            params.push(metadata.private_notes);
+        }
+        
+        if (updates.length === 0) return { success: true, changes: 0 };
+        
+        updates.push('updated_at = CURRENT_TIMESTAMP');
+        params.push(id);
+        
+        db.run(`UPDATE invoices SET ${updates.join(', ')} WHERE id = ?`, params);
+        
+        saveDatabase();
+        return { success: true, changes: 1 };
     },
 
     // Get next suggested invoice number for the current year

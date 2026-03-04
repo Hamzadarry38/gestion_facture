@@ -1336,6 +1336,17 @@ async function handleInvoiceSubmitMulti(e) {
                 await window.electron.dbMulti.saveNote(invoiceId, noteText);
             }
 
+            // Save featured status and private notes
+            const isFeatured = document.getElementById('invoiceFeaturedMulti')?.checked ? 1 : 0;
+            const privateNotes = document.getElementById('invoicePrivateNotesMulti')?.value?.trim() || '';
+            
+            if (isFeatured || privateNotes) {
+                await window.electron.dbMulti.updateInvoiceMetadata(invoiceId, {
+                    is_featured: isFeatured,
+                    private_notes: privateNotes
+                });
+            }
+
             if (overlay) overlay.remove();
             window.notify.success('Facture enregistrée avec succès!', `ID: ${invoiceId} - ${formData.client.nom}`, 4000);
 
@@ -1356,6 +1367,14 @@ async function handleInvoiceSubmitMulti(e) {
 
 window.initCreateInvoiceMultiPage = async function () {
     console.log('🔄 [MULTI] Initializing invoice form page...');
+
+    // Show admin-only fields (Featured & Private Notes) for super users
+    const user = JSON.parse(localStorage.getItem('user') || '{}');
+    const isSuperUser = (user.email === 'redouanerrebbahi99@gmail.com' || user.can_auto_validate === true);
+    const adminFields = document.getElementById('adminFieldsMulti');
+    if (adminFields && isSuperUser) {
+        adminFields.style.display = 'block';
+    }
 
     initializeInvoiceFormMulti();
 

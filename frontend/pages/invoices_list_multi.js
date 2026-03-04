@@ -52,7 +52,8 @@ function InvoicesListMultiPage() {
                                 <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor">
                                     <path d="M1 11a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1v3a1 1 0 0 1-1 1H2a1 1 0 0 1-1-1v-3zm5-4a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1v7a1 1 0 0 1-1 1H7a1 1 0 0 1-1-1v-7zm5-5a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1v12a1 1 0 0 1-1 1h-2a1 1 0 0 1-1-1V2z"/>
                                 </svg>
-                                <span>Situation</span>
+                                <span>
+                                </span>
                             </button>
 
                             <button class="action-btn action-btn-situation" onclick="showSituationAnnuelleModalMulti()" style="background-color: #ef5350;">
@@ -232,6 +233,16 @@ function InvoicesListMultiPage() {
                                 <option value="en_attente">En attente</option>
                                 <option value="accuse">Accusé</option>
                                 <option value="done">Done</option>
+                            </select>
+                        </div>
+
+                        <!-- Featured Filter - Admins Only -->
+                        <div class="filter-group" id="featuredFilterGroupMulti" style="display: none;">
+                            <label>⭐ Importance:</label>
+                            <select id="filterFeaturedMulti" onchange="filterInvoicesMulti()">
+                                <option value="all">Toutes</option>
+                                <option value="featured">⭐ Importantes</option>
+                                <option value="not_featured">Non importantes</option>
                             </select>
                         </div>
 
@@ -508,6 +519,83 @@ window.toggleValidationQueueMulti = function () {
     }
 };
 
+// Toggle Featured Status Multi (from table row)
+window.toggleFeaturedMulti = async function (invoiceId, element) {
+    try {
+        const currentFeatured = element.dataset.featured === '1';
+        const newFeatured = currentFeatured ? 0 : 1;
+        console.log(`⭐ [MULTI] toggleFeatured - Invoice: ${invoiceId}, current: ${currentFeatured}, new: ${newFeatured}`);
+
+        const result = await window.electron.dbMulti.updateInvoiceMetadata(invoiceId, {
+            is_featured: newFeatured
+        });
+        console.log(`⭐ [MULTI] toggleFeatured result:`, JSON.stringify(result));
+
+        if (result.success) {
+            // Update local state
+            const inv = allInvoicesMulti.find(i => i.id == invoiceId);
+            if (inv) inv.is_featured = newFeatured;
+            const filteredInv = filteredInvoicesMulti.find(i => i.id == invoiceId);
+            if (filteredInv) filteredInv.is_featured = newFeatured;
+
+            // Update UI immediately
+            element.dataset.featured = newFeatured ? '1' : '0';
+            element.textContent = newFeatured ? '⭐' : '☆';
+            element.style.filter = newFeatured ? 'none' : 'grayscale(1) opacity(0.3)';
+            element.title = newFeatured ? 'Retirer des importantes' : 'Marquer comme importante';
+        } else {
+            window.notify.error('Erreur', 'Échec de la mise à jour');
+        }
+    } catch (error) {
+        console.error('Toggle featured error:', error);
+        window.notify.error('Erreur', 'Une erreur est survenue');
+    }
+};
+
+// Toggle Featured Status Multi (from modal details)
+window.toggleFeaturedInModalMulti = async function (invoiceId, buttonElement) {
+    try {
+        const currentFeatured = buttonElement.dataset.featured === '1';
+        const newFeatured = currentFeatured ? 0 : 1;
+        console.log(`⭐ [MULTI MODAL] toggleFeatured - Invoice: ${invoiceId}, current: ${currentFeatured}, new: ${newFeatured}`);
+
+        const result = await window.electron.dbMulti.updateInvoiceMetadata(invoiceId, {
+            is_featured: newFeatured
+        });
+        console.log(`⭐ [MULTI MODAL] toggleFeatured result:`, JSON.stringify(result));
+
+        if (result.success) {
+            // Update local state
+            const inv = allInvoicesMulti.find(i => i.id == invoiceId);
+            if (inv) inv.is_featured = newFeatured;
+            const filteredInv = filteredInvoicesMulti.find(i => i.id == invoiceId);
+            if (filteredInv) filteredInv.is_featured = newFeatured;
+
+            // Update button UI
+            buttonElement.dataset.featured = newFeatured ? '1' : '0';
+            buttonElement.style.background = newFeatured ? '#ffa726' : '#666';
+            buttonElement.querySelector('span').textContent = newFeatured ? '⭐' : '☆';
+            buttonElement.childNodes[2].textContent = newFeatured ? 'Retirer des importantes' : 'Marquer comme importante';
+
+            // Update table row star icon if visible
+            const tableStarElement = document.querySelector(`span[onclick*="toggleFeaturedMulti(${invoiceId}"]`);
+            if (tableStarElement) {
+                tableStarElement.dataset.featured = newFeatured ? '1' : '0';
+                tableStarElement.textContent = newFeatured ? '⭐' : '☆';
+                tableStarElement.style.filter = newFeatured ? 'none' : 'grayscale(1) opacity(0.3)';
+                tableStarElement.title = newFeatured ? 'Retirer des importantes' : 'Marquer comme importante';
+            }
+
+            window.notify.success('Succès', newFeatured ? 'Facture marquée comme importante' : 'Facture retirée des importantes');
+        } else {
+            window.notify.error('Erreur', 'Échec de la mise à jour');
+        }
+    } catch (error) {
+        console.error('Toggle featured in modal error:', error);
+        window.notify.error('Erreur', 'Une erreur est survenue');
+    }
+};
+
 // Update AR Status Multi
 window.updateArStatusMulti = async function (id, status) {
     try {
@@ -610,6 +698,12 @@ async function loadInvoicesMulti() {
     const statusFilterGroup = document.getElementById('statusFilterGroupMulti');
     if (statusFilterGroup) {
         statusFilterGroup.style.display = isSuperUserMulti ? 'block' : 'none';
+    }
+
+    // Show/Hide Featured Filter based on admin status
+    const featuredFilterGroup = document.getElementById('featuredFilterGroupMulti');
+    if (featuredFilterGroup) {
+        featuredFilterGroup.style.display = isSuperUserMulti ? 'block' : 'none';
     }
 
     const spinner = document.getElementById('loadingSpinnerMulti');
@@ -931,7 +1025,16 @@ function filterInvoicesMulti() {
             }
         }
 
-        return matchType && matchYear && matchMonth && matchClient && matchAttachments && matchCreationMethod && matchAR && searchMatch && matchDevisConversion;
+        // Featured filter
+        let matchFeatured = true;
+        const filterFeatured = document.getElementById('filterFeaturedMulti')?.value || 'all';
+        if (filterFeatured === 'featured') {
+            matchFeatured = invoice.is_featured === 1 || invoice.is_featured === true;
+        } else if (filterFeatured === 'not_featured') {
+            matchFeatured = !invoice.is_featured || invoice.is_featured === 0;
+        }
+
+        return matchType && matchYear && matchMonth && matchClient && matchAttachments && matchCreationMethod && matchAR && searchMatch && matchDevisConversion && matchFeatured;
     });
 
     displayInvoicesMulti();
@@ -1026,9 +1129,15 @@ function displayInvoicesMulti() {
 
         row.innerHTML = `
             <td>
-                <input type="checkbox" class="invoice-checkbox-multi" data-invoice-id="${invoice.id}" 
-                       style="width: 18px; height: 18px; cursor: pointer;"
-                       onchange="updateSelectedCountMulti()">
+                <div style="display: flex; align-items: center; gap: 0.4rem;">
+                    <input type="checkbox" class="invoice-checkbox-multi" data-invoice-id="${invoice.id}" 
+                           style="width: 18px; height: 18px; cursor: pointer;"
+                           onchange="updateSelectedCountMulti()">
+                    ${isSuperUserMulti ? `<span onclick="event.stopPropagation(); toggleFeaturedMulti(${invoice.id}, this)" 
+                          style="cursor: pointer; font-size: 1.2rem; transition: all 0.2s; filter: ${invoice.is_featured ? 'none' : 'grayscale(1) opacity(0.3)'};" 
+                          title="${invoice.is_featured ? 'Retirer des importantes' : 'Marquer comme importante'}"
+                          data-featured="${invoice.is_featured ? '1' : '0'}">${invoice.is_featured ? '⭐' : '☆'}</span>` : ''}
+                </div>
             </td>
             <td><span class="badge badge-${badgeType}" style="${badgeType === 'converted-devis' ? 'background: #e8f5e9; color: #2e7d32; border: 1px solid #a5d6a7;' : ''}">${typeLabel}</span></td>
             <td>
@@ -1213,6 +1322,12 @@ window.viewInvoiceMulti = async function (id) {
                     <h2 style="color:#fff;margin:0;font-size:1.3rem;font-weight:600;">Détails de la ${typeLabel} #${docNumber}</h2>
                 </div>
                 <div style="display:flex;align-items:center;gap:1rem;flex-wrap:wrap;">
+                    ${isSuperUserMulti ? `
+                    <button id="toggleFeaturedBtn${id}" onclick="toggleFeaturedInModalMulti(${id}, this)" style="padding:0.6rem 1.2rem;background:${invoice.is_featured ? '#ffa726' : '#666'};color:#fff;border:none;border-radius:8px;cursor:pointer;font-size:0.9rem;font-weight:600;display:flex;align-items:center;gap:0.5rem;transition:all 0.2s;" onmouseover="this.style.opacity='0.9'" onmouseout="this.style.opacity='1'" data-featured="${invoice.is_featured ? '1' : '0'}">
+                        <span style="font-size:1.1rem;">${invoice.is_featured ? '⭐' : '☆'}</span>
+                        ${invoice.is_featured ? 'Retirer des importantes' : 'Marquer comme importante'}
+                    </button>
+                    ` : ''}
                     ${invoice.validation_status === 'pending' ? `
                     <button onclick="markAsSeenMulti(${id})" style="padding:0.6rem 1.2rem;background:#4caf50;color:#fff;border:none;border-radius:8px;cursor:pointer;font-size:0.9rem;font-weight:600;display:flex;align-items:center;gap:0.5rem;transition:all 0.2s;box-shadow: 0 4px 6px rgba(0,0,0,0.2);" onmouseover="this.style.transform='translateY(-2px)'" onmouseout="this.style.transform='translateY(0)'">
                         <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
@@ -1339,11 +1454,26 @@ window.viewInvoiceMulti = async function (id) {
 
                 <!-- Notes Section -->
                 <div style="margin-bottom:2rem;" id="notesSectionMulti${id}">
-                    <h3 style="color:#fff;font-size:1.1rem;margin:0 0 1rem 0;font-weight:600;">📝 Notes</h3>
+                    <h3 style="color:#fff;font-size:1.1rem;margin:0 0 1rem 0;font-weight:600;">📝 Notes (PDF)</h3>
                     <div style="background:#1e1e1e;padding:1rem;border-radius:8px;">
                         <div style="color:#999;font-size:0.9rem;font-style:italic;">Chargement...</div>
                     </div>
                 </div>
+
+                <!-- Private Notes Section (Admin Only) -->
+                ${isSuperUserMulti ? `
+                <div style="margin-bottom:2rem;">
+                    <h3 style="color:#ff9800;font-size:1.1rem;margin:0 0 1rem 0;font-weight:600;display:flex;align-items:center;gap:0.5rem;">
+                        🔒 Notes privées (usage interne uniquement)
+                    </h3>
+                    <div style="background:#1e1e1e;padding:1rem;border-radius:8px;border:2px solid #ff9800;">
+                        <div style="color:#fff;font-size:0.9rem;white-space:pre-wrap;">${invoice.private_notes || 'Aucune note privée'}</div>
+                    </div>
+                    <small style="color:#ff9800;font-size:0.85rem;display:block;margin-top:0.5rem;">
+                        ⚠️ Ces notes sont privées et ne sont JAMAIS affichées dans le PDF généré.
+                    </small>
+                </div>
+                ` : ''}
 
                 <!-- Attachments Section -->
                 <div style="margin-bottom:2rem;" id="attachmentsSectionMulti${id}">
@@ -2169,7 +2299,7 @@ window.downloadBonDeTravaux = async function (invoiceId) {
         doc.setTextColor(0, 0, 0);
         doc.setFont(undefined, 'normal');
         doc.setFontSize(8);
-        doc.text('ATTIJARI WAFA BANQ', 17, fixedBottomY + 10);
+        doc.text('ATTIJARI WAFA BANK', 17, fixedBottomY + 10);
         doc.text('RIB : 007 720 0005979000000953 03', 17, fixedBottomY + 15);
 
         // Totals - Right side with gray background (same Y position)
@@ -2648,7 +2778,7 @@ window.downloadInvoicePDFMulti = async function (invoiceId) {
         doc.setTextColor(0, 0, 0);
         doc.setFont(undefined, 'normal');
         doc.setFontSize(8);
-        doc.text('ATTIJARI WAFA BANQ', 17, fixedBottomY + 10);
+        doc.text('ATTIJARI WAFA BANK', 17, fixedBottomY + 10);
         doc.text('RIB : 007 720 0005979000000953 03', 17, fixedBottomY + 15);
 
         // Totals - Right side with gray background (same Y position)
@@ -2904,6 +3034,8 @@ window.resetFiltersMulti = function () {
     if (methodFilter) methodFilter.value = 'all';
     if (convFilter) convFilter.value = 'all';
     if (arFilter) arFilter.value = 'all';
+    const featuredFilter = document.getElementById('filterFeaturedMulti');
+    if (featuredFilter) featuredFilter.value = 'all';
     
     // Reset search type checkboxes
     const searchTypeChecks = [

@@ -155,14 +155,43 @@ function CreateInvoiceMRYPage() {
                         </div>
                     </div>
 
-                    <!-- Section 5: Notes -->
+                    <!-- Section 5: Notes & Options -->
                     <div class="invoice-section">
                         <div class="section-header">
-                            <h2>📝 Notes</h2>
+                            <h2>📝 Notes & Options</h2>
                         </div>
                         <div class="section-body">
+                            <!-- Featured & Private Notes - Admin Only -->
+                            <div id="adminFieldsMRY" style="display: none;">
+                                <!-- Featured Checkbox -->
+                                <div class="form-field" style="margin-bottom: 1.5rem;">
+                                    <label style="display: flex; align-items: center; cursor: pointer; user-select: none;">
+                                        <input type="checkbox" id="invoiceFeaturedMRY" 
+                                               style="width: 20px; height: 20px; margin-right: 0.75rem; cursor: pointer; accent-color: #ffa726;">
+                                        <span style="font-size: 1rem; font-weight: 600;">
+                                            ⭐ Marquer comme facture importante/prioritaire
+                                        </span>
+                                    </label>
+                                    <small style="color: #999; font-size: 0.85rem; display: block; margin-top: 0.5rem; margin-left: 2rem;">
+                                        Les factures marquées peuvent être filtrées dans la liste des factures.
+                                    </small>
+                                </div>
+
+                                <!-- Private Notes -->
+                                <div class="form-field" style="margin-bottom: 1.5rem;">
+                                    <label>📋 Notes privées (usage interne uniquement)</label>
+                                    <textarea id="invoicePrivateNotesMRY" rows="3" 
+                                              placeholder="Notes internes pour identifier ou classer cette facture (ne s'affichent PAS dans le PDF)..."
+                                              style="width: 100%; padding: 0.75rem; background: #2d2d30; border: 2px solid #3e3e42; border-radius: 8px; color: #fff; font-size: 0.95rem; resize: vertical; font-family: inherit;"></textarea>
+                                    <small style="color: #ff9800; font-size: 0.85rem; display: block; margin-top: 0.5rem;">
+                                        ⚠️ Ces notes sont privées et ne seront JAMAIS affichées dans le PDF généré.
+                                    </small>
+                                </div>
+                            </div>
+
+                            <!-- Public Notes -->
                             <div class="form-field">
-                                <label>Notes supplémentaires (optionnel)</label>
+                                <label>📄 Notes pour le PDF (optionnel)</label>
                                 <textarea id="invoiceNotesMRY" rows="4" 
                                           placeholder="Ajoutez des notes ou remarques concernant cette facture..."
                                           style="width: 100%; padding: 0.75rem; background: #2d2d30; border: 2px solid #3e3e42; border-radius: 8px; color: #fff; font-size: 0.95rem; resize: vertical; font-family: inherit;"></textarea>
@@ -1499,6 +1528,16 @@ async function handleInvoiceSubmit(e) {
                 await window.electron.db.saveNote(invoiceId, noteText);
             }
 
+            // Save featured status and private notes
+            const isFeatured = document.getElementById('invoiceFeaturedMRY')?.checked ? 1 : 0;
+            const privateNotes = document.getElementById('invoicePrivateNotesMRY')?.value?.trim() || '';
+            if (isFeatured || privateNotes) {
+                await window.electron.db.updateInvoiceMetadata(invoiceId, {
+                    is_featured: isFeatured,
+                    private_notes: privateNotes
+                });
+            }
+
             // Remove loading overlay
             if (overlay) overlay.remove();
 
@@ -1542,6 +1581,15 @@ async function handleInvoiceSubmit(e) {
 // Call initialization when page is rendered
 window.initInvoiceFormPage = function () {
     console.log('🔄 Initializing invoice form page...');
+
+    // Show admin-only fields (Featured & Private Notes) for super users
+    const user = JSON.parse(localStorage.getItem('user') || '{}');
+    const isSuperUser = (user.email === 'redouanerrebbahi99@gmail.com' || user.can_auto_validate === true);
+    const adminFields = document.getElementById('adminFieldsMRY');
+    if (adminFields && isSuperUser) {
+        adminFields.style.display = 'block';
+    }
+
     initializeInvoiceForm();
 };
 

@@ -468,7 +468,7 @@ function addFooterToPDF(doc, pageNumber, totalPages) {
     doc.setTextColor(0, 0, 0);
     doc.setFontSize(7);
     doc.setFont(undefined, 'normal');
-    doc.text('RIB : 007 720 00 05979000000368 12  ATTIJARI WAFA BANQ', 15, 275);
+    doc.text('RIB : 007 720 00 05979000000368 12  ATTIJARI WAFA BANK', 15, 275);
     doc.text('Email: errbahiabderrahim@gmail.com', 15, 279);
     doc.text('ADRESSE: LOT ALBAHR AV TETOUAN N94 GARAGE 2 M\'DIQ', 15, 283);
     doc.text('Tel: +212 661 307 323', 15, 287);

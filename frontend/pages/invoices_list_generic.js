@@ -2558,7 +2558,7 @@ window.downloadInvoicePDF = async function (invoiceId) {
             doc.setFontSize(7);
             doc.setFont(undefined, 'normal');
             doc.text('NIF : 25077370  TP : 51200166  R.C : 23181  CNSS : 5679058  ICE : 002036664000051', 15, 275);
-            doc.text('R.I.B : 007 720 0005973000000519 74  ATTIJARI WAFA BANQ', 15, 279);
+            doc.text('R.I.B : 007 720 0005973000000519 74  ATTIJARI WAFA BANK', 15, 279);
             doc.text('AV, BNI IDDER RUE 14 N°10 COELMA - TÉTOUAN.', 15, 283);
             doc.text('EMAIL: errbahiabderrahim@gmail.com  TEL : 0661307323', 15, 287);
 
@@ -2985,7 +2985,7 @@ window.downloadBonDeTravauxPDF = async function (invoiceId) {
             doc.setFontSize(7);
             doc.setFont(undefined, 'normal');
             doc.text('NIF : 25077370  TP : 51200166  R.C : 23181  CNSS : 5679058  ICE : 002036664000051', 15, 275);
-            doc.text('R.I.B : 007 720 0005973000000519 74  ATTIJARI WAFA BANQ', 15, 279);
+            doc.text('R.I.B : 007 720 0005973000000519 74  ATTIJARI WAFA BANK', 15, 279);
             doc.text('AV, BNI IDDER RUE 14 N°10 COELMA - TÉTOUAN.', 15, 283);
             doc.text('EMAIL: errbahiabderrahim@gmail.com  TEL : 0661307323', 15, 287);
 
@@ -3662,7 +3662,7 @@ async function generateSinglePDFBlob(invoice, organizationType, folderName, incl
         doc.setFontSize(7);
         doc.setFont(undefined, 'normal');
         doc.text('NIF : 25077370  TP : 51200166  R.C : 23181  CNSS : 5679058  ICE : 002036664000051', 15, 280);
-        doc.text('R.I.B : 007 720 0005973000000519 74  ATTIJARI WAFA BANQ', 15, 284);
+        doc.text('R.I.B : 007 720 0005973000000519 74  ATTIJARI WAFA BANK', 15, 284);
         doc.text('AV, BNI IDDER RUE 14 N°10 COELMA - TÉTOUAN.', 15, 288);
         doc.text('EMAIL: errbahiabderrahim@gmail.com  TEL : 0661307323', 15, 292);
     };

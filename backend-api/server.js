@@ -139,10 +139,50 @@ app.use(bodyParser.urlencoded({ limit: '50mb', extended: true }));
   }
 })();
 
+// Auto-migrate: ensure is_featured and private_notes columns exist in invoices
+(async () => {
+  try {
+    await pool.query(`ALTER TABLE invoices ADD COLUMN IF NOT EXISTS is_featured INTEGER DEFAULT 0`);
+    await pool.query(`ALTER TABLE invoices ADD COLUMN IF NOT EXISTS private_notes TEXT`);
+    console.log('✅ [MIGRATION] is_featured and private_notes columns ensured in invoices');
+  } catch (e) {
+    console.warn('⚠️ [MIGRATION] Could not add is_featured/private_notes columns:', e.message);
+  }
+})();
+
 // Helper: Hash password (matching the original app's crypto logic)
 function hashPassword(password) {
   return crypto.createHash('sha256').update(password).digest('hex');
 }
+
+// --- MANUAL MIGRATION: Add is_featured + private_notes columns ---
+app.get('/migrate/featured', async (req, res) => {
+  console.log('🔧 [MIGRATE] Running manual migration for is_featured + private_notes...');
+  try {
+    await pool.query(`ALTER TABLE invoices ADD COLUMN IF NOT EXISTS is_featured INTEGER DEFAULT 0`);
+    console.log('✅ [MIGRATE] is_featured column added/verified');
+    await pool.query(`ALTER TABLE invoices ADD COLUMN IF NOT EXISTS private_notes TEXT`);
+    console.log('✅ [MIGRATE] private_notes column added/verified');
+
+    // Verify columns exist
+    const checkResult = await pool.query(`
+      SELECT column_name, data_type 
+      FROM information_schema.columns 
+      WHERE table_name = 'invoices' 
+      AND column_name IN ('is_featured', 'private_notes')
+    `);
+    console.log('📋 [MIGRATE] Columns found:', checkResult.rows);
+
+    res.json({ 
+      success: true, 
+      message: 'Migration completed successfully',
+      columns: checkResult.rows 
+    });
+  } catch (e) {
+    console.error('❌ [MIGRATE] Error:', e.message);
+    res.status(500).json({ success: false, error: e.message });
+  }
+});
 
 // --- SCHEMA IMPORT ROUTE ---
 app.post('/api/schema/import', upload.single('schema'), async (req, res) => {
@@ -873,6 +913,49 @@ app.post('/invoices', async (req, res) => {
     res.status(500).json({ success: false, error: err.message });
   } finally {
     client.release();
+  }
+});
+
+// Update invoice metadata (featured status & private notes)
+app.patch('/invoices/:id/metadata', async (req, res) => {
+  console.log(`🔧 [PATCH /invoices/${req.params.id}/metadata] Body:`, JSON.stringify(req.body));
+  try {
+    const { id } = req.params;
+    const { is_featured, private_notes } = req.body;
+
+    const updates = [];
+    const params = [];
+    let paramIndex = 1;
+
+    if (is_featured !== undefined) {
+      updates.push(`is_featured = $${paramIndex++}`);
+      params.push(is_featured || 0);
+    }
+    if (private_notes !== undefined && private_notes !== null) {
+      updates.push(`private_notes = $${paramIndex++}`);
+      params.push(private_notes);
+    }
+
+    if (updates.length === 0) {
+      return res.json({ success: true, changes: 0 });
+    }
+
+    updates.push(`updated_at = NOW()`);
+    params.push(id);
+
+    const result = await pool.query(
+      `UPDATE invoices SET ${updates.join(', ')} WHERE id = $${paramIndex} RETURNING id`,
+      params
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ success: false, error: 'Invoice not found' });
+    }
+
+    res.json({ success: true, changes: 1 });
+  } catch (err) {
+    console.error('Error updating invoice metadata:', err);
+    res.status(500).json({ success: false, error: err.message });
   }
 });
 

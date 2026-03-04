@@ -382,11 +382,29 @@ function formatAmountMulti(amount) {
 
 // Add header to PDF page
 function addHeaderToPDFMulti(doc, client, month, year, monthNames, darkGrayColor, lightGrayBg) {
-    // Company Name - Left aligned, large
+    // Add company logo from DOM (same approach as pdf_helpers_multi.js)
+    try {
+        const logoImg = document.querySelector('img[src*="multi.png"]') ||
+            document.querySelector('img[alt="Multi Company"]') ||
+            document.querySelector('img[data-asset*="multi"]');
+        if (logoImg && logoImg.src && logoImg.complete) {
+            const canvas = document.createElement('canvas');
+            canvas.width = logoImg.naturalWidth || 200;
+            canvas.height = logoImg.naturalHeight || 200;
+            const ctx = canvas.getContext('2d');
+            ctx.drawImage(logoImg, 0, 0);
+            const imgData = canvas.toDataURL('image/png');
+            doc.addImage(imgData, 'PNG', 15, 8, 20, 20);
+        }
+    } catch (error) {
+        console.log('Logo not available for Mensuelle:', error.message);
+    }
+
+    // Company Name - Left aligned, shifted right for logo space
     doc.setFontSize(18);
     doc.setTextColor(...darkGrayColor);
     doc.setFont(undefined, 'bold');
-    doc.text('MULTI TRAVAUX TETOUAN', 15, 18);
+    doc.text('MULTI TRAVAUX TETOUAN', 38, 18);
 
     // Document Type - Right aligned, underlined
     doc.setFontSize(18);
@@ -913,7 +931,7 @@ window.generateSituationMensuelleMulti = async function (clientId, month, year, 
         doc.setTextColor(0, 0, 0);
         doc.setFont(undefined, 'normal');
         doc.setFontSize(8);
-        doc.text('ATTIJARI WAFA BANQ', 17, fixedBottomY + 10);
+        doc.text('ATTIJARI WAFA BANK', 17, fixedBottomY + 10);
         doc.text('RIB : 007 720 0005979000000953 03', 17, fixedBottomY + 15);
 
         // Totals - Right side with gray background (same Y position)

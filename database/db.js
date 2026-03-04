@@ -163,6 +163,14 @@ async function initDatabase() {
                 db.run(`ALTER TABLE invoices ADD COLUMN creation_method TEXT DEFAULT 'normal'`);
                 columnsAdded.push('creation_method');
             }
+            if (!columns.includes('is_featured')) {
+                db.run(`ALTER TABLE invoices ADD COLUMN is_featured INTEGER DEFAULT 0`);
+                columnsAdded.push('is_featured');
+            }
+            if (!columns.includes('private_notes')) {
+                db.run(`ALTER TABLE invoices ADD COLUMN private_notes TEXT`);
+                columnsAdded.push('private_notes');
+            }
 
             if (columnsAdded.length > 0) {
                 console.log('✅ [MRY] Added user tracking columns:', columnsAdded);

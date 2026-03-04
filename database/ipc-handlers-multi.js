@@ -54,6 +54,26 @@ async function registerMultiHandlers() {
         }
     });
 
+    // Update invoice metadata (featured status & private notes)
+    ipcMain.handle('dbMulti:updateInvoiceMetadata', async (event, id, metadata) => {
+        console.log(`🔧 [MULTI IPC] updateInvoiceMetadata called - ID: ${id}, metadata:`, JSON.stringify(metadata));
+        try {
+            const result = await apiClient.updateInvoiceMetadata(id, metadata);
+            console.log(`🔧 [MULTI IPC] updateInvoiceMetadata result:`, JSON.stringify(result));
+            return result;
+        } catch (error) {
+            console.error('[MULTI] Error updating invoice metadata (API), trying local DB:', error.message);
+            // Fallback to local DB
+            try {
+                const localResult = dbMulti.invoiceOps.updateMetadata(id, metadata);
+                console.log(`🔧 [MULTI IPC] Local DB fallback result:`, JSON.stringify(localResult));
+                return localResult;
+            } catch (localError) {
+                return { success: false, error: error.message };
+            }
+        }
+    });
+
     // Delete invoice
     ipcMain.handle('dbMulti:deleteInvoice', async (event, id) => {
         try {

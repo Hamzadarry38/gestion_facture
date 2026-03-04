@@ -45,6 +45,9 @@ contextBridge.exposeInMainWorld('electron', {
     getMryMissingNumbers: (year) => ipcRenderer.invoke('db:mry:getMissingNumbers', year),
     getMryMissingDevisNumbers: (year) => ipcRenderer.invoke('db:mry:getMissingDevisNumbers', year),
 
+    // Invoice Metadata (featured & private notes)
+    updateInvoiceMetadata: (id, metadata) => ipcRenderer.invoke('db:updateInvoiceMetadata', id, metadata),
+
     // Notes
     saveNote: (invoiceId, noteText) => ipcRenderer.invoke('db:saveNote', invoiceId, noteText),
     getNote: (invoiceId) => ipcRenderer.invoke('db:getNote', invoiceId),
@@ -149,6 +152,9 @@ contextBridge.exposeInMainWorld('electron', {
     getMissingOrderNumbers: () => ipcRenderer.invoke('db:chaimae:getMissingOrderNumbers'),
     getMissingBonLivraisonNumbers: (year) => ipcRenderer.invoke('db:chaimae:getMissingBonLivraisonNumbers', year),
 
+    // Invoice Metadata (featured & private notes)
+    updateInvoiceMetadata: (id, metadata) => ipcRenderer.invoke('db:chaimae:updateInvoiceMetadata', id, metadata),
+
     // Notes
     saveNote: (invoiceId, noteText) => ipcRenderer.invoke('db:chaimae:saveNote', invoiceId, noteText),
     getNote: (invoiceId) => ipcRenderer.invoke('db:chaimae:getNote', invoiceId),
@@ -208,6 +214,9 @@ contextBridge.exposeInMainWorld('electron', {
     // MULTI Missing Numbers
     getMultiMissingNumbers: (year) => ipcRenderer.invoke('dbMulti:getMissingNumbers', year),
     getMultiMissingDevisNumbers: (year) => ipcRenderer.invoke('dbMulti:getMissingDevisNumbers', year),
+
+    // Invoice Metadata (featured & private notes)
+    updateInvoiceMetadata: (id, metadata) => ipcRenderer.invoke('dbMulti:updateInvoiceMetadata', id, metadata),
 
     // Notes
     saveNote: (invoiceId, noteText) => ipcRenderer.invoke('dbMulti:saveNote', invoiceId, noteText),

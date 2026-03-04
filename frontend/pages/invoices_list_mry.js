@@ -226,6 +226,16 @@ function InvoicesListMRYPage() {
                             </select>
                         </div>
                         
+                        <!-- Featured Filter - Admins Only -->
+                        <div class="filter-group" id="featuredFilterGroupMRY" style="display: none;">
+                            <label>⭐ Importance:</label>
+                            <select id="filterFeaturedMRY" onchange="filterInvoices()">
+                                <option value="all">Toutes</option>
+                                <option value="featured">⭐ Importantes</option>
+                                <option value="not_featured">Non importantes</option>
+                            </select>
+                        </div>
+
                         <!-- Status Filter (Seen/Unseen) - Admins Only -->
                         <div class="filter-group" id="statusFilterGroupMRY" style="display: none;">
                             <label>👁️ Statut:</label>
@@ -555,6 +565,12 @@ window.loadInvoices = async function () {
         statusFilterGroup.style.display = isSuperUserMRY ? 'block' : 'none';
     }
 
+    // Show/Hide Featured Filter based on admin status
+    const featuredFilterGroup = document.getElementById('featuredFilterGroupMRY');
+    if (featuredFilterGroup) {
+        featuredFilterGroup.style.display = isSuperUserMRY ? 'block' : 'none';
+    }
+
     if (!loadingSpinner || !tableBody || !emptyState) {
         console.error('❌ Required elements not found in DOM');
         return;
@@ -764,8 +780,14 @@ function displayInvoices(invoices) {
         return `
             <tr class="${rowClass}" style="${rowStyle}">
                 <td>
-                    <input type="checkbox" class="invoice-checkbox" data-invoice-id="${invoice.id}"
-                           style="width: 18px; height: 18px; cursor: pointer;">
+                    <div style="display: flex; align-items: center; gap: 0.4rem;">
+                        <input type="checkbox" class="invoice-checkbox" data-invoice-id="${invoice.id}"
+                               style="width: 18px; height: 18px; cursor: pointer;">
+                        ${isSuperUserMRY ? `<span onclick="event.stopPropagation(); toggleFeaturedMRY(${invoice.id}, this)" 
+                              style="cursor: pointer; font-size: 1.2rem; transition: all 0.2s; filter: ${invoice.is_featured ? 'none' : 'grayscale(1) opacity(0.3)'};" 
+                              title="${invoice.is_featured ? 'Retirer des importantes' : 'Marquer comme importante'}"
+                              data-featured="${invoice.is_featured ? '1' : '0'}">${invoice.is_featured ? '⭐' : '☆'}</span>` : ''}
+                    </div>
                 </td>
                 <td><span class="badge ${typeBadge}" style="${typeBadge === 'badge-converted' ? 'background: #e8f5e9; color: #2e7d32; border: 1px solid #a5d6a7;' : ''}">${typeLabel}</span></td>
                 <td>${documentDisplay}</td>
@@ -985,6 +1007,7 @@ window.resetFilters = function () {
     document.getElementById('filterAttachments').value = 'all';
     document.getElementById('filterMethod').value = 'all';
     if (document.getElementById('filterDevisConversionMRY')) document.getElementById('filterDevisConversionMRY').value = 'all';
+    if (document.getElementById('filterFeaturedMRY')) document.getElementById('filterFeaturedMRY').value = 'all';
     
     // Reset search type checkboxes
     const searchTypeChecks = [
@@ -1193,6 +1216,14 @@ window.filterInvoices = async function () {
             return match;
         });
         console.log(`🔍 [MRY] AR Filter result: ${beforeCount} → ${filtered.length} invoices`);
+    }
+
+    // Featured filter
+    const filterFeatured = document.getElementById('filterFeaturedMRY')?.value || 'all';
+    if (filterFeatured === 'featured') {
+        filtered = filtered.filter(inv => inv.is_featured === 1 || inv.is_featured === true);
+    } else if (filterFeatured === 'not_featured') {
+        filtered = filtered.filter(inv => !inv.is_featured || inv.is_featured === 0);
     }
 
     // Advanced search with multi-select checkboxes
@@ -1482,6 +1513,12 @@ window.viewInvoice = async function (id) {
                     <h2 style="color:#fff;margin:0;font-size:1.3rem;font-weight:600;">Détails de la ${typeLabel} #${docNumber}</h2>
                 </div>
                 <div style="display:flex;align-items:center;gap:1rem;flex-wrap:wrap;">
+                    ${isSuperUserMRY ? `
+                    <button id="toggleFeaturedBtn${id}" onclick="toggleFeaturedInModalMRY(${id}, this)" style="padding:0.6rem 1.2rem;background:${invoice.is_featured ? '#ffa726' : '#666'};color:#fff;border:none;border-radius:8px;cursor:pointer;font-size:0.9rem;font-weight:600;display:flex;align-items:center;gap:0.5rem;transition:all 0.2s;" onmouseover="this.style.opacity='0.9'" onmouseout="this.style.opacity='1'" data-featured="${invoice.is_featured ? '1' : '0'}">
+                        <span style="font-size:1.1rem;">${invoice.is_featured ? '⭐' : '☆'}</span>
+                        ${invoice.is_featured ? 'Retirer des importantes' : 'Marquer comme importante'}
+                    </button>
+                    ` : ''}
                     ${invoice.validation_status === 'pending' ? `
                     <button onclick="markAsSeenMRY(${id})" style="padding:0.6rem 1.2rem;background:#4caf50;color:#fff;border:none;border-radius:8px;cursor:pointer;font-size:0.9rem;font-weight:600;display:flex;align-items:center;gap:0.5rem;transition:all 0.2s;box-shadow: 0 4px 6px rgba(0,0,0,0.2);" onmouseover="this.style.transform='translateY(-2px)'" onmouseout="this.style.transform='translateY(0)'">
                         <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
@@ -1611,11 +1648,26 @@ window.viewInvoice = async function (id) {
                 
                 <!-- Notes Section -->
                 <div style="margin-bottom:2rem;" id="notesSectionMRY${id}">
-                    <h3 style="color:#fff;font-size:1.1rem;margin:0 0 1rem 0;font-weight:600;">📝 Notes</h3>
+                    <h3 style="color:#fff;font-size:1.1rem;margin:0 0 1rem 0;font-weight:600;">📝 Notes (PDF)</h3>
                     <div style="background:#1e1e1e;padding:1rem;border-radius:8px;">
                         <div style="color:#999;font-size:0.9rem;font-style:italic;">Chargement...</div>
                     </div>
                 </div>
+
+                <!-- Private Notes Section (Admin Only) -->
+                ${isSuperUserMRY ? `
+                <div style="margin-bottom:2rem;">
+                    <h3 style="color:#ff9800;font-size:1.1rem;margin:0 0 1rem 0;font-weight:600;display:flex;align-items:center;gap:0.5rem;">
+                        🔒 Notes privées (usage interne uniquement)
+                    </h3>
+                    <div style="background:#1e1e1e;padding:1rem;border-radius:8px;border:2px solid #ff9800;">
+                        <div style="color:#fff;font-size:0.9rem;white-space:pre-wrap;">${invoice.private_notes || 'Aucune note privée'}</div>
+                    </div>
+                    <small style="color:#ff9800;font-size:0.85rem;display:block;margin-top:0.5rem;">
+                        ⚠️ Ces notes sont privées et ne sont JAMAIS affichées dans le PDF généré.
+                    </small>
+                </div>
+                ` : ''}
                 
                 <!-- Attachments Section -->
                 <div style="margin-bottom:2rem;" id="attachmentsSectionMRY${id}">
@@ -3234,7 +3286,7 @@ window.downloadInvoicePDF = async function (invoiceId, returnBlob = false, optio
             doc.setFontSize(7);
             doc.setFont(undefined, 'normal');
             doc.text('NIF : 25077370  TP : 51200166  R.C : 23181  CNSS : 5679058  ICE : 002036664000051', 105, 275, { align: 'center' });
-            doc.text('R.I.B : 007 720 0005973000000519 74  ATTIJARI WAFA BANQ', 105, 279, { align: 'center' });
+            doc.text('R.I.B : 007 720 0005973000000519 74  ATTIJARI WAFA BANK', 105, 279, { align: 'center' });
             doc.text('AV, BNI IDDER RUE 14 N°10 COELMA - TÉTOUAN.', 105, 283, { align: 'center' });
             doc.text('EMAIL: errbahiabderrahim@gmail.com  TEL : 0661307323', 105, 287, { align: 'center' });
 
@@ -3679,7 +3731,7 @@ window.downloadBonDeTravauxPDF = async function (invoiceId) {
             doc.setFontSize(7);
             doc.setFont(undefined, 'normal');
             doc.text('NIF : 25077370  TP : 51200166  R.C : 23181  CNSS : 5679058  ICE : 002036664000051', 15, 275);
-            doc.text('R.I.B : 007 720 0005973000000519 74  ATTIJARI WAFA BANQ', 15, 279);
+            doc.text('R.I.B : 007 720 0005973000000519 74  ATTIJARI WAFA BANK', 15, 279);
             doc.text('AV, BNI IDDER RUE 14 N°10 COELMA - TÉTOUAN.', 15, 283);
             doc.text('EMAIL: errbahiabderrahim@gmail.com  TEL : 0661307323', 15, 287);
 
@@ -4449,7 +4501,7 @@ async function generateSinglePDFBlob(invoice, organizationType, folderName, incl
         doc.setFontSize(7);
         doc.setFont(undefined, 'normal');
         doc.text('NIF : 25077370  TP : 51200166  R.C : 23181  CNSS : 5679058  ICE : 002036664000051', 105, 275, { align: 'center' });
-        doc.text('R.I.B : 007 720 0005973000000519 74  ATTIJARI WAFA BANQ', 105, 279, { align: 'center' });
+        doc.text('R.I.B : 007 720 0005973000000519 74  ATTIJARI WAFA BANK', 105, 279, { align: 'center' });
         doc.text('AV, BNI IDDER RUE 14 N°10 COELMA - TÉTOUAN.', 105, 283, { align: 'center' });
         doc.text('EMAIL: errbahiabderrahim@gmail.com  TEL : 0661307323', 105, 287, { align: 'center' });
 
@@ -4728,6 +4780,74 @@ window.importDatabaseMRY = async function () {
         window.notify.error('Erreur', 'Une erreur est survenue', 3000);
     }
 }
+
+// Toggle Featured Status MRY (from table row)
+window.toggleFeaturedMRY = async function (invoiceId, element) {
+    try {
+        const currentFeatured = element.dataset.featured === '1';
+        const newFeatured = currentFeatured ? 0 : 1;
+
+        const result = await window.electron.db.updateInvoiceMetadata(invoiceId, {
+            is_featured: newFeatured
+        });
+
+        if (result.success) {
+            const inv = allInvoices.find(i => i.id == invoiceId);
+            if (inv) inv.is_featured = newFeatured;
+            const filteredInv = filteredInvoices.find(i => i.id == invoiceId);
+            if (filteredInv) filteredInv.is_featured = newFeatured;
+
+            element.dataset.featured = newFeatured ? '1' : '0';
+            element.textContent = newFeatured ? '⭐' : '☆';
+            element.style.filter = newFeatured ? 'none' : 'grayscale(1) opacity(0.3)';
+            element.title = newFeatured ? 'Retirer des importantes' : 'Marquer comme importante';
+        } else {
+            window.notify.error('Erreur', 'Échec de la mise à jour');
+        }
+    } catch (error) {
+        console.error('Toggle featured error:', error);
+        window.notify.error('Erreur', 'Une erreur est survenue');
+    }
+};
+
+// Toggle Featured Status MRY (from modal details)
+window.toggleFeaturedInModalMRY = async function (invoiceId, buttonElement) {
+    try {
+        const currentFeatured = buttonElement.dataset.featured === '1';
+        const newFeatured = currentFeatured ? 0 : 1;
+
+        const result = await window.electron.db.updateInvoiceMetadata(invoiceId, {
+            is_featured: newFeatured
+        });
+
+        if (result.success) {
+            const inv = allInvoices.find(i => i.id == invoiceId);
+            if (inv) inv.is_featured = newFeatured;
+            const filteredInv = filteredInvoices.find(i => i.id == invoiceId);
+            if (filteredInv) filteredInv.is_featured = newFeatured;
+
+            buttonElement.dataset.featured = newFeatured ? '1' : '0';
+            buttonElement.style.background = newFeatured ? '#ffa726' : '#666';
+            buttonElement.querySelector('span').textContent = newFeatured ? '⭐' : '☆';
+            buttonElement.childNodes[2].textContent = newFeatured ? 'Retirer des importantes' : 'Marquer comme importante';
+
+            const tableStarElement = document.querySelector(`span[onclick*="toggleFeaturedMRY(${invoiceId}"]`);
+            if (tableStarElement) {
+                tableStarElement.dataset.featured = newFeatured ? '1' : '0';
+                tableStarElement.textContent = newFeatured ? '⭐' : '☆';
+                tableStarElement.style.filter = newFeatured ? 'none' : 'grayscale(1) opacity(0.3)';
+                tableStarElement.title = newFeatured ? 'Retirer des importantes' : 'Marquer comme importante';
+            }
+
+            window.notify.success('Succès', newFeatured ? 'Facture marquée comme importante' : 'Facture retirée des importantes');
+        } else {
+            window.notify.error('Erreur', 'Échec de la mise à jour');
+        }
+    } catch (error) {
+        console.error('Toggle featured in modal error:', error);
+        window.notify.error('Erreur', 'Une erreur est survenue');
+    }
+};
 
 // Handle bulk delete for MRY
 // Update AR Status

@@ -92,6 +92,19 @@ async function registerDatabaseHandlers() {
         }
     });
 
+    // Update invoice metadata (featured status & private notes)
+    ipcMain.handle('db:updateInvoiceMetadata', async (event, id, metadata) => {
+        console.log(`🔧 [MRY IPC] updateInvoiceMetadata called - ID: ${id}, metadata:`, JSON.stringify(metadata));
+        try {
+            const result = await apiClient.updateInvoiceMetadata(id, metadata);
+            console.log(`🔧 [MRY IPC] updateInvoiceMetadata result:`, JSON.stringify(result));
+            return result;
+        } catch (error) {
+            console.error('[MRY] Error updating invoice metadata:', error);
+            return { success: false, error: error.message };
+        }
+    });
+
     ipcMain.handle('db:invoices:getNextNumber', async (event, companyCode, documentType, year) => {
         try {
             const code = companyCode || 'MRY';

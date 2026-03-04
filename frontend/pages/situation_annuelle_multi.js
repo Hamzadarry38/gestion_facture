@@ -322,9 +322,9 @@ window.generateSituationAnnuelleMulti = async function (clientId, year, selected
         const { jsPDF } = window.jspdf;
         const doc = new jsPDF();
 
-        // Multi specific colors
-        const redColor = [198, 40, 40];   // #c62828
-        const blueColor = [21, 101, 192];  // #1565c0
+        // Colors - matching Mensuelle style
+        const darkGrayColor = [96, 125, 139]; // #607D8B
+        const lightGrayBg = [236, 239, 241];  // #ECEFF1
 
         // Generate Title String
         const monthNamesUpper = ['', 'JANVIER', 'FÉVRIER', 'MARS', 'AVRIL', 'MAI', 'JUIN', 'JUILLET', 'AOÛT', 'SEPTEMBRE', 'OCTOBRE', 'NOVEMBRE', 'DÉCEMBRE'];
@@ -356,7 +356,7 @@ window.generateSituationAnnuelleMulti = async function (clientId, year, selected
             dateRangeStr = `${year}`;
         }
 
-        const titleLines = addHeaderToPDFAnnuelleMulti(doc, client, dateRangeStr, redColor, blueColor);
+        addHeaderToPDFAnnuelleMulti(doc, client, dateRangeStr, darkGrayColor, lightGrayBg);
 
         // Dynamic Column Positioning
         const startX = 35;
@@ -373,9 +373,9 @@ window.generateSituationAnnuelleMulti = async function (clientId, year, selected
             col.x = startX + (columnWidth * index) + (columnWidth / 2);
         });
 
-        // Table Header - dynamic startY based on number of title lines
-        const startY = 77 + (titleLines || 1) * 7 + 4;
-        doc.setFillColor(...redColor);
+        // Table Header - starts after header boxes (same as Mensuelle)
+        const startY = 60;
+        doc.setFillColor(...darkGrayColor);
         doc.rect(14, startY, 182, 10, 'F');
 
         doc.setTextColor(255, 255, 255);
@@ -422,7 +422,7 @@ window.generateSituationAnnuelleMulti = async function (clientId, year, selected
         monthsData.forEach((row, index) => {
             // Alternating row background
             if (index % 2 === 1) {
-                doc.setFillColor(255, 235, 238); // Very light red
+                doc.setFillColor(...lightGrayBg); // Light gray alternating rows
                 doc.rect(14, currentY, 182, 8, 'F');
             }
 
@@ -455,7 +455,7 @@ window.generateSituationAnnuelleMulti = async function (clientId, year, selected
         doc.text(`${formatAmountMulti(grandTotalTVA)} DH`, 192, currentY + 5.5, { align: 'right' });
 
         currentY += 8;
-        doc.setFillColor(...redColor); // Red for TTC (Header Color)
+        doc.setFillColor(...darkGrayColor); // Gray for TTC (matching header)
         doc.rect(110, currentY, 85, 8, 'F');
         doc.setTextColor(255, 255, 255); // White text
         doc.setFont(undefined, 'bold'); // Explicitly bold
@@ -505,61 +505,78 @@ function formatAmountMulti(amount) {
     return parts.join('.');
 }
 
-function addHeaderToPDFAnnuelleMulti(doc, client, dateRangeStr, redColor, blueColor) {
-    // Logo
+function addHeaderToPDFAnnuelleMulti(doc, client, dateRangeStr, darkGrayColor, lightGrayBg) {
+    // Add company logo from DOM (same approach as pdf_helpers_multi.js)
     try {
         const logoImg = document.querySelector('img[src*="multi.png"]') ||
-            document.querySelector('img[data-asset="multi"]') ||
-            document.querySelector('img[src^="data:image"]');
-        if (logoImg && logoImg.src && logoImg.src.startsWith('data:')) {
-            doc.addImage(logoImg.src, 'PNG', 15, 10, 35, 35);
+            document.querySelector('img[alt="Multi Company"]') ||
+            document.querySelector('img[data-asset*="multi"]');
+        if (logoImg && logoImg.src && logoImg.complete) {
+            const canvas = document.createElement('canvas');
+            canvas.width = logoImg.naturalWidth || 200;
+            canvas.height = logoImg.naturalHeight || 200;
+            const ctx = canvas.getContext('2d');
+            ctx.drawImage(logoImg, 0, 0);
+            const imgData = canvas.toDataURL('image/png');
+            doc.addImage(imgData, 'PNG', 15, 8, 20, 20);
         }
     } catch (error) {
         console.log('Logo not added:', error);
     }
 
-    // Company Header
+    // Company Name - Left aligned, shifted right for logo space
     doc.setFontSize(18);
-    doc.setTextColor(...redColor);
+    doc.setTextColor(...darkGrayColor);
     doc.setFont(undefined, 'bold');
-    doc.text('MULTI TRAVAUX TETOUAN', 105, 20, { align: 'center' });
+    doc.text('MULTI TRAVAUX TETOUAN', 38, 18);
 
-    doc.setFontSize(10);
+    // Document Type - Right aligned, underlined
+    doc.setFontSize(18);
+    doc.setFont(undefined, 'bold');
+    doc.text('SITUATION', 195, 18, { align: 'right' });
+    doc.setLineWidth(0.5);
+    doc.line(195 - doc.getTextWidth('SITUATION'), 19, 195, 19);
+
+    // Date Range - Right side
+    doc.setFontSize(14);
+    doc.setFont(undefined, 'bold');
+    doc.setTextColor(...darkGrayColor);
+    const splitTitle = doc.splitTextToSize(dateRangeStr, 90);
+    doc.text(splitTitle, 195, 28, { align: 'right' });
+
+    doc.setFontSize(8);
     doc.setFont(undefined, 'normal');
     doc.setTextColor(0, 0, 0);
-    doc.text('Travaux divers ou construction', 105, 27, { align: 'center' });
-    doc.text('Négociant', 105, 32, { align: 'center' });
+    doc.text(`Date : ${new Date().toLocaleDateString('fr-FR')}`, 195, 34, { align: 'right' });
 
-    // Client Info
-    doc.setFontSize(11);
-    doc.setFont(undefined, 'bold');
-    doc.text('CLIENT :', 15, 50);
-    doc.setTextColor(...blueColor);
-    doc.text(client.nom.toUpperCase(), 40, 50);
+    // Email and Address - Left side with gray background
+    doc.setFillColor(...darkGrayColor);
+    doc.rect(15, 38, 80, 6, 'F');
+    doc.setTextColor(255, 255, 255);
+    doc.setFontSize(8);
+    doc.text('Email: errbahiabderrahim@gmail.com', 17, 42);
+
+    doc.setFillColor(...lightGrayBg);
+    doc.rect(15, 44, 80, 6, 'F');
+    doc.setTextColor(0, 0, 0);
+    doc.setFontSize(7);
+    doc.text('AV 10 MAI IMM 04 APPART 01 A DROIT - TETOUAN , TETOUAN', 17, 48);
+
+    // Client Info - Right side with gray background
+    doc.setFillColor(...darkGrayColor);
+    doc.rect(115, 38, 80, 6, 'F');
+    doc.setTextColor(255, 255, 255);
+    doc.setFontSize(8);
+    doc.text(`SITUATION à : ${client.nom}`, 117, 42);
 
     // Only show ICE if it exists and is not '0'
     if (client.ice && client.ice !== '0') {
+        doc.setFillColor(...lightGrayBg);
+        doc.rect(115, 44, 80, 6, 'F');
         doc.setTextColor(0, 0, 0);
-        doc.text('ICE :', 15, 57);
-        doc.setTextColor(...blueColor);
-        doc.text(client.ice, 40, 57);
+        doc.setFontSize(7);
+        doc.text(`ICE : ${client.ice}`, 117, 48);
     }
-
-    // Date
-    doc.setTextColor(0, 0, 0);
-    doc.text(`Date: ${new Date().toLocaleDateString('fr-FR')}`, 150, 50);
-
-    // Title
-    doc.setFontSize(15);
-    doc.setFont(undefined, 'bold');
-    doc.setTextColor(0, 0, 0);
-    doc.text('SITUATION', 105, 70, { align: 'center' });
-
-    doc.setTextColor(...redColor);
-    doc.setFontSize(13);
-    const splitTitle = doc.splitTextToSize(dateRangeStr, 170);
-    doc.text(splitTitle, 105, 77, { align: 'center' });
-    return splitTitle.length;
 }
 // ==========================================
 // PART 2: Global Clients Annual Report (New Logic)
@@ -882,10 +899,29 @@ window.generateSituationAnnuelleClientsMulti = async function (clientIds, year, 
 
         // Header function - Mensuelle style design
         function addGlobaleHeaderMulti(doc) {
+            // Add company logo from DOM (same approach as pdf_helpers_multi.js)
+            try {
+                const logoImg = document.querySelector('img[src*="multi.png"]') ||
+                    document.querySelector('img[alt="Multi Company"]') ||
+                    document.querySelector('img[data-asset*="multi"]');
+                if (logoImg && logoImg.src && logoImg.complete) {
+                    const canvas = document.createElement('canvas');
+                    canvas.width = logoImg.naturalWidth || 200;
+                    canvas.height = logoImg.naturalHeight || 200;
+                    const ctx = canvas.getContext('2d');
+                    ctx.drawImage(logoImg, 0, 0);
+                    const imgData = canvas.toDataURL('image/png');
+                    doc.addImage(imgData, 'PNG', 15, 8, 20, 20);
+                }
+            } catch (error) {
+                console.log('Logo not available for Globale:', error.message);
+            }
+
+            // Company Name - shifted right for logo space
             doc.setFontSize(18);
             doc.setTextColor(...darkGrayColor);
             doc.setFont(undefined, 'bold');
-            doc.text('MULTI TRAVAUX TETOUAN', 15, 18);
+            doc.text('MULTI TRAVAUX TETOUAN', 38, 18);
 
             doc.setFontSize(18);
             doc.setFont(undefined, 'bold');
@@ -1006,7 +1042,7 @@ window.generateSituationAnnuelleClientsMulti = async function (clientIds, year, 
         doc.setTextColor(0, 0, 0);
         doc.setFont(undefined, 'normal');
         doc.setFontSize(8);
-        doc.text('ATTIJARI WAFA BANQ', 17, fixedBottomY + 10);
+        doc.text('ATTIJARI WAFA BANK', 17, fixedBottomY + 10);
         doc.text('RIB : 007 720 0005979000000953 03', 17, fixedBottomY + 15);
 
         // Totals - Right side

@@ -254,6 +254,16 @@ function InvoicesListChaimaePage() {
                             </select>
                         </div>
 
+                        <!-- Featured Filter - Admins Only -->
+                        <div class="filter-group" id="featuredFilterGroupChaimae" style="display: none;">
+                            <label>⭐ Importance:</label>
+                            <select id="filterFeaturedChaimae" onchange="filterInvoicesChaimae()">
+                                <option value="all">Toutes</option>
+                                <option value="featured">⭐ Importantes</option>
+                                <option value="not_featured">Non importantes</option>
+                            </select>
+                        </div>
+
                         <!-- Status Filter (Seen/Unseen) - Admins Only -->
                         <div class="filter-group" id="statusFilterGroupChaimae" style="display: none;">
                             <label>👁️ Statut:</label>
@@ -528,6 +538,12 @@ window.loadInvoicesChaimae = async function () {
     const statusFilterGroup = document.getElementById('statusFilterGroupChaimae');
     if (statusFilterGroup) {
         statusFilterGroup.style.display = isSuperUserChaimae ? 'block' : 'none';
+    }
+
+    // Show/Hide Featured Filter based on admin status
+    const featuredFilterGroup = document.getElementById('featuredFilterGroupChaimae');
+    if (featuredFilterGroup) {
+        featuredFilterGroup.style.display = isSuperUserChaimae ? 'block' : 'none';
     }
 
     try {
@@ -1085,8 +1101,14 @@ function displayInvoicesChaimae(invoices) {
         return `
             <tr class="${rowClass}" style="${rowStyle}">
                 <td style="text-align: center; padding: 1rem 0.75rem; border-right: 1px solid #3e3e42;">
-                    <input type="checkbox" class="invoice-checkbox-chaimae" data-invoice-id="${invoice.id}" 
-                           style="width: 18px; height: 18px; cursor: pointer;">
+                    <div style="display: flex; align-items: center; gap: 0.4rem; justify-content: center;">
+                        <input type="checkbox" class="invoice-checkbox-chaimae" data-invoice-id="${invoice.id}" 
+                               style="width: 18px; height: 18px; cursor: pointer;">
+                        ${isSuperUserChaimae ? `<span onclick="event.stopPropagation(); toggleFeaturedChaimae(${invoice.id}, this)" 
+                              style="cursor: pointer; font-size: 1.2rem; transition: all 0.2s; filter: ${invoice.is_featured ? 'none' : 'grayscale(1) opacity(0.3)'};" 
+                              title="${invoice.is_featured ? 'Retirer des importantes' : 'Marquer comme importante'}"
+                              data-featured="${invoice.is_featured ? '1' : '0'}">${invoice.is_featured ? '⭐' : '☆'}</span>` : ''}
+                    </div>
                 </td>
                 <td style="padding: 1rem 0.75rem; border-right: 1px solid #3e3e42;">${typeBadgeHTML}</td>
                 <td style="padding: 1rem 0.75rem; border-right: 1px solid #3e3e42;">
@@ -1605,6 +1627,14 @@ window.filterInvoicesChaimae = function () {
             }
         }
 
+        // Featured filter
+        const filterFeatured = document.getElementById('filterFeaturedChaimae')?.value || 'all';
+        if (filterFeatured === 'featured') {
+            if (!(invoice.is_featured === 1 || invoice.is_featured === true)) return false;
+        } else if (filterFeatured === 'not_featured') {
+            if (invoice.is_featured === 1 || invoice.is_featured === true) return false;
+        }
+
         // Year filter (from card selection)
         if (selectedYearChaimae) {
             const invoiceYear = invoice.year || (window.safeParseDate||function(d){return new Date(d)})(invoice.document_date).getFullYear();
@@ -1738,6 +1768,7 @@ window.resetFiltersChaimae = function () {
     if (document.getElementById('filterCreationMethodChaimae')) document.getElementById('filterCreationMethodChaimae').value = 'all';
 
     if (document.getElementById('filterArStatusChaimae')) document.getElementById('filterArStatusChaimae').value = 'all';
+    if (document.getElementById('filterFeaturedChaimae')) document.getElementById('filterFeaturedChaimae').value = 'all';
     
     // Uncheck all search type checkboxes in dropdown
     const searchTypeChecks = [
@@ -2058,7 +2089,13 @@ window.viewInvoiceChaimae = async function (id, documentType) {
                     </svg>
                     <h2 style="color:#fff;margin:0;font-size:1.3rem;font-weight:600;">Détails du ${typeLabel} #${docNumber}</h2>
                 </div>
-                <div style="display:flex;align-items:center;gap:1rem;">
+                <div style="display:flex;align-items:center;gap:1rem;flex-wrap:wrap;">
+                    ${isSuperUserChaimae ? `
+                    <button id="toggleFeaturedBtn${id}" onclick="toggleFeaturedInModalChaimae(${id}, this)" style="padding:0.6rem 1.2rem;background:${invoice.is_featured ? '#ffa726' : '#666'};color:#fff;border:none;border-radius:8px;cursor:pointer;font-size:0.9rem;font-weight:600;display:flex;align-items:center;gap:0.5rem;transition:all 0.2s;" onmouseover="this.style.opacity='0.9'" onmouseout="this.style.opacity='1'" data-featured="${invoice.is_featured ? '1' : '0'}">
+                        <span style="font-size:1.1rem;">${invoice.is_featured ? '⭐' : '☆'}</span>
+                        ${invoice.is_featured ? 'Retirer des importantes' : 'Marquer comme importante'}
+                    </button>
+                    ` : ''}
                     ${invoice.validation_status === 'pending' ? `
                     <button onclick="markAsSeenChaimae(${id})" style="padding:0.6rem 1.2rem;background:#4caf50;color:#fff;border:none;border-radius:8px;cursor:pointer;font-size:0.9rem;font-weight:600;display:flex;align-items:center;gap:0.5rem;transition:all 0.2s;box-shadow: 0 4px 6px rgba(0,0,0,0.2);" onmouseover="this.style.transform='translateY(-2px)'" onmouseout="this.style.transform='translateY(0)'">
                         <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
@@ -2186,11 +2223,26 @@ window.viewInvoiceChaimae = async function (id, documentType) {
                 
                 <!-- Notes Section -->
                 <div style="margin-bottom:2rem;" id="notesSection${id}">
-                    <h3 style="color:#fff;font-size:1.1rem;margin:0 0 1rem 0;font-weight:600;">📝 Notes</h3>
+                    <h3 style="color:#fff;font-size:1.1rem;margin:0 0 1rem 0;font-weight:600;">📝 Notes (PDF)</h3>
                     <div style="background:#1e1e1e;padding:1rem;border-radius:8px;">
                         <div style="color:#999;font-size:0.9rem;font-style:italic;">Chargement...</div>
                     </div>
                 </div>
+
+                <!-- Private Notes Section (Admin Only) -->
+                ${isSuperUserChaimae ? `
+                <div style="margin-bottom:2rem;">
+                    <h3 style="color:#ff9800;font-size:1.1rem;margin:0 0 1rem 0;font-weight:600;display:flex;align-items:center;gap:0.5rem;">
+                        🔒 Notes privées (usage interne uniquement)
+                    </h3>
+                    <div style="background:#1e1e1e;padding:1rem;border-radius:8px;border:2px solid #ff9800;">
+                        <div style="color:#fff;font-size:0.9rem;white-space:pre-wrap;">${invoice.private_notes || 'Aucune note privée'}</div>
+                    </div>
+                    <small style="color:#ff9800;font-size:0.85rem;display:block;margin-top:0.5rem;">
+                        ⚠️ Ces notes sont privées et ne sont JAMAIS affichées dans le PDF généré.
+                    </small>
+                </div>
+                ` : ''}
                 
                 <!-- Attachments Section -->
                 <div style="margin-bottom:2rem;" id="attachmentsSectionChaimae${id}">
@@ -4224,7 +4276,7 @@ window.downloadInvoicePDFChaimae = async function (invoiceId, returnBlob = false
             doc.setTextColor(0, 0, 0);
             doc.setFontSize(7);
             doc.setFont(undefined, 'normal');
-            doc.text('RIB : 007 720 00 05979000000368 12  ATTIJARI WAFA BANQ', 105, 275, { align: 'center' });
+            doc.text('RIB : 007 720 00 05979000000368 12  ATTIJARI WAFA BANK', 105, 275, { align: 'center' });
             doc.text('Email: errbahiabderrahim@gmail.com', 105, 279, { align: 'center' });
             doc.text('ADRESSE: LOT ALBAHR AV TETOUAN N94 GARAGE 2 M\'DIQ', 105, 283, { align: 'center' });
             doc.text('Tel: +212 661 307 323', 105, 287, { align: 'center' });
@@ -4685,7 +4737,7 @@ window.downloadBonDeTravauxPDFChaimae = async function (invoiceId) {
             doc.setTextColor(0, 0, 0);
             doc.setFontSize(7);
             doc.setFont(undefined, 'normal');
-            doc.text('RIB : 007 720 00 05979000000368 12  ATTIJARI WAFA BANQ', 15, 275);
+            doc.text('RIB : 007 720 00 05979000000368 12  ATTIJARI WAFA BANK', 15, 275);
             doc.text('Email: errbahiabderrahim@gmail.com', 15, 279);
             doc.text('ADRESSE: LOT ALBAHR AV TETOUAN N94 GARAGE 2 M\'DIQ', 15, 283);
             doc.text('Tel: +212 661 307 323', 15, 287);
@@ -5102,7 +5154,7 @@ async function generateSinglePDFBlobChaimae(invoice, organizationType, folderNam
         doc.setTextColor(0, 0, 0);
         doc.setFontSize(7);
         doc.setFont(undefined, 'normal');
-        doc.text('RIB : 007 720 00 05979000000368 12  ATTIJARI WAFA BANQ', 105, 275, { align: 'center' });
+        doc.text('RIB : 007 720 00 05979000000368 12  ATTIJARI WAFA BANK', 105, 275, { align: 'center' });
         doc.text('Email: errbahiabderrahim@gmail.com', 105, 279, { align: 'center' });
         doc.text('ADRESSE: LOT ALBAHR AV TETOUAN N94 GARAGE 2 M\'DIQ', 105, 283, { align: 'center' });
         doc.text('Tel: +212 661 307 323', 105, 287, { align: 'center' });
@@ -6845,7 +6897,7 @@ window.initInvoicesListChaimaePage = function () {
                     doc.setTextColor(0, 0, 0);
                     doc.setFontSize(7);
                     doc.setFont(undefined, 'normal');
-                    doc.text('RIB : 007 720 00 05979000000368 12  ATTIJARI WAFA BANQ', 15, 275);
+                    doc.text('RIB : 007 720 00 05979000000368 12  ATTIJARI WAFA BANK', 15, 275);
                     doc.text('Email: errbahiabderrahim@gmail.com', 15, 279);
                     doc.text('ADRESSE: LOT ALBAHR AV TETOUAN N94 GARAGE 2 M\'DIQ', 15, 283);
                     doc.text('Tel: +212 661 307 323', 15, 287);
@@ -7614,6 +7666,74 @@ async function generateSAAISSPDFForChaimae(invoice) {
         }
     }
 }
+
+// Toggle Featured Status Chaimae (from table row)
+window.toggleFeaturedChaimae = async function (invoiceId, element) {
+    try {
+        const currentFeatured = element.dataset.featured === '1';
+        const newFeatured = currentFeatured ? 0 : 1;
+
+        const result = await window.electron.dbChaimae.updateInvoiceMetadata(invoiceId, {
+            is_featured: newFeatured
+        });
+
+        if (result.success) {
+            const inv = allInvoicesChaimae.find(i => i.id == invoiceId);
+            if (inv) inv.is_featured = newFeatured;
+            const filteredInv = filteredInvoicesChaimae.find(i => i.id == invoiceId);
+            if (filteredInv) filteredInv.is_featured = newFeatured;
+
+            element.dataset.featured = newFeatured ? '1' : '0';
+            element.textContent = newFeatured ? '⭐' : '☆';
+            element.style.filter = newFeatured ? 'none' : 'grayscale(1) opacity(0.3)';
+            element.title = newFeatured ? 'Retirer des importantes' : 'Marquer comme importante';
+        } else {
+            window.notify.error('Erreur', 'Échec de la mise à jour');
+        }
+    } catch (error) {
+        console.error('Toggle featured error:', error);
+        window.notify.error('Erreur', 'Une erreur est survenue');
+    }
+};
+
+// Toggle Featured Status Chaimae (from modal details)
+window.toggleFeaturedInModalChaimae = async function (invoiceId, buttonElement) {
+    try {
+        const currentFeatured = buttonElement.dataset.featured === '1';
+        const newFeatured = currentFeatured ? 0 : 1;
+
+        const result = await window.electron.dbChaimae.updateInvoiceMetadata(invoiceId, {
+            is_featured: newFeatured
+        });
+
+        if (result.success) {
+            const inv = allInvoicesChaimae.find(i => i.id == invoiceId);
+            if (inv) inv.is_featured = newFeatured;
+            const filteredInv = filteredInvoicesChaimae.find(i => i.id == invoiceId);
+            if (filteredInv) filteredInv.is_featured = newFeatured;
+
+            buttonElement.dataset.featured = newFeatured ? '1' : '0';
+            buttonElement.style.background = newFeatured ? '#ffa726' : '#666';
+            buttonElement.querySelector('span').textContent = newFeatured ? '⭐' : '☆';
+            buttonElement.childNodes[2].textContent = newFeatured ? 'Retirer des importantes' : 'Marquer comme importante';
+
+            const tableStarElement = document.querySelector(`span[onclick*="toggleFeaturedChaimae(${invoiceId}"]`);
+            if (tableStarElement) {
+                tableStarElement.dataset.featured = newFeatured ? '1' : '0';
+                tableStarElement.textContent = newFeatured ? '⭐' : '☆';
+                tableStarElement.style.filter = newFeatured ? 'none' : 'grayscale(1) opacity(0.3)';
+                tableStarElement.title = newFeatured ? 'Retirer des importantes' : 'Marquer comme importante';
+            }
+
+            window.notify.success('Succès', newFeatured ? 'Facture marquée comme importante' : 'Facture retirée des importantes');
+        } else {
+            window.notify.error('Erreur', 'Échec de la mise à jour');
+        }
+    } catch (error) {
+        console.error('Toggle featured in modal error:', error);
+        window.notify.error('Erreur', 'Une erreur est survenue');
+    }
+};
 
 // Update AR Status for Chaimae invoice
 window.updateArStatusChaimae = async function (id, newStatus) {

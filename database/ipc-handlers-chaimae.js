@@ -90,6 +90,19 @@ async function registerChaimaeHandlers() {
         }
     });
 
+    // Update invoice metadata (featured status & private notes)
+    ipcMain.handle('db:chaimae:updateInvoiceMetadata', async (event, id, metadata) => {
+        console.log(`🔧 [CHAIMAE IPC] updateInvoiceMetadata called - ID: ${id}, metadata:`, JSON.stringify(metadata));
+        try {
+            const result = await apiClient.updateInvoiceMetadata(id, metadata);
+            console.log(`🔧 [CHAIMAE IPC] updateInvoiceMetadata result:`, JSON.stringify(result));
+            return result;
+        } catch (error) {
+            console.error('[CHAIMAE] Error updating invoice metadata:', error);
+            return { success: false, error: error.message };
+        }
+    });
+
     ipcMain.handle('db:chaimae:invoices:getNextNumber', async (event, documentType, year) => {
         try {
             return await apiClient.getNextInvoiceNumber(COMPANY_CODE, year, documentType);
