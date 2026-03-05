@@ -1138,7 +1138,13 @@ window.downloadGlobalInvoicePDF = async function (invoiceId, sortOrder = null) {
         console.log('🔍 [GLOBAL INVOICE PDF] Amount in words:', amountInWords);
         console.log('📝 [GLOBAL INVOICE PDF] Text to display: La Présente Facture Globale est Arrêtée à la somme de : ' + amountInWords);
 
-        doc.text(`La Présente Facture Globale est Arrêtée à la somme de : ${amountInWords}`, 15, currentY, { maxWidth: 180 });
+        const amountText = `La Présente Facture Globale est Arrêtée à la somme de : ${amountInWords}`;
+        const amountLines = doc.splitTextToSize(amountText, 180);
+        
+        amountLines.forEach(line => {
+            doc.text(line, 15, currentY);
+            currentY += 4.5;
+        });
 
         // Add page numbering to all pages
         pages.push(pageCount);

@@ -4493,7 +4493,13 @@ window.downloadInvoicePDFChaimae = async function (invoiceId, returnBlob = false
         // Only show amount in words for Facture and Devis, not for Bon de livraison
         if (invoice.document_type !== 'bon_livraison') {
             const docTypeText = invoice.document_type === 'facture' ? 'Facture' : 'Devis';
-            doc.text(`La Présente ${docTypeText} est Arrêtée à la somme de : ${amountInWords}`, 15, currentY, { maxWidth: 180 });
+            const amountText = `La Présente ${docTypeText} est Arrêtée à la somme de : ${amountInWords}`;
+            const amountLines = doc.splitTextToSize(amountText, 180);
+            
+            amountLines.forEach(line => {
+                doc.text(line, 15, currentY);
+                currentY += 4.5;
+            });
         }
 
         // Add notes if any
@@ -4508,7 +4514,7 @@ window.downloadInvoicePDFChaimae = async function (invoiceId, returnBlob = false
             };
             const selectedFont = fontSizeMap[notesFontSize] || fontSizeMap['medium'];
 
-            currentY += 15;
+            currentY += 10;
             doc.setFontSize(8);
             doc.setFont(undefined, 'bold');
             doc.setTextColor(96, 125, 139);
@@ -5364,7 +5370,13 @@ async function generateSinglePDFBlobChaimae(invoice, organizationType, folderNam
     // Only show amount in words for Facture and Devis, not for Bon de livraison
     if (invoice.document_type !== 'bon_livraison') {
         const docTypeText = invoice.document_type === 'facture' ? 'Facture' : 'Devis';
-        doc.text(`La Présente ${docTypeText} est Arrêtée à la somme de : ${amountInWords}`, 15, currentY, { maxWidth: 180 });
+        const amountText = `La Présente ${docTypeText} est Arrêtée à la somme de : ${amountInWords}`;
+        const amountLines = doc.splitTextToSize(amountText, 180);
+        
+        amountLines.forEach(line => {
+            doc.text(line, 15, currentY);
+            currentY += 4.5;
+        });
     }
 
     // Add notes if invoice has an id
@@ -7069,12 +7081,24 @@ window.initInvoicesListChaimaePage = function () {
                 // For Global Invoice (has bons array), always show "Facture Globale"
                 if (invoice.bons && invoice.bons.length > 0) {
                     console.log('✅ [GLOBAL INVOICE PDF] This is a Global Invoice - showing "Facture Globale"');
-                    doc.text(`La Présente Facture est Arrêtée à la somme de : ${amountInWords}`, 15, currentY, { maxWidth: 180 });
+                    const amountText = `La Présente Facture est Arrêtée à la somme de : ${amountInWords}`;
+                    const amountLines = doc.splitTextToSize(amountText, 180);
+                    
+                    amountLines.forEach(line => {
+                        doc.text(line, 15, currentY);
+                        currentY += 4.5;
+                    });
                 } else if (invoice.document_type !== 'bon_livraison') {
                     // For regular invoices (not global)
                     const docTypeText = invoice.document_type === 'facture' ? 'Facture' : 'Devis';
                     console.log('📄 [REGULAR INVOICE PDF] Regular invoice type:', docTypeText);
-                    doc.text(`La Présente ${docTypeText} est Arrêtée à la somme de : ${amountInWords}`, 15, currentY, { maxWidth: 180 });
+                    const amountText = `La Présente ${docTypeText} est Arrêtée à la somme de : ${amountInWords}`;
+                    const amountLines = doc.splitTextToSize(amountText, 180);
+                    
+                    amountLines.forEach(line => {
+                        doc.text(line, 15, currentY);
+                        currentY += 4.5;
+                    });
                 }
 
                 // Add notes if any

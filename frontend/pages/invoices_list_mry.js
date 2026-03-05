@@ -3489,7 +3489,13 @@ window.downloadInvoicePDF = async function (invoiceId, returnBlob = false, optio
         doc.setFont(undefined, 'italic');
         const amountInWords = numberToFrenchWords(invoice.total_ttc);
         const docTypeText = invoice.document_type === 'facture' ? 'Facture' : 'Devis';
-        doc.text(`La Présente ${docTypeText} est Arrêtée à la somme de : ${amountInWords}`, 15, currentY, { maxWidth: 180 });
+        const amountText = `La Présente ${docTypeText} est Arrêtée à la somme de : ${amountInWords}`;
+        const amountLines = doc.splitTextToSize(amountText, 180);
+        
+        amountLines.forEach(line => {
+            doc.text(line, 15, currentY);
+            currentY += 4.5;
+        });
 
         // Add notes if any
         const noteResult = await window.electron.db.getNote(invoiceId);
@@ -3503,7 +3509,7 @@ window.downloadInvoicePDF = async function (invoiceId, returnBlob = false, optio
             };
             const selectedFont = fontSizeMap[notesFontSize] || fontSizeMap['medium'];
 
-            currentY += 15;
+            currentY += 10;
             doc.setFontSize(8);
             doc.setFont(undefined, 'bold');
             doc.setTextColor(96, 125, 139);
@@ -4640,7 +4646,13 @@ async function generateSinglePDFBlob(invoice, organizationType, folderName, incl
     doc.setFont(undefined, 'italic');
     const amountInWords = numberToFrenchWords(invoice.total_ttc);
     const docTypeText = invoice.document_type === 'facture' ? 'Facture' : 'Devis';
-    doc.text(`La Présente ${docTypeText} est Arrêtée à la somme de : ${amountInWords}`, 15, currentY, { maxWidth: 180 });
+    const amountText = `La Présente ${docTypeText} est Arrêtée à la somme de : ${amountInWords}`;
+    const amountLines = doc.splitTextToSize(amountText, 180);
+    
+    amountLines.forEach(line => {
+        doc.text(line, 15, currentY);
+        currentY += 4.5;
+    });
 
     // Add notes if invoice has an id (for bulk download, notes might not be loaded)
     if (invoice.id) {

@@ -950,7 +950,14 @@ window.downloadInvoicePDFMulti = async function (invoiceId, returnBlob = false, 
         doc.setFont(undefined, 'normal');
         const amountInWords = numberToFrenchWords(invoice.total_ttc);
         const docTypeText = invoice.document_type === 'devis' ? 'devis' : 'facture';
-        doc.text(`La Présente ${docTypeText} est Arrêté à la somme de : ${amountInWords}`, 15, amountWordsY, { maxWidth: 130 });
+        const amountText = `La Présente ${docTypeText} est Arrêté à la somme de : ${amountInWords}`;
+        const amountLines = doc.splitTextToSize(amountText, 180); // Use full page width
+        
+        let currentAmountY = amountWordsY;
+        amountLines.forEach(line => {
+            doc.text(line, 15, currentAmountY);
+            currentAmountY += 4; // Line spacing
+        });
 
         // Add notes if any
         const noteResult = await window.electron.dbMulti.getNote(invoiceId);
@@ -969,9 +976,9 @@ window.downloadInvoicePDFMulti = async function (invoiceId, returnBlob = false, 
             // Calculate space needed for notes
             const tempNoteLines = doc.splitTextToSize(noteResult.data, 180);
             const notesHeight = 6 + (tempNoteLines.length * selectedFont.lineheight); // Title + lines
-            const currentY = amountWordsY + 5;
+            const startAfterAmount = currentAmountY + 3; // Start after the amount text with small gap
             const footerTopY = 270;
-            const availableSpace = footerTopY - currentY;
+            const availableSpace = footerTopY - startAfterAmount;
 
             let notesY;
             let needsNewPage = false;
@@ -987,7 +994,7 @@ window.downloadInvoicePDFMulti = async function (invoiceId, returnBlob = false, 
                 notesY = 60; // Start at top of new page
             } else {
                 // Enough space - add notes on current page
-                notesY = currentY;
+                notesY = startAfterAmount;
             }
 
             // Title for notes block

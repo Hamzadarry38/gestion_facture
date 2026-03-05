@@ -2831,7 +2831,14 @@ window.downloadInvoicePDFMulti = async function (invoiceId) {
         doc.setFont(undefined, 'normal');
         const amountInWords = numberToFrenchWords(invoice.total_ttc);
         const docTypeText = invoice.document_type === 'devis' ? 'devis' : 'facture';
-        doc.text(`La Présente ${docTypeText} est Arrêté à la somme de : ${amountInWords}`, 15, amountWordsY, { maxWidth: 130 });
+        const amountText = `La Présente ${docTypeText} est Arrêté à la somme de : ${amountInWords}`;
+        const amountLines = doc.splitTextToSize(amountText, 180);
+        
+        let currentAmountY = amountWordsY;
+        amountLines.forEach(line => {
+            doc.text(line, 15, currentAmountY);
+            currentAmountY += 4;
+        });
 
         // Add notes if any
         const noteResult = await window.electron.dbMulti.getNote(invoiceId);
