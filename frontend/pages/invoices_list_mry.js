@@ -2681,7 +2681,7 @@ window.convertInvoiceType = async function (invoiceId, currentType) {
             })),
             totals: {
                 total_ht: invoice.total_ht || 0,
-                tva_rate: invoice.tva_rate || 20,
+                tva_rate: (invoice.tva_rate !== undefined && invoice.tva_rate !== null && invoice.tva_rate !== '') ? invoice.tva_rate : 20,
                 montant_tva: invoice.montant_tva || 0,
                 total_ttc: invoice.total_ttc || 0
             }

@@ -709,7 +709,9 @@ window.calculateTotalsMulti = function () {
     });
 
     const tvaRateValue = document.getElementById('tvaRateMulti').value;
-    const tvaRate = tvaRateValue === '' ? 20 : (parseFloat(tvaRateValue) || 0);
+    const parsedTvaRate = parseFloat(tvaRateValue);
+    // Accept 0 as valid TVA rate, only use 20 as default if empty or invalid
+    const tvaRate = tvaRateValue === '' || isNaN(parsedTvaRate) ? 20 : parsedTvaRate;
     const montantTVA = totalHT * (tvaRate / 100);
     const totalTTC = totalHT + montantTVA;
 

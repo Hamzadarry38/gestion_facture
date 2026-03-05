@@ -998,37 +998,42 @@ async function generateSKMPDF(doc, invoice, includeZeroProducts = true) {
         doc.setFont(undefined, 'normal');
         doc.setTextColor(0, 0, 0);
 
-        // Debug: Log column positions and widths
-        console.log('📊 TABLE DIMENSIONS:');
-        console.log('  colPositions:', colPositions);
-        console.log('  colWidths:', colWidths);
-        console.log('  Column 3 (P.): start=' + colPositions[2] + ', width=' + colWidths[2] + ', end=' + (colPositions[2] + colWidths[2]));
-        console.log('  Column 4 (TOTAL): start=' + colPositions[3] + ', width=' + colWidths[3] + ', end=' + (colPositions[3] + colWidths[3]));
-
         // Row 1: PRIX H.T
-        doc.line(20, totalsStartY, 195, totalsStartY); // Top border
         doc.line(20, totalsStartY, 20, totalsStartY + 8); // Left border
         doc.line(195, totalsStartY, 195, totalsStartY + 8); // Right border - vertical line on far right
         doc.text('PRIX H.T', 145, totalsStartY + 6);
         doc.text(formatNumberForPDF(invoice.total_ht), 192, totalsStartY + 6, { align: 'right' });
         doc.line(20, totalsStartY + 8, 195, totalsStartY + 8); // Bottom border
 
-        // Row 2: TVA
-        const tvaY = totalsStartY + 8;
-        doc.line(20, tvaY, 20, tvaY + 8); // Left border
-        doc.line(195, tvaY, 195, tvaY + 8); // Right border - vertical line on far right
-        doc.text(`TVA ${invoice.tva_rate}%`, 145, tvaY + 6);
-        doc.text(formatNumberForPDF(invoice.montant_tva), 192, tvaY + 6, { align: 'right' });
-        doc.line(20, tvaY + 8, 195, tvaY + 8); // Bottom border
+        // Only show TVA row if tva_rate > 0
+        let ttcY;
+        if (parseFloat(invoice.tva_rate) > 0) {
+            // Row 2: TVA
+            const tvaY = totalsStartY + 8;
+            doc.line(20, tvaY, 20, tvaY + 8); // Left border
+            doc.line(195, tvaY, 195, tvaY + 8); // Right border - vertical line on far right
+            doc.text(`TVA ${invoice.tva_rate}%`, 145, tvaY + 6);
+            doc.text(formatNumberForPDF(invoice.montant_tva), 192, tvaY + 6, { align: 'right' });
+            doc.line(20, tvaY + 8, 195, tvaY + 8); // Bottom border
 
-        // Row 3: PRIX T.T.C
-        const ttcY = tvaY + 8;
-        doc.setFont(undefined, 'bold');
-        doc.line(20, ttcY, 20, ttcY + 8); // Left border
-        doc.line(195, ttcY, 195, ttcY + 8); // Right border - vertical line on far right
-        doc.text('PRIX T.T.C', 145, ttcY + 6);
-        doc.text(formatNumberForPDF(invoice.total_ttc), 192, ttcY + 6, { align: 'right' });
-        doc.line(20, ttcY + 8, 195, ttcY + 8); // Bottom border
+            // Row 3: PRIX T.T.C
+            ttcY = tvaY + 8;
+            doc.setFont(undefined, 'bold');
+            doc.line(20, ttcY, 20, ttcY + 8); // Left border
+            doc.line(195, ttcY, 195, ttcY + 8); // Right border - vertical line on far right
+            doc.text('PRIX T.T.C', 145, ttcY + 6);
+            doc.text(formatNumberForPDF(invoice.total_ttc), 192, ttcY + 6, { align: 'right' });
+            doc.line(20, ttcY + 8, 195, ttcY + 8); // Bottom border
+        } else {
+            // If TVA is 0%, show only TOTAL (which equals HT)
+            ttcY = totalsStartY + 8;
+            doc.setFont(undefined, 'bold');
+            doc.line(20, ttcY, 20, ttcY + 8); // Left border
+            doc.line(195, ttcY, 195, ttcY + 8); // Right border - vertical line on far right
+            doc.text('TOTAL', 145, ttcY + 6);
+            doc.text(formatNumberForPDF(invoice.total_ht), 192, ttcY + 6, { align: 'right' });
+            doc.line(20, ttcY + 8, 195, ttcY + 8); // Bottom border
+        }
 
         // Calculate total pages
         const totalPages = pageCount;

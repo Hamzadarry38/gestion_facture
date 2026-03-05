@@ -873,7 +873,7 @@ app.post('/invoices', async (req, res) => {
       document_numero, document_numero_order, document_numero_bl,
       document_numero_devis, document_order_devis, document_bon_de_livraison,
       document_numero_commande, year, sequential_id || 0,
-      total_ht || 0, tva_rate || 20, montant_tva || 0, total_ttc || 0,
+      total_ht || 0, (tva_rate !== undefined && tva_rate !== null && tva_rate !== '') ? tva_rate : 20, montant_tva || 0, total_ttc || 0,
       creation_method || 'normal', created_by || null, delivered_by || null,
       req.body.ar_status_resolved || '',
       validation_status,
@@ -2216,7 +2216,7 @@ app.post('/devis-data/:company', async (req, res) => {
       RETURNING *
     `, [devis_number, year, source_invoice_id || null, source_company || null,
         document_type || 'devis', client_nom || '', client_ice || '',
-        document_date || null, pourcentage_ajustement || 0, tva_rate || 20,
+        document_date || null, pourcentage_ajustement || 0, (tva_rate !== undefined && tva_rate !== null && tva_rate !== '') ? tva_rate : 20,
         total_ht || 0, montant_tva || 0, total_ttc || 0,
         notes || null, table_style || 'style1', created_by || null]);
     

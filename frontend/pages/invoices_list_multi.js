@@ -2311,19 +2311,29 @@ window.downloadBonDeTravaux = async function (invoiceId) {
         doc.text('TOTAL HT', 113, fixedBottomY + 4);
         doc.text(`${formatNumberForPDF(invoice.total_ht)} DH`, 192, fixedBottomY + 4, { align: 'right' });
 
-        doc.setFillColor(255, 255, 255);
-        doc.rect(110, fixedBottomY + 6, 85, 6, 'F');
-        doc.setDrawColor(200, 200, 200);
-        doc.rect(110, fixedBottomY + 6, 85, 6);
-        doc.setTextColor(0, 0, 0);
-        doc.text(`TVA ${invoice.tva_rate}%`, 113, fixedBottomY + 10);
-        doc.text(`${formatNumberForPDF(invoice.montant_tva)} DH`, 192, fixedBottomY + 10, { align: 'right' });
+        // Only show TVA row if tva_rate > 0
+        if (parseFloat(invoice.tva_rate) > 0) {
+            doc.setFillColor(255, 255, 255);
+            doc.rect(110, fixedBottomY + 6, 85, 6, 'F');
+            doc.setDrawColor(200, 200, 200);
+            doc.rect(110, fixedBottomY + 6, 85, 6);
+            doc.setTextColor(0, 0, 0);
+            doc.text(`TVA ${invoice.tva_rate}%`, 113, fixedBottomY + 10);
+            doc.text(`${formatNumberForPDF(invoice.montant_tva)} DH`, 192, fixedBottomY + 10, { align: 'right' });
 
-        doc.setFillColor(...darkGrayColor);
-        doc.rect(110, fixedBottomY + 12, 85, 6, 'F');
-        doc.setTextColor(255, 255, 255);
-        doc.text('TOTAL TTC', 113, fixedBottomY + 16);
-        doc.text(`${formatNumberForPDF(invoice.total_ttc)} DH`, 192, fixedBottomY + 16, { align: 'right' });
+            doc.setFillColor(...darkGrayColor);
+            doc.rect(110, fixedBottomY + 12, 85, 6, 'F');
+            doc.setTextColor(255, 255, 255);
+            doc.text('TOTAL TTC', 113, fixedBottomY + 16);
+            doc.text(`${formatNumberForPDF(invoice.total_ttc)} DH`, 192, fixedBottomY + 16, { align: 'right' });
+        } else {
+            // If TVA is 0%, show only TOTAL (which equals HT)
+            doc.setFillColor(...darkGrayColor);
+            doc.rect(110, fixedBottomY + 6, 85, 6, 'F');
+            doc.setTextColor(255, 255, 255);
+            doc.text('TOTAL', 113, fixedBottomY + 10);
+            doc.text(`${formatNumberForPDF(invoice.total_ht)} DH`, 192, fixedBottomY + 10, { align: 'right' });
+        }
 
         // Add notes if any
         const noteResult = await window.electron.dbMulti.getNote(invoiceId);
@@ -2790,19 +2800,29 @@ window.downloadInvoicePDFMulti = async function (invoiceId) {
         doc.text('TOTAL HT', 113, fixedBottomY + 4);
         doc.text(`${formatNumberForPDF(invoice.total_ht)} DH`, 192, fixedBottomY + 4, { align: 'right' });
 
-        doc.setFillColor(255, 255, 255);
-        doc.rect(110, fixedBottomY + 6, 85, 6, 'F');
-        doc.setDrawColor(200, 200, 200);
-        doc.rect(110, fixedBottomY + 6, 85, 6);
-        doc.setTextColor(0, 0, 0);
-        doc.text(`TVA ${invoice.tva_rate}%`, 113, fixedBottomY + 10);
-        doc.text(`${formatNumberForPDF(invoice.montant_tva)} DH`, 192, fixedBottomY + 10, { align: 'right' });
+        // Only show TVA row if tva_rate > 0
+        if (parseFloat(invoice.tva_rate) > 0) {
+            doc.setFillColor(255, 255, 255);
+            doc.rect(110, fixedBottomY + 6, 85, 6, 'F');
+            doc.setDrawColor(200, 200, 200);
+            doc.rect(110, fixedBottomY + 6, 85, 6);
+            doc.setTextColor(0, 0, 0);
+            doc.text(`TVA ${invoice.tva_rate}%`, 113, fixedBottomY + 10);
+            doc.text(`${formatNumberForPDF(invoice.montant_tva)} DH`, 192, fixedBottomY + 10, { align: 'right' });
 
-        doc.setFillColor(...darkGrayColor);
-        doc.rect(110, fixedBottomY + 12, 85, 6, 'F');
-        doc.setTextColor(255, 255, 255);
-        doc.text('TOTAL TTC', 113, fixedBottomY + 16);
-        doc.text(`${formatNumberForPDF(invoice.total_ttc)} DH`, 192, fixedBottomY + 16, { align: 'right' });
+            doc.setFillColor(...darkGrayColor);
+            doc.rect(110, fixedBottomY + 12, 85, 6, 'F');
+            doc.setTextColor(255, 255, 255);
+            doc.text('TOTAL TTC', 113, fixedBottomY + 16);
+            doc.text(`${formatNumberForPDF(invoice.total_ttc)} DH`, 192, fixedBottomY + 16, { align: 'right' });
+        } else {
+            // If TVA is 0%, show only TOTAL (which equals HT)
+            doc.setFillColor(...darkGrayColor);
+            doc.rect(110, fixedBottomY + 6, 85, 6, 'F');
+            doc.setTextColor(255, 255, 255);
+            doc.text('TOTAL', 113, fixedBottomY + 10);
+            doc.text(`${formatNumberForPDF(invoice.total_ht)} DH`, 192, fixedBottomY + 10, { align: 'right' });
+        }
 
         // Amount in words - below both sections
         const amountWordsY = fixedBottomY + 25;

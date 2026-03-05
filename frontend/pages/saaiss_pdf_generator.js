@@ -954,31 +954,48 @@ async function generateSAAISSPDF(doc, invoice, includeZeroProducts = true) {
         doc.text(formatNumberForPDF(invoice.total_ht) + ' DH', totalsX + totalsWidth - 2, totalsStartY + 5.5, { align: 'right' });
         doc.line(totalsX, totalsStartY + 8, totalsX + totalsWidth, totalsStartY + 8); // Bottom border
 
-        // Row 2: TVA
-        const tvaY = totalsStartY + 8;
-        doc.line(totalsX, tvaY, totalsX + totalsWidth, tvaY); // Top border
-        doc.line(totalsX, tvaY, totalsX, tvaY + 8); // Left border
-        doc.line(totalsX + totalsWidth, tvaY, totalsX + totalsWidth, tvaY + 8); // Right border
-        doc.line(totalsX + 30, tvaY, totalsX + 30, tvaY + 8); // Middle vertical separator
-        doc.setTextColor(0, 0, 0);
-        doc.setFont(undefined, 'normal');
-        doc.setFontSize(8);
-        doc.text(`TVA ${invoice.tva_rate}%`, totalsX + 2, tvaY + 5.5);
-        doc.text(formatNumberForPDF(invoice.montant_tva) + ' DH', totalsX + totalsWidth - 2, tvaY + 5.5, { align: 'right' });
-        doc.line(totalsX, tvaY + 8, totalsX + totalsWidth, tvaY + 8); // Bottom border
+        // Only show TVA row if tva_rate > 0
+        let ttcY;
+        if (parseFloat(invoice.tva_rate) > 0) {
+            // Row 2: TVA
+            const tvaY = totalsStartY + 8;
+            doc.line(totalsX, tvaY, totalsX + totalsWidth, tvaY); // Top border
+            doc.line(totalsX, tvaY, totalsX, tvaY + 8); // Left border
+            doc.line(totalsX + totalsWidth, tvaY, totalsX + totalsWidth, tvaY + 8); // Right border
+            doc.line(totalsX + 30, tvaY, totalsX + 30, tvaY + 8); // Middle vertical separator
+            doc.setTextColor(0, 0, 0);
+            doc.setFont(undefined, 'normal');
+            doc.setFontSize(8);
+            doc.text(`TVA ${invoice.tva_rate}%`, totalsX + 2, tvaY + 5.5);
+            doc.text(formatNumberForPDF(invoice.montant_tva) + ' DH', totalsX + totalsWidth - 2, tvaY + 5.5, { align: 'right' });
+            doc.line(totalsX, tvaY + 8, totalsX + totalsWidth, tvaY + 8); // Bottom border
 
-        // Row 3: TOTAL T.T.C
-        const ttcY = tvaY + 8;
-        doc.line(totalsX, ttcY, totalsX + totalsWidth, ttcY); // Top border
-        doc.line(totalsX, ttcY, totalsX, ttcY + 8); // Left border
-        doc.line(totalsX + totalsWidth, ttcY, totalsX + totalsWidth, ttcY + 8); // Right border
-        doc.line(totalsX + 30, ttcY, totalsX + 30, ttcY + 8); // Middle vertical separator
-        doc.setTextColor(0, 0, 0);
-        doc.setFont(undefined, 'bold');
-        doc.setFontSize(8);
-        doc.text('TOTAL T.T.C', totalsX + 2, ttcY + 5.5);
-        doc.text(formatNumberForPDF(invoice.total_ttc) + ' DH', totalsX + totalsWidth - 2, ttcY + 5.5, { align: 'right' });
-        doc.line(totalsX, ttcY + 8, totalsX + totalsWidth, ttcY + 8); // Bottom border
+            // Row 3: TOTAL T.T.C
+            ttcY = tvaY + 8;
+            doc.line(totalsX, ttcY, totalsX + totalsWidth, ttcY); // Top border
+            doc.line(totalsX, ttcY, totalsX, ttcY + 8); // Left border
+            doc.line(totalsX + totalsWidth, ttcY, totalsX + totalsWidth, ttcY + 8); // Right border
+            doc.line(totalsX + 30, ttcY, totalsX + 30, ttcY + 8); // Middle vertical separator
+            doc.setTextColor(0, 0, 0);
+            doc.setFont(undefined, 'bold');
+            doc.setFontSize(8);
+            doc.text('TOTAL T.T.C', totalsX + 2, ttcY + 5.5);
+            doc.text(formatNumberForPDF(invoice.total_ttc) + ' DH', totalsX + totalsWidth - 2, ttcY + 5.5, { align: 'right' });
+            doc.line(totalsX, ttcY + 8, totalsX + totalsWidth, ttcY + 8); // Bottom border
+        } else {
+            // If TVA is 0%, show only TOTAL (which equals HT)
+            ttcY = totalsStartY + 8;
+            doc.line(totalsX, ttcY, totalsX + totalsWidth, ttcY); // Top border
+            doc.line(totalsX, ttcY, totalsX, ttcY + 8); // Left border
+            doc.line(totalsX + totalsWidth, ttcY, totalsX + totalsWidth, ttcY + 8); // Right border
+            doc.line(totalsX + 30, ttcY, totalsX + 30, ttcY + 8); // Middle vertical separator
+            doc.setTextColor(0, 0, 0);
+            doc.setFont(undefined, 'bold');
+            doc.setFontSize(8);
+            doc.text('TOTAL', totalsX + 2, ttcY + 5.5);
+            doc.text(formatNumberForPDF(invoice.total_ht) + ' DH', totalsX + totalsWidth - 2, ttcY + 5.5, { align: 'right' });
+            doc.line(totalsX, ttcY + 8, totalsX + totalsWidth, ttcY + 8); // Bottom border
+        }
 
         tableSegments.forEach(segment => {
             doc.setPage(segment.page);

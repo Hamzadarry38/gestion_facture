@@ -1043,7 +1043,7 @@ function displayInvoicesChaimae(invoices) {
         const date = (window.safeParseDate||function(d){return new Date(d)})(invoice.document_date).toLocaleDateString('fr-FR');
 
         const totalHT = formatNumberChaimae(invoice.total_ht || 0);
-        const tva = invoice.tva_rate || 20;
+        const tva = (invoice.tva_rate !== undefined && invoice.tva_rate !== null && invoice.tva_rate !== '') ? invoice.tva_rate : 20;
         const totalTTC = formatNumberChaimae(invoice.total_ttc || 0);
 
         console.log('📊 Formatted values:', {
@@ -3141,7 +3141,8 @@ async function handleEditSubmitChaimae(e, invoiceId, documentType) {
                             }
                         }
 
-                        const tvaRate = globalInvoice.tva_rate || 20;
+                        const tvaRateValue = parseFloat(globalInvoice.tva_rate);
+                        const tvaRate = isNaN(tvaRateValue) ? 20 : tvaRateValue;
                         const montantTVA = totalHT * (tvaRate / 100);
 
                         // Update global invoice
@@ -4891,20 +4892,32 @@ window.downloadBonDeTravauxPDFChaimae = async function (invoiceId) {
         doc.text('Total HT', 113, currentY + 5);
         doc.text(`${formatNumberForPDF(invoice.total_ht)} DH`, 192, currentY + 5, { align: 'right' });
 
-        currentY += 7;
-        doc.setFillColor(245, 245, 245);
-        doc.rect(110, currentY, 85, 7, 'F');
-        doc.setTextColor(0, 0, 0);
-        doc.text(`TVA ${invoice.tva_rate}%`, 113, currentY + 5);
-        doc.text(`${formatNumberForPDF(invoice.montant_tva)} DH`, 192, currentY + 5, { align: 'right' });
+        // Only show TVA row if tva_rate > 0
+        if (parseFloat(invoice.tva_rate) > 0) {
+            currentY += 7;
+            doc.setFillColor(245, 245, 245);
+            doc.rect(110, currentY, 85, 7, 'F');
+            doc.setTextColor(0, 0, 0);
+            doc.text(`TVA ${invoice.tva_rate}%`, 113, currentY + 5);
+            doc.text(`${formatNumberForPDF(invoice.montant_tva)} DH`, 192, currentY + 5, { align: 'right' });
 
-        currentY += 7;
-        doc.setFillColor(...greenColor);
-        doc.rect(110, currentY, 85, 7, 'F');
-        doc.setTextColor(255, 255, 255);
-        doc.setFont(undefined, 'bold');
-        doc.text('Total TTC', 113, currentY + 5);
-        doc.text(`${formatNumberForPDF(invoice.total_ttc)} DH`, 192, currentY + 5, { align: 'right' });
+            currentY += 7;
+            doc.setFillColor(...greenColor);
+            doc.rect(110, currentY, 85, 7, 'F');
+            doc.setTextColor(255, 255, 255);
+            doc.setFont(undefined, 'bold');
+            doc.text('Total TTC', 113, currentY + 5);
+            doc.text(`${formatNumberForPDF(invoice.total_ttc)} DH`, 192, currentY + 5, { align: 'right' });
+        } else {
+            // If TVA is 0%, show only TOTAL (which equals HT)
+            currentY += 7;
+            doc.setFillColor(...greenColor);
+            doc.rect(110, currentY, 85, 7, 'F');
+            doc.setTextColor(255, 255, 255);
+            doc.setFont(undefined, 'bold');
+            doc.text('TOTAL', 113, currentY + 5);
+            doc.text(`${formatNumberForPDF(invoice.total_ht)} DH`, 192, currentY + 5, { align: 'right' });
+        }
 
         // Add page numbering to all pages
         pages.push(pageCount);
@@ -5466,7 +5479,8 @@ async function viewGlobalInvoiceChaimae(id) {
                 });
             }
 
-            const tvaRate = invoice.tva_rate || 20;
+            const tvaRateValue = parseFloat(invoice.tva_rate);
+            const tvaRate = isNaN(tvaRateValue) ? 20 : tvaRateValue;
             const calculatedMontantTVA = calculatedTotalHT * (tvaRate / 100);
 
             // Use calculated values instead of stored values

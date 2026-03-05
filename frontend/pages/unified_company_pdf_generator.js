@@ -980,18 +980,28 @@ async function generateBenAliPDFContent(doc, invoice) {
     doc.text(parseFloat(invoice.total_ht).toFixed(2) + ' DH', totalsX + 62, currentY + 5, { align: 'right' });
     currentY += 8;
 
-    doc.setFillColor(220, 220, 220);
-    doc.rect(totalsX, currentY, 65, 7, 'F');
-    doc.setTextColor(0, 0, 0);
-    doc.text('TVA ' + invoice.tva_rate + '%', totalsX + 3, currentY + 5);
-    doc.text(parseFloat(invoice.montant_tva).toFixed(2) + ' DH', totalsX + 62, currentY + 5, { align: 'right' });
-    currentY += 8;
+    // Only show TVA row if tva_rate > 0
+    if (parseFloat(invoice.tva_rate) > 0) {
+        doc.setFillColor(220, 220, 220);
+        doc.rect(totalsX, currentY, 65, 7, 'F');
+        doc.setTextColor(0, 0, 0);
+        doc.text('TVA ' + invoice.tva_rate + '%', totalsX + 3, currentY + 5);
+        doc.text(parseFloat(invoice.montant_tva).toFixed(2) + ' DH', totalsX + 62, currentY + 5, { align: 'right' });
+        currentY += 8;
 
-    doc.setFillColor(56, 142, 60);
-    doc.rect(totalsX, currentY, 65, 7, 'F');
-    doc.setTextColor(255, 255, 255);
-    doc.text('Total TTC', totalsX + 3, currentY + 5);
-    doc.text(parseFloat(invoice.total_ttc).toFixed(2) + ' DH', totalsX + 62, currentY + 5, { align: 'right' });
+        doc.setFillColor(56, 142, 60);
+        doc.rect(totalsX, currentY, 65, 7, 'F');
+        doc.setTextColor(255, 255, 255);
+        doc.text('Total TTC', totalsX + 3, currentY + 5);
+        doc.text(parseFloat(invoice.total_ttc).toFixed(2) + ' DH', totalsX + 62, currentY + 5, { align: 'right' });
+    } else {
+        // If TVA is 0%, show only TOTAL (which equals HT)
+        doc.setFillColor(56, 142, 60);
+        doc.rect(totalsX, currentY, 65, 7, 'F');
+        doc.setTextColor(255, 255, 255);
+        doc.text('TOTAL', totalsX + 3, currentY + 5);
+        doc.text(parseFloat(invoice.total_ht).toFixed(2) + ' DH', totalsX + 62, currentY + 5, { align: 'right' });
+    }
 
     // Add footer to all pages
     const totalPages = pageCount;
@@ -1101,7 +1111,8 @@ async function generateCustomCompanyPDF(invoiceId, sourceDb, companyCode) {
                 customizedInvoice.products = customizedInvoice.products.filter((_, index) => !excluded.has(index));
                 // Recalculate totals after exclusion
                 const newTotalHT = customizedInvoice.products.reduce((sum, p) => sum + parseFloat(p.total_ht || 0), 0);
-                const newMontantTVA = newTotalHT * (parseFloat(customizedInvoice.tva_rate || 20) / 100);
+                const tvaRateValue = parseFloat(customizedInvoice.tva_rate);
+                const newMontantTVA = newTotalHT * ((isNaN(tvaRateValue) ? 20 : tvaRateValue) / 100);
                 customizedInvoice.total_ht = newTotalHT;
                 customizedInvoice.montant_tva = newMontantTVA;
                 customizedInvoice.total_ttc = newTotalHT + newMontantTVA;
@@ -1824,17 +1835,20 @@ async function generateGenericPDFContent(doc, invoice, companyCode, companyColor
         doc.text(parseFloat(invoice.total_ht).toFixed(2) + ' DH', totalsX + 62, currentY + 5, { align: 'right' });
         currentY += 8;
 
-        doc.setFont(undefined, 'normal');
-        doc.text('TVA ' + invoice.tva_rate + '%', totalsX + 3, currentY + 5);
-        doc.text(parseFloat(invoice.montant_tva).toFixed(2) + ' DH', totalsX + 62, currentY + 5, { align: 'right' });
-        currentY += 8;
+        // Only show TVA row if tva_rate > 0
+        if (parseFloat(invoice.tva_rate) > 0) {
+            doc.setFont(undefined, 'normal');
+            doc.text('TVA ' + invoice.tva_rate + '%', totalsX + 3, currentY + 5);
+            doc.text(parseFloat(invoice.montant_tva).toFixed(2) + ' DH', totalsX + 62, currentY + 5, { align: 'right' });
+            currentY += 8;
+        }
 
         doc.setDrawColor(0, 0, 0);
         doc.setLineWidth(0.5);
         doc.line(totalsX, currentY, totalsX + 65, currentY);
         doc.setFont(undefined, 'bold');
-        doc.text('Total TTC', totalsX + 3, currentY + 5);
-        doc.text(parseFloat(invoice.total_ttc).toFixed(2) + ' DH', totalsX + 62, currentY + 5, { align: 'right' });
+        doc.text(parseFloat(invoice.tva_rate) > 0 ? 'Total TTC' : 'TOTAL', totalsX + 3, currentY + 5);
+        doc.text(parseFloat(invoice.tva_rate) > 0 ? parseFloat(invoice.total_ttc).toFixed(2) + ' DH' : parseFloat(invoice.total_ht).toFixed(2) + ' DH', totalsX + 62, currentY + 5, { align: 'right' });
     } else if (tableStyle === 'style4') {
         // Professionnel: black header totals
         doc.setFillColor(0, 0, 0);
@@ -1846,18 +1860,21 @@ async function generateGenericPDFContent(doc, invoice, companyCode, companyColor
         doc.text(parseFloat(invoice.total_ht).toFixed(2) + ' DH', totalsX + 62, currentY + 5, { align: 'right' });
         currentY += 8;
 
-        doc.setFillColor(220, 220, 220);
-        doc.rect(totalsX, currentY, 65, 7, 'F');
-        doc.setTextColor(0, 0, 0);
-        doc.text('TVA ' + invoice.tva_rate + '%', totalsX + 3, currentY + 5);
-        doc.text(parseFloat(invoice.montant_tva).toFixed(2) + ' DH', totalsX + 62, currentY + 5, { align: 'right' });
-        currentY += 8;
+        // Only show TVA row if tva_rate > 0
+        if (parseFloat(invoice.tva_rate) > 0) {
+            doc.setFillColor(220, 220, 220);
+            doc.rect(totalsX, currentY, 65, 7, 'F');
+            doc.setTextColor(0, 0, 0);
+            doc.text('TVA ' + invoice.tva_rate + '%', totalsX + 3, currentY + 5);
+            doc.text(parseFloat(invoice.montant_tva).toFixed(2) + ' DH', totalsX + 62, currentY + 5, { align: 'right' });
+            currentY += 8;
+        }
 
         doc.setFillColor(40, 40, 40);
         doc.rect(totalsX, currentY, 65, 7, 'F');
         doc.setTextColor(255, 255, 255);
-        doc.text('Total TTC', totalsX + 3, currentY + 5);
-        doc.text(parseFloat(invoice.total_ttc).toFixed(2) + ' DH', totalsX + 62, currentY + 5, { align: 'right' });
+        doc.text(parseFloat(invoice.tva_rate) > 0 ? 'Total TTC' : 'TOTAL', totalsX + 3, currentY + 5);
+        doc.text(parseFloat(invoice.tva_rate) > 0 ? parseFloat(invoice.total_ttc).toFixed(2) + ' DH' : parseFloat(invoice.total_ht).toFixed(2) + ' DH', totalsX + 62, currentY + 5, { align: 'right' });
     } else if (tableStyle === 'style7') {
         // Sans couleur: no background, just black text with lines
         doc.setDrawColor(0, 0, 0);
@@ -1871,17 +1888,20 @@ async function generateGenericPDFContent(doc, invoice, companyCode, companyColor
         doc.text(parseFloat(invoice.total_ht).toFixed(2) + ' DH', totalsX + 62, currentY + 5, { align: 'right' });
         currentY += 8;
 
-        doc.setFont(undefined, 'normal');
-        doc.text('TVA ' + invoice.tva_rate + '%', totalsX + 3, currentY + 5);
-        doc.text(parseFloat(invoice.montant_tva).toFixed(2) + ' DH', totalsX + 62, currentY + 5, { align: 'right' });
-        currentY += 8;
+        // Only show TVA row if tva_rate > 0
+        if (parseFloat(invoice.tva_rate) > 0) {
+            doc.setFont(undefined, 'normal');
+            doc.text('TVA ' + invoice.tva_rate + '%', totalsX + 3, currentY + 5);
+            doc.text(parseFloat(invoice.montant_tva).toFixed(2) + ' DH', totalsX + 62, currentY + 5, { align: 'right' });
+            currentY += 8;
+        }
 
         doc.setDrawColor(0, 0, 0);
         doc.setLineWidth(1);
         doc.line(totalsX, currentY, totalsX + 65, currentY);
         doc.setFont(undefined, 'bold');
-        doc.text('Total TTC', totalsX + 3, currentY + 5);
-        doc.text(parseFloat(invoice.total_ttc).toFixed(2) + ' DH', totalsX + 62, currentY + 5, { align: 'right' });
+        doc.text(parseFloat(invoice.tva_rate) > 0 ? 'Total TTC' : 'TOTAL', totalsX + 3, currentY + 5);
+        doc.text(parseFloat(invoice.tva_rate) > 0 ? parseFloat(invoice.total_ttc).toFixed(2) + ' DH' : parseFloat(invoice.total_ht).toFixed(2) + ' DH', totalsX + 62, currentY + 5, { align: 'right' });
     } else if (tableStyle === 'style1') {
         // Classique: grey totals (no company color)
         doc.setFillColor(80, 80, 80);
@@ -1893,18 +1913,21 @@ async function generateGenericPDFContent(doc, invoice, companyCode, companyColor
         doc.text(parseFloat(invoice.total_ht).toFixed(2) + ' DH', totalsX + 62, currentY + 5, { align: 'right' });
         currentY += 8;
 
-        doc.setFillColor(220, 220, 220);
-        doc.rect(totalsX, currentY, 65, 7, 'F');
-        doc.setTextColor(0, 0, 0);
-        doc.text('TVA ' + invoice.tva_rate + '%', totalsX + 3, currentY + 5);
-        doc.text(parseFloat(invoice.montant_tva).toFixed(2) + ' DH', totalsX + 62, currentY + 5, { align: 'right' });
-        currentY += 8;
+        // Only show TVA row if tva_rate > 0
+        if (parseFloat(invoice.tva_rate) > 0) {
+            doc.setFillColor(220, 220, 220);
+            doc.rect(totalsX, currentY, 65, 7, 'F');
+            doc.setTextColor(0, 0, 0);
+            doc.text('TVA ' + invoice.tva_rate + '%', totalsX + 3, currentY + 5);
+            doc.text(parseFloat(invoice.montant_tva).toFixed(2) + ' DH', totalsX + 62, currentY + 5, { align: 'right' });
+            currentY += 8;
+        }
 
         doc.setFillColor(60, 60, 60);
         doc.rect(totalsX, currentY, 65, 7, 'F');
         doc.setTextColor(255, 255, 255);
-        doc.text('Total TTC', totalsX + 3, currentY + 5);
-        doc.text(parseFloat(invoice.total_ttc).toFixed(2) + ' DH', totalsX + 62, currentY + 5, { align: 'right' });
+        doc.text(parseFloat(invoice.tva_rate) > 0 ? 'Total TTC' : 'TOTAL', totalsX + 3, currentY + 5);
+        doc.text(parseFloat(invoice.tva_rate) > 0 ? parseFloat(invoice.total_ttc).toFixed(2) + ' DH' : parseFloat(invoice.total_ht).toFixed(2) + ' DH', totalsX + 62, currentY + 5, { align: 'right' });
     } else {
         // Default (style2, style5, style6): company color totals
         doc.setFillColor(cr, cg, cb);
@@ -1916,18 +1939,21 @@ async function generateGenericPDFContent(doc, invoice, companyCode, companyColor
         doc.text(parseFloat(invoice.total_ht).toFixed(2) + ' DH', totalsX + 62, currentY + 5, { align: 'right' });
         currentY += 8;
 
-        doc.setFillColor(220, 220, 220);
-        doc.rect(totalsX, currentY, 65, 7, 'F');
-        doc.setTextColor(0, 0, 0);
-        doc.text('TVA ' + invoice.tva_rate + '%', totalsX + 3, currentY + 5);
-        doc.text(parseFloat(invoice.montant_tva).toFixed(2) + ' DH', totalsX + 62, currentY + 5, { align: 'right' });
-        currentY += 8;
+        // Only show TVA row if tva_rate > 0
+        if (parseFloat(invoice.tva_rate) > 0) {
+            doc.setFillColor(220, 220, 220);
+            doc.rect(totalsX, currentY, 65, 7, 'F');
+            doc.setTextColor(0, 0, 0);
+            doc.text('TVA ' + invoice.tva_rate + '%', totalsX + 3, currentY + 5);
+            doc.text(parseFloat(invoice.montant_tva).toFixed(2) + ' DH', totalsX + 62, currentY + 5, { align: 'right' });
+            currentY += 8;
+        }
 
         doc.setFillColor(dr, dg, db);
         doc.rect(totalsX, currentY, 65, 7, 'F');
         doc.setTextColor(255, 255, 255);
-        doc.text('Total TTC', totalsX + 3, currentY + 5);
-        doc.text(parseFloat(invoice.total_ttc).toFixed(2) + ' DH', totalsX + 62, currentY + 5, { align: 'right' });
+        doc.text(parseFloat(invoice.tva_rate) > 0 ? 'Total TTC' : 'TOTAL', totalsX + 3, currentY + 5);
+        doc.text(parseFloat(invoice.tva_rate) > 0 ? parseFloat(invoice.total_ttc).toFixed(2) + ' DH' : parseFloat(invoice.total_ht).toFixed(2) + ' DH', totalsX + 62, currentY + 5, { align: 'right' });
     }
 
     const totalPages = pageCount;

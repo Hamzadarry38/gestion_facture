@@ -762,7 +762,8 @@ window.deleteGlobalInvoice = async function (id) {
                         });
                     }
 
-                    const tvaRate = bonDetails.data.tva_rate || 20;
+                    const tvaRateValue = parseFloat(bonDetails.data.tva_rate);
+                    const tvaRate = isNaN(tvaRateValue) ? 20 : tvaRateValue;
                     const montantTVA = totalHT * (tvaRate / 100);
                     const totalTTC = totalHT + montantTVA;
 
