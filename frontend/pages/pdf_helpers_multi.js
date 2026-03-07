@@ -921,27 +921,38 @@ window.downloadInvoicePDFMulti = async function (invoiceId, returnBlob = false, 
         doc.text('RIB : 007 720 0005979000000953 03', 17, fixedBottomY + 15);
 
         // Totals - Right side with gray background (same Y position)
+        const tvaValue = parseFloat(invoice.tva_rate) || 0;
+        doc.setFontSize(8);
+        doc.setFont(undefined, 'bold');
+
+        // TOTAL HT row
         doc.setFillColor(...darkGrayColor);
         doc.rect(110, fixedBottomY, 85, 6, 'F');
         doc.setTextColor(255, 255, 255);
-        doc.setFontSize(8);
-        doc.setFont(undefined, 'bold');
         doc.text('TOTAL HT', 113, fixedBottomY + 4);
         doc.text(`${formatNumberForPDF(invoice.total_ht)} DH`, 192, fixedBottomY + 4, { align: 'right' });
 
-        doc.setFillColor(255, 255, 255);
-        doc.rect(110, fixedBottomY + 6, 85, 6, 'F');
-        doc.setDrawColor(200, 200, 200);
-        doc.rect(110, fixedBottomY + 6, 85, 6);
-        doc.setTextColor(0, 0, 0);
-        doc.text(`TVA ${invoice.tva_rate}%`, 113, fixedBottomY + 10);
-        doc.text(`${formatNumberForPDF(invoice.montant_tva)} DH`, 192, fixedBottomY + 10, { align: 'right' });
+        if (tvaValue > 0) {
+            // TVA row
+            doc.setFillColor(255, 255, 255);
+            doc.rect(110, fixedBottomY + 6, 85, 6, 'F');
+            doc.setDrawColor(200, 200, 200);
+            doc.rect(110, fixedBottomY + 6, 85, 6);
+            doc.setTextColor(0, 0, 0);
+            doc.text(`TVA ${invoice.tva_rate}%`, 113, fixedBottomY + 10);
+            doc.text(`${formatNumberForPDF(invoice.montant_tva)} DH`, 192, fixedBottomY + 10, { align: 'right' });
 
-        doc.setFillColor(...darkGrayColor);
-        doc.rect(110, fixedBottomY + 12, 85, 6, 'F');
-        doc.setTextColor(255, 255, 255);
-        doc.text('TOTAL TTC', 113, fixedBottomY + 16);
-        doc.text(`${formatNumberForPDF(invoice.total_ttc)} DH`, 192, fixedBottomY + 16, { align: 'right' });
+            // TOTAL TTC row
+            doc.setFillColor(...darkGrayColor);
+            doc.rect(110, fixedBottomY + 12, 85, 6, 'F');
+            doc.setTextColor(255, 255, 255);
+            doc.text('TOTAL TTC', 113, fixedBottomY + 16);
+            doc.text(`${formatNumberForPDF(invoice.total_ttc)} DH`, 192, fixedBottomY + 16, { align: 'right' });
+        } else {
+            // TVA = 0 -> only display TOTAL HT (no TVA/TTC rows)
+            doc.setDrawColor(200, 200, 200);
+            doc.rect(110, fixedBottomY, 85, 6);
+        }
 
         // Amount in words - below both sections
         const amountWordsY = fixedBottomY + 25;

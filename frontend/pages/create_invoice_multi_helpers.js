@@ -1238,7 +1238,22 @@ async function handleInvoiceSubmitMulti(e) {
             products: [],
             totals: {
                 total_ht: parseFloat(document.getElementById('totalHTMulti').textContent.replace('DH', '').trim()) || 0,
-                tva_rate: isNaN(parseFloat(document.getElementById('tvaRateMulti').value)) ? 20 : parseFloat(document.getElementById('tvaRateMulti').value),
+                tva_rate: (() => {
+                    const tvaValue = document.getElementById('tvaRateMulti').value.trim();
+                    const parsedTva = parseFloat(tvaValue);
+                    const finalTva = (tvaValue === '' || isNaN(parsedTva)) ? 20 : parsedTva;
+                    
+                    // 🔍 DEBUG LOGS
+                    console.log('🔍 [MULTI CREATE] TVA DEBUG:');
+                    console.log('  - Raw value from input:', document.getElementById('tvaRateMulti').value);
+                    console.log('  - Trimmed value:', tvaValue);
+                    console.log('  - Parsed TVA:', parsedTva);
+                    console.log('  - Is NaN?:', isNaN(parsedTva));
+                    console.log('  - Is empty?:', tvaValue === '');
+                    console.log('  - Final TVA to save:', finalTva);
+                    
+                    return finalTva;
+                })(),
                 montant_tva: parseFloat(document.getElementById('montantTVAMulti').textContent.replace('DH', '').trim()) || 0,
                 total_ttc: parseFloat(document.getElementById('totalTTCMulti').textContent.replace('DH', '').trim()) || 0
             }

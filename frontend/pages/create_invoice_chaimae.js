@@ -2114,7 +2114,22 @@ async function handleFormSubmitChaimae(e) {
             products: [],
             totals: {
                 total_ht: parseFloat(document.getElementById('totalHTChaimae').textContent.replace('DH', '').trim()) || 0,
-                tva_rate: parseFloat(document.getElementById('tvaRateChaimae').value) || 0,
+                tva_rate: (() => {
+                    const tvaValue = document.getElementById('tvaRateChaimae').value.trim();
+                    const parsedTva = parseFloat(tvaValue);
+                    const finalTva = (tvaValue === '' || isNaN(parsedTva)) ? 20 : parsedTva;
+                    
+                    // 🔍 DEBUG LOGS
+                    console.log('🔍 [CHAIMAE CREATE] TVA DEBUG:');
+                    console.log('  - Raw value from input:', document.getElementById('tvaRateChaimae').value);
+                    console.log('  - Trimmed value:', tvaValue);
+                    console.log('  - Parsed TVA:', parsedTva);
+                    console.log('  - Is NaN?:', isNaN(parsedTva));
+                    console.log('  - Is empty?:', tvaValue === '');
+                    console.log('  - Final TVA to save:', finalTva);
+                    
+                    return finalTva;
+                })(),
                 montant_tva: parseFloat(document.getElementById('montantTVAChaimae').textContent.replace('DH', '').trim()) || 0,
                 total_ttc: parseFloat(document.getElementById('totalTTCChaimae').textContent.replace('DH', '').trim()) || 0
             }

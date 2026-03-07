@@ -736,10 +736,10 @@ app.post('/invoices', async (req, res) => {
 
     if (req.body.totals) {
       const t = req.body.totals;
-      total_ht = t.total_ht || total_ht;
-      tva_rate = t.tva_rate || tva_rate;
-      montant_tva = t.montant_tva || montant_tva;
-      total_ttc = t.total_ttc || total_ttc;
+      total_ht = t.total_ht !== undefined ? t.total_ht : total_ht;
+      tva_rate = t.tva_rate !== undefined ? t.tva_rate : tva_rate;
+      montant_tva = t.montant_tva !== undefined ? t.montant_tva : montant_tva;
+      total_ttc = t.total_ttc !== undefined ? t.total_ttc : total_ttc;
     }
 
     // Resolve client_id if missing but client details provided
@@ -867,13 +867,24 @@ app.post('/invoices', async (req, res) => {
     const initialIsModified = false;
 
     console.log(`📝 [CREATE] Invoice creator: ${resolvedUserEmail}, is_modified: ${initialIsModified}`);
+    
+    // 🔍 DEBUG LOGS FOR TVA
+    console.log('🔍 [BACKEND CREATE] TVA DEBUG:');
+    console.log('  - Raw tva_rate from request:', req.body.totals?.tva_rate);
+    console.log('  - Type of tva_rate:', typeof req.body.totals?.tva_rate);
+    console.log('  - tva_rate value:', tva_rate);
+    console.log('  - Is undefined?:', tva_rate === undefined);
+    console.log('  - Is null?:', tva_rate === null);
+    console.log('  - Is empty string?:', tva_rate === '');
+    const finalTvaRate = (tva_rate !== undefined && tva_rate !== null && tva_rate !== '') ? tva_rate : 20;
+    console.log('  - Final TVA to save:', finalTvaRate);
 
     const invoiceValues = [
       company_code, client_id, document_type, document_date,
       document_numero, document_numero_order, document_numero_bl,
       document_numero_devis, document_order_devis, document_bon_de_livraison,
       document_numero_commande, year, sequential_id || 0,
-      total_ht || 0, (tva_rate !== undefined && tva_rate !== null && tva_rate !== '') ? tva_rate : 20, montant_tva || 0, total_ttc || 0,
+      total_ht || 0, finalTvaRate, montant_tva || 0, total_ttc || 0,
       creation_method || 'normal', created_by || null, delivered_by || null,
       req.body.ar_status_resolved || '',
       validation_status,

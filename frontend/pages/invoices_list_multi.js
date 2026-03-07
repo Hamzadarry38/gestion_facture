@@ -1440,10 +1440,12 @@ window.viewInvoiceMulti = async function (id) {
                             <span style="color:#999;">Total HT:</span>
                             <span style="color:#fff;font-weight:600;">${(parseFloat(invoice.total_ht) || 0).toFixed(2)} DH</span>
                         </div>
+                        ${parseFloat(invoice.tva_rate) > 0 ? `
                         <div style="display:flex;justify-content:space-between;margin-bottom:0.75rem;">
                             <span style="color:#999;">TVA (${invoice.tva_rate}%):</span>
                             <span style="color:#fff;font-weight:600;">${(parseFloat(invoice.montant_tva) || 0).toFixed(2)} DH</span>
                         </div>
+                        ` : ''}
                         <div style="display:flex;justify-content:space-between;padding-top:0.75rem;border-top:1px solid #3e3e42;">
                             <span style="color:#fff;font-weight:600;">Total TTC:</span>
                             <span style="color:#4CAF50;font-weight:700;font-size:1.1rem;">${(parseFloat(invoice.total_ttc) || 0).toFixed(2)} DH</span>

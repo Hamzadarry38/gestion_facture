@@ -1371,7 +1371,22 @@ async function handleInvoiceSubmit(e) {
             products: [],
             totals: {
                 total_ht: parseFloat(document.getElementById('totalHT').textContent.replace('DH', '').trim()) || 0,
-                tva_rate: isNaN(parseFloat(document.getElementById('tvaRate').value)) ? 20 : parseFloat(document.getElementById('tvaRate').value),
+                tva_rate: (() => {
+                    const tvaValue = document.getElementById('tvaRate').value.trim();
+                    const parsedTva = parseFloat(tvaValue);
+                    const finalTva = (tvaValue === '' || isNaN(parsedTva)) ? 20 : parsedTva;
+                    
+                    // 🔍 DEBUG LOGS
+                    console.log('🔍 [MRY CREATE] TVA DEBUG:');
+                    console.log('  - Raw value from input:', document.getElementById('tvaRate').value);
+                    console.log('  - Trimmed value:', tvaValue);
+                    console.log('  - Parsed TVA:', parsedTva);
+                    console.log('  - Is NaN?:', isNaN(parsedTva));
+                    console.log('  - Is empty?:', tvaValue === '');
+                    console.log('  - Final TVA to save:', finalTva);
+                    
+                    return finalTva;
+                })(),
                 montant_tva: parseFloat(document.getElementById('montantTVA').textContent.replace('DH', '').trim()) || 0,
                 total_ttc: parseFloat(document.getElementById('totalTTC').textContent.replace('DH', '').trim()) || 0
             }
