@@ -199,10 +199,10 @@ async function generateFlattenedFooterMulti(signatureDataUrl, nif, ice, tel) {
         if (signatureDataUrl) {
             const img = new Image();
             img.onload = () => {
-                // Signature position (right side)
-                const sigWidth = 700;
+                // Signature position (right side) - increased size from 700 to 900
+                const sigWidth = 800;
                 const sigHeight = (img.height / img.width) * sigWidth;
-                ctx.drawImage(img, 1700, 80, sigWidth, sigHeight);
+                ctx.drawImage(img, 1600, 20, sigWidth, sigHeight);
                 resolve(canvas.toDataURL('image/png'));
             };
             img.onerror = () => resolve(canvas.toDataURL('image/png'));
