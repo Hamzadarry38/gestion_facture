@@ -835,7 +835,7 @@ window.downloadInvoicePDFMulti = async function (invoiceId, returnBlob = false, 
                     currentY = newStartY + 7;
                     doc.setTextColor(0, 0, 0);
                     doc.setFont(undefined, 'normal');
-                    doc.setFontSize(9);
+                    doc.setFontSize(7.5);
 
                     // IMPORTANT: continue loop with new page set up
                     continue;
