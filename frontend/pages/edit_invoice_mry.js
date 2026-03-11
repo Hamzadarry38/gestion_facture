@@ -164,6 +164,19 @@ function EditInvoiceMRYPage() {
                                     Ces notes seront affichées dans le PDF sous le texte de clôture de la facture.
                                 </small>
                             </div>
+
+                            <!-- Private Notes (Admin Only) -->
+                            <div id="editAdminFieldsMRY" style="display: none; margin-top: 1.5rem;">
+                                <div class="form-field">
+                                    <label style="color: #ff9800;">🔒 Notes privées (usage interne uniquement)</label>
+                                    <textarea id="editInvoicePrivateNotesMRY" rows="3" 
+                                              placeholder="Notes internes pour identifier ou classer cette facture (ne s'affichent PAS dans le PDF)..."
+                                              style="width: 100%; padding: 0.75rem; background: #2d2d30; border: 2px solid #ff9800; border-radius: 8px; color: #fff; font-size: 0.95rem; resize: vertical; font-family: inherit;"></textarea>
+                                    <small style="color: #ff9800; font-size: 0.85rem; display: block; margin-top: 0.5rem;">
+                                        ⚠️ Ces notes sont privées et ne seront JAMAIS affichées dans le PDF généré.
+                                    </small>
+                                </div>
+                            </div>
                         </div>
                     </div>
 
@@ -270,6 +283,23 @@ async function loadInvoiceDataMRY(invoiceId) {
             const noteTextarea = document.getElementById('editInvoiceNotesMRY');
             if (noteTextarea) {
                 noteTextarea.value = noteResult.data;
+            }
+        }
+
+        // Show admin fields and load private notes if user is admin
+        const currentUser = JSON.parse(localStorage.getItem('user') || '{}');
+        const isSuperUser = (currentUser.email === 'redouanerrebbahi99@gmail.com' || currentUser.can_auto_validate === true);
+        
+        if (isSuperUser) {
+            const adminFields = document.getElementById('editAdminFieldsMRY');
+            if (adminFields) {
+                adminFields.style.display = 'block';
+            }
+            
+            // Load private notes
+            const privateNotesTextarea = document.getElementById('editInvoicePrivateNotesMRY');
+            if (privateNotesTextarea && invoice.private_notes) {
+                privateNotesTextarea.value = invoice.private_notes;
             }
         }
 
@@ -687,6 +717,15 @@ async function handleEditInvoiceSubmitMRY(e) {
                 total_ttc: parseFloat(document.getElementById('editTotalTTCMRY').textContent.replace(/\s/g, '').replace('DH', '').replace(',', '.')) || 0
             }
         };
+
+        // Add private notes if admin
+        const isSuperUser = (currentUser.email === 'redouanerrebbahi99@gmail.com' || currentUser.can_auto_validate === true);
+        if (isSuperUser) {
+            const privateNotesTextarea = document.getElementById('editInvoicePrivateNotesMRY');
+            if (privateNotesTextarea) {
+                formData.private_notes = privateNotesTextarea.value.trim();
+            }
+        }
 
         // Set document number
         if (currentDocumentTypeMRY === 'facture') {

@@ -986,7 +986,7 @@ app.put('/invoices/:id', async (req, res) => {
       created_by, delivered_by, ar_status, validation_status,
       created_by_user_id, created_by_user_name, created_by_user_email,
       updated_by_user_id, updated_by_user_name, updated_by_user_email,
-      products
+      products, private_notes
     } = req.body;
 
     // Fallback: If these are at top-level but NOT in doc, we use them.
@@ -1177,9 +1177,10 @@ app.put('/invoices/:id', async (req, res) => {
                 updated_by_user_id = COALESCE($18, updated_by_user_id),
                 updated_by_user_name = COALESCE($19, updated_by_user_name),
                 updated_by_user_email = COALESCE($20, updated_by_user_email),
+                private_notes = COALESCE($21, private_notes),
                 ${shouldSetModified ? 'is_modified = true,' : ''}
                 updated_at = NOW()
-            WHERE id = $21
+            WHERE id = $22
         `, [
       val(client_id),
       val(document_date),
@@ -1201,6 +1202,7 @@ app.put('/invoices/:id', async (req, res) => {
       val(updated_by_user_id),
       val(updated_by_user_name),
       val(updated_by_user_email),
+      val(private_notes),
       id
     ]);
 

@@ -743,6 +743,7 @@ const invoiceOps = {
                 montant_tva = ?,
                 total_ttc = ?,
                 creation_method = COALESCE(?, creation_method),
+                private_notes = ?,
                 updated_at = datetime('now')
             WHERE id = ?
         `, [
@@ -757,6 +758,7 @@ const invoiceOps = {
             invoiceData.totals.montant_tva,
             invoiceData.totals.total_ttc,
             invoiceData.document.creation_method || null,
+            invoiceData.private_notes || null,
             id
         ]);
 
