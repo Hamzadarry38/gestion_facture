@@ -626,7 +626,7 @@ window.downloadInvoicePDFMulti = async function (invoiceId, returnBlob = false, 
         const flattenedFooterData = await generateFlattenedFooterMulti(
             shouldAddSignature ? signatureImgMultiHelper : null,
             'NIF 68717422 | TP 51001343 | RC 38633 | CNSS 6446237',
-            'ICE : 00380950500031',
+            'ICE : 003809505000031',
             'Tel: +212 661 307 323'
         );
 

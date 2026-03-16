@@ -2613,3 +2613,4 @@ app.listen(port, '0.0.0.0', () => {
   console.log(`API Backend (API 5) running on http://localhost:${port}`);
   console.log(`🔍 Debug endpoint: http://localhost:${port}/debug/pending-invoices`);
 });
+

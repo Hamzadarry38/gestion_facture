@@ -993,7 +993,7 @@ async function generatePDFBlobMulti(invoice, includeOrder = true) {
         doc.setFontSize(8.5);
         doc.setFont(undefined, 'normal');
         doc.text('NIF 68717422 | TP 51001343 | RC 38633 | CNSS 6446237', 105, 282, { align: 'center' });
-        doc.text('ICE : 00380950500031', 105, 286, { align: 'center' });
+        doc.text('ICE : 003809505000031', 105, 286, { align: 'center' });
         doc.text('Tel: +212 661 307 323', 105, 289, { align: 'center' });
 
         // Add page numbering at bottom in gray

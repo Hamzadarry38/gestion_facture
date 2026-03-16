@@ -3,7 +3,7 @@ const fs = require('fs');
 const FormData = require('form-data');
 const path = require('path');
 
-const API_URL = 'https://redouan.ddns.net/facture';
+const API_URL = 'https://anpe-web-api.ddns.net/facture';
 const COMPANIES = ['skm', 'saaiss', 'benali', 'msh3'];
 
 async function testCompany(company) {
