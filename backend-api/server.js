@@ -745,20 +745,36 @@ app.post('/invoices', async (req, res) => {
     // Resolve client_id if missing but client details provided
     if (!client_id && req.body.client) {
       const c = req.body.client;
-      // Use company_code to find/create client in correct context
+      const clientNom = c.nom;
+      const clientICE = c.ICE || c.ice || null;
+      
+      // 🔍 البحث عن العميل بالاسم و company_code فقط
       const clientRes = await client.query(
-        'SELECT id FROM clients WHERE nom = $1 AND (ice = $2 OR ice IS NULL) AND company_code = $3 LIMIT 1',
-        [c.nom, c.ICE || c.ice || null, company_code]
+        'SELECT id, ice FROM clients WHERE nom = $1 AND company_code = $2 LIMIT 1',
+        [clientNom, company_code]
       );
 
       if (clientRes.rows.length > 0) {
-        client_id = clientRes.rows[0].id;
+        // ✅ العميل موجود
+        const existingClient = clientRes.rows[0];
+        client_id = existingClient.id;
+        
+        // 🔄 تحديث ICE إذا كان مختلفاً أو كان null سابقاً
+        if (clientICE && clientICE !== existingClient.ice) {
+          await client.query(
+            'UPDATE clients SET ice = $1 WHERE id = $2',
+            [clientICE, client_id]
+          );
+          console.log(`✅ [API] Updated ICE for client ${clientNom} (ID: ${client_id}): ${existingClient.ice} → ${clientICE}`);
+        }
       } else {
+        // ➕ إنشاء عميل جديد
         const insertClientRes = await client.query(
           'INSERT INTO clients (nom, ice, company_code, created_at) VALUES ($1, $2, $3, NOW()) RETURNING id',
-          [c.nom, c.ICE || c.ice || null, company_code]
+          [clientNom, clientICE, company_code]
         );
         client_id = insertClientRes.rows[0].id;
+        console.log(`✅ [API] Created new client ${clientNom} (ID: ${client_id}) with ICE: ${clientICE}`);
       }
     }
 

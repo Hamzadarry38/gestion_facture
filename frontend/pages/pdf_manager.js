@@ -391,7 +391,7 @@ window.showPdfManager = async function (company) {
 // Open server-hosted PDF file in browser
 window.openServerPdfFile = window.openServerPdfFile || function(serverPath) {
     try {
-        const apiUrl = localStorage.getItem('apiUrl') || 'https://redouan.ddns.net/facture';
+        const apiUrl = localStorage.getItem('apiUrl') || 'https://anpe-web-api.ddns.net/facture';
         const fullUrl = apiUrl + serverPath;
         console.log('🌐 [PDF Manager] Opening server PDF:', fullUrl);
         window.open(fullUrl, '_blank');
