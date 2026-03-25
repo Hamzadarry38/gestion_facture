@@ -746,35 +746,28 @@ app.post('/invoices', async (req, res) => {
     if (!client_id && req.body.client) {
       const c = req.body.client;
       const clientNom = c.nom;
-      const clientICE = c.ICE || c.ice || null;
+      // 🔧 تحويل ICE إلى empty string ('') بدلاً من null إذا كان فارغاً
+      const clientICE = c.ICE || c.ice || '';
       
-      // 🔍 البحث عن العميل بالاسم و company_code فقط
+      // 🔍 البحث عن العميل بالاسم + ICE + company_code معاً
+      // هذا يضمن أن زبون بدون ICE وزبون مع ICE = سجلين منفصلين
       const clientRes = await client.query(
-        'SELECT id, ice FROM clients WHERE nom = $1 AND company_code = $2 LIMIT 1',
-        [clientNom, company_code]
+        'SELECT id FROM clients WHERE nom = $1 AND ice = $2 AND company_code = $3 LIMIT 1',
+        [clientNom, clientICE, company_code]
       );
 
       if (clientRes.rows.length > 0) {
-        // ✅ العميل موجود
-        const existingClient = clientRes.rows[0];
-        client_id = existingClient.id;
-        
-        // 🔄 تحديث ICE إذا كان مختلفاً أو كان null سابقاً
-        if (clientICE && clientICE !== existingClient.ice) {
-          await client.query(
-            'UPDATE clients SET ice = $1 WHERE id = $2',
-            [clientICE, client_id]
-          );
-          console.log(`✅ [API] Updated ICE for client ${clientNom} (ID: ${client_id}): ${existingClient.ice} → ${clientICE}`);
-        }
+        // ✅ العميل موجود بنفس الاسم ونفس ICE
+        client_id = clientRes.rows[0].id;
+        console.log(`✅ [API] Found existing client ${clientNom} (ID: ${client_id}) with ICE: ${clientICE || '(empty)'}`);
       } else {
-        // ➕ إنشاء عميل جديد
+        // ➕ إنشاء عميل جديد (سواء كان بدون ICE أو مع ICE مختلف)
         const insertClientRes = await client.query(
           'INSERT INTO clients (nom, ice, company_code, created_at) VALUES ($1, $2, $3, NOW()) RETURNING id',
           [clientNom, clientICE, company_code]
         );
         client_id = insertClientRes.rows[0].id;
-        console.log(`✅ [API] Created new client ${clientNom} (ID: ${client_id}) with ICE: ${clientICE}`);
+        console.log(`✅ [API] Created new client ${clientNom} (ID: ${client_id}) with ICE: ${clientICE || '(empty)'}`);
       }
     }
 

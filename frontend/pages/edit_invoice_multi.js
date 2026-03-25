@@ -1133,11 +1133,11 @@ window.showConvertDocumentTypeModal = async function () {
 
             if (newType === 'facture' && newNumeroOrder) {
                 const searchOrder = newNumeroOrder.toLowerCase().trim();
-                const duplicateOrder = invoices.find(inv =>
-                    inv.document_type === 'facture' &&
-                    inv.document_numero_Order &&
-                    inv.document_numero_Order.toLowerCase().trim() === searchOrder
-                );
+                const duplicateOrder = invoices.find(inv => {
+                    if (inv.document_type !== 'facture') return false;
+                    const existingOrder = (inv.document_numero_Order || inv.document_numero_order || '').toLowerCase().trim();
+                    return existingOrder && existingOrder === searchOrder;
+                });
 
                 if (duplicateOrder) {
                     window.notify.error('Erreur', `Le N° Order "${newNumeroOrder}" existe déjà (Insensible à la casse)`, 5000);

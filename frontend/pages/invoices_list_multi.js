@@ -2151,20 +2151,32 @@ window.downloadBonDeTravaux = async function (invoiceId) {
             doc.setFontSize(7);
             doc.text('AV 10 MAI IMM 04 APPART 01 A DROIT - TETOUAN , TETOUAN', 17, 48);
 
-            // Client Info - Right side with gray background
-            doc.setFillColor(...darkGrayColor);
-            doc.rect(115, 38, 80, 6, 'F');
-            doc.setTextColor(255, 255, 255);
+            // Client Info - Right side with gray background (dynamic height for wrapping)
             doc.setFontSize(8);
-            doc.text(`BON DE TRAVAUX à: ${invoice.client_nom} `, 117, 42);
+            const fullClientText = `BON DE TRAVAUX à: ${invoice.client_nom}`;
+            
+            // Wrap text (max width ~76mm to fit in 80mm box with padding)
+            const clientLines = doc.splitTextToSize(fullClientText, 76);
+            
+            // Calculate box height dynamically (base 6mm + 4mm for each extra line)
+            const extraLineHeight = 4;
+            const clientBoxHeight = 6 + (clientLines.length - 1) * extraLineHeight;
+            
+            doc.setFillColor(...darkGrayColor);
+            doc.rect(115, 38, 80, clientBoxHeight, 'F');
+            doc.setTextColor(255, 255, 255);
+            doc.text(clientLines, 117, 42);
+
+            // ICE Box - Position depends on client box height
+            const iceStartY = 38 + clientBoxHeight;
 
             // Only show ICE if it exists and is not "0"
             if (invoice.client_ice && invoice.client_ice !== '0') {
                 doc.setFillColor(...lightGrayBg);
-                doc.rect(115, 44, 80, 6, 'F');
+                doc.rect(115, iceStartY, 80, 6, 'F');
                 doc.setTextColor(0, 0, 0);
                 doc.setFontSize(7);
-                doc.text(`ICE: ${invoice.client_ice} `, 117, 48);
+                doc.text(`ICE: ${invoice.client_ice}`, 117, iceStartY + 4);
             }
         };
 
