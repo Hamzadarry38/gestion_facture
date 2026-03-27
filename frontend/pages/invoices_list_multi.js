@@ -2201,36 +2201,55 @@ window.downloadBonDeTravaux = async function (invoiceId) {
         // Add header to first page
         addHeader(true);
 
-        const startY = 60;
+        const startY = 65;
 
         // Helper function to format numbers
         const formatNumberForPDF = (num) => {
             return parseFloat(num).toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ' ');
         };
 
-        // Table Header - Gray background (4 columns - same as invoice)
+        // Table Layout - Same as normal invoice
+        const TABLE_X = 15;
+        const TABLE_WIDTH = 180;
+
+        const COL_1_WIDTH = TABLE_WIDTH * 0.55;
+        const COL_2_WIDTH = TABLE_WIDTH * 0.15;
+        const COL_3_WIDTH = TABLE_WIDTH * 0.15;
+        const COL_4_WIDTH = TABLE_WIDTH * 0.15;
+
+        // X Positions (Start of each column)
+        const POS_DESC = TABLE_X + 2;
+        const POS_QTY = TABLE_X + COL_1_WIDTH + COL_2_WIDTH / 2;
+        const POS_PU = TABLE_X + COL_1_WIDTH + COL_2_WIDTH + 2;
+        const POS_TOTAL = TABLE_X + COL_1_WIDTH + COL_2_WIDTH + COL_3_WIDTH + 2;
+
+        const DESC_MAX_WIDTH = COL_1_WIDTH - 4;
+
+        // Table Header - Gray background
         doc.setFillColor(...darkGrayColor);
-        doc.rect(15, startY, 180, 7, 'F');
+        doc.rect(TABLE_X, startY, TABLE_WIDTH, 7, 'F');
         doc.setTextColor(255, 255, 255);
         doc.setFontSize(9);
         doc.setFont(undefined, 'bold');
-        doc.text('Description', 18, startY + 5);
-        doc.text('Quantité', 130, startY + 5, { align: 'center' });
-        doc.text('Prix unitaire HT', 165, startY + 5, { align: 'right' });
-        doc.text('Prix total HT', 192, startY + 5, { align: 'right' });
+
+        // Headers
+        doc.text('Description', POS_DESC, startY + 5);
+        doc.text('Quantité', POS_QTY, startY + 5, { align: 'center' });
+        doc.text('Prix unitaire HT', POS_PU, startY + 5);
+        doc.text('Prix total HT', POS_TOTAL, startY + 5);
 
         // Table Body
-        let currentY = startY + 10;
+        let currentY = startY + 7;
         doc.setTextColor(0, 0, 0);
         doc.setFont(undefined, 'normal');
-        doc.setFontSize(9);
+        doc.setFontSize(7.5);
 
         let pageCount = 1;
         const pages = [];
 
         invoice.products.forEach((product, index) => {
             const designation = product.designation || '';
-            const lines = doc.splitTextToSize(designation, 115);
+            const lines = doc.splitTextToSize(designation, DESC_MAX_WIDTH);
             const rowHeight = Math.max(8, (lines.length * 4.5) + 4);
 
             // Check if we need a new page
@@ -2240,54 +2259,62 @@ window.downloadBonDeTravaux = async function (invoiceId) {
                 addHeader(false);
                 pageCount++;
 
-                let newStartY = 60;
+                let newStartY = 65;
                 doc.setFillColor(...darkGrayColor);
-                doc.rect(15, newStartY, 180, 7, 'F');
+                doc.rect(TABLE_X, newStartY, TABLE_WIDTH, 7, 'F');
                 doc.setTextColor(255, 255, 255);
                 doc.setFontSize(9);
                 doc.setFont(undefined, 'bold');
-                doc.text('Description', 18, newStartY + 5);
-                doc.text('Quantité', 130, newStartY + 5, { align: 'center' });
-                doc.text('Prix unitaire HT', 165, newStartY + 5, { align: 'right' });
-                doc.text('Prix total HT', 192, newStartY + 5, { align: 'right' });
+                doc.text('Description', POS_DESC, newStartY + 5);
+                doc.text('Quantité', POS_QTY, newStartY + 5, { align: 'center' });
+                doc.text('Prix unitaire HT', POS_PU, newStartY + 5);
+                doc.text('Prix total HT', POS_TOTAL, newStartY + 5);
 
-                currentY = newStartY + 10;
+                currentY = newStartY + 7;
                 doc.setTextColor(0, 0, 0);
                 doc.setFont(undefined, 'normal');
-                doc.setFontSize(9);
+                doc.setFontSize(7.5);
             }
 
-            // Alternate row colors
+            // Row border and Alternate row colors
+            doc.setDrawColor(200, 200, 200);
+            doc.setLineWidth(0.1);
+            doc.rect(TABLE_X, currentY, TABLE_WIDTH, rowHeight);
+
             if (index % 2 === 0) {
                 doc.setFillColor(245, 245, 245);
-                doc.rect(15, currentY - 3, 180, rowHeight, 'F');
+                doc.rect(TABLE_X, currentY, TABLE_WIDTH, rowHeight, 'F');
+                doc.rect(TABLE_X, currentY, TABLE_WIDTH, rowHeight);
             }
 
-            doc.setFontSize(7.5);
+            // Vertical Column Lines
+            doc.line(TABLE_X + COL_1_WIDTH, currentY, TABLE_X + COL_1_WIDTH, currentY + rowHeight);
+            doc.line(TABLE_X + COL_1_WIDTH + COL_2_WIDTH, currentY, TABLE_X + COL_1_WIDTH + COL_2_WIDTH, currentY + rowHeight);
+            doc.line(TABLE_X + COL_1_WIDTH + COL_2_WIDTH + COL_3_WIDTH, currentY, TABLE_X + COL_1_WIDTH + COL_2_WIDTH + COL_3_WIDTH, currentY + rowHeight);
+
+            // Draw Description Lines
             lines.forEach((line, lineIndex) => {
-                doc.text(line, 18, currentY + 3 + (lineIndex * 4));
+                doc.text(line, POS_DESC, currentY + 5 + (lineIndex * 4.5));
             });
 
-            const centerOffset = (lines.length > 1) ? ((lines.length - 1) * 2) : 0;
+            const centerOffset = (lines.length > 1) ? ((lines.length - 1) * 2.25) : 0;
 
-            doc.setFontSize(8);
             // Show quantity only if it's not zero OR if user chose to show zero values
             const qty = parseFloat(product.quantite);
             if (showZeroValues || qty !== 0) {
-                doc.text(String(product.quantite || ''), 130, currentY + 3 + centerOffset, { align: 'center' });
+                doc.text(String(product.quantite || '0'), POS_QTY, currentY + 5 + centerOffset, { align: 'center' });
             }
 
-            doc.setFontSize(7.5);
             // Show price only if it's not zero OR if user chose to show zero values
             const price = parseFloat(product.prix_unitaire_ht);
             if (showZeroValues || price !== 0) {
-                doc.text(`${formatNumberForPDF(product.prix_unitaire_ht)} DH`, 165, currentY + 3 + centerOffset, { align: 'right' });
+                doc.text(`${formatNumberForPDF(product.prix_unitaire_ht)} DH`, POS_PU, currentY + 5 + centerOffset);
             }
 
             // Show total only if it's not zero OR if user chose to show zero values
             const total = parseFloat(product.total_ht);
             if (showZeroValues || total !== 0) {
-                doc.text(`${formatNumberForPDF(product.total_ht)} DH`, 192, currentY + 3 + centerOffset, { align: 'right' });
+                doc.text(`${formatNumberForPDF(product.total_ht)} DH`, POS_TOTAL, currentY + 5 + centerOffset);
             }
 
             currentY += rowHeight;
