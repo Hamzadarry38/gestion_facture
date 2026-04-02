@@ -1567,6 +1567,10 @@ window.viewInvoice = async function (id) {
                             <span style="color:#999;font-size:0.9rem;">ICE:</span>
                             <div style="color:#fff;font-weight:500;margin-top:0.25rem;">${invoice.client_ice}</div>
                         </div>
+                        <div style="margin-top:0.75rem;">
+                            <span style="color:#999;font-size:0.9rem;">IF:</span>
+                            <div style="color:#fff;font-weight:500;margin-top:0.25rem;">${invoice.client_if || ''}</div>
+                        </div>
                     </div>
                 </div>
                 
@@ -2181,7 +2185,8 @@ async function handleEditSubmit(e, invoiceId) {
         const updateData = {
             client: {
                 nom: document.getElementById('editClientNom').value,
-                ICE: document.getElementById('editClientICE').value
+                ICE: document.getElementById('editClientICE').value,
+                IF: document.getElementById('editClientIF')?.value || ''
             },
             document: documentData,
             products,
@@ -5073,7 +5078,7 @@ function displayClientsListEdit() {
 
     dropdown.innerHTML = filteredClientsEdit.slice(0, 10).map(client => `
         <div class="dropdown-item" style="display: flex; justify-content: space-between; align-items: center;">
-            <div style="flex: 1;" onmousedown="selectClientEdit('${client.nom.replace(/'/g, "\\'")}', '${client.ice}')">
+            <div style="flex: 1;" onmousedown="selectClientEdit('${client.nom.replace(/'/g, "\\'")}', '${client.ice}', '${client.client_if || ''}')">
                 <div class="client-name">${client.nom}</div>
                 <div class="client-ice">ICE: ${client.ice}</div>
             </div>
@@ -5106,9 +5111,12 @@ window.hideClientsListEdit = function () {
     }, 200);
 }
 
-window.selectClientEdit = function (nom, ice) {
+window.selectClientEdit = function (nom, ice, clientIf) {
     document.getElementById('editClientNom').value = nom;
     document.getElementById('editClientICE').value = ice;
+    if (document.getElementById('editClientIF')) {
+        document.getElementById('editClientIF').value = clientIf || '';
+    }
     const dropdown = document.getElementById('clientsDropdownEdit');
     if (dropdown) dropdown.style.display = 'none';
 }

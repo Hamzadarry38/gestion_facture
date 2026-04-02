@@ -2135,6 +2135,10 @@ window.viewInvoiceChaimae = async function (id, documentType) {
                             <span style="color:#999;font-size:0.9rem;">ICE:</span>
                             <div style="color:#fff;font-weight:500;margin-top:0.25rem;">${invoice.client_ice}</div>
                         </div>
+                        <div style="margin-top:0.75rem;">
+                            <span style="color:#999;font-size:0.9rem;">IF:</span>
+                            <div style="color:#fff;font-weight:500;margin-top:0.25rem;">${invoice.client_if || ''}</div>
+                        </div>
                     </div>
                 </div>
                 
@@ -2934,7 +2938,8 @@ async function handleEditSubmitChaimae(e, invoiceId, documentType) {
         const updateData = {
             client: {
                 nom: document.getElementById('editClientNomChaimae').value,
-                ICE: document.getElementById('editClientICEChaimae').value
+                ICE: document.getElementById('editClientICEChaimae').value,
+                IF: document.getElementById('editClientIFChaimae')?.value || ''
             },
             document: {
                 date: document.getElementById('editDateChaimae').value,
@@ -5518,6 +5523,7 @@ async function viewGlobalInvoiceChaimae(id) {
                             <h3>👤 Client</h3>
                             <p><strong>Nom:</strong> ${invoice.client_nom}</p>
                             <p><strong>ICE:</strong> ${invoice.client_ice}</p>
+                            <p><strong>IF:</strong> ${invoice.client_if || ''}</p>
                         </div>
                         
                         <div class="details-section">
@@ -7501,7 +7507,7 @@ window.displayClientsListEditChaimae = function () {
 
     dropdown.innerHTML = filteredClientsEditChaimae.slice(0, 10).map(client => `
         <div class="dropdown-item" style="display: flex; justify-content: space-between; align-items: center;">
-            <div style="flex: 1;" onmousedown="selectClientEditChaimae('${client.nom.replace(/'/g, "\\'")}', '${client.ice}')">
+            <div style="flex: 1;" onmousedown="selectClientEditChaimae('${client.nom.replace(/'/g, "\\'")}', '${client.ice}', '${client.client_if || ''}')">
                 <div class="client-name">${client.nom}</div>
                 <div class="client-ice">ICE: ${client.ice}</div>
             </div>
@@ -7534,9 +7540,12 @@ window.hideClientsListEditChaimae = function () {
     }, 200);
 }
 
-window.selectClientEditChaimae = function (nom, ice) {
+window.selectClientEditChaimae = function (nom, ice, clientIf) {
     document.getElementById('editClientNomChaimae').value = nom;
     document.getElementById('editClientICEChaimae').value = ice;
+    if (document.getElementById('editClientIFChaimae')) {
+        document.getElementById('editClientIFChaimae').value = clientIf || '';
+    }
     const dropdown = document.getElementById('clientsDropdownEditChaimae');
     if (dropdown) dropdown.style.display = 'none';
 }

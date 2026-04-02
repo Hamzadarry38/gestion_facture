@@ -52,6 +52,10 @@ function EditInvoiceSimpleMRYPage() {
                                     <label>N° ICE</label>
                                     <input type="text" id="editClientICESimpleMRY" placeholder="Numéro ICE (optionnel)">
                                 </div>
+                                <div class="form-field">
+                                    <label>IF</label>
+                                    <input type="text" id="editClientIFSimpleMRY" placeholder="Identifiant Fiscal (chiffres uniquement)" oninput="this.value = this.value.replace(/[^0-9]/g, '')">
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -186,6 +190,7 @@ async function loadInvoiceDataSimpleMRY(invoiceId) {
         // Fill client info
         document.getElementById('editClientNomSimpleMRY').value = invoice.client_nom;
         document.getElementById('editClientICESimpleMRY').value = invoice.client_ice;
+        document.getElementById('editClientIFSimpleMRY').value = invoice.client_if || '';
 
         // Fill document info
         const docTypeDisplay = invoice.document_type === 'facture' ? 'Facture' : 'Devis';
@@ -438,7 +443,7 @@ function displayClientsListEditSimpleMRY() {
 
     dropdown.innerHTML = filteredClientsEditSimpleMRY.slice(0, 10).map(client => `
         <div class="dropdown-item" style="display: flex; justify-content: space-between; align-items: center;">
-            <div style="flex: 1;" onmousedown="selectClientEditSimpleMRY('${client.nom.replace(/'/g, "\\'")}', '${client.ice}')">
+            <div style="flex: 1;" onmousedown="selectClientEditSimpleMRY('${client.nom.replace(/'/g, "\\'")}', '${client.ice}', '${client.client_if || ''}')">
                 <div class="client-name">${client.nom}</div>
                 <div class="client-ice">ICE: ${client.ice}</div>
             </div>
@@ -461,9 +466,10 @@ window.hideClientsListEditSimpleMRY = function () {
     }, 200);
 }
 
-window.selectClientEditSimpleMRY = function (nom, ice) {
+window.selectClientEditSimpleMRY = function (nom, ice, clientIf) {
     document.getElementById('editClientNomSimpleMRY').value = nom;
     document.getElementById('editClientICESimpleMRY').value = ice;
+    document.getElementById('editClientIFSimpleMRY').value = clientIf || '';
     const dropdown = document.getElementById('clientsDropdownEditSimpleMRY');
     if (dropdown) dropdown.style.display = 'none';
 }
@@ -487,7 +493,8 @@ async function handleEditInvoiceSubmitSimpleMRY(e) {
         const formData = {
             client: {
                 nom: document.getElementById('editClientNomSimpleMRY').value,
-                ICE: document.getElementById('editClientICESimpleMRY').value
+                ICE: document.getElementById('editClientICESimpleMRY').value,
+                IF: document.getElementById('editClientIFSimpleMRY')?.value || ''
             },
             document: {
                 type: currentDocumentTypeSimpleMRY,

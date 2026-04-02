@@ -763,7 +763,7 @@ function displayClientsListMulti() {
 
     dropdown.innerHTML = filteredClientsMulti.slice(0, 10).map(client => `
         <div class="dropdown-item" style="display: flex; justify-content: space-between; align-items: center;">
-            <div style="flex: 1;" onmousedown="selectClientMulti('${client.nom.replace(/'/g, "\\'")}', '${client.ice}')">
+            <div style="flex: 1;" onmousedown="selectClientMulti('${client.nom.replace(/'/g, "\\'")}', '${client.ice}', '${client.client_if || ''}')">
                 <div class="client-name">${client.nom}</div>
                 <div class="client-ice">ICE: ${client.ice}</div>
             </div>
@@ -795,9 +795,10 @@ window.hideClientsListMulti = function () {
     }, 200);
 }
 
-window.selectClientMulti = function (nom, ice) {
+window.selectClientMulti = function (nom, ice, clientIf) {
     document.getElementById('clientNomMulti').value = nom;
     document.getElementById('clientICEMulti').value = ice;
+    document.getElementById('clientIFMulti').value = clientIf || '';
     const dropdown = document.getElementById('clientsDropdownMulti');
     if (dropdown) dropdown.style.display = 'none';
 }
@@ -1223,7 +1224,8 @@ async function handleInvoiceSubmitMulti(e) {
             company_code: 'MULTI',
             client: {
                 nom: document.getElementById('clientNomMulti').value,
-                ICE: document.getElementById('clientICEMulti').value
+                ICE: document.getElementById('clientICEMulti').value,
+                IF: document.getElementById('clientIFMulti')?.value || ''
             },
             document: {
                 type: document.getElementById('documentTypeMulti').value,

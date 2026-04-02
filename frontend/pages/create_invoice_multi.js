@@ -54,6 +54,10 @@ function CreateInvoiceMultiPage() {
                                     <label>N° ICE</label>
                                     <input type="text" id="clientICEMulti" placeholder="Numéro ICE (optionnel)">
                                 </div>
+                                <div class="form-field">
+                                    <label>IF</label>
+                                    <input type="text" id="clientIFMulti" placeholder="Identifiant Fiscal (chiffres uniquement)" oninput="this.value = this.value.replace(/[^0-9]/g, '')">
+                                </div>
                             </div>
                         </div>
                     </div>

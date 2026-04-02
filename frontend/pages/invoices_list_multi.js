@@ -1375,6 +1375,10 @@ window.viewInvoiceMulti = async function (id) {
                             <span style="color:#999;font-size:0.9rem;">ICE:</span>
                             <div style="color:#fff;font-weight:500;margin-top:0.25rem;">${invoice.client_ice}</div>
                         </div>
+                        <div style="margin-top:0.75rem;">
+                            <span style="color:#999;font-size:0.9rem;">IF:</span>
+                            <div style="color:#fff;font-weight:500;margin-top:0.25rem;">${invoice.client_if || ''}</div>
+                        </div>
                     </div>
                 </div>
 

@@ -75,6 +75,10 @@ window.EditInvoiceChaimaePage = function () {
                                     <label>N° ICE</label>
                                     <input type="text" id="editClientICEChaimae" placeholder="Numéro ICE (optionnel)">
                                 </div>
+                                <div class="form-field">
+                                    <label>IF</label>
+                                    <input type="text" id="editClientIFChaimae" placeholder="Identifiant Fiscal (chiffres uniquement)" oninput="this.value = this.value.replace(/[^0-9]/g, '')">
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -286,6 +290,7 @@ window.loadInvoiceDataChaimae = async function (invoiceId) {
 
         document.getElementById('editClientNomChaimae').value = invoice.client_nom;
         document.getElementById('editClientICEChaimae').value = invoice.client_ice;
+        document.getElementById('editClientIFChaimae').value = invoice.client_if || '';
 
         let docTypeDisplay = 'Facture';
         if (invoice.document_type === 'devis') {
@@ -750,7 +755,7 @@ window.displayClientsListEditChaimae = function () {
 
     dropdown.innerHTML = filteredClientsEditChaimae.slice(0, 10).map(client => `
         <div class="dropdown-item" style="display: flex; justify-content: space-between; align-items: center;">
-            <div style="flex: 1;" onmousedown="selectClientEditChaimae('${client.nom.replace(/'/g, "\\'")}', '${client.ice}')">
+            <div style="flex: 1;" onmousedown="selectClientEditChaimae('${client.nom.replace(/'/g, "\\'")}', '${client.ice}', '${client.client_if || ''}')">
                 <div class="client-name">${client.nom}</div>
                 <div class="client-ice">ICE: ${client.ice}</div>
             </div>
@@ -773,9 +778,10 @@ window.hideClientsListEditChaimae = function () {
     }, 200);
 }
 
-window.selectClientEditChaimae = function (nom, ice) {
+window.selectClientEditChaimae = function (nom, ice, clientIf) {
     document.getElementById('editClientNomChaimae').value = nom;
     document.getElementById('editClientICEChaimae').value = ice;
+    document.getElementById('editClientIFChaimae').value = clientIf || '';
     const dropdown = document.getElementById('clientsDropdownEditChaimae');
     if (dropdown) dropdown.style.display = 'none';
 }
@@ -837,7 +843,8 @@ window.handleEditInvoiceSubmitChaimae = async function (e) {
         const formData = {
             client: {
                 nom: document.getElementById('editClientNomChaimae').value,
-                ICE: document.getElementById('editClientICEChaimae').value
+                ICE: document.getElementById('editClientICEChaimae').value,
+                IF: document.getElementById('editClientIFChaimae')?.value || ''
             },
             document: {
                 type: currentDocumentTypeChaimae,

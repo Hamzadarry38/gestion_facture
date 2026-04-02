@@ -31,6 +31,23 @@ async function checkIsModifiedExists() {
   }
 }
 
+// Auto-migrate: Add client_if column to clients table if not exists
+async function ensureClientIfColumn() {
+  try {
+    const res = await pool.query(`
+      SELECT column_name 
+      FROM information_schema.columns 
+      WHERE table_name = 'clients' AND column_name = 'client_if'
+    `);
+    if (res.rows.length === 0) {
+      await pool.query(`ALTER TABLE clients ADD COLUMN client_if TEXT DEFAULT ''`);
+      console.log('✅ [MIGRATION] Added client_if column to clients table');
+    }
+  } catch (err) {
+    console.error('❌ [MIGRATION] Error adding client_if column:', err);
+  }
+}
+
 let isConvertedColumnExists = null;
 async function checkIsConvertedExists() {
   if (isConvertedColumnExists !== null) return isConvertedColumnExists;
@@ -512,7 +529,7 @@ app.get('/invoices/pending', async (req, res) => {
     console.log(`🔍 [API DEBUG] GET /invoices/pending called for company: ${company_code || 'ALL'}, user_id: ${user_id || 'NONE'}`);
 
     let query = `
-      SELECT i.*, c.nom as client_nom, c.ice as client_ice 
+      SELECT i.*, c.nom as client_nom, c.ice as client_ice, c.client_if as client_if 
       FROM invoices i 
       LEFT JOIN clients c ON i.client_id = c.id 
       WHERE i.validation_status = 'pending'
@@ -571,7 +588,7 @@ app.get('/invoices/:company', async (req, res) => {
 
     // Fetch invoices with client info
     const invoicesRes = await pool.query(`
-      SELECT i.*, c.nom as client_nom, c.ice as client_ice 
+      SELECT i.*, c.nom as client_nom, c.ice as client_ice, c.client_if as client_if 
       ${columnExists ? ', i.is_modified' : ''}
       ${convertedColumnExists ? ', i.is_converted' : ''}
       FROM invoices i 
@@ -639,7 +656,7 @@ app.get('/invoices/id/:id', async (req, res) => {
   try {
     const { id } = req.params;
     const invoiceRes = await pool.query(`
-      SELECT i.*, c.nom as client_nom, c.ice as client_ice 
+      SELECT i.*, c.nom as client_nom, c.ice as client_ice, c.client_if as client_if 
       FROM invoices i 
       JOIN clients c ON i.client_id = c.id 
       WHERE i.id = $1
@@ -748,6 +765,7 @@ app.post('/invoices', async (req, res) => {
       const clientNom = c.nom;
       // 🔧 تحويل ICE إلى empty string ('') بدلاً من null إذا كان فارغاً
       const clientICE = c.ICE || c.ice || '';
+      const clientIF = c.IF || c.client_if || '';
       
       // 🔍 البحث عن العميل بالاسم + ICE + company_code معاً
       // هذا يضمن أن زبون بدون ICE وزبون مع ICE = سجلين منفصلين
@@ -759,15 +777,19 @@ app.post('/invoices', async (req, res) => {
       if (clientRes.rows.length > 0) {
         // ✅ العميل موجود بنفس الاسم ونفس ICE
         client_id = clientRes.rows[0].id;
-        console.log(`✅ [API] Found existing client ${clientNom} (ID: ${client_id}) with ICE: ${clientICE || '(empty)'}`);
+        // Update IF if provided
+        if (clientIF) {
+          await client.query('UPDATE clients SET client_if = $1 WHERE id = $2', [clientIF, client_id]);
+        }
+        console.log(`✅ [API] Found existing client ${clientNom} (ID: ${client_id}) with ICE: ${clientICE || '(empty)'}, IF: ${clientIF || '(empty)'}`);
       } else {
         // ➕ إنشاء عميل جديد (سواء كان بدون ICE أو مع ICE مختلف)
         const insertClientRes = await client.query(
-          'INSERT INTO clients (nom, ice, company_code, created_at) VALUES ($1, $2, $3, NOW()) RETURNING id',
-          [clientNom, clientICE, company_code]
+          'INSERT INTO clients (nom, ice, client_if, company_code, created_at) VALUES ($1, $2, $3, $4, NOW()) RETURNING id',
+          [clientNom, clientICE, clientIF, company_code]
         );
         client_id = insertClientRes.rows[0].id;
-        console.log(`✅ [API] Created new client ${clientNom} (ID: ${client_id}) with ICE: ${clientICE || '(empty)'}`);
+        console.log(`✅ [API] Created new client ${clientNom} (ID: ${client_id}) with ICE: ${clientICE || '(empty)'}, IF: ${clientIF || '(empty)'}`);
       }
     }
 
@@ -1085,6 +1107,7 @@ app.put('/invoices/:id', async (req, res) => {
     // Resolve client_id if client info provided
     if (req.body.client) {
       const c = req.body.client;
+      const clientIF = c.IF || c.client_if || '';
       if (!company_code) {
         const invRes = await client.query('SELECT company_code FROM invoices WHERE id = $1', [id]);
         if (invRes.rows.length > 0) company_code = invRes.rows[0].company_code;
@@ -1097,10 +1120,13 @@ app.put('/invoices/:id', async (req, res) => {
 
       if (clientRes.rows.length > 0) {
         client_id = clientRes.rows[0].id;
+        if (clientIF) {
+          await client.query('UPDATE clients SET client_if = $1 WHERE id = $2', [clientIF, client_id]);
+        }
       } else {
         const insertClientRes = await client.query(
-          'INSERT INTO clients (nom, ice, company_code, created_at) VALUES ($1, $2, $3, NOW()) RETURNING id',
-          [c.nom, c.ICE || c.ice || null, company_code]
+          'INSERT INTO clients (nom, ice, client_if, company_code, created_at) VALUES ($1, $2, $3, $4, NOW()) RETURNING id',
+          [c.nom, c.ICE || c.ice || null, clientIF, company_code]
         );
         client_id = insertClientRes.rows[0].id;
       }
@@ -1682,7 +1708,7 @@ app.get('/global-invoices/:company', async (req, res) => {
   try {
     const { company } = req.params;
     const result = await pool.query(`
-      SELECT gi.*, c.nom as client_nom, c.ice as client_ice 
+      SELECT gi.*, c.nom as client_nom, c.ice as client_ice, c.client_if as client_if 
       FROM global_invoices gi 
       JOIN clients c ON gi.client_id = c.id 
       WHERE gi.company_code = $1
@@ -1722,7 +1748,7 @@ app.get('/global-invoices/id/:id', async (req, res) => {
   try {
     const { id } = req.params;
     const result = await pool.query(`
-      SELECT gi.*, c.nom as client_nom, c.ice as client_ice 
+      SELECT gi.*, c.nom as client_nom, c.ice as client_ice, c.client_if as client_if 
       FROM global_invoices gi 
       JOIN clients c ON gi.client_id = c.id 
       WHERE gi.id = $1
@@ -2618,8 +2644,9 @@ app.get('/debug/pending-invoices', async (req, res) => {
   }
 });
 
-app.listen(port, '0.0.0.0', () => {
+app.listen(port, '0.0.0.0', async () => {
   console.log(`API Backend (API 5) running on http://localhost:${port}`);
   console.log(`🔍 Debug endpoint: http://localhost:${port}/debug/pending-invoices`);
+  await ensureClientIfColumn();
 });
 

@@ -52,6 +52,10 @@ function CreateInvoiceMRYPage() {
                                     <label>N° ICE</label>
                                     <input type="text" id="clientICE" placeholder="Numéro ICE (optionnel)">
                                 </div>
+                                <div class="form-field">
+                                    <label>IF</label>
+                                    <input type="text" id="clientIF" placeholder="Identifiant Fiscal (chiffres uniquement)" oninput="this.value = this.value.replace(/[^0-9]/g, '')">
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -811,7 +815,7 @@ function displayClientsList() {
 
     dropdown.innerHTML = filteredClients.slice(0, 10).map(client => `
         <div class="dropdown-item" style="display: flex; justify-content: space-between; align-items: center;">
-            <div style="flex: 1;" onmousedown="selectClient('${client.nom.replace(/'/g, "\\'")}', '${client.ice}')">
+            <div style="flex: 1;" onmousedown="selectClient('${client.nom.replace(/'/g, "\\'")}', '${client.ice}', '${client.client_if || ''}')">
                 <div class="client-name">${client.nom}</div>
                 <div class="client-ice">ICE: ${client.ice}</div>
             </div>
@@ -848,9 +852,10 @@ window.hideClientsList = function () {
 }
 
 // Select a client from the list
-window.selectClient = function (nom, ice) {
+window.selectClient = function (nom, ice, clientIf) {
     document.getElementById('clientNom').value = nom;
     document.getElementById('clientICE').value = ice;
+    document.getElementById('clientIF').value = clientIf || '';
 
     const dropdown = document.getElementById('clientsDropdown');
     dropdown.style.display = 'none';
@@ -1357,7 +1362,8 @@ async function handleInvoiceSubmit(e) {
             company_code: 'MRY',
             client: {
                 nom: document.getElementById('clientNom').value,
-                ICE: document.getElementById('clientICE').value
+                ICE: document.getElementById('clientICE').value,
+                IF: document.getElementById('clientIF')?.value || ''
             },
             document: {
                 type: document.getElementById('documentType').value,

@@ -52,6 +52,10 @@ function EditInvoiceMultiPage() {
                                     <label>N° ICE</label>
                                     <input type="text" id="editClientICEMulti" placeholder="Numéro ICE (optionnel)">
                                 </div>
+                                <div class="form-field">
+                                    <label>IF</label>
+                                    <input type="text" id="editClientIFMulti" placeholder="Identifiant Fiscal (chiffres uniquement)" oninput="this.value = this.value.replace(/[^0-9]/g, '')">
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -231,6 +235,7 @@ async function loadInvoiceDataMulti(invoiceId) {
         // Fill client info
         document.getElementById('editClientNomMulti').value = invoice.client_nom;
         document.getElementById('editClientICEMulti').value = invoice.client_ice;
+        document.getElementById('editClientIFMulti').value = invoice.client_if || '';
 
         // Fill document info
         const docTypeDisplay = invoice.document_type === 'facture' ? 'Facture' : 'Devis';
@@ -619,7 +624,7 @@ function displayClientsListEditMulti() {
 
     dropdown.innerHTML = filteredClientsEditMulti.slice(0, 10).map(client => `
         <div class="dropdown-item" style="display: flex; justify-content: space-between; align-items: center;">
-            <div style="flex: 1;" onmousedown="selectClientEditMulti('${client.nom.replace(/'/g, "\\'")}', '${client.ice}')">
+            <div style="flex: 1;" onmousedown="selectClientEditMulti('${client.nom.replace(/'/g, "\\'")}', '${client.ice}', '${client.client_if || ''}')">
                 <div class="client-name">${client.nom}</div>
                 <div class="client-ice">ICE: ${client.ice}</div>
             </div>
@@ -651,9 +656,10 @@ window.hideClientsListEditMulti = function () {
     }, 200);
 }
 
-window.selectClientEditMulti = function (nom, ice) {
+window.selectClientEditMulti = function (nom, ice, clientIf) {
     document.getElementById('editClientNomMulti').value = nom;
     document.getElementById('editClientICEMulti').value = ice;
+    document.getElementById('editClientIFMulti').value = clientIf || '';
     const dropdown = document.getElementById('clientsDropdownEditMulti');
     if (dropdown) dropdown.style.display = 'none';
 }
@@ -735,7 +741,8 @@ async function handleEditInvoiceSubmitMulti(e) {
             company_code: 'MULTI',
             client: {
                 nom: document.getElementById('editClientNomMulti').value,
-                ICE: document.getElementById('editClientICEMulti').value
+                ICE: document.getElementById('editClientICEMulti').value,
+                IF: document.getElementById('editClientIFMulti')?.value || ''
             },
             document: {
                 type: currentDocumentTypeMulti,
