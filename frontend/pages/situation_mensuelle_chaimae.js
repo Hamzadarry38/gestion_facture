@@ -407,7 +407,7 @@ function formatAmount(amount) {
 }
 
 // Add header to PDF page
-function addHeaderToPDF(doc, client, month, year, monthNames, blueColor, greenColor) {
+function addHeaderToPDF(doc, client, month, year, monthNames, blueColor, greenColor, pdfText) {
     // Logo
     try {
         const logoImg = document.querySelector('img[src*="chaimae.png"]') ||
@@ -424,14 +424,14 @@ function addHeaderToPDF(doc, client, month, year, monthNames, blueColor, greenCo
     doc.setFontSize(18);
     doc.setTextColor(...blueColor);
     doc.setFont(undefined, 'bold');
-    doc.text('CHAIMAE ERRBAHI MDIQ sarl (AU)', 105, 20, { align: 'center' });
+    doc.text((pdfText && pdfText.company_name) || 'CHAIMAE ERRBAHI MDIQ sarl (AU)', 105, 20, { align: 'center' });
 
     doc.setFontSize(10);
     doc.setFont(undefined, 'normal');
     doc.setTextColor(0, 0, 0);
-    doc.text('Patente N° 52003366 - NIF : 40190505', 105, 27, { align: 'center' });
-    doc.text('RC N° : 10487 - CNSS : 8721591', 105, 32, { align: 'center' });
-    doc.text('ICE : 001544861000014', 105, 37, { align: 'center' });
+    doc.text((pdfText && pdfText.header_line1) || 'Patente N° 52003366 - NIF : 40190505', 105, 27, { align: 'center' });
+    doc.text((pdfText && pdfText.header_line2) || 'RC N° : 10487 - CNSS : 8721591', 105, 32, { align: 'center' });
+    doc.text((pdfText && pdfText.header_line3) || 'ICE : 001544861000014', 105, 37, { align: 'center' });
 
     // Client Info
     doc.setFontSize(11);
@@ -464,14 +464,14 @@ function addHeaderToPDF(doc, client, month, year, monthNames, blueColor, greenCo
 }
 
 // Add footer to PDF page
-function addFooterToPDF(doc, pageNumber, totalPages) {
+function addFooterToPDF(doc, pageNumber, totalPages, pdfText) {
     doc.setTextColor(0, 0, 0);
     doc.setFontSize(7);
     doc.setFont(undefined, 'normal');
-    doc.text('RIB : 007 720 00 05979000000368 12  ATTIJARI WAFA BANK', 15, 275);
-    doc.text('Email: errbahiabderrahim@gmail.com', 15, 279);
-    doc.text('ADRESSE: LOT ALBAHR AV TETOUAN N94 GARAGE 2 M\'DIQ', 15, 283);
-    doc.text('Tel: +212 661 307 323', 15, 287);
+    doc.text((pdfText && pdfText.footer_line1) || 'RIB : 007 720 00 05979000000368 12  ATTIJARI WAFA BANK', 15, 275);
+    doc.text((pdfText && pdfText.footer_line2) || 'Email: errbahiabderrahim@gmail.com', 15, 279);
+    doc.text((pdfText && pdfText.footer_line3) || 'ADRESSE: LOT ALBAHR AV TETOUAN N94 GARAGE 2 M\'DIQ', 15, 283);
+    doc.text((pdfText && pdfText.footer_line4) || 'Tel: +212 661 307 323', 15, 287);
 
     // Page numbering
     if (pageNumber && totalPages) {
@@ -850,6 +850,9 @@ window.generateSituationMensuelle = async function (clientId, month, year, sortB
         const { jsPDF } = window.jspdf;
         const doc = new jsPDF();
 
+        // Load editable PDF text
+        const pdfText = await window.loadCompanyPdfText('CHAIMAE');
+
         const blueColor = [33, 97, 140]; // #21618C
         const greenColor = [76, 175, 80]; // #4caf50
 
@@ -860,7 +863,7 @@ window.generateSituationMensuelle = async function (clientId, month, year, sortB
         const pages = [];
 
         // Add first page header
-        addHeaderToPDF(doc, client, month, year, monthNames, blueColor, greenColor);
+        addHeaderToPDF(doc, client, month, year, monthNames, blueColor, greenColor, pdfText);
 
         // Table Header - 4 columns only
         const startY = 90;
@@ -895,7 +898,7 @@ window.generateSituationMensuelle = async function (clientId, month, year, sortB
                 currentY = 20;
 
                 // Add header to new page
-                addHeaderToPDF(doc, client, month, year, monthNames, blueColor, greenColor);
+                addHeaderToPDF(doc, client, month, year, monthNames, blueColor, greenColor, pdfText);
 
                 // Add table header again
                 const newStartY = 95;
@@ -1008,7 +1011,7 @@ window.generateSituationMensuelle = async function (clientId, month, year, sortB
             pages.push(pageNumber);
             pageNumber++;
             doc.addPage();
-            addHeaderToPDF(doc, client, month, year, monthNames, blueColor, greenColor);
+            addHeaderToPDF(doc, client, month, year, monthNames, blueColor, greenColor, pdfText);
             currentY = 110;
         }
 
@@ -1085,7 +1088,7 @@ window.generateSituationMensuelle = async function (clientId, month, year, sortB
 
         for (let i = 0; i < totalPagesCount; i++) {
             doc.setPage(i + 1);
-            addFooterToPDF(doc, i + 1, totalPagesCount);
+            addFooterToPDF(doc, i + 1, totalPagesCount, pdfText);
         }
 
         // Save PDF

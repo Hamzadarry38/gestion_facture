@@ -64,6 +64,15 @@ function DashboardMRYPage() {
                         <div class="option-arrow">→</div>
                     </div>
 
+                    <div class="option-card" data-action="pdf-text-editor">
+                        <div class="option-icon">✏️</div>
+                        <div class="option-info">
+                            <h2>Modifier les textes PDF</h2>
+                            <p>Modifier le header et footer des fichiers PDF</p>
+                        </div>
+                        <div class="option-arrow">→</div>
+                    </div>
+
                     ${(window.getEnabledCompanies ? window.getEnabledCompanies() : [
                         { code: 'SKM', name: 'SMART SERVICES' },
                         { code: 'SAAISS', name: 'MSH3 SERVICES' },
@@ -130,6 +139,8 @@ document.addEventListener('click', function (e) {
             router.navigate('/year-selector-mry');
         }
         console.log('✅ Navigation completed');
+    } else if (action === 'pdf-text-editor') {
+        router.navigate('/pdf-text-editor');
     } else if (action.startsWith('view-pdf-')) {
         const companyCode = action.replace('view-pdf-', '');
         console.log('📁 Opening PDF Manager for company:', companyCode);

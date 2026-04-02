@@ -623,11 +623,14 @@ window.downloadInvoicePDFMulti = async function (invoiceId, returnBlob = false, 
         // Use the user's choice (includeSignature) AND verify it's a devis (though prompt only appears for devis)
         const shouldAddSignature = invoice.document_type === 'devis' && includeSignature;
 
+        // Load editable PDF text
+        const pdfText = await window.loadCompanyPdfText('MULTI');
+
         const flattenedFooterData = await generateFlattenedFooterMulti(
             shouldAddSignature ? signatureImgMultiHelper : null,
-            'NIF 68717422 | TP 51001343 | RC 38633 | CNSS 6446237',
-            'ICE : 003809505000031',
-            'Tel: +212 661 307 323'
+            pdfText.footer_line1 || 'NIF 68717422 | TP 51001343 | RC 38633 | CNSS 6446237',
+            pdfText.footer_line2 || 'ICE : 003809505000031',
+            pdfText.footer_line3 || 'Tel: +212 661 307 323'
         );
 
         // Colors - New design
@@ -660,7 +663,7 @@ window.downloadInvoicePDFMulti = async function (invoiceId, returnBlob = false, 
             doc.setFontSize(18);
             doc.setTextColor(96, 125, 139);
             doc.setFont(undefined, 'bold');
-            doc.text('MULTI TRAVAUX TETOUAN', 40, 22);
+            doc.text(pdfText.company_name || 'MULTI TRAVAUX TETOUAN', 40, 22);
 
             // Document Type - Right aligned, underlined
             doc.setFontSize(18);
@@ -695,13 +698,13 @@ window.downloadInvoicePDFMulti = async function (invoiceId, returnBlob = false, 
             doc.rect(15, 38, 80, 6, 'F');
             doc.setTextColor(255, 255, 255);
             doc.setFontSize(8);
-            doc.text('Email: errbahiabderrahim@gmail.com', 17, 42);
+            doc.text('Email: ' + (pdfText.header_email || 'errbahiabderrahim@gmail.com'), 17, 42);
 
             doc.setFillColor(...lightGrayBg);
             doc.rect(15, 44, 80, 6, 'F');
             doc.setTextColor(0, 0, 0);
             doc.setFontSize(7);
-            doc.text('AV 10 MAI IMM 04 APPART 01 A DROIT - TETOUAN , TETOUAN', 17, 48);
+            doc.text(pdfText.header_address || 'AV 10 MAI IMM 04 APPART 01 A DROIT - TETOUAN , TETOUAN', 17, 48);
 
             // Client Info - Right side with gray background (ONE BOX - dynamic height for wrapping)
             doc.setFontSize(8);

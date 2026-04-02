@@ -888,6 +888,9 @@ window.downloadGlobalInvoicePDF = async function (invoiceId, sortOrder = null) {
         const { jsPDF } = window.jspdf;
         const doc = new jsPDF();
 
+        // Load editable PDF text
+        const pdfText = await window.loadCompanyPdfText('CHAIMAE');
+
         // Colors
         const blueColor = [52, 103, 138]; // #34678A - Dark blue from image
 
@@ -917,14 +920,14 @@ window.downloadGlobalInvoicePDF = async function (invoiceId, sortOrder = null) {
             doc.setFontSize(18);
             doc.setTextColor(...blueColor);
             doc.setFont(undefined, 'bold');
-            doc.text('CHAIMAE ERRBAHI MDIQ sarl (AU)', 105, 20, { align: 'center' });
+            doc.text(pdfText.company_name || 'CHAIMAE ERRBAHI MDIQ sarl (AU)', 105, 20, { align: 'center' });
 
             doc.setFontSize(10);
             doc.setFont(undefined, 'normal');
             doc.setTextColor(0, 0, 0);
-            doc.text('Patente N° 52003366 - NIF : 40190505', 105, 27, { align: 'center' });
-            doc.text('RC N° : 10487 - CNSS : 8721591', 105, 32, { align: 'center' });
-            doc.text('ICE : 001544861000014', 105, 37, { align: 'center' });
+            doc.text(pdfText.header_line1 || 'Patente N° 52003366 - NIF : 40190505', 105, 27, { align: 'center' });
+            doc.text(pdfText.header_line2 || 'RC N° : 10487 - CNSS : 8721591', 105, 32, { align: 'center' });
+            doc.text(pdfText.header_line3 || 'ICE : 001544861000014', 105, 37, { align: 'center' });
 
             // Client Info
             doc.setFontSize(11);
@@ -955,10 +958,10 @@ window.downloadGlobalInvoicePDF = async function (invoiceId, sortOrder = null) {
             doc.setTextColor(0, 0, 0);
             doc.setFontSize(7);
             doc.setFont(undefined, 'normal');
-            doc.text('RIB : 007 720 00 05979000000368 12  ATTIJARI WAFA BANK', 15, 275);
-            doc.text('Email: errbahiabderrahim@gmail.com', 15, 279);
-            doc.text('ADRESSE: LOT ALBAHR AV TETOUAN N94 GARAGE 2 M\'DIQ', 15, 283);
-            doc.text('Tel: +212 661 307 323', 15, 287);
+            doc.text(pdfText.footer_line1 || 'RIB : 007 720 00 05979000000368 12  ATTIJARI WAFA BANK', 15, 275);
+            doc.text(pdfText.footer_line2 || 'Email: errbahiabderrahim@gmail.com', 15, 279);
+            doc.text(pdfText.footer_line3 || 'ADRESSE: LOT ALBAHR AV TETOUAN N94 GARAGE 2 M\'DIQ', 15, 283);
+            doc.text(pdfText.footer_line4 || 'Tel: +212 661 307 323', 15, 287);
 
             // Page numbering
             if (pageNum && totalPages) {

@@ -334,6 +334,9 @@ window.generateSituationAnnuelleChaimae = async function (clientId, year, select
         const { jsPDF } = window.jspdf;
         const doc = new jsPDF();
 
+        // Load editable PDF text
+        const pdfText = await window.loadCompanyPdfText('CHAIMAE');
+
         // Chaimae specific colors
         const purpleColor = [33, 97, 140]; // MRY Blue
         const orangeColor = [255, 152, 0]; // #ff9800
@@ -368,7 +371,7 @@ window.generateSituationAnnuelleChaimae = async function (clientId, year, select
             dateRangeStr = `${year}`;
         }
 
-        const titleLines = addHeaderToPDFAnnuelleChaimae(doc, client, dateRangeStr, purpleColor, orangeColor);
+        const titleLines = addHeaderToPDFAnnuelleChaimae(doc, client, dateRangeStr, purpleColor, orangeColor, pdfText);
 
         // Dynamic Column Positioning
         const startX = 35; // Move left to give more space
@@ -413,7 +416,7 @@ window.generateSituationAnnuelleChaimae = async function (clientId, year, select
             if (currentY > 250) {
                 doc.addPage();
                 pageNumber++;
-                addHeaderToPDFAnnuelleChaimae(doc, client, dateRangeStr, purpleColor, orangeColor);
+                addHeaderToPDFAnnuelleChaimae(doc, client, dateRangeStr, purpleColor, orangeColor, pdfText);
 
                 // Re-draw table header
                 doc.setFillColor(...purpleColor);
@@ -457,7 +460,7 @@ window.generateSituationAnnuelleChaimae = async function (clientId, year, select
         if (currentY > 230) {
             doc.addPage();
             pageNumber++;
-            addHeaderToPDFAnnuelleChaimae(doc, client, dateRangeStr, purpleColor, orangeColor);
+            addHeaderToPDFAnnuelleChaimae(doc, client, dateRangeStr, purpleColor, orangeColor, pdfText);
             currentY = 100;
         }
 
@@ -488,7 +491,7 @@ window.generateSituationAnnuelleChaimae = async function (clientId, year, select
         const totalPages = doc.internal.getNumberOfPages();
         for (let i = 1; i <= totalPages; i++) {
             doc.setPage(i);
-            addFooterToPDFAnnuelleChaimae(doc, i, totalPages);
+            addFooterToPDFAnnuelleChaimae(doc, i, totalPages, pdfText);
         }
 
         // Save
@@ -514,7 +517,7 @@ function formatAmountChaimae(amount) {
 }
 
 // Header Function (Updated with new details)
-function addHeaderToPDFAnnuelleChaimae(doc, client, dateRangeStr, purpleColor, orangeColor) {
+function addHeaderToPDFAnnuelleChaimae(doc, client, dateRangeStr, purpleColor, orangeColor, pdfText) {
     // Logo
     try {
         const logoImg = document.querySelector('img[src*="chaimae.png"]') ||
@@ -531,14 +534,14 @@ function addHeaderToPDFAnnuelleChaimae(doc, client, dateRangeStr, purpleColor, o
     doc.setFontSize(18);
     doc.setTextColor(...purpleColor);
     doc.setFont(undefined, 'bold');
-    doc.text('CHAIMAE ERRBAHI MDIQ sarl (AU)', 105, 20, { align: 'center' });
+    doc.text((pdfText && pdfText.company_name) || 'CHAIMAE ERRBAHI MDIQ sarl (AU)', 105, 20, { align: 'center' });
 
     doc.setFontSize(10);
     doc.setFont(undefined, 'normal');
     doc.setTextColor(0, 0, 0);
-    doc.text('Patente N° 52003366 - NIF : 40190505', 105, 27, { align: 'center' });
-    doc.text('RC N° : 10487 - CNSS : 8721591', 105, 32, { align: 'center' });
-    doc.text('ICE : 001544861000014', 105, 37, { align: 'center' });
+    doc.text((pdfText && pdfText.header_line1) || 'Patente N° 52003366 - NIF : 40190505', 105, 27, { align: 'center' });
+    doc.text((pdfText && pdfText.header_line2) || 'RC N° : 10487 - CNSS : 8721591', 105, 32, { align: 'center' });
+    doc.text((pdfText && pdfText.header_line3) || 'ICE : 001544861000014', 105, 37, { align: 'center' });
 
     // Client Info
     doc.setFontSize(11);
@@ -573,14 +576,14 @@ function addHeaderToPDFAnnuelleChaimae(doc, client, dateRangeStr, purpleColor, o
 }
 
 // Footer Function (New)
-function addFooterToPDFAnnuelleChaimae(doc, pageNumber, totalPages) {
+function addFooterToPDFAnnuelleChaimae(doc, pageNumber, totalPages, pdfText) {
     doc.setTextColor(0, 0, 0);
     doc.setFontSize(7);
     doc.setFont(undefined, 'normal');
-    doc.text('RIB : 007 720 00 05979000000368 12  ATTIJARI WAFA BANK', 15, 275);
-    doc.text('Email: errbahiabderrahim@gmail.com', 15, 279);
-    doc.text('ADRESSE: LOT ALBAHR AV TETOUAN N94 GARAGE 2 M\'DIQ', 15, 283);
-    doc.text('Tel: +212 661 307 323', 15, 287);
+    doc.text((pdfText && pdfText.footer_line1) || 'RIB : 007 720 00 05979000000368 12  ATTIJARI WAFA BANK', 15, 275);
+    doc.text((pdfText && pdfText.footer_line2) || 'Email: errbahiabderrahim@gmail.com', 15, 279);
+    doc.text((pdfText && pdfText.footer_line3) || 'ADRESSE: LOT ALBAHR AV TETOUAN N94 GARAGE 2 M\'DIQ', 15, 283);
+    doc.text((pdfText && pdfText.footer_line4) || 'Tel: +212 661 307 323', 15, 287);
 
     // Page numbering
     if (pageNumber && totalPages) {
@@ -898,6 +901,9 @@ window.generateSituationAnnuelleClientsChaimae = async function (clientIds, year
         const { jsPDF } = window.jspdf;
         const doc = new jsPDF();
 
+        // Load editable PDF text
+        const pdfText = await window.loadCompanyPdfText('CHAIMAE');
+
         const blueColor = [33, 97, 140];   // MRY Blue (table header color)
         const greenColor = [16, 172, 132]; // MRY Green (accent/text color)
 
@@ -947,14 +953,14 @@ window.generateSituationAnnuelleClientsChaimae = async function (clientIds, year
             doc.setFontSize(18);
             doc.setTextColor(...blueColor);
             doc.setFont(undefined, 'bold');
-            doc.text('CHAIMAE ERRBAHI MDIQ sarl (AU)', 105, 20, { align: 'center' });
+            doc.text((pdfText && pdfText.company_name) || 'CHAIMAE ERRBAHI MDIQ sarl (AU)', 105, 20, { align: 'center' });
 
             doc.setFontSize(10);
             doc.setFont(undefined, 'normal');
             doc.setTextColor(0, 0, 0);
-            doc.text('Patente N° 52003366 - NIF : 40190505', 105, 27, { align: 'center' });
-            doc.text('RC N° : 10487 - CNSS : 8721591', 105, 32, { align: 'center' });
-            doc.text('ICE : 001544861000014', 105, 37, { align: 'center' });
+            doc.text((pdfText && pdfText.header_line1) || 'Patente N° 52003366 - NIF : 40190505', 105, 27, { align: 'center' });
+            doc.text((pdfText && pdfText.header_line2) || 'RC N° : 10487 - CNSS : 8721591', 105, 32, { align: 'center' });
+            doc.text((pdfText && pdfText.header_line3) || 'ICE : 001544861000014', 105, 37, { align: 'center' });
 
             // Client Info
             doc.setFontSize(11);
@@ -1066,7 +1072,7 @@ window.generateSituationAnnuelleClientsChaimae = async function (clientIds, year
         const totalPagesInGlobal = doc.internal.getNumberOfPages();
         for (let i = 1; i <= totalPagesInGlobal; i++) {
             doc.setPage(i);
-            addFooterToPDFAnnuelleChaimae(doc, i, totalPagesInGlobal);
+            addFooterToPDFAnnuelleChaimae(doc, i, totalPagesInGlobal, pdfText);
         }
 
         // Save

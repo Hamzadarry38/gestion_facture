@@ -1569,10 +1569,14 @@ async function handleInvoiceSubmit(e) {
                 4000
             );
 
-            // Navigate after a short delay
-            setTimeout(() => {
-                router.navigate('/dashboard-mry');
-            }, 1000);
+            // Show payment modal for factures only
+            if (formData.document.type === 'facture') {
+                showPaymentModalMRY(invoiceId, formData.client.nom);
+            } else {
+                setTimeout(() => {
+                    router.navigate('/dashboard-mry');
+                }, 1000);
+            }
         } else {
             throw new Error(result.error);
         }

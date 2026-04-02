@@ -175,6 +175,16 @@ class Router {
                 console.log('✅ Router: Calling initPdfFilesPage for unified PDF page');
                 window.initPdfFilesPage();
             }
+            
+            if (path === '/pdf-text-editor' && typeof window.renderPdfTextEditor === 'function') {
+                console.log('✅ Router: Calling renderPdfTextEditor');
+                const container = document.getElementById('pdfTextEditorContainer');
+                if (container) {
+                    window.renderPdfTextEditor(container);
+                } else {
+                    console.error('❌ Router: pdfTextEditorContainer not found!');
+                }
+            }
         } else {
             console.error(`❌ Route ${path} not found`);
             console.log('Available routes:', Object.keys(this.routes));

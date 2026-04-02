@@ -2442,9 +2442,15 @@ async function handleFormSubmitChaimae(e) {
             if (overlay) overlay.remove();
 
             window.notify.success('Succès', 'Document créé avec succès!', 3000);
-            setTimeout(() => {
-                router.navigate('/dashboard-chaimae');
-            }, 1500);
+            
+            // Show payment modal for factures only
+            if (formData.document.type === 'facture') {
+                showPaymentModalChaimae(invoiceId, formData.client.nom);
+            } else {
+                setTimeout(() => {
+                    router.navigate('/dashboard-chaimae');
+                }, 1500);
+            }
         } else {
             // Remove loading overlay on error
             if (overlay) overlay.remove();

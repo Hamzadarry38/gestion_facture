@@ -128,6 +128,27 @@ function InvoicesListMRYPage() {
                             </select>
                         </div>
                         
+                        <div class="filter-group">
+                            <label>💳 Statut de paiement:</label>
+                            <select id="filterPaymentStatus" onchange="filterInvoices()">
+                                <option value="">Tous</option>
+                                <option value="en attente de paiement">En attente</option>
+                                <option value="payé">Payé</option>
+                            </select>
+                        </div>
+                        
+                        <div class="filter-group">
+                            <label>💰 Méthode de paiement:</label>
+                            <select id="filterPaymentMethod" onchange="filterInvoices()">
+                                <option value="">Toutes</option>
+                                <option value="Chèque">Chèque</option>
+                                <option value="LCN">LCN</option>
+                                <option value="Virement">Virement</option>
+                                <option value="PRL">PRL</option>
+                                <option value="Espèces">Espèces</option>
+                            </select>
+                        </div>
+                        
                         <div class="filter-group" style="grid-column: 1 / -1;">
                             <label style="display:block; color:#4caf50; font-weight:600; font-size:0.75rem; text-transform:uppercase; letter-spacing:0.6px; margin-bottom:0.4rem;">🔍 Recherche avancée</label>
                             <div style="display: grid; grid-template-columns: 250px 1fr; gap: 0.5rem;">
@@ -333,6 +354,7 @@ function InvoicesListMRYPage() {
                                         Total TTC <span id="sortIconTotalTTCMry">⇅</span>
                                     </th>
                                     <th style="width: 140px; text-align: center;">Accusé R.</th>
+                                    <th style="width: 130px; text-align: center;">💳 Paiement</th>
                                     <th style="width: 50px; text-align: center;">P.J</th>
                                     <th>Actions</th>
                                 </tr>
@@ -673,14 +695,19 @@ function displayInvoices(invoices) {
     const emptyState = document.getElementById('emptyState');
     const pagination = document.getElementById('pagination');
 
+    if (!tableBody) {
+        console.error('❌ invoicesTableBody element not found');
+        return;
+    }
+
     if (invoices.length === 0) {
         tableBody.innerHTML = '';
-        emptyState.style.display = 'flex';
+        if (emptyState) emptyState.style.display = 'flex';
         if (pagination) pagination.style.display = 'none';
         return;
     }
 
-    emptyState.style.display = 'none';
+    if (emptyState) emptyState.style.display = 'none';
 
     // Calculate pagination
     const totalItems = invoices.length;
@@ -813,6 +840,14 @@ function displayInvoices(invoices) {
                         <option value="accuse" ${arStatus === 'accuse' ? 'selected' : ''} style="background: #424242; color: #4caf50;">Accusé</option>
                         <option value="done" ${arStatus === 'done' ? 'selected' : ''} style="background: #424242; color: #2196f3;">Done</option>
                     </select>`}
+                </td>
+                <td style="text-align: center;">
+                    ${invoice.document_type === 'facture' ? `<select onchange="window.updatePaymentStatusMRY('${invoice.id}', this.value); this.style.background=this.value==='payé'?'#4caf50':'#ff9800';"
+                            style="padding: 0.4rem; background: ${(invoice.payment_status === 'payé') ? '#4caf50' : '#ff9800'}; color: white; border: none; border-radius: 4px; font-size: 0.85rem; cursor: pointer; width: 100%; transition: background 0.3s;"
+                            onclick="event.stopPropagation()">
+                        <option value="en attente de paiement" ${invoice.payment_status !== 'payé' ? 'selected' : ''} style="background: #424242; color: #ff9800;">En attente</option>
+                        <option value="payé" ${invoice.payment_status === 'payé' ? 'selected' : ''} style="background: #424242; color: #4caf50;">Payé</option>
+                    </select>` : '<span style="color:#666;">—</span>'}
                 </td>
                 <td style="text-align: center;">
                     <div id="attachmentIndicator-${invoice.id}" onclick="viewInvoice(${invoice.id})" style="cursor: pointer;">
@@ -1124,6 +1159,8 @@ window.filterInvoices = async function () {
     const arStatusFilterEl = document.getElementById('filterArStatusMRY');
     const arStatusFilter = arStatusFilterEl ? arStatusFilterEl.value : 'all';
     const filterStatus = document.getElementById('filterStatusMRY')?.value || 'all';
+    const paymentStatusFilter = document.getElementById('filterPaymentStatus')?.value || '';
+    const paymentMethodFilter = document.getElementById('filterPaymentMethod')?.value || '';
     const searchInput = document.getElementById('searchInput')?.value.toLowerCase() || '';
 
     // Show loading if search is active
@@ -1224,6 +1261,22 @@ window.filterInvoices = async function () {
         filtered = filtered.filter(inv => inv.is_featured === 1 || inv.is_featured === true);
     } else if (filterFeatured === 'not_featured') {
         filtered = filtered.filter(inv => !inv.is_featured || inv.is_featured === 0);
+    }
+
+    // Payment status filter
+    if (paymentStatusFilter) {
+        filtered = filtered.filter(inv => {
+            if (inv.document_type !== 'facture') return false;
+            return (inv.payment_status || 'en attente de paiement') === paymentStatusFilter;
+        });
+    }
+
+    // Payment method filter
+    if (paymentMethodFilter) {
+        filtered = filtered.filter(inv => {
+            if (inv.document_type !== 'facture') return false;
+            return (inv.payment_method || '') === paymentMethodFilter;
+        });
     }
 
     // Advanced search with multi-select checkboxes
@@ -1573,6 +1626,30 @@ window.viewInvoice = async function (id) {
                         </div>
                     </div>
                 </div>
+
+                ${invoice.document_type === 'facture' ? `
+                <!-- Payment Section -->
+                <div style="margin-bottom:2rem;">
+                    <h3 style="color:#fff;font-size:1.1rem;margin:0 0 1rem 0;font-weight:600;">💳 Paiement</h3>
+                    <div style="background:#1e1e1e;padding:1rem;border-radius:8px;">
+                        <div style="margin-bottom:0.75rem;">
+                            <span style="color:#999;font-size:0.9rem;">Statut:</span>
+                            <div style="margin-top:0.25rem;">
+                                <span style="padding:0.3rem 0.8rem;border-radius:20px;font-size:0.85rem;font-weight:600;${(invoice.payment_status === 'payé') ? 'background:#1b5e20;color:#4caf50;' : 'background:#e65100;color:#ff9800;'}">${(invoice.payment_status === 'payé') ? 'Payé' : 'En attente de paiement'}</span>
+                            </div>
+                        </div>
+                        ${invoice.payment_status === 'payé' && invoice.payment_method ? `
+                        <div>
+                            <span style="color:#999;font-size:0.9rem;">Méthode:</span>
+                            <div style="color:#fff;font-weight:500;margin-top:0.25rem;">${invoice.payment_method}</div>
+                        </div>
+                        ` : ''}
+                        <div style="margin-top:0.75rem;">
+                            <button onclick="showEditPaymentModalMRY(${invoice.id}, '${(invoice.payment_status || 'en attente de paiement').replace(/'/g, "\\'")}', '${(invoice.payment_method || '').replace(/'/g, "\\'")}')" style="padding:0.4rem 1rem;background:#1565c0;color:#fff;border:none;border-radius:6px;cursor:pointer;font-size:0.8rem;">Modifier le paiement</button>
+                        </div>
+                    </div>
+                </div>
+                ` : ''}
                 
                 <!-- Document Section -->
                 <div style="margin-bottom:2rem;">
@@ -3203,6 +3280,9 @@ window.downloadInvoicePDF = async function (invoiceId, returnBlob = false, optio
         // Load signature image
         const signatureImgMRY = await loadMRYSignature();
 
+        // Load editable PDF text
+        const pdfText = await window.loadCompanyPdfText('MRY');
+
         // Colors
         const blueColor = [33, 97, 140]; // #21618C
         const greenColor = [16, 172, 132]; // #10AC84
@@ -3228,14 +3308,14 @@ window.downloadInvoicePDF = async function (invoiceId, returnBlob = false, optio
             doc.setFontSize(18);
             doc.setTextColor(...blueColor);
             doc.setFont(undefined, 'bold');
-            doc.text('MRY TRAV SARL (AU)', 105, 20, { align: 'center' });
+            doc.text(pdfText.company_name || 'MRY TRAV SARL (AU)', 105, 20, { align: 'center' });
 
             doc.setFontSize(10);
             doc.setFont(undefined, 'normal');
             doc.setTextColor(0, 0, 0);
-            doc.text('TRAVAUX DIVERS DE CONSTRUCTION', 105, 27, { align: 'center' });
-            doc.text('VENTE DE MATERIAUX DE CONSTRUCTION', 105, 32, { align: 'center' });
-            doc.text('VENTE DE QUINCAILLERIE & DE DROGUERIE', 105, 37, { align: 'center' });
+            doc.text(pdfText.header_line1 || 'TRAVAUX DIVERS DE CONSTRUCTION', 105, 27, { align: 'center' });
+            doc.text(pdfText.header_line2 || 'VENTE DE MATERIAUX DE CONSTRUCTION', 105, 32, { align: 'center' });
+            doc.text(pdfText.header_line3 || 'VENTE DE QUINCAILLERIE & DE DROGUERIE', 105, 37, { align: 'center' });
 
             // Client Info
             doc.setFontSize(11);
@@ -3290,10 +3370,10 @@ window.downloadInvoicePDF = async function (invoiceId, returnBlob = false, optio
             doc.setTextColor(0, 0, 0);
             doc.setFontSize(7);
             doc.setFont(undefined, 'normal');
-            doc.text('NIF : 25077370  TP : 51200166  R.C : 23181  CNSS : 5679058  ICE : 002036664000051', 105, 275, { align: 'center' });
-            doc.text('R.I.B : 007 720 0005973000000519 74  ATTIJARI WAFA BANK', 105, 279, { align: 'center' });
-            doc.text('AV, BNI IDDER RUE 14 N°10 COELMA - TÉTOUAN.', 105, 283, { align: 'center' });
-            doc.text('EMAIL: errbahiabderrahim@gmail.com  TEL : 0661307323', 105, 287, { align: 'center' });
+            doc.text(pdfText.footer_line1 || 'NIF : 25077370  TP : 51200166  R.C : 23181  CNSS : 5679058  ICE : 002036664000051', 105, 275, { align: 'center' });
+            doc.text(pdfText.footer_line2 || 'R.I.B : 007 720 0005973000000519 74  ATTIJARI WAFA BANK', 105, 279, { align: 'center' });
+            doc.text(pdfText.footer_line3 || 'AV, BNI IDDER RUE 14 N°10 COELMA - TÉTOUAN.', 105, 283, { align: 'center' });
+            doc.text(pdfText.footer_line4 || 'EMAIL: errbahiabderrahim@gmail.com  TEL : 0661307323', 105, 287, { align: 'center' });
 
             // Page numbering
             if (pageNum && totalPages) {
@@ -3675,6 +3755,9 @@ window.downloadBonDeTravauxPDF = async function (invoiceId) {
         const { jsPDF } = window.jspdf;
         const doc = new jsPDF();
 
+        // Load editable PDF text
+        const pdfTextBon = await window.loadCompanyPdfText('MRY');
+
         // Colors
         const blueColor = [33, 97, 140];
         const greenColor = [16, 172, 132];
@@ -3700,14 +3783,14 @@ window.downloadBonDeTravauxPDF = async function (invoiceId) {
             doc.setFontSize(18);
             doc.setTextColor(...blueColor);
             doc.setFont(undefined, 'bold');
-            doc.text('MRY TRAV SARL (AU)', 105, 20, { align: 'center' });
+            doc.text(pdfTextBon.company_name || 'MRY TRAV SARL (AU)', 105, 20, { align: 'center' });
 
             doc.setFontSize(10);
             doc.setFont(undefined, 'normal');
             doc.setTextColor(0, 0, 0);
-            doc.text('TRAVAUX DIVERS DE CONSTRUCTION', 105, 27, { align: 'center' });
-            doc.text('VENTE DE MATERIAUX DE CONSTRUCTION', 105, 32, { align: 'center' });
-            doc.text('VENTE DE QUINCAILLERIE & DE DROGUERIE', 105, 37, { align: 'center' });
+            doc.text(pdfTextBon.header_line1 || 'TRAVAUX DIVERS DE CONSTRUCTION', 105, 27, { align: 'center' });
+            doc.text(pdfTextBon.header_line2 || 'VENTE DE MATERIAUX DE CONSTRUCTION', 105, 32, { align: 'center' });
+            doc.text(pdfTextBon.header_line3 || 'VENTE DE QUINCAILLERIE & DE DROGUERIE', 105, 37, { align: 'center' });
 
             // Client Info
             doc.setFontSize(11);
@@ -3741,10 +3824,10 @@ window.downloadBonDeTravauxPDF = async function (invoiceId) {
             doc.setTextColor(0, 0, 0);
             doc.setFontSize(7);
             doc.setFont(undefined, 'normal');
-            doc.text('NIF : 25077370  TP : 51200166  R.C : 23181  CNSS : 5679058  ICE : 002036664000051', 15, 275);
-            doc.text('R.I.B : 007 720 0005973000000519 74  ATTIJARI WAFA BANK', 15, 279);
-            doc.text('AV, BNI IDDER RUE 14 N°10 COELMA - TÉTOUAN.', 15, 283);
-            doc.text('EMAIL: errbahiabderrahim@gmail.com  TEL : 0661307323', 15, 287);
+            doc.text(pdfTextBon.footer_line1 || 'NIF : 25077370  TP : 51200166  R.C : 23181  CNSS : 5679058  ICE : 002036664000051', 15, 275);
+            doc.text(pdfTextBon.footer_line2 || 'R.I.B : 007 720 0005973000000519 74  ATTIJARI WAFA BANK', 15, 279);
+            doc.text(pdfTextBon.footer_line3 || 'AV, BNI IDDER RUE 14 N°10 COELMA - TÉTOUAN.', 15, 283);
+            doc.text(pdfTextBon.footer_line4 || 'EMAIL: errbahiabderrahim@gmail.com  TEL : 0661307323', 15, 287);
 
             // Page numbering
             if (pageNum && totalPages) {
@@ -4433,6 +4516,9 @@ async function generateSinglePDFBlob(invoice, organizationType, folderName, incl
     const { jsPDF } = window.jspdf;
     const doc = new jsPDF();
 
+    // Load editable PDF text
+    const pdfText = await window.loadCompanyPdfText('MRY');
+
     // Colors
     const blueColor = [33, 97, 140];
     const greenColor = [16, 172, 132];
@@ -4453,14 +4539,14 @@ async function generateSinglePDFBlob(invoice, organizationType, folderName, incl
         doc.setFontSize(18);
         doc.setTextColor(...blueColor);
         doc.setFont(undefined, 'bold');
-        doc.text('MRY TRAV SARL (AU)', 105, 20, { align: 'center' });
+        doc.text(pdfText.company_name || 'MRY TRAV SARL (AU)', 105, 20, { align: 'center' });
 
         doc.setFontSize(10);
         doc.setFont(undefined, 'normal');
         doc.setTextColor(0, 0, 0);
-        doc.text('TRAVAUX DIVERS DE CONSTRUCTION', 105, 27, { align: 'center' });
-        doc.text('VENTE DE MATERIAUX DE CONSTRUCTION', 105, 32, { align: 'center' });
-        doc.text('VENTE DE QUINCAILLERIE & DE DROGUERIE', 105, 37, { align: 'center' });
+        doc.text(pdfText.header_line1 || 'TRAVAUX DIVERS DE CONSTRUCTION', 105, 27, { align: 'center' });
+        doc.text(pdfText.header_line2 || 'VENTE DE MATERIAUX DE CONSTRUCTION', 105, 32, { align: 'center' });
+        doc.text(pdfText.header_line3 || 'VENTE DE QUINCAILLERIE & DE DROGUERIE', 105, 37, { align: 'center' });
 
         doc.setFontSize(11);
         doc.setFont(undefined, 'bold');
@@ -4511,10 +4597,10 @@ async function generateSinglePDFBlob(invoice, organizationType, folderName, incl
         doc.setTextColor(0, 0, 0);
         doc.setFontSize(7);
         doc.setFont(undefined, 'normal');
-        doc.text('NIF : 25077370  TP : 51200166  R.C : 23181  CNSS : 5679058  ICE : 002036664000051', 105, 275, { align: 'center' });
-        doc.text('R.I.B : 007 720 0005973000000519 74  ATTIJARI WAFA BANK', 105, 279, { align: 'center' });
-        doc.text('AV, BNI IDDER RUE 14 N°10 COELMA - TÉTOUAN.', 105, 283, { align: 'center' });
-        doc.text('EMAIL: errbahiabderrahim@gmail.com  TEL : 0661307323', 105, 287, { align: 'center' });
+        doc.text(pdfText.footer_line1 || 'NIF : 25077370  TP : 51200166  R.C : 23181  CNSS : 5679058  ICE : 002036664000051', 105, 275, { align: 'center' });
+        doc.text(pdfText.footer_line2 || 'R.I.B : 007 720 0005973000000519 74  ATTIJARI WAFA BANK', 105, 279, { align: 'center' });
+        doc.text(pdfText.footer_line3 || 'AV, BNI IDDER RUE 14 N°10 COELMA - TÉTOUAN.', 105, 283, { align: 'center' });
+        doc.text(pdfText.footer_line4 || 'EMAIL: errbahiabderrahim@gmail.com  TEL : 0661307323', 105, 287, { align: 'center' });
 
         // Page numbering
         if (pageNum && totalPages) {
@@ -4904,6 +4990,43 @@ window.updateArStatusMRY = async function (id, status) {
         }
     } catch (error) {
         console.error('Update AR exception:', error);
+        window.notify.error('Erreur', 'Une erreur est survenue');
+    }
+};
+
+// Update Payment Status for MRY
+window.updatePaymentStatusMRY = async function (id, status) {
+    try {
+        const currentUser = JSON.parse(localStorage.getItem('user') || '{}');
+        const result = await window.electron.db.updateInvoice(id, {
+            payment_status: status,
+            payment_method: status === 'payé' ? null : null,
+            updated_by_user_id: currentUser.id || null,
+            updated_by_user_name: currentUser.name || null,
+            updated_by_user_email: currentUser.email || null
+        });
+
+        if (result.success) {
+            window.notify.success('Succès', 'Statut de paiement mis à jour');
+
+            const inv = allInvoices.find(i => i.id == id);
+            if (inv) {
+                inv.payment_status = status;
+                if (status !== 'payé') inv.payment_method = null;
+            }
+            const filteredInv = filteredInvoices.find(i => i.id == id);
+            if (filteredInv) {
+                filteredInv.payment_status = status;
+                if (status !== 'payé') filteredInv.payment_method = null;
+            }
+
+            displayInvoices(filteredInvoices);
+        } else {
+            console.error('Update payment status error:', result.error);
+            window.notify.error('Erreur', 'Échec de la mise à jour: ' + result.error);
+        }
+    } catch (error) {
+        console.error('Update payment status exception:', error);
         window.notify.error('Erreur', 'Une erreur est survenue');
     }
 };

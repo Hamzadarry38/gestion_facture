@@ -381,6 +381,12 @@ contextBridge.exposeInMainWorld('electron', {
     delete: (code) => ipcRenderer.invoke('db:pdfCompanies:delete', code)
   },
 
+  // Company PDF Text (Header/Footer editor)
+  pdfText: {
+    get: (companyCode) => ipcRenderer.invoke('pdfText:get', companyCode),
+    save: (companyCode, data) => ipcRenderer.invoke('pdfText:save', companyCode, data)
+  },
+
   // PDF Files API
   pdf: {
     savePdf: (pdfData, company, devisNumber, createdBy) => ipcRenderer.invoke('pdf:savePdf', pdfData, company, devisNumber, createdBy),

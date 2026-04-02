@@ -496,6 +496,16 @@ const service = {
             product_names: productNames
         });
         return res.data;
+    },
+
+    getCompanyPdfText: async (companyCode) => {
+        const res = await apiClient.get(`/company-pdf-text/${companyCode}`);
+        return res.data;
+    },
+
+    saveCompanyPdfText: async (companyCode, data) => {
+        const res = await apiClient.put(`/company-pdf-text/${companyCode}`, data);
+        return res.data;
     }
 };
 

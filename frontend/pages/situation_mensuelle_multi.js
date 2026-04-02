@@ -381,7 +381,7 @@ function formatAmountMulti(amount) {
 }
 
 // Add header to PDF page
-function addHeaderToPDFMulti(doc, client, month, year, monthNames, darkGrayColor, lightGrayBg) {
+function addHeaderToPDFMulti(doc, client, month, year, monthNames, darkGrayColor, lightGrayBg, pdfText) {
     // Add company logo from DOM (same approach as pdf_helpers_multi.js)
     try {
         const logoImg = document.querySelector('img[src*="multi.png"]') ||
@@ -404,7 +404,7 @@ function addHeaderToPDFMulti(doc, client, month, year, monthNames, darkGrayColor
     doc.setFontSize(18);
     doc.setTextColor(...darkGrayColor);
     doc.setFont(undefined, 'bold');
-    doc.text('MULTI TRAVAUX TETOUAN', 38, 18);
+    doc.text((pdfText && pdfText.company_name) || 'MULTI TRAVAUX TETOUAN', 38, 18);
 
     // Document Type - Right aligned, underlined
     doc.setFontSize(18);
@@ -429,13 +429,13 @@ function addHeaderToPDFMulti(doc, client, month, year, monthNames, darkGrayColor
     doc.rect(15, 38, 80, 6, 'F');
     doc.setTextColor(255, 255, 255);
     doc.setFontSize(8);
-    doc.text('Email: errbahiabderrahim@gmail.com', 17, 42);
+    doc.text('Email: ' + ((pdfText && pdfText.header_email) || 'errbahiabderrahim@gmail.com'), 17, 42);
 
     doc.setFillColor(...lightGrayBg);
     doc.rect(15, 44, 80, 6, 'F');
     doc.setTextColor(0, 0, 0);
     doc.setFontSize(7);
-    doc.text('AV 10 MAI IMM 04 APPART 01 A DROIT - TETOUAN , TETOUAN', 17, 48);
+    doc.text((pdfText && pdfText.header_address) || 'AV 10 MAI IMM 04 APPART 01 A DROIT - TETOUAN , TETOUAN', 17, 48);
 
     // Client Info - Right side with gray background (ONE BOX)
     doc.setFillColor(...darkGrayColor);
@@ -455,13 +455,13 @@ function addHeaderToPDFMulti(doc, client, month, year, monthNames, darkGrayColor
 }
 
 // Add footer to PDF page
-function addFooterToPDFMulti(doc, pageNumber, totalPages) {
+function addFooterToPDFMulti(doc, pageNumber, totalPages, pdfText) {
     doc.setTextColor(0, 0, 0);
     doc.setFontSize(8.5);
     doc.setFont(undefined, 'normal');
-    doc.text('NIF 68717422 | TP 51001343 | RC 38633 | CNSS 6446237', 105, 282, { align: 'center' });
-    doc.text('ICE : 003809505000031', 105, 286, { align: 'center' });
-    doc.text('Tel: +212 661 307 323', 105, 289, { align: 'center' });
+    doc.text((pdfText && pdfText.footer_line1) || 'NIF 68717422 | TP 51001343 | RC 38633 | CNSS 6446237', 105, 282, { align: 'center' });
+    doc.text((pdfText && pdfText.footer_line2) || 'ICE : 003809505000031', 105, 286, { align: 'center' });
+    doc.text((pdfText && pdfText.footer_line3) || 'Tel: +212 661 307 323', 105, 289, { align: 'center' });
 }
 
 // Add page numbering
@@ -766,6 +766,9 @@ window.generateSituationMensuelleMulti = async function (clientId, month, year, 
         const { jsPDF } = window.jspdf;
         const doc = new jsPDF();
 
+        // Load editable PDF text
+        const pdfText = await window.loadCompanyPdfText('MULTI');
+
         const darkGrayColor = [96, 125, 139]; // #607D8B
         const lightGrayBg = [236, 239, 241]; // #ECEFF1
 
@@ -776,7 +779,7 @@ window.generateSituationMensuelleMulti = async function (clientId, month, year, 
         const pages = [];
 
         // Add first page header
-        addHeaderToPDFMulti(doc, client, month, year, monthNames, darkGrayColor, lightGrayBg);
+        addHeaderToPDFMulti(doc, client, month, year, monthNames, darkGrayColor, lightGrayBg, pdfText);
 
         // Table Header - Gray background
         const startY = 60;
@@ -830,7 +833,7 @@ window.generateSituationMensuelleMulti = async function (clientId, month, year, 
             if (currentY + rowHeight > 220) {
                 pages.push(pageNumber);
                 doc.addPage();
-                addHeaderToPDFMulti(doc, client, month, year, monthNames, darkGrayColor, lightGrayBg);
+                addHeaderToPDFMulti(doc, client, month, year, monthNames, darkGrayColor, lightGrayBg, pdfText);
                 pageNumber++;
 
                 // Re-draw table header on new page
@@ -909,7 +912,7 @@ window.generateSituationMensuelleMulti = async function (clientId, month, year, 
             pages.push(pageNumber);
             pageNumber++;
             doc.addPage();
-            addHeaderToPDFMulti(doc, client, month, year, monthNames, darkGrayColor, lightGrayBg);
+            addHeaderToPDFMulti(doc, client, month, year, monthNames, darkGrayColor, lightGrayBg, pdfText);
         }
 
         // Calculate amount in words from totalTTC
@@ -990,7 +993,7 @@ window.generateSituationMensuelleMulti = async function (clientId, month, year, 
 
         for (let i = 0; i < totalPages; i++) {
             doc.setPage(i + 1);
-            addFooterToPDFMulti(doc, i + 1, totalPages);
+            addFooterToPDFMulti(doc, i + 1, totalPages, pdfText);
         }
 
         // Save PDF

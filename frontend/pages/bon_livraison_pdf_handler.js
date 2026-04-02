@@ -76,6 +76,9 @@ window.downloadBonLivraisonPDF = async function(invoiceId) {
         const { jsPDF } = window.jspdf;
         const doc = new jsPDF();
         
+        // Load editable PDF text
+        const pdfText = await window.loadCompanyPdfText('CHAIMAE');
+        
         // الألوان
         const colors = {
             blue: [33, 97, 140],      // #21618C
@@ -88,9 +91,9 @@ window.downloadBonLivraisonPDF = async function(invoiceId) {
         const dateStr = (window.safeParseDate||function(d){return new Date(d)})(invoice.document_date).toLocaleDateString('fr-FR');
         
         // إضافة الرأس والمحتوى
-        addBonLivraisonHeader(doc, invoice, colors, dateStr);
-        addBonLivraisonTable(doc, invoice, colors, includeZeroProducts);
-        addBonLivraisonFooter(doc, colors);
+        addBonLivraisonHeader(doc, invoice, colors, dateStr, pdfText);
+        addBonLivraisonTable(doc, invoice, colors, includeZeroProducts, pdfText);
+        addBonLivraisonFooter(doc, colors, undefined, undefined, pdfText);
         
         // ============================================
         // 6️⃣ حفظ الملف
@@ -414,7 +417,7 @@ function loadJsPDFLibrary() {
 // ============================================
 // 5️⃣ إضافة الرأس
 // ============================================
-function addBonLivraisonHeader(doc, invoice, colors, dateStr) {
+function addBonLivraisonHeader(doc, invoice, colors, dateStr, pdfText) {
     // شعار الشركة
     try {
         const logoImg = document.querySelector('img[src*="chaimae.png"]') || 
@@ -431,15 +434,15 @@ function addBonLivraisonHeader(doc, invoice, colors, dateStr) {
     doc.setFontSize(18);
     doc.setTextColor(...colors.blue);
     doc.setFont(undefined, 'bold');
-    doc.text('CHAIMAE ERRBAHI MDIQ sarl (AU)', 105, 20, { align: 'center' });
+    doc.text((pdfText && pdfText.company_name) || 'CHAIMAE ERRBAHI MDIQ sarl (AU)', 105, 20, { align: 'center' });
     
     // معلومات الشركة
     doc.setFontSize(10);
     doc.setFont(undefined, 'normal');
     doc.setTextColor(0, 0, 0);
-    doc.text('Patente N° 52003366 - NIF : 40190505', 105, 27, { align: 'center' });
-    doc.text('RC N° : 10487 - CNSS : 8721591', 105, 32, { align: 'center' });
-    doc.text('ICE : 001544861000014', 105, 37, { align: 'center' });
+    doc.text((pdfText && pdfText.header_line1) || 'Patente N° 52003366 - NIF : 40190505', 105, 27, { align: 'center' });
+    doc.text((pdfText && pdfText.header_line2) || 'RC N° : 10487 - CNSS : 8721591', 105, 32, { align: 'center' });
+    doc.text((pdfText && pdfText.header_line3) || 'ICE : 001544861000014', 105, 37, { align: 'center' });
     
     // معلومات العميل
     doc.setFontSize(11);
@@ -483,7 +486,7 @@ function addBonLivraisonHeader(doc, invoice, colors, dateStr) {
 // ============================================
 // 6️⃣ إضافة جدول المنتجات
 // ============================================
-function addBonLivraisonTable(doc, invoice, colors, includeZeroProducts) {
+function addBonLivraisonTable(doc, invoice, colors, includeZeroProducts, pdfText) {
     const startY = invoice.document_numero_commande ? 92 : 85;
     
     // رأس الجدول
@@ -520,7 +523,7 @@ function addBonLivraisonTable(doc, invoice, colors, includeZeroProducts) {
             if (availableSpace < 15) {
                 pages.push(pageCount);
                 doc.addPage();
-                addBonLivraisonHeader(doc, invoice, colors, (window.safeParseDate||function(d){return new Date(d)})(invoice.document_date).toLocaleDateString('fr-FR'));
+                addBonLivraisonHeader(doc, invoice, colors, (window.safeParseDate||function(d){return new Date(d)})(invoice.document_date).toLocaleDateString('fr-FR'), pdfText);
                 pageCount++;
                 
                 let newStartY = invoice.document_numero_commande ? 92 : 85;
@@ -583,7 +586,7 @@ function addBonLivraisonTable(doc, invoice, colors, includeZeroProducts) {
             if (remainingLines.length > 0 && currentY > 200) {
                 pages.push(pageCount);
                 doc.addPage();
-                addBonLivraisonHeader(doc, invoice, colors, (window.safeParseDate||function(d){return new Date(d)})(invoice.document_date).toLocaleDateString('fr-FR'));
+                addBonLivraisonHeader(doc, invoice, colors, (window.safeParseDate||function(d){return new Date(d)})(invoice.document_date).toLocaleDateString('fr-FR'), pdfText);
                 pageCount++;
                 
                 let newStartY = invoice.document_numero_commande ? 92 : 85;
@@ -638,21 +641,21 @@ function addBonLivraisonTable(doc, invoice, colors, includeZeroProducts) {
     
     for (let i = 0; i < totalPages; i++) {
         doc.setPage(i + 1);
-        addBonLivraisonFooter(doc, colors, i + 1, totalPages);
+        addBonLivraisonFooter(doc, colors, i + 1, totalPages, pdfText);
     }
 }
 
 // ============================================
 // 7️⃣ إضافة التذييل
 // ============================================
-function addBonLivraisonFooter(doc, colors, pageNum, totalPages) {
+function addBonLivraisonFooter(doc, colors, pageNum, totalPages, pdfText) {
     doc.setTextColor(0, 0, 0);
     doc.setFontSize(7);
     doc.setFont(undefined, 'normal');
-    doc.text('RIB : 007 720 00 05979000000368 12  ATTIJARI WAFA BANK', 15, 275);
-    doc.text('Email: errbahiabderrahim@gmail.com', 15, 279);
-    doc.text('ADRESSE: LOT ALBAHR AV TETOUAN N94 GARAGE 2 M\'DIQ', 15, 283);
-    doc.text('Tel: +212 661 307 323', 15, 287);
+    doc.text((pdfText && pdfText.footer_line1) || 'RIB : 007 720 00 05979000000368 12  ATTIJARI WAFA BANK', 15, 275);
+    doc.text((pdfText && pdfText.footer_line2) || 'Email: errbahiabderrahim@gmail.com', 15, 279);
+    doc.text((pdfText && pdfText.footer_line3) || 'ADRESSE: LOT ALBAHR AV TETOUAN N94 GARAGE 2 M\'DIQ', 15, 283);
+    doc.text((pdfText && pdfText.footer_line4) || 'Tel: +212 661 307 323', 15, 287);
     
     if (pageNum && totalPages) {
         doc.setFontSize(8);

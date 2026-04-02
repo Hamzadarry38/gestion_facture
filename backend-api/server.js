@@ -167,6 +167,43 @@ app.use(bodyParser.urlencoded({ limit: '50mb', extended: true }));
   }
 })();
 
+// Auto-migrate: ensure payment_status and payment_method columns exist in invoices
+(async () => {
+  try {
+    await pool.query(`ALTER TABLE invoices ADD COLUMN IF NOT EXISTS payment_status TEXT DEFAULT 'en attente de paiement'`);
+    await pool.query(`ALTER TABLE invoices ADD COLUMN IF NOT EXISTS payment_method TEXT`);
+    console.log('✅ [MIGRATION] payment_status and payment_method columns ensured in invoices');
+  } catch (e) {
+    console.warn('⚠️ [MIGRATION] Could not add payment_status/payment_method columns:', e.message);
+  }
+})();
+
+// Auto-migrate: ensure company_pdf_text table exists
+(async () => {
+  try {
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS company_pdf_text (
+        id SERIAL PRIMARY KEY,
+        company_code VARCHAR(50) NOT NULL UNIQUE,
+        company_name TEXT DEFAULT '',
+        header_line1 TEXT DEFAULT '',
+        header_line2 TEXT DEFAULT '',
+        header_line3 TEXT DEFAULT '',
+        header_email TEXT DEFAULT '',
+        header_address TEXT DEFAULT '',
+        footer_line1 TEXT DEFAULT '',
+        footer_line2 TEXT DEFAULT '',
+        footer_line3 TEXT DEFAULT '',
+        footer_line4 TEXT DEFAULT '',
+        updated_at TIMESTAMP DEFAULT NOW()
+      )
+    `);
+    console.log('✅ [MIGRATION] company_pdf_text table ensured');
+  } catch (e) {
+    console.warn('⚠️ [MIGRATION] Could not create company_pdf_text table:', e.message);
+  }
+})();
+
 // Helper: Hash password (matching the original app's crypto logic)
 function hashPassword(password) {
   return crypto.createHash('sha256').update(password).digest('hex');
@@ -721,6 +758,7 @@ app.post('/invoices', async (req, res) => {
       total_ht, tva_rate, montant_tva, total_ttc,
       creation_method, created_by, delivered_by, ar_status,
       created_by_user_id, created_by_user_name, created_by_user_email,
+      payment_status, payment_method,
       products
     } = req.body;
 
@@ -851,6 +889,24 @@ app.post('/invoices', async (req, res) => {
     const columnExists = await checkIsModifiedExists();
     const convertedColumnExists = await checkIsConvertedExists();
 
+    const insertInvoiceText = `
+      INSERT INTO invoices (
+        company_code, client_id, document_type, document_date,
+        document_numero, document_numero_order, document_numero_bl,
+        document_numero_devis, document_order_devis, document_bon_de_livraison,
+        document_numero_commande, year, sequential_id,
+        total_ht, tva_rate, montant_tva, total_ttc,
+        creation_method, created_by, delivered_by, ar_status, 
+        validation_status, 
+        created_by_user_id, created_by_user_name, created_by_user_email,
+        payment_status, payment_method
+        ${columnExists ? ', is_modified' : ''}
+        ${convertedColumnExists ? ', is_converted' : ''},
+        created_at, updated_at
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27 ${columnExists ? ', $28' : ''} ${convertedColumnExists ? (columnExists ? ', $29' : ', $28') : ''}, NOW(), NOW())
+      RETURNING id
+    `;
+
     // 🚀 Handle Devis Conversion Logic
     // If this is a Facture or BL created from a Devis (has document_numero_devis)
     if (document_numero_devis && (document_type === 'facture' || document_type === 'bon_livraison')) {
@@ -873,25 +929,6 @@ app.post('/invoices', async (req, res) => {
       }
     }
 
-    const insertInvoiceText = `
-      INSERT INTO invoices (
-        company_code, client_id, document_type, document_date, 
-        document_numero, document_numero_order, document_numero_bl,
-        document_numero_devis, document_order_devis, document_bon_de_livraison,
-        document_numero_commande, year, sequential_id,
-        total_ht, tva_rate, montant_tva, total_ttc,
-        creation_method, created_by, delivered_by, ar_status, 
-        validation_status, 
-        created_by_user_id, created_by_user_name, created_by_user_email
-        ${columnExists ? ', is_modified' : ''}
-        ${convertedColumnExists ? ', is_converted' : ''},
-        created_at, updated_at
-      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25 ${columnExists ? ', $26' : ''} ${convertedColumnExists ? (columnExists ? ', $27' : ', $26') : ''}, NOW(), NOW())
-      RETURNING id
-    `;
-
-    // is_modified should always be FALSE on CREATE (new invoices are not "modified")
-    // is_modified will be set to TRUE only on UPDATE by regular users
     // This way:
     // - New invoices (validation_status=pending, is_modified=false) appear as "Nouveau"
     // - Edited invoices (validation_status=pending, is_modified=true) appear as "Modifié"
@@ -921,7 +958,9 @@ app.post('/invoices', async (req, res) => {
       validation_status,
       resolvedUserId,
       resolvedUserName,
-      resolvedUserEmail
+      resolvedUserEmail,
+      payment_status || 'en attente de paiement',
+      payment_method || null
     ];
     if (columnExists) invoiceValues.push(initialIsModified); // is_modified based on creator
     if (convertedColumnExists) invoiceValues.push(false); // is_converted default
@@ -1017,6 +1056,7 @@ app.put('/invoices/:id', async (req, res) => {
       created_by, delivered_by, ar_status, validation_status,
       created_by_user_id, created_by_user_name, created_by_user_email,
       updated_by_user_id, updated_by_user_name, updated_by_user_email,
+      payment_status, payment_method,
       products, private_notes
     } = req.body;
 
@@ -1213,9 +1253,11 @@ app.put('/invoices/:id', async (req, res) => {
                 updated_by_user_name = COALESCE($19, updated_by_user_name),
                 updated_by_user_email = COALESCE($20, updated_by_user_email),
                 private_notes = COALESCE($21, private_notes),
+                payment_status = COALESCE($22, payment_status),
+                payment_method = COALESCE($23, payment_method),
                 ${shouldSetModified ? 'is_modified = true,' : ''}
                 updated_at = NOW()
-            WHERE id = $22
+            WHERE id = $24
         `, [
       val(client_id),
       val(document_date),
@@ -1238,6 +1280,8 @@ app.put('/invoices/:id', async (req, res) => {
       val(updated_by_user_name),
       val(updated_by_user_email),
       val(private_notes),
+      val(payment_status),
+      val(payment_method),
       id
     ]);
 
@@ -2640,6 +2684,49 @@ app.get('/debug/pending-invoices', async (req, res) => {
     });
   } catch (err) {
     console.error('❌ [DEBUG] Error:', err);
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// --- COMPANY PDF TEXT (Header/Footer Editor) ---
+app.get('/company-pdf-text/:company', async (req, res) => {
+  try {
+    const company = req.params.company.toUpperCase();
+    const result = await pool.query('SELECT * FROM company_pdf_text WHERE company_code = $1', [company]);
+    if (result.rows.length > 0) {
+      res.json({ success: true, data: result.rows[0] });
+    } else {
+      res.json({ success: true, data: null });
+    }
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+app.put('/company-pdf-text/:company', async (req, res) => {
+  try {
+    const company = req.params.company.toUpperCase();
+    const { company_name, header_line1, header_line2, header_line3, header_email, header_address, footer_line1, footer_line2, footer_line3, footer_line4 } = req.body;
+    const result = await pool.query(`
+      INSERT INTO company_pdf_text (company_code, company_name, header_line1, header_line2, header_line3, header_email, header_address, footer_line1, footer_line2, footer_line3, footer_line4, updated_at)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, NOW())
+      ON CONFLICT (company_code) DO UPDATE SET
+        company_name = COALESCE($2, company_pdf_text.company_name),
+        header_line1 = COALESCE($3, company_pdf_text.header_line1),
+        header_line2 = COALESCE($4, company_pdf_text.header_line2),
+        header_line3 = COALESCE($5, company_pdf_text.header_line3),
+        header_email = COALESCE($6, company_pdf_text.header_email),
+        header_address = COALESCE($7, company_pdf_text.header_address),
+        footer_line1 = COALESCE($8, company_pdf_text.footer_line1),
+        footer_line2 = COALESCE($9, company_pdf_text.footer_line2),
+        footer_line3 = COALESCE($10, company_pdf_text.footer_line3),
+        footer_line4 = COALESCE($11, company_pdf_text.footer_line4),
+        updated_at = NOW()
+      RETURNING *
+    `, [company, company_name || '', header_line1 || '', header_line2 || '', header_line3 || '', header_email || '', header_address || '', footer_line1 || '', footer_line2 || '', footer_line3 || '', footer_line4 || '']);
+    res.json({ success: true, data: result.rows[0] });
+  } catch (err) {
+    console.error('❌ Error saving company PDF text:', err);
     res.status(500).json({ success: false, error: err.message });
   }
 });

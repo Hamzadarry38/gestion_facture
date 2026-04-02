@@ -137,6 +137,27 @@ function InvoicesListMultiPage() {
                             </select>
                         </div>
                         
+                        <div class="filter-group">
+                            <label>💳 Statut de paiement:</label>
+                            <select id="filterPaymentStatusMulti" onchange="filterInvoicesMulti()">
+                                <option value="">Tous</option>
+                                <option value="en attente de paiement">En attente</option>
+                                <option value="payé">Payé</option>
+                            </select>
+                        </div>
+                        
+                        <div class="filter-group">
+                            <label>💰 Méthode de paiement:</label>
+                            <select id="filterPaymentMethodMulti" onchange="filterInvoicesMulti()">
+                                <option value="">Toutes</option>
+                                <option value="Chèque">Chèque</option>
+                                <option value="LCN">LCN</option>
+                                <option value="Virement">Virement</option>
+                                <option value="PRL">PRL</option>
+                                <option value="Espèces">Espèces</option>
+                            </select>
+                        </div>
+                        
                         <div class="filter-group" style="grid-column: 1 / -1;">
                             <label style="display:block; color:#4caf50; font-weight:600; font-size:0.75rem; text-transform:uppercase; letter-spacing:0.6px; margin-bottom:0.4rem;">🔍 Recherche avancée</label>
                             <div style="display: grid; grid-template-columns: 250px 1fr; gap: 0.5rem;">
@@ -342,6 +363,7 @@ function InvoicesListMultiPage() {
                                         Total TTC <span id="sortIconTTC">⇅</span>
                                     </th>
                                     <th style="width: 140px; text-align: center;">Accusé R.</th>
+                                    <th style="width: 130px; text-align: center;">💳 Paiement</th>
                                     <th style="width: 50px; text-align: center;">P.J</th>
                                     <th>Actions</th>
                                 </tr>
@@ -635,6 +657,43 @@ window.updateArStatusMulti = async function (id, status) {
     }
 };
 
+// Update Payment Status for MULTI
+window.updatePaymentStatusMulti = async function (id, status) {
+    try {
+        const currentUser = JSON.parse(localStorage.getItem('user') || '{}');
+        const result = await window.electron.dbMulti.updateInvoice(id, {
+            payment_status: status,
+            payment_method: status === 'payé' ? null : null,
+            updated_by_user_id: currentUser.id || null,
+            updated_by_user_name: currentUser.name || null,
+            updated_by_user_email: currentUser.email || null
+        });
+
+        if (result.success) {
+            window.notify.success('Succès', 'Statut de paiement mis à jour');
+
+            const inv = allInvoicesMulti.find(i => i.id == id);
+            if (inv) {
+                inv.payment_status = status;
+                if (status !== 'payé') inv.payment_method = null;
+            }
+            const filteredInv = filteredInvoicesMulti.find(i => i.id == id);
+            if (filteredInv) {
+                filteredInv.payment_status = status;
+                if (status !== 'payé') filteredInv.payment_method = null;
+            }
+
+            displayInvoicesMulti();
+        } else {
+            console.error('Update payment status error:', result.error);
+            window.notify.error('Erreur', 'Échec de la mise à jour: ' + result.error);
+        }
+    } catch (error) {
+        console.error('Update payment status exception:', error);
+        window.notify.error('Erreur', 'Une erreur est survenue');
+    }
+};
+
 // Bulk reset: convert all "sans_accuse" to empty
 window.bulkResetArStatusMulti = async function () {
     const toReset = allInvoicesMulti.filter(inv => inv.ar_status === 'sans_accuse' && inv.document_type !== 'devis');
@@ -910,6 +969,8 @@ function filterInvoicesMulti() {
     const filterCreationMethod = document.getElementById('filterCreationMethodMulti')?.value || 'all';
     const arStatusFilterEl = document.getElementById('filterArStatusMulti');
     const arStatusFilter = arStatusFilterEl ? arStatusFilterEl.value : 'all';
+    const paymentStatusFilter = document.getElementById('filterPaymentStatusMulti')?.value || '';
+    const paymentMethodFilter = document.getElementById('filterPaymentMethodMulti')?.value || '';
     console.log('🔍 [MULTI] AR Filter value:', JSON.stringify(arStatusFilter), 'Type:', typeof arStatusFilter);
     
     // Get selected search types from dropdown checkboxes
@@ -1033,7 +1094,27 @@ function filterInvoicesMulti() {
             matchFeatured = !invoice.is_featured || invoice.is_featured === 0;
         }
 
-        return matchType && matchYear && matchMonth && matchClient && matchAttachments && matchCreationMethod && matchAR && searchMatch && matchDevisConversion && matchFeatured;
+        // Payment status filter
+        let matchPaymentStatus = true;
+        if (paymentStatusFilter) {
+            if (invoice.document_type !== 'facture') {
+                matchPaymentStatus = false;
+            } else {
+                matchPaymentStatus = (invoice.payment_status || 'en attente de paiement') === paymentStatusFilter;
+            }
+        }
+
+        // Payment method filter
+        let matchPaymentMethod = true;
+        if (paymentMethodFilter) {
+            if (invoice.document_type !== 'facture') {
+                matchPaymentMethod = false;
+            } else {
+                matchPaymentMethod = (invoice.payment_method || '') === paymentMethodFilter;
+            }
+        }
+
+        return matchType && matchYear && matchMonth && matchClient && matchAttachments && matchCreationMethod && matchAR && searchMatch && matchDevisConversion && matchFeatured && matchPaymentStatus && matchPaymentMethod;
     });
 
     displayInvoicesMulti();
@@ -1165,6 +1246,14 @@ function displayInvoicesMulti() {
                     <option value="accuse" ${invoice.ar_status === 'accuse' ? 'selected' : ''} style="background: #424242; color: #4caf50;">Accusé</option>
                     <option value="done" ${invoice.ar_status === 'done' ? 'selected' : ''} style="background: #424242; color: #2196f3;">Done</option>
                 </select>`}
+            </td>
+            <td style="text-align: center;">
+                ${invoice.document_type === 'facture' ? `<select onchange="window.updatePaymentStatusMulti('${invoice.id}', this.value); this.style.background=this.value==='payé'?'#4caf50':'#ff9800';"
+                        style="padding: 0.4rem; background: ${(invoice.payment_status === 'payé') ? '#4caf50' : '#ff9800'}; color: white; border: none; border-radius: 4px; font-size: 0.85rem; cursor: pointer; width: 100%; transition: background 0.3s;"
+                        onclick="event.stopPropagation()">
+                    <option value="en attente de paiement" ${invoice.payment_status !== 'payé' ? 'selected' : ''} style="background: #424242; color: #ff9800;">En attente</option>
+                    <option value="payé" ${invoice.payment_status === 'payé' ? 'selected' : ''} style="background: #424242; color: #4caf50;">Payé</option>
+                </select>` : '<span style="color:#666;">—</span>'}
             </td>
             <td style="text-align: center;">
                 <div id="attachmentIndicator-${invoice.id}" onclick="viewInvoiceMulti(${invoice.id})" style="cursor: pointer;">
@@ -1381,6 +1470,30 @@ window.viewInvoiceMulti = async function (id) {
                         </div>
                     </div>
                 </div>
+
+                ${invoice.document_type === 'facture' ? `
+                <!-- Payment Section -->
+                <div style="margin-bottom:2rem;">
+                    <h3 style="color:#fff;font-size:1.1rem;margin:0 0 1rem 0;font-weight:600;">💳 Paiement</h3>
+                    <div style="background:#1e1e1e;padding:1rem;border-radius:8px;">
+                        <div style="margin-bottom:0.75rem;">
+                            <span style="color:#999;font-size:0.9rem;">Statut:</span>
+                            <div style="margin-top:0.25rem;">
+                                <span style="padding:0.3rem 0.8rem;border-radius:20px;font-size:0.85rem;font-weight:600;${(invoice.payment_status === 'payé') ? 'background:#1b5e20;color:#4caf50;' : 'background:#e65100;color:#ff9800;'}">${(invoice.payment_status === 'payé') ? 'Payé' : 'En attente de paiement'}</span>
+                            </div>
+                        </div>
+                        ${invoice.payment_status === 'payé' && invoice.payment_method ? `
+                        <div>
+                            <span style="color:#999;font-size:0.9rem;">Méthode:</span>
+                            <div style="color:#fff;font-weight:500;margin-top:0.25rem;">${invoice.payment_method}</div>
+                        </div>
+                        ` : ''}
+                        <div style="margin-top:0.75rem;">
+                            <button onclick="showEditPaymentModalMulti(${invoice.id}, '${(invoice.payment_status || 'en attente de paiement').replace(/'/g, "\\'")}', '${(invoice.payment_method || '').replace(/'/g, "\\'")}')" style="padding:0.4rem 1rem;background:#1565c0;color:#fff;border:none;border-radius:6px;cursor:pointer;font-size:0.8rem;">Modifier le paiement</button>
+                        </div>
+                    </div>
+                </div>
+                ` : ''}
 
                 <!-- Document Section -->
                 <div style="margin-bottom:2rem;">
@@ -2089,6 +2202,9 @@ window.downloadBonDeTravaux = async function (invoiceId) {
         const signatureImgMulti = await loadMultiSignature();
         const logoImgMulti = await loadMultiLogo();
 
+        // Load editable PDF text
+        const pdfText = await window.loadCompanyPdfText('MULTI');
+
         // Colors - MULTI TRAVAUX TETOUAN theme
         const darkGrayColor = [96, 125, 139]; // #607D8B
         const lightGrayBg = [236, 239, 241]; // #ECEFF1
@@ -2122,7 +2238,7 @@ window.downloadBonDeTravaux = async function (invoiceId) {
             doc.setFontSize(18);
             doc.setTextColor(96, 125, 139);
             doc.setFont(undefined, 'bold');
-            doc.text('MULTI TRAVAUX TETOUAN', 40, 22);
+            doc.text(pdfText.company_name || 'MULTI TRAVAUX TETOUAN', 40, 22);
 
             // Document Type - Right aligned, underlined
             doc.setFontSize(18);
@@ -2147,13 +2263,13 @@ window.downloadBonDeTravaux = async function (invoiceId) {
             doc.rect(15, 38, 80, 6, 'F');
             doc.setTextColor(255, 255, 255);
             doc.setFontSize(8);
-            doc.text('Email: errbahiabderrahim@gmail.com', 17, 42);
+            doc.text('Email: ' + (pdfText.header_email || 'errbahiabderrahim@gmail.com'), 17, 42);
 
             doc.setFillColor(...lightGrayBg);
             doc.rect(15, 44, 80, 6, 'F');
             doc.setTextColor(0, 0, 0);
             doc.setFontSize(7);
-            doc.text('AV 10 MAI IMM 04 APPART 01 A DROIT - TETOUAN , TETOUAN', 17, 48);
+            doc.text(pdfText.header_address || 'AV 10 MAI IMM 04 APPART 01 A DROIT - TETOUAN , TETOUAN', 17, 48);
 
             // Client Info - Right side with gray background (dynamic height for wrapping)
             doc.setFontSize(8);
@@ -2192,8 +2308,8 @@ window.downloadBonDeTravaux = async function (invoiceId) {
             doc.setTextColor(0, 0, 0);
             doc.setFontSize(9);
             doc.setFont(undefined, 'normal');
-            doc.text('NIF 68717422 | TP 51001343 | RC 38633 | CNSS 6446237', 105, 275, { align: 'center' });
-            doc.text('ICE : 003809505000031', 105, 279, { align: 'center' });
+            doc.text(pdfText.footer_line1 || 'NIF 68717422 | TP 51001343 | RC 38633 | CNSS 6446237', 105, 275, { align: 'center' });
+            doc.text(pdfText.footer_line2 || 'ICE : 003809505000031', 105, 279, { align: 'center' });
 
             // Add page numbering at bottom in gray
             doc.setTextColor(100, 100, 100);
@@ -2609,6 +2725,9 @@ window.downloadInvoicePDFMulti = async function (invoiceId) {
         // Load signature image
         const signatureImgMulti = await loadMultiSignature();
 
+        // Load editable PDF text
+        const pdfText = await window.loadCompanyPdfText('MULTI');
+
         // Colors - New design
         const darkGrayColor = [96, 125, 139]; // #607D8B
         const lightGrayBg = [236, 239, 241]; // #ECEFF1
@@ -2644,7 +2763,7 @@ window.downloadInvoicePDFMulti = async function (invoiceId) {
             doc.setFontSize(18);
             doc.setTextColor(96, 125, 139);
             doc.setFont(undefined, 'bold');
-            doc.text('MULTI TRAVAUX TETOUAN', 40, 18);
+            doc.text(pdfText.company_name || 'MULTI TRAVAUX TETOUAN', 40, 18);
 
             // Document Type - Right aligned, underlined
             doc.setFontSize(18);
@@ -2681,13 +2800,13 @@ window.downloadInvoicePDFMulti = async function (invoiceId) {
             doc.rect(15, 38, 80, 6, 'F');
             doc.setTextColor(255, 255, 255);
             doc.setFontSize(8);
-            doc.text('Email: errbahiabderrahim@gmail.com', 17, 42);
+            doc.text('Email: ' + (pdfText.header_email || 'errbahiabderrahim@gmail.com'), 17, 42);
 
             doc.setFillColor(...lightGrayBg);
             doc.rect(15, 44, 80, 6, 'F');
             doc.setTextColor(0, 0, 0);
             doc.setFontSize(7);
-            doc.text('AV 10 MAI IMM 04 APPART 01 A DROIT - TETOUAN , TETOUAN', 17, 48);
+            doc.text(pdfText.header_address || 'AV 10 MAI IMM 04 APPART 01 A DROIT - TETOUAN , TETOUAN', 17, 48);
 
             // Client Info - Right side with gray background (ONE BOX)
             doc.setFillColor(...darkGrayColor);
@@ -2717,9 +2836,9 @@ window.downloadInvoicePDFMulti = async function (invoiceId) {
             doc.setTextColor(0, 0, 0);
             doc.setFontSize(8.5);
             doc.setFont(undefined, 'normal');
-            doc.text('NIF 68717422 | TP 51001343 | RC 38633 | CNSS 6446237', 105, 282, { align: 'center' });
-            doc.text('ICE : 003809505000031', 105, 286, { align: 'center' });
-            doc.text('Tel: +212 661 307 323', 105, 289, { align: 'center' });
+            doc.text(pdfText.footer_line1 || 'NIF 68717422 | TP 51001343 | RC 38633 | CNSS 6446237', 105, 282, { align: 'center' });
+            doc.text(pdfText.footer_line2 || 'ICE : 003809505000031', 105, 286, { align: 'center' });
+            doc.text(pdfText.footer_line3 || 'Tel: +212 661 307 323', 105, 289, { align: 'center' });
 
             // Add page numbering at bottom in gray
             doc.setTextColor(100, 100, 100);

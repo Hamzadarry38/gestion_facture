@@ -894,6 +894,9 @@ async function generatePDFBlobMulti(invoice, includeOrder = true) {
     // Load signature image
     const signatureImgMulti = await loadMultiSignatureHelper();
 
+    // Load editable PDF text
+    const pdfText = await window.loadCompanyPdfText('MULTI');
+
     // Colors - MULTI TRAVAUX TETOUAN design
     const darkGrayColor = [96, 125, 139];
     const lightGrayBg = [236, 239, 241];
@@ -926,7 +929,7 @@ async function generatePDFBlobMulti(invoice, includeOrder = true) {
         doc.setFontSize(18);
         doc.setTextColor(96, 125, 139);
         doc.setFont(undefined, 'bold');
-        doc.text('MULTI TRAVAUX TETOUAN', 40, 22);
+        doc.text(pdfText.company_name || 'MULTI TRAVAUX TETOUAN', 40, 22);
 
         doc.setFontSize(18);
         doc.setFont(undefined, 'bold');
@@ -957,13 +960,13 @@ async function generatePDFBlobMulti(invoice, includeOrder = true) {
         doc.rect(15, 38, 80, 6, 'F');
         doc.setTextColor(255, 255, 255);
         doc.setFontSize(8);
-        doc.text('Email: errbahiabderrahim@gmail.com', 17, 42);
+        doc.text('Email: ' + (pdfText.header_email || 'errbahiabderrahim@gmail.com'), 17, 42);
 
         doc.setFillColor(...lightGrayBg);
         doc.rect(15, 44, 80, 6, 'F');
         doc.setTextColor(0, 0, 0);
         doc.setFontSize(7);
-        doc.text('AV 10 MAI IMM 04 APPART 01 A DROIT - TETOUAN , TETOUAN', 17, 48);
+        doc.text(pdfText.header_address || 'AV 10 MAI IMM 04 APPART 01 A DROIT - TETOUAN , TETOUAN', 17, 48);
 
         doc.setFillColor(...darkGrayColor);
         doc.rect(115, 38, 80, 6, 'F');
@@ -992,9 +995,9 @@ async function generatePDFBlobMulti(invoice, includeOrder = true) {
         doc.setTextColor(0, 0, 0);
         doc.setFontSize(8.5);
         doc.setFont(undefined, 'normal');
-        doc.text('NIF 68717422 | TP 51001343 | RC 38633 | CNSS 6446237', 105, 282, { align: 'center' });
-        doc.text('ICE : 003809505000031', 105, 286, { align: 'center' });
-        doc.text('Tel: +212 661 307 323', 105, 289, { align: 'center' });
+        doc.text(pdfText.footer_line1 || 'NIF 68717422 | TP 51001343 | RC 38633 | CNSS 6446237', 105, 282, { align: 'center' });
+        doc.text(pdfText.footer_line2 || 'ICE : 003809505000031', 105, 286, { align: 'center' });
+        doc.text(pdfText.footer_line3 || 'Tel: +212 661 307 323', 105, 289, { align: 'center' });
 
         // Add page numbering at bottom in gray
         doc.setTextColor(100, 100, 100);

@@ -63,6 +63,16 @@ function DashboardChaimaePage() {
                         </div>
                         <div class="option-arrow">→</div>
                     </div>
+
+                    <div class="option-card" onclick="router.navigate('/pdf-text-editor')">
+                        <div class="option-icon">✏️</div>
+                        <div class="option-info">
+                            <h2>Modifier les textes PDF</h2>
+                            <p>Modifier le header et footer des fichiers PDF</p>
+                        </div>
+                        <div class="option-arrow">→</div>
+                    </div>
+
                     ${(window.getEnabledCompanies ? window.getEnabledCompanies() : [
                         { code: 'SKM', name: 'SMART SERVICES' },
                         { code: 'SAAISS', name: 'MSH3 SERVICES' },

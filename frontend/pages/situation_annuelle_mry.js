@@ -330,6 +330,9 @@ window.generateSituationAnnuelleMRY = async function (clientId, year, selectedMo
         const { jsPDF } = window.jspdf;
         const doc = new jsPDF();
 
+        // Load editable PDF text
+        const pdfText = await window.loadCompanyPdfText('MRY');
+
         const blueColor = [33, 97, 140]; // #21618C
         const greenColor = [16, 172, 132]; // #10AC84
 
@@ -365,7 +368,7 @@ window.generateSituationAnnuelleMRY = async function (clientId, year, selectedMo
         }
 
         // We will adapt the existing one slightly for "SITUATION"
-        const titleLines = addHeaderToPDFAnnuelleMRY(doc, client, dateRangeStr, blueColor, greenColor);
+        const titleLines = addHeaderToPDFAnnuelleMRY(doc, client, dateRangeStr, blueColor, greenColor, pdfText);
 
         // Dynamic Column Positioning
         const startX = 40;
@@ -444,7 +447,7 @@ window.generateSituationAnnuelleMRY = async function (clientId, year, selectedMo
         doc.text('TOTAL TTC :', 113, currentY + 5.5);
         doc.text(`${formatAmountMRY(grandTotalTTC)} DH`, 192, currentY + 5.5, { align: 'right' });
 
-        addFooterToPDFMRY(doc, 1, 1);
+        addFooterToPDFMRY(doc, 1, 1, pdfText);
         const filename = `Situation_Annuelle_${client.nom.replace(/\s+/g, '_')}_${year}_MRY.pdf`;
         console.log('🟦 [MRY ANNUAL] Saving PDF:', filename);
         doc.save(filename);
@@ -469,7 +472,7 @@ function formatAmountMRY(amount) {
     return parts.join('.');
 }
 
-function addHeaderToPDFAnnuelleMRY(doc, client, dateRangeStr, blueColor, greenColor) {
+function addHeaderToPDFAnnuelleMRY(doc, client, dateRangeStr, blueColor, greenColor, pdfText) {
     // Logo
     try {
         const logoImg = document.querySelector('img[src*="mry.png"]') ||
@@ -486,14 +489,14 @@ function addHeaderToPDFAnnuelleMRY(doc, client, dateRangeStr, blueColor, greenCo
     doc.setFontSize(18);
     doc.setTextColor(...blueColor);
     doc.setFont(undefined, 'bold');
-    doc.text('MRY TRAV SARL (AU)', 105, 20, { align: 'center' });
+    doc.text((pdfText && pdfText.company_name) || 'MRY TRAV SARL (AU)', 105, 20, { align: 'center' });
 
     doc.setFontSize(10);
     doc.setFont(undefined, 'normal');
     doc.setTextColor(0, 0, 0);
-    doc.text('TRAVAUX DIVERS DE CONSTRUCTION', 105, 27, { align: 'center' });
-    doc.text('VENTE DE MATERIAUX DE CONSTRUCTION', 105, 32, { align: 'center' });
-    doc.text('VENTE DE QUINCAILLERIE & DE DROGUERIE', 105, 37, { align: 'center' });
+    doc.text((pdfText && pdfText.header_line1) || 'TRAVAUX DIVERS DE CONSTRUCTION', 105, 27, { align: 'center' });
+    doc.text((pdfText && pdfText.header_line2) || 'VENTE DE MATERIAUX DE CONSTRUCTION', 105, 32, { align: 'center' });
+    doc.text((pdfText && pdfText.header_line3) || 'VENTE DE QUINCAILLERIE & DE DROGUERIE', 105, 37, { align: 'center' });
 
     // Client Info
     doc.setFontSize(11);
@@ -779,6 +782,10 @@ window.generateSituationAnnuelleClientsMRY = async function (clientIds, year, se
 
         const { jsPDF } = window.jspdf;
         const doc = new jsPDF();
+
+        // Load editable PDF text
+        const pdfText = await window.loadCompanyPdfText('MRY');
+
         const blueColor = [33, 97, 140];
         const greenColor = [16, 172, 132];
 
@@ -811,7 +818,7 @@ window.generateSituationAnnuelleClientsMRY = async function (clientIds, year, se
         }
 
         const clientLabel = clientIds.length === 1 ? null : { nom: `MULTI-CLIENTS (${clientIds.length})` };
-        const titleLinesGlobal = addHeaderToPDFAnnuelleMRY(doc, clientLabel, dateRangeStr, blueColor, greenColor);
+        const titleLinesGlobal = addHeaderToPDFAnnuelleMRY(doc, clientLabel, dateRangeStr, blueColor, greenColor, pdfText);
 
         // Table logic - dynamic startY based on number of title lines
         const startY = 77 + (titleLinesGlobal || 1) * 7 + 4;
@@ -849,7 +856,7 @@ window.generateSituationAnnuelleClientsMRY = async function (clientIds, year, se
         doc.text('TOTAL TTC :', 130, currentY); doc.text(`${formatAmountMRY(grandTotalTTC)} DH`, 190, currentY, { align: 'right' });
         doc.setTextColor(0, 0, 0);
 
-        addFooterToPDFMRY(doc, 1, 1);
+        addFooterToPDFMRY(doc, 1, 1, pdfText);
         doc.save(`Situation_Globale_${year}_MRY.pdf`);
         window.notify.success('Succès', 'Rapport généré');
     } catch (e) {
@@ -859,14 +866,14 @@ window.generateSituationAnnuelleClientsMRY = async function (clientIds, year, se
     }
 };
 
-function addFooterToPDFMRY(doc, pageNumber, totalPages) {
+function addFooterToPDFMRY(doc, pageNumber, totalPages, pdfText) {
     doc.setTextColor(0, 0, 0);
     doc.setFontSize(7);
     doc.setFont(undefined, 'normal');
-    doc.text('NIF : 25077370  TP : 51200166  R.C : 23181  CNSS : 5679058  ICE : 002036664000051', 15, 275);
-    doc.text('R.I.B : 007 720 0005973000000519 74  ATTIJARI WAFA BANK', 15, 279);
-    doc.text('AV, BNI IDDER RUE 14 N°10 COELMA - TÉTOUAN.', 15, 283);
-    doc.text('EMAIL: errbahiabderrahim@gmail.com  TEL : 0661307323', 15, 287);
+    doc.text((pdfText && pdfText.footer_line1) || 'NIF : 25077370  TP : 51200166  R.C : 23181  CNSS : 5679058  ICE : 002036664000051', 15, 275);
+    doc.text((pdfText && pdfText.footer_line2) || 'R.I.B : 007 720 0005973000000519 74  ATTIJARI WAFA BANK', 15, 279);
+    doc.text((pdfText && pdfText.footer_line3) || 'AV, BNI IDDER RUE 14 N°10 COELMA - TÉTOUAN.', 15, 283);
+    doc.text((pdfText && pdfText.footer_line4) || 'EMAIL: errbahiabderrahim@gmail.com  TEL : 0661307323', 15, 287);
     if (pageNumber && totalPages) {
         doc.setFontSize(8);
         doc.setTextColor(128, 128, 128);

@@ -322,6 +322,9 @@ window.generateSituationAnnuelleMulti = async function (clientId, year, selected
         const { jsPDF } = window.jspdf;
         const doc = new jsPDF();
 
+        // Load editable PDF text
+        const pdfText = await window.loadCompanyPdfText('MULTI');
+
         // Colors - matching Mensuelle style
         const darkGrayColor = [96, 125, 139]; // #607D8B
         const lightGrayBg = [236, 239, 241];  // #ECEFF1
@@ -356,7 +359,7 @@ window.generateSituationAnnuelleMulti = async function (clientId, year, selected
             dateRangeStr = `${year}`;
         }
 
-        addHeaderToPDFAnnuelleMulti(doc, client, dateRangeStr, darkGrayColor, lightGrayBg);
+        addHeaderToPDFAnnuelleMulti(doc, client, dateRangeStr, darkGrayColor, lightGrayBg, pdfText);
 
         // Dynamic Column Positioning
         const startX = 35;
@@ -466,7 +469,7 @@ window.generateSituationAnnuelleMulti = async function (clientId, year, selected
         const totalPages1 = doc.internal.getNumberOfPages();
         for (let i = 1; i <= totalPages1; i++) {
             doc.setPage(i);
-            addFooterToPDFMulti(doc, i, totalPages1);
+            addFooterToPDFMulti(doc, i, totalPages1, pdfText);
         }
 
         // Save
@@ -481,13 +484,13 @@ window.generateSituationAnnuelleMulti = async function (clientId, year, selected
     }
 };
 
-function addFooterToPDFMulti(doc, pageNumber, totalPages) {
+function addFooterToPDFMulti(doc, pageNumber, totalPages, pdfText) {
     doc.setTextColor(0, 0, 0);
     doc.setFontSize(7);
     doc.setFont(undefined, 'normal');
-    doc.text('NIF 68717422 | TP 51001343 | RC 38633 | CNSS 6446237', 105, 275, { align: 'center' });
-    doc.text('ICE : 003809505000031', 105, 279, { align: 'center' });
-    doc.text('Tel: +212 661 307 323', 105, 283, { align: 'center' });
+    doc.text((pdfText && pdfText.footer_line1) || 'NIF 68717422 | TP 51001343 | RC 38633 | CNSS 6446237', 105, 275, { align: 'center' });
+    doc.text((pdfText && pdfText.footer_line2) || 'ICE : 003809505000031', 105, 279, { align: 'center' });
+    doc.text((pdfText && pdfText.footer_line3) || 'Tel: +212 661 307 323', 105, 283, { align: 'center' });
     if (pageNumber && totalPages) {
         doc.setFontSize(8);
         doc.setTextColor(128, 128, 128);
@@ -505,7 +508,7 @@ function formatAmountMulti(amount) {
     return parts.join('.');
 }
 
-function addHeaderToPDFAnnuelleMulti(doc, client, dateRangeStr, darkGrayColor, lightGrayBg) {
+function addHeaderToPDFAnnuelleMulti(doc, client, dateRangeStr, darkGrayColor, lightGrayBg, pdfText) {
     // Add company logo from DOM (same approach as pdf_helpers_multi.js)
     try {
         const logoImg = document.querySelector('img[src*="multi.png"]') ||
@@ -528,7 +531,7 @@ function addHeaderToPDFAnnuelleMulti(doc, client, dateRangeStr, darkGrayColor, l
     doc.setFontSize(18);
     doc.setTextColor(...darkGrayColor);
     doc.setFont(undefined, 'bold');
-    doc.text('MULTI TRAVAUX TETOUAN', 38, 18);
+    doc.text((pdfText && pdfText.company_name) || 'MULTI TRAVAUX TETOUAN', 38, 18);
 
     // Document Type - Right aligned, underlined
     doc.setFontSize(18);
@@ -554,13 +557,13 @@ function addHeaderToPDFAnnuelleMulti(doc, client, dateRangeStr, darkGrayColor, l
     doc.rect(15, 38, 80, 6, 'F');
     doc.setTextColor(255, 255, 255);
     doc.setFontSize(8);
-    doc.text('Email: errbahiabderrahim@gmail.com', 17, 42);
+    doc.text('Email: ' + ((pdfText && pdfText.header_email) || 'errbahiabderrahim@gmail.com'), 17, 42);
 
     doc.setFillColor(...lightGrayBg);
     doc.rect(15, 44, 80, 6, 'F');
     doc.setTextColor(0, 0, 0);
     doc.setFontSize(7);
-    doc.text('AV 10 MAI IMM 04 APPART 01 A DROIT - TETOUAN , TETOUAN', 17, 48);
+    doc.text((pdfText && pdfText.header_address) || 'AV 10 MAI IMM 04 APPART 01 A DROIT - TETOUAN , TETOUAN', 17, 48);
 
     // Client Info - Right side with gray background
     doc.setFillColor(...darkGrayColor);
@@ -868,6 +871,9 @@ window.generateSituationAnnuelleClientsMulti = async function (clientIds, year, 
         const { jsPDF } = window.jspdf;
         const doc = new jsPDF();
 
+        // Load editable PDF text
+        const pdfText = await window.loadCompanyPdfText('MULTI');
+
         const darkGrayColor = [96, 125, 139]; // #607D8B - Mensuelle style
         const lightGrayBg = [236, 239, 241];  // #ECEFF1
 
@@ -921,7 +927,7 @@ window.generateSituationAnnuelleClientsMulti = async function (clientIds, year, 
             doc.setFontSize(18);
             doc.setTextColor(...darkGrayColor);
             doc.setFont(undefined, 'bold');
-            doc.text('MULTI TRAVAUX TETOUAN', 38, 18);
+            doc.text((pdfText && pdfText.company_name) || 'MULTI TRAVAUX TETOUAN', 38, 18);
 
             doc.setFontSize(18);
             doc.setFont(undefined, 'bold');
@@ -944,13 +950,13 @@ window.generateSituationAnnuelleClientsMulti = async function (clientIds, year, 
             doc.rect(15, 38, 80, 6, 'F');
             doc.setTextColor(255, 255, 255);
             doc.setFontSize(8);
-            doc.text('Email: errbahiabderrahim@gmail.com', 17, 42);
+            doc.text('Email: ' + ((pdfText && pdfText.header_email) || 'errbahiabderrahim@gmail.com'), 17, 42);
 
             doc.setFillColor(...lightGrayBg);
             doc.rect(15, 44, 80, 6, 'F');
             doc.setTextColor(0, 0, 0);
             doc.setFontSize(7);
-            doc.text('AV 10 MAI IMM 04 APPART 01 A DROIT - TETOUAN , TETOUAN', 17, 48);
+            doc.text((pdfText && pdfText.header_address) || 'AV 10 MAI IMM 04 APPART 01 A DROIT - TETOUAN , TETOUAN', 17, 48);
 
             doc.setFillColor(...darkGrayColor);
             doc.rect(115, 38, 80, 6, 'F');
@@ -1072,7 +1078,7 @@ window.generateSituationAnnuelleClientsMulti = async function (clientIds, year, 
         const totalPagesGlobal = doc.internal.getNumberOfPages();
         for (let i = 1; i <= totalPagesGlobal; i++) {
             doc.setPage(i);
-            addFooterToPDFMulti(doc, i, totalPagesGlobal);
+            addFooterToPDFMulti(doc, i, totalPagesGlobal, pdfText);
         }
 
         const filename = `Situation_Globale_${year}_MULTI.pdf`;

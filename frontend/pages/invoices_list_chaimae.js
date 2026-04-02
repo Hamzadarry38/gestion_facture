@@ -158,6 +158,26 @@ function InvoicesListChaimaePage() {
                             </select>
                         </div>
                         
+                        <div class="filter-group">
+                            <label>💳 Statut de paiement:</label>
+                            <select id="filterPaymentStatusChaimae" onchange="filterInvoicesChaimae()">
+                                <option value="">Tous</option>
+                                <option value="en attente de paiement">En attente</option>
+                                <option value="payé">Payé</option>
+                            </select>
+                        </div>
+                        
+                        <div class="filter-group">
+                            <label>💰 Méthode de paiement:</label>
+                            <select id="filterPaymentMethodChaimae" onchange="filterInvoicesChaimae()">
+                                <option value="">Toutes</option>
+                                <option value="Chèque">Chèque</option>
+                                <option value="LCN">LCN</option>
+                                <option value="Virement">Virement</option>
+                                <option value="PRL">PRL</option>
+                                <option value="Espèces">Espèces</option>
+                            </select>
+                        </div>
                         
                         <div class="filter-group" style="grid-column: 1 / -1;">
                             <label style="display:block; color:#4caf50; font-weight:600; font-size:0.75rem; text-transform:uppercase; letter-spacing:0.6px; margin-bottom:0.4rem;">🔍 Recherche avancée</label>
@@ -393,6 +413,7 @@ function InvoicesListChaimaePage() {
                                     </th>
                                     <th class="col-createdByCombined-chaimae" style="width: 150px; text-align: center;">Par</th>
                                     <th style="width: 140px; text-align: center;">Accusé R.</th>
+                                    <th style="width: 130px; text-align: center;">💳 Paiement</th>
                                     <th style="width: 50px; text-align: center;">P.J</th>
                                     <th style="width: 150px; text-align: center;">Actions</th>
                                 </tr>
@@ -1139,6 +1160,14 @@ function displayInvoicesChaimae(invoices) {
                     </select>`}
                 </td>
                 <td style="padding: 1rem 0.75rem; border-right: 1px solid #3e3e42; text-align: center;">
+                    ${invoice.document_type === 'facture' ? `<select onchange="window.updatePaymentStatusChaimae('${invoice.id}', this.value); this.style.background=this.value==='payé'?'#4caf50':'#ff9800';"
+                            style="padding: 0.4rem; background: ${(invoice.payment_status === 'payé') ? '#4caf50' : '#ff9800'}; color: white; border: none; border-radius: 4px; font-size: 0.85rem; cursor: pointer; width: 100%; transition: background 0.3s;"
+                            onclick="event.stopPropagation()">
+                        <option value="en attente de paiement" ${invoice.payment_status !== 'payé' ? 'selected' : ''} style="background: #424242; color: #ff9800;">En attente</option>
+                        <option value="payé" ${invoice.payment_status === 'payé' ? 'selected' : ''} style="background: #424242; color: #4caf50;">Payé</option>
+                    </select>` : '<span style="color:#666;">—</span>'}
+                </td>
+                <td style="padding: 1rem 0.75rem; border-right: 1px solid #3e3e42; text-align: center;">
                     <div id="attachmentIndicator-${invoice.id}" onclick="viewAttachmentsChaimae(${invoice.id})" style="cursor: pointer;">
                         ${(invoice.attachment_count || 0) > 0 ?
                 `<div style="position: relative; display: inline-block;">
@@ -1568,6 +1597,8 @@ window.filterInvoicesChaimae = function () {
     console.log('🔍 [CHAIMAE] AR Filter value:', JSON.stringify(filterArStatus), 'Type:', typeof filterArStatus);
     const monthFilter = document.getElementById('filterMonthChaimae')?.value || '';
     const clientFilter = document.getElementById('filterClientChaimae')?.value || '';
+    const paymentStatusFilter = document.getElementById('filterPaymentStatusChaimae')?.value || '';
+    const paymentMethodFilter = document.getElementById('filterPaymentMethodChaimae')?.value || '';
     
     // Get selected search types from dropdown checkboxes
     const searchTypes = {
@@ -1625,6 +1656,18 @@ window.filterInvoicesChaimae = function () {
                 console.log(`  ❌ [CHAIMAE] Invoice ${invoice.id} (${invoice.document_type}): ar_status=${JSON.stringify(invoice.ar_status)} normalized=${JSON.stringify(arVal)} vs filter=${JSON.stringify(filterVal)}`);
                 return false;
             }
+        }
+
+        // Payment status filter
+        if (paymentStatusFilter) {
+            if (invoice.document_type !== 'facture') return false;
+            if ((invoice.payment_status || 'en attente de paiement') !== paymentStatusFilter) return false;
+        }
+
+        // Payment method filter
+        if (paymentMethodFilter) {
+            if (invoice.document_type !== 'facture') return false;
+            if ((invoice.payment_method || '') !== paymentMethodFilter) return false;
         }
 
         // Featured filter
@@ -2141,6 +2184,30 @@ window.viewInvoiceChaimae = async function (id, documentType) {
                         </div>
                     </div>
                 </div>
+
+                ${invoice.document_type === 'facture' ? `
+                <!-- Payment Section -->
+                <div style="margin-bottom:2rem;">
+                    <h3 style="color:#fff;font-size:1.1rem;margin:0 0 1rem 0;font-weight:600;">💳 Paiement</h3>
+                    <div style="background:#1e1e1e;padding:1rem;border-radius:8px;">
+                        <div style="margin-bottom:0.75rem;">
+                            <span style="color:#999;font-size:0.9rem;">Statut:</span>
+                            <div style="margin-top:0.25rem;">
+                                <span style="padding:0.3rem 0.8rem;border-radius:20px;font-size:0.85rem;font-weight:600;${(invoice.payment_status === 'payé') ? 'background:#1b5e20;color:#4caf50;' : 'background:#e65100;color:#ff9800;'}">${(invoice.payment_status === 'payé') ? 'Payé' : 'En attente de paiement'}</span>
+                            </div>
+                        </div>
+                        ${invoice.payment_status === 'payé' && invoice.payment_method ? `
+                        <div>
+                            <span style="color:#999;font-size:0.9rem;">Méthode:</span>
+                            <div style="color:#fff;font-weight:500;margin-top:0.25rem;">${invoice.payment_method}</div>
+                        </div>
+                        ` : ''}
+                        <div style="margin-top:0.75rem;">
+                            <button onclick="showEditPaymentModalChaimae(${invoice.id}, '${(invoice.payment_status || 'en attente de paiement').replace(/'/g, "\\'")}', '${(invoice.payment_method || '').replace(/'/g, "\\'")}')" style="padding:0.4rem 1rem;background:#1565c0;color:#fff;border:none;border-radius:6px;cursor:pointer;font-size:0.8rem;">Modifier le paiement</button>
+                        </div>
+                    </div>
+                </div>
+                ` : ''}
                 
                 <!-- Document Section -->
                 <div style="margin-bottom:2rem;">
@@ -4163,6 +4230,9 @@ window.downloadInvoicePDFChaimae = async function (invoiceId, returnBlob = false
         // Load signature image
         const signatureImgChaimae = await loadChaimaeSignature();
 
+        // Load editable PDF text
+        const pdfText = await window.loadCompanyPdfText('CHAIMAE');
+
         // Colors
         const blueColor = [33, 97, 140]; // #21618C
         const greenColor = [76, 175, 80]; // #4caf50
@@ -4194,14 +4264,14 @@ window.downloadInvoicePDFChaimae = async function (invoiceId, returnBlob = false
             doc.setFontSize(18);
             doc.setTextColor(...blueColor);
             doc.setFont(undefined, 'bold');
-            doc.text('CHAIMAE ERRBAHI MDIQ sarl (AU)', 105, 20, { align: 'center' });
+            doc.text(pdfText.company_name || 'CHAIMAE ERRBAHI MDIQ sarl (AU)', 105, 20, { align: 'center' });
 
             doc.setFontSize(10);
             doc.setFont(undefined, 'normal');
             doc.setTextColor(0, 0, 0);
-            doc.text('Patente N° 52003366 - NIF : 40190505', 105, 27, { align: 'center' });
-            doc.text('RC N° : 10487 - CNSS : 8721591', 105, 32, { align: 'center' });
-            doc.text('ICE : 001544861000014', 105, 37, { align: 'center' });
+            doc.text(pdfText.header_line1 || 'Patente N° 52003366 - NIF : 40190505', 105, 27, { align: 'center' });
+            doc.text(pdfText.header_line2 || 'RC N° : 10487 - CNSS : 8721591', 105, 32, { align: 'center' });
+            doc.text(pdfText.header_line3 || 'ICE : 001544861000014', 105, 37, { align: 'center' });
 
             // Client Info
             doc.setFontSize(11);
@@ -4282,10 +4352,10 @@ window.downloadInvoicePDFChaimae = async function (invoiceId, returnBlob = false
             doc.setTextColor(0, 0, 0);
             doc.setFontSize(7);
             doc.setFont(undefined, 'normal');
-            doc.text('RIB : 007 720 00 05979000000368 12  ATTIJARI WAFA BANK', 105, 275, { align: 'center' });
-            doc.text('Email: errbahiabderrahim@gmail.com', 105, 279, { align: 'center' });
-            doc.text('ADRESSE: LOT ALBAHR AV TETOUAN N94 GARAGE 2 M\'DIQ', 105, 283, { align: 'center' });
-            doc.text('Tel: +212 661 307 323', 105, 287, { align: 'center' });
+            doc.text(pdfText.footer_line1 || 'RIB : 007 720 00 05979000000368 12  ATTIJARI WAFA BANK', 105, 275, { align: 'center' });
+            doc.text(pdfText.footer_line2 || 'Email: errbahiabderrahim@gmail.com', 105, 279, { align: 'center' });
+            doc.text(pdfText.footer_line3 || 'ADRESSE: LOT ALBAHR AV TETOUAN N94 GARAGE 2 M\'DIQ', 105, 283, { align: 'center' });
+            doc.text(pdfText.footer_line4 || 'Tel: +212 661 307 323', 105, 287, { align: 'center' });
 
             // Page numbering
             if (pageNum && totalPages) {
@@ -4683,16 +4753,18 @@ window.downloadBonDeTravauxPDFChaimae = async function (invoiceId) {
         const { jsPDF } = window.jspdf;
         const doc = new jsPDF();
 
+        // Load editable PDF text
+        const pdfText = await window.loadCompanyPdfText('CHAIMAE');
+
         // Colors
         const blueColor = [33, 97, 140];
         const greenColor = [76, 175, 80];
-        const purpleColor = [156, 39, 176]; // For "Bon de travaux"
+        const orangeColor = [255, 152, 0];
 
         const dateStr = (window.safeParseDate||function(d){return new Date(d)})(invoice.document_date).toLocaleDateString('fr-FR');
 
-        // Function to add header
+        // Function to add header to any page
         const addHeader = (isFirstPage = true) => {
-            // Add Logo
             try {
                 const logoImg = document.querySelector('img[src*="chaimae.png"]') ||
                     document.querySelector('img[data-asset="chaimae"]') ||
@@ -4708,14 +4780,14 @@ window.downloadBonDeTravauxPDFChaimae = async function (invoiceId) {
             doc.setFontSize(18);
             doc.setTextColor(...blueColor);
             doc.setFont(undefined, 'bold');
-            doc.text('CHAIMAE ERRBAHI MDIQ sarl (AU)', 105, 20, { align: 'center' });
+            doc.text(pdfText.company_name || 'CHAIMAE ERRBAHI MDIQ sarl (AU)', 105, 20, { align: 'center' });
 
             doc.setFontSize(10);
             doc.setFont(undefined, 'normal');
             doc.setTextColor(0, 0, 0);
-            doc.text('Patente N° 52003366 - NIF : 40190505', 105, 27, { align: 'center' });
-            doc.text('RC N° : 10487 - CNSS : 8721591', 105, 32, { align: 'center' });
-            doc.text('ICE : 001544861000014', 105, 37, { align: 'center' });
+            doc.text(pdfText.header_line1 || 'Patente N\u00b0 52003366 - NIF : 40190505', 105, 27, { align: 'center' });
+            doc.text(pdfText.header_line2 || 'RC N\u00b0 : 10487 - CNSS : 8721591', 105, 32, { align: 'center' });
+            doc.text(pdfText.header_line3 || 'ICE : 001544861000014', 105, 37, { align: 'center' });
 
             // Client Info
             doc.setFontSize(11);
@@ -4749,10 +4821,10 @@ window.downloadBonDeTravauxPDFChaimae = async function (invoiceId) {
             doc.setTextColor(0, 0, 0);
             doc.setFontSize(7);
             doc.setFont(undefined, 'normal');
-            doc.text('RIB : 007 720 00 05979000000368 12  ATTIJARI WAFA BANK', 15, 275);
-            doc.text('Email: errbahiabderrahim@gmail.com', 15, 279);
-            doc.text('ADRESSE: LOT ALBAHR AV TETOUAN N94 GARAGE 2 M\'DIQ', 15, 283);
-            doc.text('Tel: +212 661 307 323', 15, 287);
+            doc.text(pdfText.footer_line1 || 'RIB : 007 720 00 05979000000368 12  ATTIJARI WAFA BANK', 15, 275);
+            doc.text(pdfText.footer_line2 || 'Email: errbahiabderrahim@gmail.com', 15, 279);
+            doc.text(pdfText.footer_line3 || 'ADRESSE: LOT ALBAHR AV TETOUAN N94 GARAGE 2 M\'DIQ', 15, 283);
+            doc.text(pdfText.footer_line4 || 'Tel: +212 661 307 323', 15, 287);
 
             // Page numbering
             if (pageNum && totalPages) {
@@ -5073,6 +5145,9 @@ async function generateSinglePDFBlobChaimae(invoice, organizationType, folderNam
     const { jsPDF } = window.jspdf;
     const doc = new jsPDF();
 
+    // Load editable PDF text
+    const pdfText = await window.loadCompanyPdfText('CHAIMAE');
+
     // Colors
     const blueColor = [33, 97, 140];
     const greenColor = [76, 175, 80];
@@ -5097,14 +5172,14 @@ async function generateSinglePDFBlobChaimae(invoice, organizationType, folderNam
         doc.setFontSize(18);
         doc.setTextColor(...blueColor);
         doc.setFont(undefined, 'bold');
-        doc.text('CHAIMAE ERRBAHI MDIQ sarl (AU)', 105, 20, { align: 'center' });
+        doc.text(pdfText.company_name || 'CHAIMAE ERRBAHI MDIQ sarl (AU)', 105, 20, { align: 'center' });
 
         doc.setFontSize(10);
         doc.setFont(undefined, 'normal');
         doc.setTextColor(0, 0, 0);
-        doc.text('Patente N° 52003366 - NIF : 40190505', 105, 27, { align: 'center' });
-        doc.text('RC N° : 10487 - CNSS : 8721591', 105, 32, { align: 'center' });
-        doc.text('ICE : 001544861000014', 105, 37, { align: 'center' });
+        doc.text(pdfText.header_line1 || 'Patente N° 52003366 - NIF : 40190505', 105, 27, { align: 'center' });
+        doc.text(pdfText.header_line2 || 'RC N° : 10487 - CNSS : 8721591', 105, 32, { align: 'center' });
+        doc.text(pdfText.header_line3 || 'ICE : 001544861000014', 105, 37, { align: 'center' });
 
         doc.setFontSize(11);
         doc.setFont(undefined, 'bold');
@@ -5178,10 +5253,10 @@ async function generateSinglePDFBlobChaimae(invoice, organizationType, folderNam
         doc.setTextColor(0, 0, 0);
         doc.setFontSize(7);
         doc.setFont(undefined, 'normal');
-        doc.text('RIB : 007 720 00 05979000000368 12  ATTIJARI WAFA BANK', 105, 275, { align: 'center' });
-        doc.text('Email: errbahiabderrahim@gmail.com', 105, 279, { align: 'center' });
-        doc.text('ADRESSE: LOT ALBAHR AV TETOUAN N94 GARAGE 2 M\'DIQ', 105, 283, { align: 'center' });
-        doc.text('Tel: +212 661 307 323', 105, 287, { align: 'center' });
+        doc.text(pdfText.footer_line1 || 'RIB : 007 720 00 05979000000368 12  ATTIJARI WAFA BANK', 105, 275, { align: 'center' });
+        doc.text(pdfText.footer_line2 || 'Email: errbahiabderrahim@gmail.com', 105, 279, { align: 'center' });
+        doc.text(pdfText.footer_line3 || 'ADRESSE: LOT ALBAHR AV TETOUAN N94 GARAGE 2 M\'DIQ', 105, 283, { align: 'center' });
+        doc.text(pdfText.footer_line4 || 'Tel: +212 661 307 323', 105, 287, { align: 'center' });
 
         // Page numbering
         if (pageNum && totalPages) {
@@ -5525,6 +5600,15 @@ async function viewGlobalInvoiceChaimae(id) {
                             <p><strong>ICE:</strong> ${invoice.client_ice}</p>
                             <p><strong>IF:</strong> ${invoice.client_if || ''}</p>
                         </div>
+
+                        ${invoice.document_type === 'facture' ? `
+                        <div class="details-section">
+                            <h3>💳 Paiement</h3>
+                            <p><strong>Statut:</strong> <span style="padding:0.2rem 0.6rem;border-radius:12px;font-size:0.85rem;font-weight:600;${(invoice.payment_status === 'payé') ? 'background:#1b5e20;color:#4caf50;' : 'background:#e65100;color:#ff9800;'}">${(invoice.payment_status === 'payé') ? 'Payé' : 'En attente de paiement'}</span></p>
+                            ${invoice.payment_status === 'payé' && invoice.payment_method ? `<p><strong>Méthode:</strong> ${invoice.payment_method}</p>` : ''}
+                            <button onclick="showEditPaymentModalChaimae(${invoice.id}, '${(invoice.payment_status || 'en attente de paiement').replace(/'/g, "\\'")}', '${(invoice.payment_method || '').replace(/'/g, "\\'")}')" style="padding:0.4rem 1rem;background:#1565c0;color:#fff;border:none;border-radius:6px;cursor:pointer;font-size:0.8rem;margin-top:0.5rem;">Modifier le paiement</button>
+                        </div>
+                        ` : ''}
                         
                         <div class="details-section">
                             <h3>📄 Document</h3>
@@ -6844,6 +6928,10 @@ window.initInvoicesListChaimaePage = function () {
 
                 const { jsPDF } = window.jspdf;
                 const doc = new jsPDF();
+
+                // Load editable PDF text
+                const pdfText = await window.loadCompanyPdfText('CHAIMAE');
+
                 const blueColor = [52, 103, 138];
                 const dateStr = (window.safeParseDate||function(d){return new Date(d)})(invoice.document_date).toLocaleDateString('fr-FR');
 
@@ -6892,14 +6980,14 @@ window.initInvoicesListChaimaePage = function () {
                     doc.setFontSize(18);
                     doc.setTextColor(...blueColor);
                     doc.setFont(undefined, 'bold');
-                    doc.text('CHAIMAE ERRBAHI MDIQ sarl (AU)', 105, 20, { align: 'center' });
+                    doc.text(pdfText.company_name || 'CHAIMAE ERRBAHI MDIQ sarl (AU)', 105, 20, { align: 'center' });
 
                     doc.setFontSize(10);
                     doc.setFont(undefined, 'normal');
                     doc.setTextColor(0, 0, 0);
-                    doc.text('Patente N° 52003366 - NIF : 40190505', 105, 27, { align: 'center' });
-                    doc.text('RC N° : 10487 - CNSS : 8721591', 105, 32, { align: 'center' });
-                    doc.text('ICE : 001544861000014', 105, 37, { align: 'center' });
+                    doc.text(pdfText.header_line1 || 'Patente N° 52003366 - NIF : 40190505', 105, 27, { align: 'center' });
+                    doc.text(pdfText.header_line2 || 'RC N° : 10487 - CNSS : 8721591', 105, 32, { align: 'center' });
+                    doc.text(pdfText.header_line3 || 'ICE : 001544861000014', 105, 37, { align: 'center' });
 
                     doc.setFontSize(11);
                     doc.setFont(undefined, 'bold');
@@ -6929,10 +7017,10 @@ window.initInvoicesListChaimaePage = function () {
                     doc.setTextColor(0, 0, 0);
                     doc.setFontSize(7);
                     doc.setFont(undefined, 'normal');
-                    doc.text('RIB : 007 720 00 05979000000368 12  ATTIJARI WAFA BANK', 15, 275);
-                    doc.text('Email: errbahiabderrahim@gmail.com', 15, 279);
-                    doc.text('ADRESSE: LOT ALBAHR AV TETOUAN N94 GARAGE 2 M\'DIQ', 15, 283);
-                    doc.text('Tel: +212 661 307 323', 15, 287);
+                    doc.text(pdfText.footer_line1 || 'RIB : 007 720 00 05979000000368 12  ATTIJARI WAFA BANK', 15, 275);
+                    doc.text(pdfText.footer_line2 || 'Email: errbahiabderrahim@gmail.com', 15, 279);
+                    doc.text(pdfText.footer_line3 || 'ADRESSE: LOT ALBAHR AV TETOUAN N94 GARAGE 2 M\'DIQ', 15, 283);
+                    doc.text(pdfText.footer_line4 || 'Tel: +212 661 307 323', 15, 287);
 
                     // Page numbering
                     if (pageNum && totalPages) {
@@ -7825,6 +7913,43 @@ window.updateArStatusChaimae = async function (id, newStatus) {
         loadInvoicesChaimae();
     }
 }
+
+// Update Payment Status for Chaimae invoice
+window.updatePaymentStatusChaimae = async function (id, status) {
+    try {
+        const currentUser = JSON.parse(localStorage.getItem('user') || '{}');
+        const result = await window.electron.dbChaimae.updateInvoice(id, {
+            payment_status: status,
+            payment_method: status === 'payé' ? null : null,
+            updated_by_user_id: currentUser.id || null,
+            updated_by_user_name: currentUser.name || null,
+            updated_by_user_email: currentUser.email || null
+        });
+
+        if (result.success) {
+            window.notify.success('Succès', 'Statut de paiement mis à jour', 2000);
+
+            const inv = allInvoicesChaimae.find(i => i.id == id);
+            if (inv) {
+                inv.payment_status = status;
+                if (status !== 'payé') inv.payment_method = null;
+            }
+            const filteredInv = filteredInvoicesChaimae.find(i => i.id == id);
+            if (filteredInv) {
+                filteredInv.payment_status = status;
+                if (status !== 'payé') filteredInv.payment_method = null;
+            }
+
+            displayInvoicesChaimae(filteredInvoicesChaimae);
+        } else {
+            console.error('Update payment status error:', result.error);
+            window.notify.error('Erreur', 'Échec de la mise à jour: ' + result.error);
+        }
+    } catch (error) {
+        console.error('Update payment status exception:', error);
+        window.notify.error('Erreur', 'Une erreur est survenue');
+    }
+};
 
 // Bulk reset: convert all "sans_accuse" to empty
 window.bulkResetArStatusChaimae = async function () {

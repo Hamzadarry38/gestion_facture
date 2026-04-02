@@ -202,6 +202,8 @@
     <script src="frontend/pages/view-data-multi.js"></script>
     <script src="frontend/pages/create_invoice_multi.js"></script>
     <script src="frontend/pages/create_invoice_multi_helpers.js"></script>
+    <script src="frontend/pages/payment_modal.js"></script>
+    <script src="frontend/pages/pdf_text_editor.js"></script>
     <script src="frontend/pages/invoices_list_multi.js"></script>
     <script src="frontend/pages/invoices_list_multi_helpers.js"></script>
     <script src="frontend/pages/pdf_helpers_multi.js"></script>
@@ -249,6 +251,7 @@
         router.addRoute('/edit-invoice-chaimae', EditInvoiceChaimaePage);
         router.addRoute('/pdf-settings', PDFFilesPage);
         router.addRoute('/pdf-files', PDFFilesPage);
+        router.addRoute('/pdf-text-editor', () => '<div id="pdfTextEditorContainer"></div>');
 
         // Start router
         router.init();

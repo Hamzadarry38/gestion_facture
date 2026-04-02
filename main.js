@@ -583,6 +583,31 @@ function setupPdfHandlers() {
   });
 }
 
+// Company PDF Text handlers (Header/Footer editor)
+function setupPdfTextHandlers() {
+  ipcMain.handle('pdfText:get', async (event, companyCode) => {
+    try {
+      const apiClient = require('./database/api-client');
+      const result = await apiClient.getCompanyPdfText(companyCode);
+      return result;
+    } catch (error) {
+      console.error('❌ Error getting company PDF text:', error.message);
+      return { success: false, error: error.message };
+    }
+  });
+
+  ipcMain.handle('pdfText:save', async (event, companyCode, data) => {
+    try {
+      const apiClient = require('./database/api-client');
+      const result = await apiClient.saveCompanyPdfText(companyCode, data);
+      return result;
+    } catch (error) {
+      console.error('❌ Error saving company PDF text:', error.message);
+      return { success: false, error: error.message };
+    }
+  });
+}
+
 // PDF Export/Import handlers
 function setupPdfExportImportHandlers() {
   // Export all PDFs for a company as ZIP
@@ -938,6 +963,7 @@ app.whenReady().then(async () => {
   setupIpcHandlers();
   setupPdfHandlers();
   setupPdfExportImportHandlers();
+  setupPdfTextHandlers();
   setupBackupHandlers();
 
   // Initialize auto-updater (only in production)

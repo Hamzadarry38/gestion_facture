@@ -2485,6 +2485,9 @@ window.downloadInvoicePDF = async function (invoiceId) {
         const { jsPDF } = window.jspdf;
         const doc = new jsPDF();
 
+        // Load editable PDF text
+        const pdfText = await window.loadCompanyPdfText('MRY');
+
         // Colors
         const blueColor = [33, 97, 140]; // #21618C
         const greenColor = [16, 172, 132]; // #10AC84
@@ -2510,14 +2513,14 @@ window.downloadInvoicePDF = async function (invoiceId) {
             doc.setFontSize(18);
             doc.setTextColor(...blueColor);
             doc.setFont(undefined, 'bold');
-            doc.text('MRY TRAV SARL (AU)', 105, 20, { align: 'center' });
+            doc.text(pdfText.company_name || 'MRY TRAV SARL (AU)', 105, 20, { align: 'center' });
 
             doc.setFontSize(10);
             doc.setFont(undefined, 'normal');
             doc.setTextColor(0, 0, 0);
-            doc.text('TRAVAUX DIVERS DE CONSTRUCTION', 105, 27, { align: 'center' });
-            doc.text('VENTE DE MATERIAUX DE CONSTRUCTION', 105, 32, { align: 'center' });
-            doc.text('VENTE DE QUINCAILLERIE & DE DROGUERIE', 105, 37, { align: 'center' });
+            doc.text(pdfText.header_line1 || 'TRAVAUX DIVERS DE CONSTRUCTION', 105, 27, { align: 'center' });
+            doc.text(pdfText.header_line2 || 'VENTE DE MATERIAUX DE CONSTRUCTION', 105, 32, { align: 'center' });
+            doc.text(pdfText.header_line3 || 'VENTE DE QUINCAILLERIE & DE DROGUERIE', 105, 37, { align: 'center' });
 
             // Client Info
             doc.setFontSize(11);
@@ -2566,10 +2569,10 @@ window.downloadInvoicePDF = async function (invoiceId) {
             doc.setTextColor(0, 0, 0);
             doc.setFontSize(7);
             doc.setFont(undefined, 'normal');
-            doc.text('NIF : 25077370  TP : 51200166  R.C : 23181  CNSS : 5679058  ICE : 002036664000051', 15, 275);
-            doc.text('R.I.B : 007 720 0005973000000519 74  ATTIJARI WAFA BANK', 15, 279);
-            doc.text('AV, BNI IDDER RUE 14 N°10 COELMA - TÉTOUAN.', 15, 283);
-            doc.text('EMAIL: errbahiabderrahim@gmail.com  TEL : 0661307323', 15, 287);
+            doc.text(pdfText.footer_line1 || 'NIF : 25077370  TP : 51200166  R.C : 23181  CNSS : 5679058  ICE : 002036664000051', 15, 275);
+            doc.text(pdfText.footer_line2 || 'R.I.B : 007 720 0005973000000519 74  ATTIJARI WAFA BANK', 15, 279);
+            doc.text(pdfText.footer_line3 || 'AV, BNI IDDER RUE 14 N°10 COELMA - TÉTOUAN.', 15, 283);
+            doc.text(pdfText.footer_line4 || 'EMAIL: errbahiabderrahim@gmail.com  TEL : 0661307323', 15, 287);
 
             // Page numbering
             if (pageNum && totalPages) {
@@ -2933,6 +2936,9 @@ window.downloadBonDeTravauxPDF = async function (invoiceId) {
         const { jsPDF } = window.jspdf;
         const doc = new jsPDF();
 
+        // Load editable PDF text
+        const pdfText = await window.loadCompanyPdfText('MRY');
+
         // Colors
         const blueColor = [33, 97, 140];
         const greenColor = [16, 172, 132];
@@ -2958,14 +2964,14 @@ window.downloadBonDeTravauxPDF = async function (invoiceId) {
             doc.setFontSize(18);
             doc.setTextColor(...blueColor);
             doc.setFont(undefined, 'bold');
-            doc.text('MRY TRAV SARL (AU)', 105, 20, { align: 'center' });
+            doc.text(pdfText.company_name || 'MRY TRAV SARL (AU)', 105, 20, { align: 'center' });
 
             doc.setFontSize(10);
             doc.setFont(undefined, 'normal');
             doc.setTextColor(0, 0, 0);
-            doc.text('TRAVAUX DIVERS DE CONSTRUCTION', 105, 27, { align: 'center' });
-            doc.text('VENTE DE MATERIAUX DE CONSTRUCTION', 105, 32, { align: 'center' });
-            doc.text('VENTE DE QUINCAILLERIE & DE DROGUERIE', 105, 37, { align: 'center' });
+            doc.text(pdfText.header_line1 || 'TRAVAUX DIVERS DE CONSTRUCTION', 105, 27, { align: 'center' });
+            doc.text(pdfText.header_line2 || 'VENTE DE MATERIAUX DE CONSTRUCTION', 105, 32, { align: 'center' });
+            doc.text(pdfText.header_line3 || 'VENTE DE QUINCAILLERIE & DE DROGUERIE', 105, 37, { align: 'center' });
 
             // Client Info
             doc.setFontSize(11);
@@ -2999,10 +3005,10 @@ window.downloadBonDeTravauxPDF = async function (invoiceId) {
             doc.setTextColor(0, 0, 0);
             doc.setFontSize(7);
             doc.setFont(undefined, 'normal');
-            doc.text('NIF : 25077370  TP : 51200166  R.C : 23181  CNSS : 5679058  ICE : 002036664000051', 15, 275);
-            doc.text('R.I.B : 007 720 0005973000000519 74  ATTIJARI WAFA BANK', 15, 279);
-            doc.text('AV, BNI IDDER RUE 14 N°10 COELMA - TÉTOUAN.', 15, 283);
-            doc.text('EMAIL: errbahiabderrahim@gmail.com  TEL : 0661307323', 15, 287);
+            doc.text(pdfText.footer_line1 || 'NIF : 25077370  TP : 51200166  R.C : 23181  CNSS : 5679058  ICE : 002036664000051', 15, 275);
+            doc.text(pdfText.footer_line2 || 'R.I.B : 007 720 0005973000000519 74  ATTIJARI WAFA BANK', 15, 279);
+            doc.text(pdfText.footer_line3 || 'AV, BNI IDDER RUE 14 N°10 COELMA - TÉTOUAN.', 15, 283);
+            doc.text(pdfText.footer_line4 || 'EMAIL: errbahiabderrahim@gmail.com  TEL : 0661307323', 15, 287);
 
             // Page numbering
             if (pageNum && totalPages) {
@@ -3603,6 +3609,9 @@ async function generateSinglePDFBlob(invoice, organizationType, folderName, incl
     const { jsPDF } = window.jspdf;
     const doc = new jsPDF();
 
+    // Load editable PDF text
+    const pdfText = await window.loadCompanyPdfText('MRY');
+
     // Colors
     const blueColor = [33, 97, 140];
     const greenColor = [16, 172, 132];
@@ -3623,14 +3632,14 @@ async function generateSinglePDFBlob(invoice, organizationType, folderName, incl
         doc.setFontSize(18);
         doc.setTextColor(...blueColor);
         doc.setFont(undefined, 'bold');
-        doc.text('MRY TRAV SARL (AU)', 105, 20, { align: 'center' });
+        doc.text(pdfText.company_name || 'MRY TRAV SARL (AU)', 105, 20, { align: 'center' });
 
         doc.setFontSize(10);
         doc.setFont(undefined, 'normal');
         doc.setTextColor(0, 0, 0);
-        doc.text('TRAVAUX DIVERS DE CONSTRUCTION', 105, 27, { align: 'center' });
-        doc.text('VENTE DE MATERIAUX DE CONSTRUCTION', 105, 32, { align: 'center' });
-        doc.text('VENTE DE QUINCAILLERIE & DE DROGUERIE', 105, 37, { align: 'center' });
+        doc.text(pdfText.header_line1 || 'TRAVAUX DIVERS DE CONSTRUCTION', 105, 27, { align: 'center' });
+        doc.text(pdfText.header_line2 || 'VENTE DE MATERIAUX DE CONSTRUCTION', 105, 32, { align: 'center' });
+        doc.text(pdfText.header_line3 || 'VENTE DE QUINCAILLERIE & DE DROGUERIE', 105, 37, { align: 'center' });
 
         doc.setFontSize(11);
         doc.setFont(undefined, 'bold');
@@ -3676,10 +3685,10 @@ async function generateSinglePDFBlob(invoice, organizationType, folderName, incl
         doc.setTextColor(0, 0, 0);
         doc.setFontSize(7);
         doc.setFont(undefined, 'normal');
-        doc.text('NIF : 25077370  TP : 51200166  R.C : 23181  CNSS : 5679058  ICE : 002036664000051', 15, 280);
-        doc.text('R.I.B : 007 720 0005973000000519 74  ATTIJARI WAFA BANK', 15, 284);
-        doc.text('AV, BNI IDDER RUE 14 N°10 COELMA - TÉTOUAN.', 15, 288);
-        doc.text('EMAIL: errbahiabderrahim@gmail.com  TEL : 0661307323', 15, 292);
+        doc.text(pdfText.footer_line1 || 'NIF : 25077370  TP : 51200166  R.C : 23181  CNSS : 5679058  ICE : 002036664000051', 15, 280);
+        doc.text(pdfText.footer_line2 || 'R.I.B : 007 720 0005973000000519 74  ATTIJARI WAFA BANK', 15, 284);
+        doc.text(pdfText.footer_line3 || 'AV, BNI IDDER RUE 14 N°10 COELMA - TÉTOUAN.', 15, 288);
+        doc.text(pdfText.footer_line4 || 'EMAIL: errbahiabderrahim@gmail.com  TEL : 0661307323', 15, 292);
     };
 
     addHeader();

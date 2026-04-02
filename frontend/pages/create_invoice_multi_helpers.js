@@ -1369,9 +1369,14 @@ async function handleInvoiceSubmitMulti(e) {
             if (overlay) overlay.remove();
             window.notify.success('Facture enregistrée avec succès!', `ID: ${invoiceId} - ${formData.client.nom}`, 4000);
 
-            setTimeout(() => {
-                router.navigate('/dashboard-multi');
-            }, 1000);
+            // Show payment modal for factures only
+            if (formData.document.type === 'facture') {
+                showPaymentModalMulti(invoiceId, formData.client.nom);
+            } else {
+                setTimeout(() => {
+                    router.navigate('/dashboard-multi');
+                }, 1000);
+            }
         } else {
             throw new Error(result.error);
         }
