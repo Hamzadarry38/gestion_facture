@@ -64,6 +64,7 @@ function DashboardMultiPage() {
                         <div class="option-arrow">→</div>
                     </div>
 
+                    ${(user.email === 'redouanerrebbahi99@gmail.com' || user.can_auto_validate === true) ? `
                     <div class="option-card" data-action="pdf-text-editor">
                         <div class="option-icon">✏️</div>
                         <div class="option-info">
@@ -71,7 +72,7 @@ function DashboardMultiPage() {
                             <p>Modifier le header et footer des fichiers PDF pour chaque société</p>
                         </div>
                         <div class="option-arrow">→</div>
-                    </div>
+                    </div>` : ''}
 
                     ${(window.getEnabledCompanies ? window.getEnabledCompanies() : [
                         { code: 'SKM', name: 'SMART SERVICES' },

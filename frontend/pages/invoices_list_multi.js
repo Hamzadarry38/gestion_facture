@@ -363,7 +363,7 @@ function InvoicesListMultiPage() {
                                         Total TTC <span id="sortIconTTC">⇅</span>
                                     </th>
                                     <th style="width: 140px; text-align: center;">Accusé R.</th>
-                                    <th style="width: 130px; text-align: center;">💳 Paiement</th>
+                                    <th style="width: 200px; text-align: center;">💳 Paiement</th>
                                     <th style="width: 50px; text-align: center;">P.J</th>
                                     <th>Actions</th>
                                 </tr>
@@ -654,6 +654,18 @@ window.updateArStatusMulti = async function (id, status) {
     } catch (error) {
         console.error('Update AR exception:', error);
         window.notify.error('Erreur', 'Une erreur est survenue');
+    }
+};
+
+// Handle payment status change from dropdown - show modal for Payé
+window.handlePaymentChangeMulti = function(id, value, selectEl, previousStatus) {
+    if (value === 'payé') {
+        selectEl.value = previousStatus === 'payé' ? 'payé' : 'en attente de paiement';
+        selectEl.style.background = previousStatus === 'payé' ? '#4caf50' : '#f44336';
+        window.showEditPaymentModalMulti(id, previousStatus || 'en attente de paiement', '');
+    } else {
+        window.updatePaymentStatusMulti(id, value);
+        selectEl.style.background = '#f44336';
     }
 };
 
@@ -1248,12 +1260,15 @@ function displayInvoicesMulti() {
                 </select>`}
             </td>
             <td style="text-align: center;">
-                ${invoice.document_type === 'facture' ? `<select onchange="window.updatePaymentStatusMulti('${invoice.id}', this.value); this.style.background=this.value==='payé'?'#4caf50':'#ff9800';"
-                        style="padding: 0.4rem; background: ${(invoice.payment_status === 'payé') ? '#4caf50' : '#ff9800'}; color: white; border: none; border-radius: 4px; font-size: 0.85rem; cursor: pointer; width: 100%; transition: background 0.3s;"
+                ${invoice.document_type === 'facture' ? `<div onclick="event.stopPropagation()" style="text-align:center;">
+                    <select onchange="window.handlePaymentChangeMulti('${invoice.id}', this.value, this, '${(invoice.payment_status || '').replace(/'/g, "\\'")}')"
+                        style="padding: 0.4rem; background: ${(invoice.payment_status === 'payé') ? '#4caf50' : '#f44336'}; color: white; border: none; border-radius: 4px; font-size: 0.85rem; cursor: pointer; width: 100%; transition: background 0.3s;"
                         onclick="event.stopPropagation()">
-                    <option value="en attente de paiement" ${invoice.payment_status !== 'payé' ? 'selected' : ''} style="background: #424242; color: #ff9800;">En attente</option>
+                    <option value="en attente de paiement" ${invoice.payment_status !== 'payé' ? 'selected' : ''} style="background: #424242; color: #f44336;">En attente de paiement</option>
                     <option value="payé" ${invoice.payment_status === 'payé' ? 'selected' : ''} style="background: #424242; color: #4caf50;">Payé</option>
-                </select>` : '<span style="color:#666;">—</span>'}
+                    </select>
+                    ${invoice.payment_status === 'payé' && invoice.payment_method ? `<div style="font-size:0.7rem;color:#81c784;margin-top:2px;">${invoice.payment_method}</div>` : ''}
+                </div>` : '<span style="color:#666;">—</span>'}
             </td>
             <td style="text-align: center;">
                 <div id="attachmentIndicator-${invoice.id}" onclick="viewInvoiceMulti(${invoice.id})" style="cursor: pointer;">

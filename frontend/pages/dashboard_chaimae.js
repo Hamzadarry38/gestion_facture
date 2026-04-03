@@ -64,6 +64,7 @@ function DashboardChaimaePage() {
                         <div class="option-arrow">→</div>
                     </div>
 
+                    ${(user.email === 'redouanerrebbahi99@gmail.com' || user.can_auto_validate === true) ? `
                     <div class="option-card" onclick="router.navigate('/pdf-text-editor')">
                         <div class="option-icon">✏️</div>
                         <div class="option-info">
@@ -71,7 +72,7 @@ function DashboardChaimaePage() {
                             <p>Modifier le header et footer des fichiers PDF</p>
                         </div>
                         <div class="option-arrow">→</div>
-                    </div>
+                    </div>` : ''}
 
                     ${(window.getEnabledCompanies ? window.getEnabledCompanies() : [
                         { code: 'SKM', name: 'SMART SERVICES' },

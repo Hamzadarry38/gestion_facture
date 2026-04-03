@@ -1254,7 +1254,7 @@ app.put('/invoices/:id', async (req, res) => {
                 updated_by_user_email = COALESCE($20, updated_by_user_email),
                 private_notes = COALESCE($21, private_notes),
                 payment_status = COALESCE($22, payment_status),
-                payment_method = COALESCE($23, payment_method),
+                payment_method = CASE WHEN $22 IS NOT NULL AND $22 != 'payé' THEN NULL WHEN $23 IS NOT NULL THEN $23 ELSE payment_method END,
                 ${shouldSetModified ? 'is_modified = true,' : ''}
                 updated_at = NOW()
             WHERE id = $24
