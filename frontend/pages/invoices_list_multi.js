@@ -1379,6 +1379,7 @@ window.viewInvoiceMulti = async function (id) {
         }
 
         const invoice = result.data;
+        console.log('🔍 [CLIENT_IF DEBUG MULTI] client_if value:', JSON.stringify(invoice.client_if), 'client_id:', invoice.client_id);
         const date = (window.safeParseDate||function(d){return new Date(d)})(invoice.document_date).toLocaleDateString('fr-FR');
         const docNumber = invoice.document_type === 'facture' ? invoice.document_numero : invoice.document_numero_devis || invoice.document_numero;
         const typeLabel = invoice.document_type === 'facture' ? 'Facture' : 'Devis';

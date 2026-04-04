@@ -705,6 +705,7 @@ app.get('/invoices/id/:id', async (req, res) => {
 
     const invoice = invoiceRes.rows[0];
     console.log(`📅 [DATE DIAGNOSTIC] GET /invoices/id/${id} - document_date from DB: "${invoice.document_date}" (type: ${typeof invoice.document_date}), created_at: "${invoice.created_at}"`);
+    console.log(`🔍 [CLIENT_IF DEBUG] GET /invoices/id/${id} - client_if: "${invoice.client_if}", client_id: ${invoice.client_id}`);
     const productsRes = await pool.query('SELECT * FROM invoice_products WHERE invoice_id = $1 ORDER BY position, id', [id]);
     invoice.products = productsRes.rows;
 
@@ -808,18 +809,16 @@ app.post('/invoices', async (req, res) => {
       // 🔍 البحث عن العميل بالاسم + ICE + company_code معاً
       // هذا يضمن أن زبون بدون ICE وزبون مع ICE = سجلين منفصلين
       const clientRes = await client.query(
-        'SELECT id FROM clients WHERE nom = $1 AND ice = $2 AND company_code = $3 LIMIT 1',
+        'SELECT id FROM clients WHERE nom = $1 AND (ice = $2 OR ($2 = \'\' AND (ice IS NULL OR ice = \'\'))) AND company_code = $3 LIMIT 1',
         [clientNom, clientICE, company_code]
       );
 
       if (clientRes.rows.length > 0) {
         // ✅ العميل موجود بنفس الاسم ونفس ICE
         client_id = clientRes.rows[0].id;
-        // Update IF if provided
-        if (clientIF) {
-          await client.query('UPDATE clients SET client_if = $1 WHERE id = $2', [clientIF, client_id]);
-        }
-        console.log(`✅ [API] Found existing client ${clientNom} (ID: ${client_id}) with ICE: ${clientICE || '(empty)'}, IF: ${clientIF || '(empty)'}`);
+        // Always update client_if when client data is provided
+        await client.query('UPDATE clients SET client_if = $1 WHERE id = $2', [clientIF, client_id]);
+        console.log(`✅ [API CREATE] Found existing client ${clientNom} (ID: ${client_id}) with ICE: ${clientICE || '(empty)'}, IF: ${clientIF || '(empty)'}`);
       } else {
         // ➕ إنشاء عميل جديد (سواء كان بدون ICE أو مع ICE مختلف)
         const insertClientRes = await client.query(
@@ -1153,22 +1152,24 @@ app.put('/invoices/:id', async (req, res) => {
         if (invRes.rows.length > 0) company_code = invRes.rows[0].company_code;
       }
 
+      const clientICE = c.ICE || c.ice || '';
       const clientRes = await client.query(
-        'SELECT id FROM clients WHERE nom = $1 AND (ice = $2 OR ice IS NULL) AND company_code = $3 LIMIT 1',
-        [c.nom, c.ICE || c.ice || null, company_code]
+        'SELECT id FROM clients WHERE nom = $1 AND (ice = $2 OR ($2 = \'\' AND (ice IS NULL OR ice = \'\'))) AND company_code = $3 LIMIT 1',
+        [c.nom, clientICE, company_code]
       );
 
       if (clientRes.rows.length > 0) {
         client_id = clientRes.rows[0].id;
-        if (clientIF) {
-          await client.query('UPDATE clients SET client_if = $1 WHERE id = $2', [clientIF, client_id]);
-        }
+        // Always update client_if when client data is provided
+        await client.query('UPDATE clients SET client_if = $1 WHERE id = $2', [clientIF, client_id]);
+        console.log(`✅ [API UPDATE] Found existing client (ID: ${client_id}), updated IF: ${clientIF || '(empty)'}`);
       } else {
         const insertClientRes = await client.query(
           'INSERT INTO clients (nom, ice, client_if, company_code, created_at) VALUES ($1, $2, $3, $4, NOW()) RETURNING id',
-          [c.nom, c.ICE || c.ice || null, clientIF, company_code]
+          [c.nom, clientICE, clientIF, company_code]
         );
         client_id = insertClientRes.rows[0].id;
+        console.log(`✅ [API UPDATE] Created new client (ID: ${client_id}), IF: ${clientIF || '(empty)'}`);
       }
     }
 

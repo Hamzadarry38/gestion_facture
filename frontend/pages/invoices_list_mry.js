@@ -1520,6 +1520,7 @@ window.viewInvoice = async function (id) {
         console.log('📎 [ATTACHMENTS DEBUG] Invoice data:', invoice);
         console.log('📎 [ATTACHMENTS DEBUG] Attachments array:', invoice.attachments);
         console.log('📎 [ATTACHMENTS DEBUG] Attachment count:', invoice.attachment_count);
+        console.log('🔍 [CLIENT_IF DEBUG] client_if value:', JSON.stringify(invoice.client_if), 'client_id:', invoice.client_id);
         
         const date = (window.safeParseDate||function(d){return new Date(d)})(invoice.document_date).toLocaleDateString('fr-FR');
         const docNumber = invoice.document_numero || invoice.document_numero_devis || '-';

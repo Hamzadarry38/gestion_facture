@@ -2088,6 +2088,7 @@ window.viewInvoiceChaimae = async function (id, documentType) {
         }
 
         const invoice = result.data;
+        console.log('🔍 [CLIENT_IF DEBUG CHAIMAE] client_if value:', JSON.stringify(invoice.client_if), 'client_id:', invoice.client_id);
         const date = (window.safeParseDate||function(d){return new Date(d)})(invoice.document_date).toLocaleDateString('fr-FR');
         const typeLabel = invoice.document_type === 'facture' ? 'Facture' :
             invoice.document_type === 'devis' ? 'Devis' :
