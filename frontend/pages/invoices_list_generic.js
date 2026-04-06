@@ -1183,7 +1183,7 @@ window.editInvoice = async function (id) {
                         <!-- Client Info -->
                         <div class="edit-section">
                             <h3>Client</h3>
-                            <div class="form-row">
+                            <div class="form-row" style="grid-template-columns: 2fr 1fr 1fr;">
                                 <div class="form-field" style="position: relative;">
                                     <label>Nom du client</label>
                                     <input type="text" id="editClientNom" value="${invoice.client_nom}" required

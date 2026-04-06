@@ -63,7 +63,7 @@ window.EditInvoiceChaimaePage = function () {
                             <h2>📦 Informations du client</h2>
                         </div>
                         <div class="section-body">
-                            <div class="form-row">
+                            <div class="form-row" style="grid-template-columns: 2fr 1fr 1fr;">
                                 <div class="form-field" style="position: relative;">
                                     <label>Nom du client <span class="required">*</span></label>
                                     <input type="text" id="editClientNomChaimae" placeholder="Rechercher ou saisir un client" 

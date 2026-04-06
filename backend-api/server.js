@@ -119,7 +119,7 @@ const pool = new Pool({
   user: 'postgres',
   host: 'localhost',
   database: 'facture_db',
-  password: '123456',
+  password: 'Azer190@',
   port: 5432,
 });
 
@@ -809,7 +809,7 @@ app.post('/invoices', async (req, res) => {
       // 🔍 البحث عن العميل بالاسم + ICE + company_code معاً
       // هذا يضمن أن زبون بدون ICE وزبون مع ICE = سجلين منفصلين
       const clientRes = await client.query(
-        'SELECT id FROM clients WHERE nom = $1 AND (ice = $2 OR ($2 = \'\' AND (ice IS NULL OR ice = \'\'))) AND company_code = $3 LIMIT 1',
+        `SELECT id FROM clients WHERE nom = $1 AND (ice = $2 OR ($2 = '' AND (ice IS NULL OR ice = ''))) AND company_code = $3 LIMIT 1`,
         [clientNom, clientICE, company_code]
       );
 
@@ -1044,6 +1044,7 @@ app.put('/invoices/:id', async (req, res) => {
   try {
     await client.query('BEGIN');
     const { id } = req.params;
+    console.log(`🔍 [PUT /invoices/${id}] Request body keys:`, Object.keys(req.body));
 
     // Initialize with undefined but we will carefully assign
     let {
@@ -1154,7 +1155,7 @@ app.put('/invoices/:id', async (req, res) => {
 
       const clientICE = c.ICE || c.ice || '';
       const clientRes = await client.query(
-        'SELECT id FROM clients WHERE nom = $1 AND (ice = $2 OR ($2 = \'\' AND (ice IS NULL OR ice = \'\'))) AND company_code = $3 LIMIT 1',
+        `SELECT id FROM clients WHERE nom = $1 AND (ice = $2 OR ($2 = '' AND (ice IS NULL OR ice = ''))) AND company_code = $3 LIMIT 1`,
         [c.nom, clientICE, company_code]
       );
 
@@ -1255,7 +1256,7 @@ app.put('/invoices/:id', async (req, res) => {
                 updated_by_user_email = COALESCE($20, updated_by_user_email),
                 private_notes = COALESCE($21, private_notes),
                 payment_status = COALESCE($22, payment_status),
-                payment_method = CASE WHEN $22 IS NOT NULL AND $22 != 'payé' THEN NULL WHEN $23 IS NOT NULL THEN $23 ELSE payment_method END,
+                payment_method = CASE WHEN $22 IS NOT NULL AND $22 != 'payé' THEN NULL WHEN $23::text IS NOT NULL THEN $23::text ELSE payment_method END,
                 ${shouldSetModified ? 'is_modified = true,' : ''}
                 updated_at = NOW()
             WHERE id = $24
