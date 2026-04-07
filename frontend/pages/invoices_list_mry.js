@@ -5085,12 +5085,12 @@ window.bulkResetArStatusMRY = async function () {
 // Export invoices to Excel for MRY
 window.exportExcelMRY = async function () {
     try {
-        if (!allInvoices || allInvoices.length === 0) {
-            window.notify.info('Info', 'Aucune facture à exporter.', 3000);
+        if (!filteredInvoices || filteredInvoices.length === 0) {
+            window.notify.info('Info', 'Aucune facture à exporter (liste vide ou filtrée).', 3000);
             return;
         }
-        window.notify.info('Export', 'Préparation de l\'export Excel...', 2000);
-        const result = await window.electron.excel.exportInvoices(allInvoices, 'MRY');
+        window.notify.info('Export', `Préparation de l\'export de ${filteredInvoices.length} facture(s)...`, 2000);
+        const result = await window.electron.excel.exportInvoices(filteredInvoices, 'MRY');
         if (result.success) {
             window.notify.success('Succès', `${result.count} facture(s) exportée(s) en Excel.`, 3000);
         } else if (!result.canceled) {

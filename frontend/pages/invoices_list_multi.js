@@ -738,12 +738,12 @@ window.bulkResetArStatusMulti = async function () {
 // Export invoices to Excel for MULTI
 window.exportExcelMulti = async function () {
     try {
-        if (!allInvoicesMulti || allInvoicesMulti.length === 0) {
-            window.notify.info('Info', 'Aucune facture à exporter.', 3000);
+        if (!filteredInvoicesMulti || filteredInvoicesMulti.length === 0) {
+            window.notify.info('Info', 'Aucune facture à exporter (liste vide ou filtrée).', 3000);
             return;
         }
-        window.notify.info('Export', 'Préparation de l\'export Excel...', 2000);
-        const result = await window.electron.excel.exportInvoices(allInvoicesMulti, 'MULTI');
+        window.notify.info('Export', `Préparation de l\'export de ${filteredInvoicesMulti.length} facture(s)...`, 2000);
+        const result = await window.electron.excel.exportInvoices(filteredInvoicesMulti, 'MULTI');
         if (result.success) {
             window.notify.success('Succès', `${result.count} facture(s) exportée(s) en Excel.`, 3000);
         } else if (!result.canceled) {
