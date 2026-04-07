@@ -41,6 +41,11 @@ window.showPaymentModalMulti = function(invoiceId, clientName) {
                 </select>
             </div>
 
+            <div id="paymentDateContainer" style="display: none; margin-bottom: 1.5rem;">
+                <label style="color: #e0e0e0; display: block; margin-bottom: 0.5rem; font-weight: 600;">Date de paiement:</label>
+                <input type="date" id="paymentDateInput" style="width: 100%; padding: 0.75rem; background: #1e1e1e; color: #fff; border: 1px solid #3e3e42; border-radius: 6px; font-size: 1rem; box-sizing: border-box;">
+            </div>
+
             <div style="display: flex; gap: 1rem; justify-content: flex-end;">
                 <button id="cancelPaymentBtn" style="padding: 0.75rem 1.5rem; background: #3e3e42; color: #fff; border: none; border-radius: 6px; cursor: pointer; font-size: 1rem;">
                     Annuler
@@ -57,16 +62,22 @@ window.showPaymentModalMulti = function(invoiceId, clientName) {
     const statusSelect = document.getElementById('paymentStatusSelect');
     const methodContainer = document.getElementById('paymentMethodContainer');
     const methodSelect = document.getElementById('paymentMethodSelect');
+    const dateContainer = document.getElementById('paymentDateContainer');
+    const dateInput = document.getElementById('paymentDateInput');
     const cancelBtn = document.getElementById('cancelPaymentBtn');
     const confirmBtn = document.getElementById('confirmPaymentBtn');
 
-    // Show/hide payment method based on status
+    // Show/hide payment method and date based on status
     statusSelect.addEventListener('change', () => {
         if (statusSelect.value === 'payé') {
             methodContainer.style.display = 'block';
+            dateContainer.style.display = 'block';
+            dateInput.value = new Date().toISOString().split('T')[0];
         } else {
             methodContainer.style.display = 'none';
+            dateContainer.style.display = 'none';
             methodSelect.value = '';
+            dateInput.value = '';
         }
     });
 
@@ -80,6 +91,7 @@ window.showPaymentModalMulti = function(invoiceId, clientName) {
     confirmBtn.addEventListener('click', async () => {
         const paymentStatus = statusSelect.value;
         const paymentMethod = statusSelect.value === 'payé' ? methodSelect.value : null;
+        const paymentDate = statusSelect.value === 'payé' ? dateInput.value : null;
 
         // Validate payment method if status is "payé"
         if (paymentStatus === 'payé' && !paymentMethod) {
@@ -93,7 +105,8 @@ window.showPaymentModalMulti = function(invoiceId, clientName) {
 
             const result = await window.electron.dbMulti.updateInvoice(invoiceId, {
                 payment_status: paymentStatus,
-                payment_method: paymentMethod
+                payment_method: paymentMethod,
+                payment_date: paymentDate
             });
 
             if (result.success) {
@@ -162,6 +175,11 @@ window.showPaymentModalMRY = function(invoiceId, clientName) {
                 </select>
             </div>
 
+            <div id="paymentDateContainer" style="display: none; margin-bottom: 1.5rem;">
+                <label style="color: #e0e0e0; display: block; margin-bottom: 0.5rem; font-weight: 600;">Date de paiement:</label>
+                <input type="date" id="paymentDateInput" style="width: 100%; padding: 0.75rem; background: #1e1e1e; color: #fff; border: 1px solid #3e3e42; border-radius: 6px; font-size: 1rem; box-sizing: border-box;">
+            </div>
+
             <div style="display: flex; gap: 1rem; justify-content: flex-end;">
                 <button id="cancelPaymentBtn" style="padding: 0.75rem 1.5rem; background: #3e3e42; color: #fff; border: none; border-radius: 6px; cursor: pointer; font-size: 1rem;">
                     Annuler
@@ -178,15 +196,21 @@ window.showPaymentModalMRY = function(invoiceId, clientName) {
     const statusSelect = document.getElementById('paymentStatusSelect');
     const methodContainer = document.getElementById('paymentMethodContainer');
     const methodSelect = document.getElementById('paymentMethodSelect');
+    const dateContainer = document.getElementById('paymentDateContainer');
+    const dateInput = document.getElementById('paymentDateInput');
     const cancelBtn = document.getElementById('cancelPaymentBtn');
     const confirmBtn = document.getElementById('confirmPaymentBtn');
 
     statusSelect.addEventListener('change', () => {
         if (statusSelect.value === 'payé') {
             methodContainer.style.display = 'block';
+            dateContainer.style.display = 'block';
+            dateInput.value = new Date().toISOString().split('T')[0];
         } else {
             methodContainer.style.display = 'none';
+            dateContainer.style.display = 'none';
             methodSelect.value = '';
+            dateInput.value = '';
         }
     });
 
@@ -198,6 +222,7 @@ window.showPaymentModalMRY = function(invoiceId, clientName) {
     confirmBtn.addEventListener('click', async () => {
         const paymentStatus = statusSelect.value;
         const paymentMethod = statusSelect.value === 'payé' ? methodSelect.value : null;
+        const paymentDate = statusSelect.value === 'payé' ? dateInput.value : null;
 
         if (paymentStatus === 'payé' && !paymentMethod) {
             window.notify.error('Erreur', 'Veuillez sélectionner une méthode de paiement', 3000);
@@ -210,7 +235,8 @@ window.showPaymentModalMRY = function(invoiceId, clientName) {
 
             const result = await window.electron.db.updateInvoice(invoiceId, {
                 payment_status: paymentStatus,
-                payment_method: paymentMethod
+                payment_method: paymentMethod,
+                payment_date: paymentDate
             });
 
             if (result.success) {
@@ -278,6 +304,11 @@ window.showPaymentModalChaimae = function(invoiceId, clientName) {
                 </select>
             </div>
 
+            <div id="paymentDateContainer" style="display: none; margin-bottom: 1.5rem;">
+                <label style="color: #e0e0e0; display: block; margin-bottom: 0.5rem; font-weight: 600;">Date de paiement:</label>
+                <input type="date" id="paymentDateInput" style="width: 100%; padding: 0.75rem; background: #1e1e1e; color: #fff; border: 1px solid #3e3e42; border-radius: 6px; font-size: 1rem; box-sizing: border-box;">
+            </div>
+
             <div style="display: flex; gap: 1rem; justify-content: flex-end;">
                 <button id="cancelPaymentBtn" style="padding: 0.75rem 1.5rem; background: #3e3e42; color: #fff; border: none; border-radius: 6px; cursor: pointer; font-size: 1rem;">
                     Annuler
@@ -294,15 +325,21 @@ window.showPaymentModalChaimae = function(invoiceId, clientName) {
     const statusSelect = document.getElementById('paymentStatusSelect');
     const methodContainer = document.getElementById('paymentMethodContainer');
     const methodSelect = document.getElementById('paymentMethodSelect');
+    const dateContainer = document.getElementById('paymentDateContainer');
+    const dateInput = document.getElementById('paymentDateInput');
     const cancelBtn = document.getElementById('cancelPaymentBtn');
     const confirmBtn = document.getElementById('confirmPaymentBtn');
 
     statusSelect.addEventListener('change', () => {
         if (statusSelect.value === 'payé') {
             methodContainer.style.display = 'block';
+            dateContainer.style.display = 'block';
+            dateInput.value = new Date().toISOString().split('T')[0];
         } else {
             methodContainer.style.display = 'none';
+            dateContainer.style.display = 'none';
             methodSelect.value = '';
+            dateInput.value = '';
         }
     });
 
@@ -314,6 +351,7 @@ window.showPaymentModalChaimae = function(invoiceId, clientName) {
     confirmBtn.addEventListener('click', async () => {
         const paymentStatus = statusSelect.value;
         const paymentMethod = statusSelect.value === 'payé' ? methodSelect.value : null;
+        const paymentDate = statusSelect.value === 'payé' ? dateInput.value : null;
 
         if (paymentStatus === 'payé' && !paymentMethod) {
             window.notify.error('Erreur', 'Veuillez sélectionner une méthode de paiement', 3000);
@@ -326,7 +364,8 @@ window.showPaymentModalChaimae = function(invoiceId, clientName) {
 
             const result = await window.electron.dbChaimae.updateInvoice(invoiceId, {
                 payment_status: paymentStatus,
-                payment_method: paymentMethod
+                payment_method: paymentMethod,
+                payment_date: paymentDate
             });
 
             if (result.success) {
@@ -356,7 +395,7 @@ window.showPaymentModalChaimae = function(invoiceId, clientName) {
 
 // ==================== EDIT PAYMENT MODALS (from detail views) ====================
 
-function createEditPaymentModal(invoiceId, currentStatus, currentMethod, dbApi, refreshFn) {
+function createEditPaymentModal(invoiceId, currentStatus, currentMethod, dbApi, refreshFn, invoiceDate, currentPaymentDate) {
     const modal = document.createElement('div');
     modal.style.cssText = `
         position: fixed;
@@ -370,6 +409,19 @@ function createEditPaymentModal(invoiceId, currentStatus, currentMethod, dbApi, 
         justify-content: center;
         z-index: 10000;
     `;
+
+    // Determine initial payment date value:
+    // If already has a payment_date, use it; otherwise use invoice date
+    let initialPaymentDate = currentPaymentDate || '';
+    if (!initialPaymentDate && invoiceDate) {
+        // Convert invoice date to YYYY-MM-DD format if needed
+        try {
+            const d = new Date(invoiceDate);
+            if (!isNaN(d.getTime())) {
+                initialPaymentDate = d.toISOString().split('T')[0];
+            }
+        } catch(e) { initialPaymentDate = invoiceDate; }
+    }
 
     modal.innerHTML = `
         <div style="background: #2d2d30; border-radius: 12px; padding: 2rem; max-width: 500px; width: 90%; box-shadow: 0 10px 40px rgba(0,0,0,0.3);">
@@ -395,6 +447,11 @@ function createEditPaymentModal(invoiceId, currentStatus, currentMethod, dbApi, 
                 </select>
             </div>
 
+            <div id="editPaymentDateContainer" style="display: ${currentStatus === 'payé' ? 'block' : 'none'}; margin-bottom: 1.5rem;">
+                <label style="color: #e0e0e0; display: block; margin-bottom: 0.5rem; font-weight: 600;">Date de paiement:</label>
+                <input type="date" id="editPaymentDateInput" value="${initialPaymentDate}" style="width: 100%; padding: 0.75rem; background: #1e1e1e; color: #fff; border: 1px solid #3e3e42; border-radius: 6px; font-size: 1rem; box-sizing: border-box;">
+            </div>
+
             <div style="display: flex; gap: 1rem; justify-content: flex-end;">
                 <button id="editCancelPaymentBtn" style="padding: 0.75rem 1.5rem; background: #3e3e42; color: #fff; border: none; border-radius: 6px; cursor: pointer; font-size: 1rem;">
                     Annuler
@@ -411,15 +468,26 @@ function createEditPaymentModal(invoiceId, currentStatus, currentMethod, dbApi, 
     const statusSelect = document.getElementById('editPaymentStatusSelect');
     const methodContainer = document.getElementById('editPaymentMethodContainer');
     const methodSelect = document.getElementById('editPaymentMethodSelect');
+    const dateContainer = document.getElementById('editPaymentDateContainer');
+    const dateInput = document.getElementById('editPaymentDateInput');
     const cancelBtn = document.getElementById('editCancelPaymentBtn');
     const confirmBtn = document.getElementById('editConfirmPaymentBtn');
 
     statusSelect.addEventListener('change', () => {
         if (statusSelect.value === 'payé') {
             methodContainer.style.display = 'block';
+            dateContainer.style.display = 'block';
+            if (!dateInput.value && invoiceDate) {
+                try {
+                    const d = new Date(invoiceDate);
+                    if (!isNaN(d.getTime())) dateInput.value = d.toISOString().split('T')[0];
+                } catch(e) { dateInput.value = invoiceDate; }
+            }
         } else {
             methodContainer.style.display = 'none';
+            dateContainer.style.display = 'none';
             methodSelect.value = '';
+            dateInput.value = '';
         }
     });
 
@@ -430,6 +498,7 @@ function createEditPaymentModal(invoiceId, currentStatus, currentMethod, dbApi, 
     confirmBtn.addEventListener('click', async () => {
         const paymentStatus = statusSelect.value;
         const paymentMethod = statusSelect.value === 'payé' ? methodSelect.value : null;
+        const paymentDate = statusSelect.value === 'payé' ? dateInput.value : null;
 
         if (paymentStatus === 'payé' && !paymentMethod) {
             window.notify.error('Erreur', 'Veuillez sélectionner une méthode de paiement', 3000);
@@ -442,7 +511,8 @@ function createEditPaymentModal(invoiceId, currentStatus, currentMethod, dbApi, 
 
             const result = await dbApi.updateInvoice(invoiceId, {
                 payment_status: paymentStatus,
-                payment_method: paymentMethod
+                payment_method: paymentMethod,
+                payment_date: paymentDate
             });
 
             if (result.success) {
@@ -465,20 +535,20 @@ function createEditPaymentModal(invoiceId, currentStatus, currentMethod, dbApi, 
     });
 }
 
-window.showEditPaymentModalMulti = function(invoiceId, currentStatus, currentMethod) {
+window.showEditPaymentModalMulti = function(invoiceId, currentStatus, currentMethod, invoiceDate, currentPaymentDate) {
     createEditPaymentModal(invoiceId, currentStatus, currentMethod, window.electron.dbMulti, () => {
         if (typeof loadInvoicesMulti === 'function') loadInvoicesMulti();
-    });
+    }, invoiceDate, currentPaymentDate);
 };
 
-window.showEditPaymentModalMRY = function(invoiceId, currentStatus, currentMethod) {
+window.showEditPaymentModalMRY = function(invoiceId, currentStatus, currentMethod, invoiceDate, currentPaymentDate) {
     createEditPaymentModal(invoiceId, currentStatus, currentMethod, window.electron.db, () => {
         if (typeof loadInvoices === 'function') loadInvoices();
-    });
+    }, invoiceDate, currentPaymentDate);
 };
 
-window.showEditPaymentModalChaimae = function(invoiceId, currentStatus, currentMethod) {
+window.showEditPaymentModalChaimae = function(invoiceId, currentStatus, currentMethod, invoiceDate, currentPaymentDate) {
     createEditPaymentModal(invoiceId, currentStatus, currentMethod, window.electron.dbChaimae, () => {
         if (typeof loadInvoicesChaimae === 'function') loadInvoicesChaimae();
-    });
+    }, invoiceDate, currentPaymentDate);
 };

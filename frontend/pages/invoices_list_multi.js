@@ -74,6 +74,14 @@ function InvoicesListMultiPage() {
                                 <span>Globale</span>
                             </button>
                             
+                            <button class="action-btn" onclick="exportExcelMulti()" style="background-color: #2e7d32; color: white; border: none; font-weight: 600;">
+                                <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor">
+                                    <path d="M.5 9.9a.5.5 0 0 1 .5.5v2.5a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-2.5a.5.5 0 0 1 1 0v2.5a2 2 0 0 1-2 2H2a2 2 0 0 1-2-2v-2.5a.5.5 0 0 1 .5-.5z"/>
+                                    <path d="M7.646 11.854a.5.5 0 0 0 .708 0l3-3a.5.5 0 0 0-.708-.708L8.5 10.293V1.5a.5.5 0 0 0-1 0v8.793L5.354 8.146a.5.5 0 1 0-.708.708l3 3z"/>
+                                </svg>
+                                <span>Excel</span>
+                            </button>
+
                             <button class="action-btn action-btn-primary" onclick="router.navigate('/create-invoice-multi')">
                                 <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor">
                                     <path d="M8 4a.5.5 0 0 1 .5.5v3h3a.5.5 0 0 1 0 1h-3v3a.5.5 0 0 1-1 0v-3h-3a.5.5 0 0 1 0-1h3v-3A.5.5 0 0 1 8 4z"/>
@@ -662,7 +670,8 @@ window.handlePaymentChangeMulti = function(id, value, selectEl, previousStatus) 
     if (value === 'payé') {
         selectEl.value = previousStatus === 'payé' ? 'payé' : 'en attente de paiement';
         selectEl.style.background = previousStatus === 'payé' ? '#4caf50' : '#f44336';
-        window.showEditPaymentModalMulti(id, previousStatus || 'en attente de paiement', '');
+        const inv = allInvoicesMulti.find(i => i.id == id);
+        window.showEditPaymentModalMulti(id, previousStatus || 'en attente de paiement', inv?.payment_method || '', inv?.document_date || '', inv?.payment_date || '');
     } else {
         window.updatePaymentStatusMulti(id, value);
         selectEl.style.background = '#f44336';
@@ -687,12 +696,12 @@ window.updatePaymentStatusMulti = async function (id, status) {
             const inv = allInvoicesMulti.find(i => i.id == id);
             if (inv) {
                 inv.payment_status = status;
-                if (status !== 'payé') inv.payment_method = null;
+                if (status !== 'payé') { inv.payment_method = null; inv.payment_date = null; }
             }
             const filteredInv = filteredInvoicesMulti.find(i => i.id == id);
             if (filteredInv) {
                 filteredInv.payment_status = status;
-                if (status !== 'payé') filteredInv.payment_method = null;
+                if (status !== 'payé') { filteredInv.payment_method = null; filteredInv.payment_date = null; }
             }
 
             displayInvoicesMulti();
@@ -724,6 +733,26 @@ window.bulkResetArStatusMulti = async function () {
     }
     window.notify.success('✅', `${success}/${toReset.length} facture(s) mises à jour.`, 3000);
     loadInvoicesMulti();
+};
+
+// Export invoices to Excel for MULTI
+window.exportExcelMulti = async function () {
+    try {
+        if (!allInvoicesMulti || allInvoicesMulti.length === 0) {
+            window.notify.info('Info', 'Aucune facture à exporter.', 3000);
+            return;
+        }
+        window.notify.info('Export', 'Préparation de l\'export Excel...', 2000);
+        const result = await window.electron.excel.exportInvoices(allInvoicesMulti, 'MULTI');
+        if (result.success) {
+            window.notify.success('Succès', `${result.count} facture(s) exportée(s) en Excel.`, 3000);
+        } else if (!result.canceled) {
+            window.notify.error('Erreur', 'Échec de l\'export: ' + (result.error || 'Erreur inconnue'), 3000);
+        }
+    } catch (error) {
+        console.error('Excel export error:', error);
+        window.notify.error('Erreur', 'Une erreur est survenue lors de l\'export.', 3000);
+    }
 };
 
 window.handleValidateInvoiceMulti = async function (id, status) {
@@ -1504,8 +1533,14 @@ window.viewInvoiceMulti = async function (id) {
                             <div style="color:#fff;font-weight:500;margin-top:0.25rem;">${invoice.payment_method}</div>
                         </div>
                         ` : ''}
+                        ${invoice.payment_status === 'payé' && invoice.payment_date ? `
+                        <div>
+                            <span style="color:#999;font-size:0.9rem;">Date de paiement:</span>
+                            <div style="color:#fff;font-weight:500;margin-top:0.25rem;">${(window.safeParseDate||function(d){return new Date(d)})(invoice.payment_date).toLocaleDateString('fr-FR')}</div>
+                        </div>
+                        ` : ''}
                         <div style="margin-top:0.75rem;">
-                            <button onclick="showEditPaymentModalMulti(${invoice.id}, '${(invoice.payment_status || 'en attente de paiement').replace(/'/g, "\\'")}', '${(invoice.payment_method || '').replace(/'/g, "\\'")}')" style="padding:0.4rem 1rem;background:#1565c0;color:#fff;border:none;border-radius:6px;cursor:pointer;font-size:0.8rem;">Modifier le paiement</button>
+                            <button onclick="showEditPaymentModalMulti(${invoice.id}, '${(invoice.payment_status || 'en attente de paiement').replace(/'/g, "\\'")}', '${(invoice.payment_method || '').replace(/'/g, "\\'")}', '${(invoice.document_date || '').replace(/'/g, "\\'")}', '${(invoice.payment_date || '').replace(/'/g, "\\'")}')" style="padding:0.4rem 1rem;background:#1565c0;color:#fff;border:none;border-radius:6px;cursor:pointer;font-size:0.8rem;">Modifier le paiement</button>
                         </div>
                     </div>
                 </div>

@@ -430,6 +430,11 @@ contextBridge.exposeInMainWorld('electron', {
     import: (filePath) => ipcRenderer.invoke('schema:import', filePath)
   },
 
+  // Excel Export
+  excel: {
+    exportInvoices: (invoices, companyCode) => ipcRenderer.invoke('excel:exportInvoices', invoices, companyCode)
+  },
+
   // Add your API methods here
   send: (channel, data) => {
     // Whitelist channels

@@ -119,7 +119,9 @@ const pool = new Pool({
   user: 'postgres',
   host: 'localhost',
   database: 'facture_db',
-  password: 'Azer190@',
+  // password: 'Azer190@',
+  password: '123456',
+
   port: 5432,
 });
 
@@ -172,7 +174,8 @@ app.use(bodyParser.urlencoded({ limit: '50mb', extended: true }));
   try {
     await pool.query(`ALTER TABLE invoices ADD COLUMN IF NOT EXISTS payment_status TEXT DEFAULT 'en attente de paiement'`);
     await pool.query(`ALTER TABLE invoices ADD COLUMN IF NOT EXISTS payment_method TEXT`);
-    console.log('✅ [MIGRATION] payment_status and payment_method columns ensured in invoices');
+    await pool.query(`ALTER TABLE invoices ADD COLUMN IF NOT EXISTS payment_date TEXT`);
+    console.log('✅ [MIGRATION] payment_status, payment_method, payment_date columns ensured in invoices');
   } catch (e) {
     console.warn('⚠️ [MIGRATION] Could not add payment_status/payment_method columns:', e.message);
   }
@@ -759,7 +762,7 @@ app.post('/invoices', async (req, res) => {
       total_ht, tva_rate, montant_tva, total_ttc,
       creation_method, created_by, delivered_by, ar_status,
       created_by_user_id, created_by_user_name, created_by_user_email,
-      payment_status, payment_method,
+      payment_status, payment_method, payment_date,
       products
     } = req.body;
 
@@ -898,11 +901,11 @@ app.post('/invoices', async (req, res) => {
         creation_method, created_by, delivered_by, ar_status, 
         validation_status, 
         created_by_user_id, created_by_user_name, created_by_user_email,
-        payment_status, payment_method
+        payment_status, payment_method, payment_date
         ${columnExists ? ', is_modified' : ''}
         ${convertedColumnExists ? ', is_converted' : ''},
         created_at, updated_at
-      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27 ${columnExists ? ', $28' : ''} ${convertedColumnExists ? (columnExists ? ', $29' : ', $28') : ''}, NOW(), NOW())
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27, $28 ${columnExists ? ', $29' : ''} ${convertedColumnExists ? (columnExists ? ', $30' : ', $29') : ''}, NOW(), NOW())
       RETURNING id
     `;
 
@@ -959,7 +962,8 @@ app.post('/invoices', async (req, res) => {
       resolvedUserName,
       resolvedUserEmail,
       payment_status || 'en attente de paiement',
-      payment_method || null
+      payment_method || null,
+      payment_date || null
     ];
     if (columnExists) invoiceValues.push(initialIsModified); // is_modified based on creator
     if (convertedColumnExists) invoiceValues.push(false); // is_converted default
@@ -1056,7 +1060,7 @@ app.put('/invoices/:id', async (req, res) => {
       created_by, delivered_by, ar_status, validation_status,
       created_by_user_id, created_by_user_name, created_by_user_email,
       updated_by_user_id, updated_by_user_name, updated_by_user_email,
-      payment_status, payment_method,
+      payment_status, payment_method, payment_date,
       products, private_notes
     } = req.body;
 
@@ -1257,9 +1261,10 @@ app.put('/invoices/:id', async (req, res) => {
                 private_notes = COALESCE($21, private_notes),
                 payment_status = COALESCE($22, payment_status),
                 payment_method = CASE WHEN $22 IS NOT NULL AND $22 != 'payé' THEN NULL WHEN $23::text IS NOT NULL THEN $23::text ELSE payment_method END,
+                payment_date = CASE WHEN $22 IS NOT NULL AND $22 != 'payé' THEN NULL WHEN $24::text IS NOT NULL THEN $24::text ELSE payment_date END,
                 ${shouldSetModified ? 'is_modified = true,' : ''}
                 updated_at = NOW()
-            WHERE id = $24
+            WHERE id = $25
         `, [
       val(client_id),
       val(document_date),
@@ -1284,6 +1289,7 @@ app.put('/invoices/:id', async (req, res) => {
       val(private_notes),
       val(payment_status),
       val(payment_method),
+      val(payment_date),
       id
     ]);
 

@@ -1,6 +1,6 @@
 {
   "name": "gestion-factures",
-  "version": "1.5.7",
+  "version": "1.5.8",
   "description": "Application de gestion des factures",
   "main": "main.js",
   "scripts": {
@@ -103,6 +103,7 @@
     "axios": "^1.13.4",
     "electron-log": "^5.4.3",
     "electron-updater": "^6.1.7",
+    "exceljs": "^4.4.0",
     "extract-zip": "^2.0.1",
     "form-data": "^4.0.5",
     "multer": "^2.0.2",

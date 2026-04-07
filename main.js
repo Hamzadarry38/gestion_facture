@@ -724,6 +724,52 @@ function setupPdfExportImportHandlers() {
   console.log('✅ PDF Export/Import handlers registered');
 }
 
+// Excel Export handler
+function setupExcelExportHandler() {
+  const { exportInvoicesToExcel } = require('./database/excel-export');
+
+  ipcMain.handle('excel:exportInvoices', async (event, invoices, companyCode) => {
+    try {
+      const companyName = companyCode.toUpperCase();
+      const dateStr = new Date().toISOString().split('T')[0];
+      const filename = `${companyName}_Factures_${dateStr}.xlsx`;
+
+      const result = await dialog.showSaveDialog(mainWindow, {
+        title: `Exporter les factures ${companyName} en Excel`,
+        defaultPath: filename,
+        filters: [
+          { name: 'Excel Files', extensions: ['xlsx'] },
+          { name: 'All Files', extensions: ['*'] }
+        ]
+      });
+
+      if (result.canceled || !result.filePath) {
+        return { success: false, canceled: true };
+      }
+
+      const exportResult = await exportInvoicesToExcel(result.filePath, invoices, companyCode);
+      if (exportResult.success) {
+        console.log(`✅ Excel exported: ${result.filePath} (${exportResult.count} factures)`);
+        return { success: true, path: result.filePath, count: exportResult.count };
+      } else {
+        return { success: false, error: exportResult.error };
+      }
+    } catch (error) {
+      console.error('❌ Excel export error:', error);
+      // Check if file is locked/busy (open in Excel)
+      if (error.code === 'EBUSY' || error.message.includes('EBUSY')) {
+        return { 
+          success: false, 
+          error: 'Le fichier est déjà ouvert dans Excel ou un autre programme. Veuillez le fermer et réessayer.' 
+        };
+      }
+      return { success: false, error: error.message };
+    }
+  });
+
+  console.log('✅ Excel Export handler registered');
+}
+
 // Backup & Restore handlers for MRY
 function setupBackupHandlers() {
   ipcMain.handle('db:backup:export', async () => {
@@ -964,6 +1010,7 @@ app.whenReady().then(async () => {
   setupPdfHandlers();
   setupPdfExportImportHandlers();
   setupPdfTextHandlers();
+  setupExcelExportHandler();
   setupBackupHandlers();
 
   // Initialize auto-updater (only in production)
